@@ -1,0 +1,8 @@
+{
+  "name": "Santorini",
+  "about": "a cliffside village rebuilt as a 2:1 isometric diorama from a Pexels aerial; day, golden sunset, blue hour",
+  "palette": "palette.json",
+  "scale": 6,
+  "scene_scale": 3,
+  "preview_bg": "#2a2836"
+}

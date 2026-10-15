@@ -195,6 +195,9 @@ def export(pack, scale=None, only=None):
         sprites = [s for s in sprites if s['name'] in only]
     rendered = {}
     report = []
+    for s in [s for s in sprites if s.get('kind') == 'scene']:
+        export_scene(s, out, meta.get('scene_scale', 3))
+    sprites = [s for s in sprites if s.get('kind') != 'scene']
     for s in sprites:
         missing = set()
         frames = [to_image(g, pal, missing) for g in s['frames']]
@@ -228,9 +231,10 @@ def export(pack, scale=None, only=None):
         lone = sum(lone_pixels(g) for g in s['frames'])
         warn = list(s['warn']) + (['no colour for slots: ' + ', '.join(sorted(missing))] if missing else [])
         report.append((name, w, h, len(frames), len(cols), lone, warn))
-    atlas(rendered, out)
-    contact(rendered, out, scale, bg)
-    silhouettes(rendered, out, scale)
+    if rendered:
+        atlas(rendered, out)
+        contact(rendered, out, scale, bg)
+        silhouettes(rendered, out, scale)
     for m in meta.get('maps', []):
         render_map(pack / m, rendered, pal, out, scale, bg)
     print('%-22s %7s %6s %7s %5s  %s' % ('sprite', 'size', 'frames', 'colours', 'lone', 'notes'))
@@ -242,6 +246,30 @@ def export(pack, scale=None, only=None):
     print('lone = pixels sharing no edge with their colour: fine as deliberate highlights, eyes and sparkle; '
           'many of them read as noise')
     return not bad
+
+def export_scene(s, out, scale):
+    """a whole animated picture (art module returns {'kind': 'scene', 'images': [PIL frames]}):
+    NAME.png (first frame, 1x), NAME@Nx.png, NAME.gif and NAME.mp4 (both scaled), no atlas"""
+    import shutil, subprocess
+    frames = [f.convert('RGB') for f in s['images']]
+    name, (w, h) = s['name'], frames[0].size
+    frames[0].save(out / (name + '.png'))
+    big = [f.resize((w * scale, h * scale), Image.NEAREST) for f in frames]
+    big[0].save(out / ('%s@%dx.png' % (name, scale)))
+    if len(frames) > 1:
+        ms = durations(dict(s, frames=frames))
+        pal = [f.quantize(colors=255, method=Image.Quantize.MAXCOVERAGE, dither=Image.Dither.NONE) for f in big]
+        pal[0].save(out / (name + '.gif'), save_all=True, append_images=pal[1:], duration=ms, loop=0, optimize=False)
+        if shutil.which('ffmpeg'):
+            s2 = scale + scale % 2
+            fps = 1000.0 / ms[0]
+            p = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (w * s2, h * s2),
+                                  '-r', '%.4f' % fps, '-i', '-', '-c:v', 'libx264', '-crf', '14', '-preset', 'slow', '-pix_fmt', 'yuv420p',
+                                  '-movflags', '+faststart', str(out / (name + '.mp4'))], stdin=subprocess.PIPE)
+            for f in frames:
+                p.stdin.write(f.resize((w * s2, h * s2), Image.NEAREST).tobytes())
+            p.stdin.close(); p.wait()
+    print('scene %s: %dx%d, %d frames -> %s.png, .gif%s' % (name, w, h, len(frames), name, ', .mp4' if len(frames) > 1 else ''))
 
 def atlas(rendered, out):
     items = [(name, i, f) for name, (s, fr) in rendered.items() for i, f in enumerate(fr)]

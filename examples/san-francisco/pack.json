@@ -1,0 +1,8 @@
+{
+  "name": "San Francisco",
+  "about": "the aerial photo rebuilt in its own 3/4 top-down camera, and as a 2:1 isometric diorama; day to dusk to night",
+  "palette": "palette.json",
+  "scale": 6,
+  "scene_scale": 3,
+  "preview_bg": "#2a2836"
+}

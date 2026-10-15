@@ -49,8 +49,17 @@ def extract(image, n=16):
     lab = cl.rgb_to_oklab(px)
     # weight saturated colours up a little so small accents survive
     L, C, H = cl.lch_of(lab)
-    C = cl.kmeans(lab, n, weights=1 + 3 * np.clip(C / 0.2, 0, 1))
-    return cl.sort_palette([cl.rgb_to_hex(c) for c in cl.oklab_to_rgb(C)])
+    # over-cluster, then keep n colours that are both common and distinct from each other,
+    # so a dark sky cannot spend half the palette on near-identical blacks
+    cand = cl.kmeans(lab, min(len(lab), n * 3), weights=1 + 3 * np.clip(C / 0.2, 0, 1))
+    share = np.bincount(cl.nearest(lab[::7], cand), minlength=len(cand)).astype(float) + 1
+    pick = [int(np.argmax(share))]
+    while len(pick) < min(n, len(cand)):
+        d = np.min(((cand[:, None, :] - cand[pick][None]) ** 2).sum(-1), 1) ** 0.5
+        score = d * share ** 0.35
+        score[pick] = -1
+        pick.append(int(np.argmax(score)))
+    return cl.sort_palette([cl.rgb_to_hex(c) for c in cl.oklab_to_rgb(cand[pick])])
 
 def swatch(pal, path, cols=None):
     items = list(pal.items()) if isinstance(pal, dict) else [(None, h) for h in pal]

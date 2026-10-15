@@ -1,0 +1,8 @@
+{
+  "name": "Projections",
+  "about": "one scene in the five projections pixel art uses",
+  "palette": "palette.json",
+  "scale": 6,
+  "scene_scale": 2,
+  "preview_bg": "#2a2836"
+}

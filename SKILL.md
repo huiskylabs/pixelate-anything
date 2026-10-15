@@ -1,11 +1,13 @@
 ---
 name: pixelate-anything
-description: Hand-crafted pixel art of any kind. Use it to turn images into clean pixel art, build palettes, draw sprites, characters, items and tilesets with sheets and GIFs, make pixel scenes and seamless animated loops with a generative soundtrack (lofi, chiptune, ambient) as a live page, MP4 or GIF, or make loopable game music.
+description: Hand-crafted pixel art of any kind. Use it to rebuild a photo or a place as real pixel art (side view, 3/4 top-down or isometric), convert images, build palettes, draw sprites, characters, items and tilesets with sheets and GIFs, make pixel scenes and seamless animated loops with a generative soundtrack (lofi, chiptune, ambient) as a live page, MP4 or GIF, or make loopable game music.
 ---
 
 # pixelate-anything
 
-Pixel art that looks hand-made, not generated. One kit, six modes, shared tools.
+Pixel art that looks hand-made, not generated. One kit, several modes, shared tools.
+
+**Rebuild, don't convert.** Given a photo of a place or a thing, the default is to rebuild it: keep the reference's composition and camera, redraw every shape on clean pixel lines in a projection pixel art uses, choose the palette, and add life. Conversion (`pixelate image`) is a quick first pass, a reference underlay, or the right call only for paintings and simple bold subjects.
 
 Every mode follows the same loop:
 1. Plan the palette.
@@ -20,7 +22,9 @@ The tools handle the mechanical parts (colour maths, exact loops, exports). The 
 
 | the person wants | mode | read |
 |---|---|---|
-| a photo, drawing or logo turned into pixel art | image | `guides/pixelate.md` |
+| a photo of a place, building or scene as pixel art (the default for photos) | rebuild | `guides/rebuild.md` |
+| an isometric or top-down city, diorama, map or tileset | rebuild / assets | `guides/rebuild.md` + `guides/assets.md` |
+| a quick conversion: a painting, logo, screenshot, or a photo as a reference underlay | image | `guides/pixelate.md` |
 | a palette (from a mood, a reference image, or for a game) | palette | `guides/palettes.md` |
 | sprites, a character with animations, items, icons, a tileset, a sprite sheet | assets | `guides/assets.md` |
 | a pixel illustration, wallpaper or thumbnail (still) | scene | `guides/scenes.md` |
@@ -73,6 +77,9 @@ If the agent has no shell but has the MCP server, the same tools exist as MCP to
 - `engine/`: the scene and loop engine (picture, timeline, soundtrack, page)
 - `templates/`: starting points for `scene`, `music` and `assets` (used by `pixelate new`)
 - `examples/`:
+  - `san-francisco`: an aerial photo rebuilt in its own 3/4 camera and as an isometric diorama, day to night. The quality bar for rebuilds.
+  - `projections`: one scene in the five projections (side, 3/4 top-down, 2:1 iso, oblique, military).
   - `lantern-isle`: a 4-season loop, the quality bar for scenes.
   - `meadow-kit`: a hero, items, an autotile set and a map.
+  - `gallery`: conversions, palettes, sprites from photos, a film clip as a pixel cutscene, with `demo/` scripts.
 - `palettes/`: presets (`pixelate palette list`)

@@ -1,0 +1,29 @@
+GIMP Palette
+Name: santorini
+Columns: 8
+#
+155 157 160	plaster0
+193 197 200	plaster1
+233 238 240	plaster2
+234 239 240	plaster3
+235 239 239	plaster4
+ 31  32 107	dome0
+ 56  63 162	dome1
+ 47 106 216	dome2
+ 58 157 242	dome3
+114 204 255	dome4
+ 39 122 160	pool0
+ 52 165 196	pool1
+ 79 210 226	pool2
+129 234 232	pool3
+185 255 241	pool4
+ 65  44  44	stone0
+103  76  70	stone1
+141 111  98	stone2
+176 152 136	stone3
+212 196 177	stone4
+ 99   1  92	bloom0
+156  22 114	bloom1
+216  50 126	bloom2
+255 113 139	bloom3
+255 188 183	bloom4

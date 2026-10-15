@@ -1,4 +1,9 @@
-# Image to pixel art
+# Image to pixel art (conversion)
+
+Conversion is the quick mode. For a photo of a place, a building or a scene, **rebuild** instead
+(`guides/rebuild.md`): a converted photo reads as a filtered photo, a rebuilt one as pixel art.
+Convert when the source is already graphic (paintings, posters, logos, screenshots, silhouettes
+against a sky, a bold object to cut out as a sprite), or to get a reference underlay to rebuild over.
 
 `pixelate image IMG -o out.png [options]` turns a photo, painting, logo, screenshot or
 render into real pixel art. It is not a downscale: it fits a palette, picks each pixel
@@ -11,8 +16,12 @@ deliberately, and cleans up stray pixels. It writes `out.png` (1x, indexed) and
 |---|---|
 | How big? | `--width N` sets output pixels across. Use 32-64 for icons and avatars, 64-128 for portraits, 160-320 for scenes. Or use `--block 8` for one pixel per 8 source pixels. |
 | Which colours? | `--colors N` finds N colours in the image (8-24 is typical). `--palette NAME` uses a preset (`pico-8`, `sweetie-16`, `gameboy`, your own `.hex`/`.gpl`/`.json`, or `"#a,#b,..."`). |
-| What kind of source? | `--mode photo` (the default for jpg): smooths texture first, then takes each block's mean. `--mode art` (the default for png): takes the majority colour per block, which keeps hard edges and thin lines. |
+| What kind of source? | Picked automatically from the image's colour count. `--mode photo` smooths texture first, then takes each block's mean. `--mode art` takes the majority colour per block, which keeps hard edges and thin lines (logos, screenshots, upscaled pixel art). |
 | A monochrome palette? | `--match luma` maps by brightness. It is picked automatically when the palette has little hue variety, as with gameboy. |
+| Fur, grass or wood grain turns to speckle? | `--smooth 2` to `--smooth 4` adds median passes that flatten texture into shapes. Use it especially with small palettes. |
+| A busy photo (a city, a crowd, foliage)? | `--flatten 2` merges texture into flat planes (mean shift, with OpenCV installed); `--grade 28` gives a found palette cool shadows and warm lights. Better still, rebuild it. |
+| A film clip or a GIF? | Give an `.mp4`/`.gif` and `-o out.gif`: one palette for the whole clip, pixels change only when the picture does. `--start`, `--duration`, `--fps`. |
+| An object photographed on a plain background? | `--cutout --outline` makes it a sprite with transparency. |
 | Gradients look banded? | `--dither ordered` dithers mixed blocks between their two nearest colours. Leave it off for clean flats. |
 | A cut-out sprite? | `--outline` adds a 1 px outline in the darkest colour around opaque shapes, and transparency is kept. |
 | A flat result? | Raise `--sat` (default 1.15) and `--contrast` (default 1.1), which are applied before fitting. |

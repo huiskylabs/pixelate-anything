@@ -5,17 +5,31 @@
 - **A CLI** (`pixelate`), which does the work.
 - **An MCP server**, so any MCP client can use the same tools, with previews returned as images the agent can look at.
 
+**Rebuild, don't convert.** Give it a photo of a place, and the agent does what a pixel artist would:
+- keeps the photo's composition and camera,
+- reads the place's shape language,
+- redraws it in a projection pixel art actually uses,
+- picks the palette,
+- adds the life the photo doesn't have.
+
+| San Francisco, in the photo's own 3/4 camera | the same blocks, isometric | Santorini, from a Pexels aerial |
+|---|---|---|
+| ![SF rebuild](docs/sf-rebuild.gif) | ![SF isometric](docs/iso-city.gif) | ![Santorini](docs/santorini.gif) |
+
+![One scene in the five pixel-art projections](docs/projections.png)
+
 ![Lantern Isle through four seasons](docs/lantern-isle-seasons.png)
 
 | mode | what you get |
 |---|---|
-| **Image to pixel art** | photos, paintings, logos and screenshots turned into clean pixel art (palette fitting, majority sampling, despeckle, outlines), not a blurry downscale |
+| **Rebuild** | a photo of a place rebuilt as pixel art in side view, 3/4 top-down, 2:1 isometric, oblique or military projection. Boxes and curved solids (rounded boxes, vaults, domes, arches, terrain), cast shadows, palette swaps from day to night, and palette-cycled water |
+| **Convert** | paintings, logos, screenshots and bold photos turned into clean pixel art: palette fitting, majority sampling, despeckle, flattening, grading, cut-out sprites with outlines |
 | **Palettes** | hue-shifted ramps from a few base colours, extraction from references, presets, and export to Aseprite/GIMP/hex/JSON/PNG |
 | **Assets** | sprites, characters with animations, items, corner autotiles with variants, and tilemaps, exported as PNG strips with Aseprite-style JSON, an atlas, GIFs, contact sheets and silhouette checks |
 | **Scenes and loops** | pixel scenes that move through moods (seasons, dusk and rain, ...), exported as a live HTML page, a seamless 1080p/4K MP4, a GIF or stills |
 | **Music** | generative lofi, chiptune (NES-style pulse, triangle and noise) and ambient, which follows a scene or stands alone as seamless game loops (OGG/WAV) |
 
-![Photo to pixel art](docs/pixelate-photo.png)
+![One picture, six palettes](docs/sunset-palettes.png)
 ![Meadow Kit: a hero, items and a generated autotile set, laid out as a map](docs/meadow-map.png)
 
 ## Install
@@ -35,6 +49,7 @@ pip install -r requirements.txt     # pillow and numpy are required; mcp and pla
 It shows its plan, asks before changing anything, and backs up every file it edits. For any other MCP client, run the server with `python3 /path/to/pixelate-anything/pixelate mcp` (stdio).
 
 Then ask your agent for anything pixel art:
+- *"rebuild this aerial photo of my city as an isometric pixel-art scene, day to night"*
 - *"pixelate this photo of my dog in the Game Boy palette"*
 - *"make a 16x16 knight with idle and walk animations and a dungeon tileset"*
 - *"a 4K pixel-art lofi loop of a lighthouse through a storm into dawn"*
@@ -66,12 +81,13 @@ Tools that make pictures return them as images, so the agent can judge its own w
 | path | what |
 |---|---|
 | `SKILL.md` | entry point: picks the mode, points to its guide |
-| `guides/` | one guide per mode: pixelate, palettes, assets, scenes, music |
+| `guides/` | one guide per mode: rebuild, pixelate, palettes, assets, scenes, music |
 | `references/` | craft rules for a hand-made look; the scene engine API |
-| `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them |
+| `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: projections and boxes; `sdf.py`: curved solids) |
 | `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
 | `templates/` | `scene`, `music` and `assets` starting points |
-| `examples/` | `lantern-isle` (a 4-season loop video) and `meadow-kit` (a game asset pack) |
+| `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (conversions, palettes, sprites) |
+| `demo/` | `cli_demo.sh` and `mcp_demo.py`: the gallery, made through each interface |
 | `palettes/` | presets |
 
 ## Why the loops are exact

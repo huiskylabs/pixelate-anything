@@ -9,7 +9,7 @@ Paths are relative to the workspace: $PIXELATE_WORKSPACE, else the directory the
 was started in. Absolute paths are accepted for reading (an image to pixelate); writes
 through write_file stay inside the workspace.
 """
-import json, os, pathlib, subprocess, sys
+import json, re, os, pathlib, subprocess, sys
 
 TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
@@ -26,7 +26,10 @@ GUIDES.update({'craft': KIT / 'references' / 'craft.md', 'scene-contract': KIT /
                'skill': KIT / 'SKILL.md'})
 
 INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents.
-Modes: pixelate an image (pixelate_image), palettes (palette), sprites/characters/items/tilesets
+For a photo of a place or a thing, REBUILD it rather than convert it (guide('rebuild')): keep its
+composition, redraw it in a pixel-art projection (side, 3/4 top-down, 2:1 isometric) with
+tools/iso.py inside an asset pack's art/*.py (write_file), and export_assets to see it.
+Modes: rebuild (write_file + export_assets), convert an image (pixelate_image), palettes (palette), sprites/characters/items/tilesets
 (new_project kind=assets, write .px files, export_assets), scenes and animated loops with a
 generative soundtrack (new_project kind=scene, preview_scene, check_scene, build_page,
 render_audio, render_video, render_gif), and music on its own (new_project kind=music, render_audio).
@@ -65,7 +68,7 @@ def thumb(path, max_w=1400):
 # ---------------------------------------------------------------- guides and files
 @server.tool()
 def guide(name: str) -> str:
-    """Read a guide. names: pixelate, palettes, assets, scenes, music, craft, scene-contract, skill.
+    """Read a guide. names: rebuild, pixelate, palettes, assets, scenes, music, craft, scene-contract, skill.
     Read the guide for the task's mode first, and 'craft' before drawing anything."""
     if name not in GUIDES:
         return 'guides: ' + ', '.join(GUIDES)
@@ -108,11 +111,16 @@ def list_files(path: str = '.') -> str:
 # ---------------------------------------------------------------- image, palette, assets
 @server.tool()
 def pixelate_image(image: str, out: str, width: int = 96, colors: int = 16, palette: str = '',
-                   mode: str = '', match: str = '', dither: str = 'none', outline: bool = False, scale: int = 6) -> list:
+                   mode: str = '', match: str = '', dither: str = 'none', outline: bool = False, smooth: int = 1, scale: int = 6,
+                   crop: str = '', cutout: float = 0.0, flatten: int = 0, grade: float = 0.0) -> list:
     """Turn an image into clean pixel art. width: output pixels across. palette: preset name
     (see palette action=list), a palette file, or '#a,#b,...'; empty = find `colors` colours.
-    mode: photo | art (default from the file type). match: lab | luma (luma for monochrome
+    mode: photo | art (default: detected from the image). match: lab | luma (luma for monochrome
     palettes). dither: none | ordered. outline: 1 px outline around cut-out shapes.
+    smooth: 2-4 flattens heavy texture (fur, wood grain) in photo mode. crop: 'x,y,w,h' (pixels
+    or fractions). cutout: remove a plain background (try 0.09) to make a sprite. flatten: 1-3
+    edge-preserving passes for busy photos. grade: e.g. 28, cool shadows and warm lights.
+    A video or GIF source (with out ending .gif or .mp4) becomes an animated pixel clip.
     Returns the result to look at."""
     args = ['image', P(image), '-o', P(out, write=True), '--width', width, '--dither', dither, '--scale', scale]
     if palette: args += ['--palette', palette]
@@ -120,6 +128,11 @@ def pixelate_image(image: str, out: str, width: int = 96, colors: int = 16, pale
     if mode: args += ['--mode', mode]
     if match: args += ['--match', match]
     if outline: args += ['--outline']
+    if smooth > 1: args += ['--smooth', smooth]
+    if crop: args += ['--crop', crop]
+    if cutout: args += ['--cutout', cutout]
+    if flatten: args += ['--flatten', flatten]
+    if grade: args += ['--grade', grade]
     code, text = cli(*args)
     o = P(out)
     prev = o.with_name(o.stem + '@%dx.png' % scale)
@@ -158,6 +171,10 @@ def export_assets(pack: str) -> list:
     code, text = cli('assets', P(pack))
     o = P(pack) / 'out'
     imgs = [thumb(o / n) for n in ('contact.png', 'silhouettes.png') if (o / n).exists()]
+    for name in re.findall(r'^scene (\S+):', text, re.M):          # whole animated pictures: first frame
+        big = sorted(o.glob(name + '@*x.png'))
+        if big or (o / (name + '.png')).exists():
+            imgs.append(thumb(big[0] if big else o / (name + '.png')))
     for m in json.loads((P(pack) / 'pack.json').read_text()).get('maps', []) if (P(pack) / 'pack.json').exists() else []:
         mp = o / (pathlib.Path(m).stem + '.png')
         if mp.exists(): imgs.append(thumb(mp))

@@ -195,3 +195,53 @@ def Arch(x0, y0, z0, w, depth, h, axis='y', mat='door'):
                      Cyl(x0 + r, z0 + h - r, None, r, axis='y', y0=y0, y1=y0 + depth, mat=mat))
     return Union(RBox(x0, y0, z0 - 1, x0 + depth, y0 + w, z0 + h - r, mat=mat),
                  Cyl(y0 + r, z0 + h - r, None, r, axis='x', x0=x0, x1=x0 + depth, mat=mat))
+
+class RoundCone(Prim):
+    """a limb: a segment from a to b with radius ra at a and rb at b (necks, tails, legs, horns)"""
+    def __init__(self, a, b, ra, rb, mat='plaster'):
+        a, b = np.array(a, float), np.array(b, float)
+        lo = np.minimum(a - ra, b - rb); hi = np.maximum(a + ra, b + rb)
+        super().__init__(tuple(lo) + tuple(hi), mat)
+        self.A, self.B, self.ra, self.rb = a, b, float(ra), float(rb)
+        ba = b - a
+        self.l2 = float(ba @ ba); self.rr = self.ra - self.rb
+        self.a2 = self.l2 - self.rr * self.rr; self.ba = ba
+    def d(self, x, y, z):
+        pa = np.stack([x - self.A[0], y - self.A[1], z - self.A[2]], -1)
+        l2, rr, a2 = self.l2, self.rr, self.a2
+        yy = pa @ self.ba
+        zz = yy - l2
+        v = pa * l2 - yy[..., None] * self.ba
+        x2 = (v * v).sum(-1)
+        y2 = yy * yy * l2; z2 = zz * zz * l2
+        k = np.sign(rr) * rr * rr * x2
+        il2 = 1.0 / l2
+        d1 = np.sqrt(x2 + z2) * il2 - self.rb
+        d2 = np.sqrt(x2 + y2) * il2 - self.ra
+        d3 = (np.sqrt(np.maximum(x2 * a2 * il2, 0)) + yy * rr) * il2 - self.ra
+        return np.where(np.sign(zz) * a2 * z2 > k, d1, np.where(np.sign(yy) * a2 * y2 < k, d2, d3))
+
+class Plate(Prim):
+    """a flat shape: a polygon in the x-z plane (seen face-on by the side camera), thickness t
+    around depth y0. Wings, banners, blades, flames, signs."""
+    def __init__(self, pts, y0=0.0, t=0.6, mat='plaster'):
+        P = np.array(pts, float)
+        super().__init__((P[:, 0].min(), y0 - t, P[:, 1].min(), P[:, 0].max(), y0 + t, P[:, 1].max()), mat)
+        self.P, self.y0, self.t = P, float(y0), float(t)
+    def d(self, x, y, z):
+        P = self.P
+        dmin = (x - P[0, 0]) ** 2 + (z - P[0, 1]) ** 2
+        s = np.ones(np.shape(x))
+        n = len(P)
+        for i in range(n):
+            vi, vj = P[i], P[i - 1]
+            ex, ez = vj[0] - vi[0], vj[1] - vi[1]
+            wx, wz = x - vi[0], z - vi[1]
+            h = np.clip((wx * ex + wz * ez) / (ex * ex + ez * ez + 1e-12), 0, 1)
+            bx, bz = wx - ex * h, wz - ez * h
+            dmin = np.minimum(dmin, bx * bx + bz * bz)
+            c1 = z >= vi[1]; c2 = z < vj[1]; c3 = ex * wz > ez * wx
+            flip = (c1 & c2 & c3) | (~c1 & ~c2 & ~c3)
+            s = np.where(flip, -s, s)
+        d2 = s * np.sqrt(dmin)
+        return np.maximum(d2, np.abs(y - self.y0) - self.t)

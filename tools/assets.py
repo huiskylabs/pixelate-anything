@@ -262,9 +262,9 @@ def export_scene(s, out, scale):
         pal[0].save(out / (name + '.gif'), save_all=True, append_images=pal[1:], duration=ms, loop=0, optimize=False)
         if shutil.which('ffmpeg'):
             s2 = scale + scale % 2
-            fps = 1000.0 / ms[0]
+            fps = s.get('fps') or 1000.0 / ms[0]                         # the scene's own rate, not the GIF's rounded one
             p = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (w * s2, h * s2),
-                                  '-r', '%.4f' % fps, '-i', '-', '-c:v', 'libx264', '-crf', '14', '-preset', 'slow', '-pix_fmt', 'yuv420p',
+                                  '-r', '%g' % fps, '-i', '-', '-c:v', 'libx264', '-crf', '14', '-preset', 'slow', '-pix_fmt', 'yuv420p',
                                   '-movflags', '+faststart', str(out / (name + '.mp4'))], stdin=subprocess.PIPE)
             for f in frames:
                 p.stdin.write(f.resize((w * s2, h * s2), Image.NEAREST).tobytes())

@@ -39,7 +39,7 @@ game. Invent the hero, the place and the title. `examples/retro` shows the bar:
   - fronts facing you, a shade down;
   - outlines in the darkest shade.
 - **Dark elements** need a light ground to read against (a dome against a whitewashed terrace), and light ones need a dark ground (sails over the sea).
-- **The dialogue box:** 2 px border, text in the darkest shade, a blinking arrow. `tools/pixfont.py` is a 5x7 font for HUDs and dialogue.
+- **The dialogue box:** 2 px border, text in the darkest shade, a blinking arrow. `tools/pixfont.py` is a 5x7 font for HUDs and dialogue; `tools/cjkfont.py` draws Chinese and Japanese text (Ark Pixel 12px: `draw(img, text, x, y, colour, outline=)`, `width()`, `wrap()` with line-break rules).
 
 **Retargeting a scene to an era.** Any scene can be pushed into an era: `era.enforce` snaps it to the palette and cuts colours. Night scenes need more than snapping, because nearest colours turn dark greys brown or teal. Map everything that is not a light onto an era-appropriate ramp by lightness (an NES night is black, deep blue, indigo, periwinkle), and snap only the lights. `examples/retro/art/title_screen.py` does this.
 

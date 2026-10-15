@@ -1,6 +1,12 @@
 # pixelate-anything
 
-**Hand-crafted pixel art for AI agents.** It ships three ways:
+**Hand-crafted pixel art for AI agents.**
+
+![Dragonfire Keep: an original 16-bit boss fight](docs/dragonfire.gif)
+
+*Dragonfire Keep: a knight braces behind a shield as Ashmaw the ember wyrm breathes fire across a hall of lava and gold. Every frame is drawn in code by the kit, lit in palette steps.*
+
+It ships three ways:
 - **An agent skill** (`SKILL.md`), which carries the craft.
 - **A CLI** (`pixelate`), which does the work.
 - **An MCP server**, so any MCP client can use the same tools, with previews returned as images the agent can look at.
@@ -24,20 +30,20 @@
 
 ![One scene in the five pixel-art projections](docs/projections.png)
 
+**Scenes that loop forever.** Lantern Isle turns through four seasons with its own generative lofi soundtrack, as a seamless 1080p or 4K video.
+
 ![Lantern Isle through four seasons](docs/lantern-isle-seasons.png)
 
 | mode | what you get |
 |---|---|
 | **Rebuild** | a photo of a place rebuilt as pixel art in side view, 3/4 top-down, 2:1 isometric, oblique or military projection. Boxes and curved solids (rounded boxes, vaults, domes, arches, terrain), cast shadows, palette swaps from day to night, and palette-cycled water |
-| **Eras** | original screens under real console limits: 8-bit NES-style (master palette, 4-colour blocks, 3-colour sprites), Game Boy-style 4 shades, 16-bit; a checker, retargeting, a pixel font for HUDs and dialogue |
-| **Convert** | paintings, logos, screenshots and bold photos turned into clean pixel art: palette fitting, majority sampling, despeckle, flattening, grading, cut-out sprites with outlines |
+| **Eras** | original screens under real console limits: 8-bit NES-style (master palette, 4-colour blocks, 3-colour sprites), Game Boy-style 4 shades, 16-bit; a checker, retargeting, pixel fonts for HUDs and dialogue, including Chinese and Japanese |
+| **Convert** | a quick mode for logos, screenshots and bold photos: palette fitting, majority sampling, despeckle, flattening, grading, cut-out sprites with outlines |
 | **Palettes** | hue-shifted ramps from a few base colours, extraction from references, presets, and export to Aseprite/GIMP/hex/JSON/PNG |
 | **Assets** | sprites, characters with animations, items, corner autotiles with variants, and tilemaps, exported as PNG strips with Aseprite-style JSON, an atlas, GIFs, contact sheets and silhouette checks |
 | **Scenes and loops** | pixel scenes that move through moods (seasons, dusk and rain, ...), exported as a live HTML page, a seamless 1080p/4K MP4, a GIF or stills |
 | **Music** | generative lofi, chiptune (NES-style pulse, triangle and noise) and ambient, which follows a scene or stands alone as seamless game loops (OGG/WAV) |
 
-![One picture, six palettes](docs/sunset-palettes.png)
-![Meadow Kit: a hero, items and a generated autotile set, laid out as a map](docs/meadow-map.png)
 
 ## Install
 
@@ -57,7 +63,7 @@ It shows its plan, asks before changing anything, and backs up every file it edi
 
 Then ask your agent for anything pixel art:
 - *"rebuild this aerial photo of my city as an isometric pixel-art scene, day to night"*
-- *"pixelate this photo of my dog in the Game Boy palette"*
+- *"a 16-bit boss fight: a knight against a fire-breathing dragon in a hall of lava and gold"*
 - *"make a 16x16 knight with idle and walk animations and a dungeon tileset"*
 - *"a 4K pixel-art lofi loop of a lighthouse through a storm into dawn"*
 - *"a chiptune overworld theme that loops for my game"*
@@ -95,9 +101,10 @@ Tools that make pictures return them as images, so the agent can judge its own w
 | `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: projections and boxes; `sdf.py`: curved solids) |
 | `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
 | `templates/` | `scene`, `music` and `assets` starting points |
-| `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `retro` (original 8-bit and Game Boy-style screens), `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (conversions, palettes, sprites) |
+| `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `retro` (original 8-bit and Game Boy-style screens), `dragon` (Dragonfire Keep, a 16-bit boss fight), `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (what the demos make) |
 | `demo/` | `cli_demo.sh` and `mcp_demo.py`: the gallery, made through each interface |
 | `palettes/` | presets |
+| `fonts/` | Ark Pixel 12px for Chinese and Japanese text |
 
 ## Why the loops are exact
 
@@ -108,3 +115,5 @@ Tools that make pictures return them as images, so the agent can judge its own w
 ## License
 
 MIT. Made by Huisky Labs.
+
+The CJK pixel font in `fonts/` is [Ark Pixel Font](https://github.com/TakWolf/ark-pixel-font) by TakWolf, under the SIL Open Font License 1.1 (`fonts/OFL.txt`). Reference photos and their licenses are listed in `examples/gallery/SOURCES.md`.

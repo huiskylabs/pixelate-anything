@@ -1,5 +1,7 @@
 # Craft: making it look hand-made
 
+These rules apply to every mode: scenes, sprites, tiles, and finishing a pixelated image.
+
 These are the rules that separate a scene a pixel artist would sign from generic
 "AI pixel art". They come from building Lantern Isle and fixing everything that
 looked wrong along the way.
@@ -76,4 +78,4 @@ looked wrong along the way.
 - [ ] Too busy: cut particles and motion.
 - [ ] Subject too small, or empty half-frame: recompose.
 - [ ] A phase only looks like a recolour: add signature elements.
-- [ ] The seam jumps at loop end: `check.py` flags it; find the period that does not divide `TICKS`.
+- [ ] The seam jumps at loop end: `pixelate check` flags it; find the period that does not divide `TICKS`.

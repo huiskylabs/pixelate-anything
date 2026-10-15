@@ -21,7 +21,7 @@ frames, so drawing code must not touch `window` or `document`.
 ```
 
 `files` lists the drawing files in load order. `art` (optional) lists the Python modules
-`tools/gen_sprites.py` turns into `sprites.js`.
+`pixelate sprites <scene>` turns into `sprites.js`.
 
 ## config.js
 
@@ -29,9 +29,9 @@ frames, so drawing code must not touch `window` or `document`.
 const SCENE = {
   name: 'Hilltop Cabin',
   width: 240, height: 135,        // native canvas
-  phases: [{ name: 'dusk', bpm: 76 }, { name: 'rain', bpm: 68 }],   // 2..8 phases
+  phases: [{ name: 'dusk', bpm: 76 }, { name: 'rain', bpm: 68 }],   // 1..8 phases
   bars: 8,                        // bars per phase (melody phrases are 2 bars)
-  cycle: 60,                      // seconds for one pass through all phases (integer)
+  cycle: 60,                      // seconds for one pass through all phases (whole seconds)
   grand: 2,                       // picture loop = cycle * grand seconds
   paletteFallback: 'dusk',        // optional: palette that fills slots another one leaves out
   slots: ['S0', 'S1', ...],       // every slot name used anywhere (max 255)
@@ -43,7 +43,7 @@ A phase may set `palette: 'key'` when its palette is named differently from the 
 
 ### Timing
 
-- **One cycle:** each phase lasts `bars * 240 / bpm` seconds, plus a one-bar transition into the next phase at the mean tempo. Tempos are scaled by one common factor so the total is exactly `cycle` seconds. Keep that factor near 1: `check.py` prints the right `cycle` if it isn't.
+- **One cycle:** each phase lasts `bars * 240 / bpm` seconds, plus a one-bar transition into the next phase at the mean tempo. Tempos are scaled by one common factor so the total is exactly `cycle` seconds. Keep that factor near 1: `pixelate check` prints the right `cycle` (or tempos) if it isn't.
 - **Picture loop:** `TICKS = cycle * grand * 30` frames. Slow drifts (clouds, swells) may use the full picture loop.
 - **Soundtrack:** the phases' music repeats every `cycle`. Its random choices are seeded by `cycle index mod grand`, so the audio also repeats exactly every picture loop.
 
@@ -105,12 +105,12 @@ kRrrk
 
 - `.` or a space is transparent.
 - Separate animation frames with a line of `---`; every frame shares the same size.
-- Unknown keys are reported by `check.py`.
+- Unknown keys are reported by `pixelate check`.
 - Python art modules return `('sprite', name, [Grid, ...], ax, ay)`; see `tools/artlib.py` and `examples/lantern-isle/art/`.
 
 ## Debug page
 
-`build.py <scene>` writes `dist/dev.html`:
+`pixelate build <scene>` writes `dist/dev.html`:
 - `?t=SECONDS&freeze=1` shows a fixed moment.
 - `window.__dbg.set(t)` draws the frame at time `t`.
 - `window.__dbg.grab()` returns a PNG data URL of the canvas.

@@ -1,6 +1,6 @@
 'use strict';
 /* ==========================================================================
-   pixel-loop engine: core
+   pixelate-anything engine: core
    Canvas constants, the shared phase timeline (picture and music), palette
    slots, sprite parsing and blitting. Everything on screen is a pure function
    of the tick k (30 Hz), so the loop repeats exactly and never drifts.
@@ -59,7 +59,7 @@ const SLOT_LIST = ['_'].concat(SCENE.slots);
 const SL = {};
 SLOT_LIST.forEach((n, i) => { SL[n] = i; });
 const NSLOT = SLOT_LIST.length;
-if (NSLOT > 255) throw new Error('pixel-loop: at most 255 palette slots');
+if (NSLOT > 255) throw new Error('pixelate-anything: at most 255 palette slots');
 
 // ordered dither matrices
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];

@@ -6,7 +6,10 @@ running at the loop point), keeps exactly one picture loop (CYCLE * GRAND second
 then checks that the audio after the loop matches the audio at its start: proof
 that the file plays seamlessly on repeat. Needs Playwright's Chromium.
 
-usage: render_audio.py SCENE_DIR out.wav
+usage: render_audio.py SCENE_DIR out.{wav,flac,ogg,mp3}
+  .wav  32-bit float (for video muxing and editing)      .flac  lossless, small
+  .ogg  Vorbis q6: the usual choice for game music loops   .mp3   320k (mp3 adds encoder
+        padding, so most players will not loop it gaplessly: prefer ogg or wav for loops)
 Long renders cost more than linearly (every note is scheduled up front): a 6 minute
 loop takes roughly 8 minutes on two cores.
 """
@@ -77,7 +80,18 @@ async def main(scene, out):
     print('loop check: audio after the loop vs its start: %.1f dB (below -60 dB is seamless)' % db)
     clip = x[a0:a0 + loop * SR]
     print('peak %.3f, rms %.1f dBFS' % (np.abs(clip).max(), 20 * np.log10(np.sqrt(np.mean(clip ** 2)))))
-    write_wav_f32(out, clip)
+    out = pathlib.Path(out)
+    if out.suffix.lower() == '.wav':
+        write_wav_f32(out, clip)
+    else:
+        tmp = out.with_suffix('.tmp.wav')
+        write_wav_f32(tmp, clip)
+        codec = {'.flac': ['-c:a', 'flac'], '.ogg': ['-c:a', 'libvorbis', '-q:a', '6'],
+                 '.mp3': ['-c:a', 'libmp3lame', '-b:a', '320k'], '.opus': ['-c:a', 'libopus', '-b:a', '192k']}.get(out.suffix.lower())
+        if not codec:
+            print('unknown format', out.suffix); sys.exit(1)
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(tmp)] + codec + [str(out)], check=True)
+        tmp.unlink()
     print('wrote', out, '(%d s)' % loop)
     if db > -60:
         print('WARNING: the loop is not seamless; see references/music.md (continuous sources must fit the loop)')

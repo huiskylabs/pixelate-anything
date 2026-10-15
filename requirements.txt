@@ -1,0 +1,5 @@
+pillow
+numpy
+# optional: the MCP server, and Chromium for music renders and page checks
+mcp
+playwright

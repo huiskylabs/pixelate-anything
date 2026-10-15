@@ -1,0 +1,52 @@
+GIMP Palette
+Name: palette
+Columns: 8
+#
+114  57  55	skin0
+157  91  75	skin1
+200 128  95	skin2
+221 181 139	skin3
+ 53  14  14	hair0
+ 96  41  28	hair1
+138  74  42	hair2
+160 123  84	hair3
+ 24  33  70	tunic0
+ 37  67 115	tunic1
+ 47 106 159	tunic2
+ 87 150 176	tunic3
+ 18  20  38	pants0
+ 49  45  72	pants1
+ 84  72 106	pants2
+128 108 130	pants3
+ 39  13  10	boot0
+ 72  37  24	boot1
+106  65  40	boot2
+131 109  81	boot3
+144  78   5	gold0
+183 117  19	gold1
+217 161  47	gold2
+244 209 135	gold3
+ 88   0  42	red0
+140  25  56	red1
+192  58  63	red2
+213 125  85	red3
+ 83 100 122	glass0
+112 138 161	glass1
+143 179 200	glass2
+189 221 228	glass3
+  0  83  54	grass0
+ 28 123  63	grass1
+ 90 160  74	grass2
+174 189 113	grass3
+ 81  43  32	dirt0
+121  75  52	dirt1
+160 112  74	dirt2
+182 160 122	dirt3
+ 60  62  70	stone0
+ 92  96 106	stone1
+125 133 144	stone2
+164 174 179	stone3
+  0  48  31	leaf0
+  7  86  44	leaf1
+ 63 122  58	leaf2
+137 152  94	leaf3

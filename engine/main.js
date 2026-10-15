@@ -1,5 +1,5 @@
 /* ==========================================================================
-   pixel-loop engine: bootstrap. Clock, integer-scaled display, play button,
+   pixelate-anything engine: bootstrap. Clock, integer-scaled display, play button,
    keyboard helpers (F fullscreen, M mute).
    ========================================================================== */
 const DEBUG_BUILD = true;

@@ -1,10 +1,10 @@
 /* ==========================================================================
-   pixel-loop engine: frame rendering
+   pixelate-anything engine: frame rendering
    Each phase renders into palette-index buffers with its own palette. Phase
    changes dissolve two finished frames through an ordered dither, so every
    on-screen pixel is always a colour from one of the hand-picked palettes.
 
-   Scene hooks (global functions the scene defines; only sceneBack is required):
+   Scene hooks (global functions the scene defines; all optional):
      sceneBack(si, k)              background into BG (sky, sea, far things)
      sceneObjects(si, k)           objects into OB (drawn over BG)
      sceneAfterObjects(si, k)      reads OB, writes BG (reflections, light on water)
@@ -25,7 +25,7 @@ function initPalettes() {
   const first = PALETTES[SCENE.paletteFallback || SCENE.phases[0].palette || SCENE.phases[0].name];
   SCENE.phases.forEach((ph, i) => {
     const key = ph.palette || ph.name;
-    if (!PALETTES[key]) throw new Error('pixel-loop: no palette "' + key + '"');
+    if (!PALETTES[key]) throw new Error('pixelate-anything: no palette "' + key + '"');
     PHASE_PAL[i] = buildPalette(PALETTES[key], first, key);
   });
   if (typeof sceneInit === 'function') sceneInit();
@@ -63,7 +63,7 @@ function flick(f10, seed, hold, pDim, pDeep) {
 function renderSeason(si, k, outIdx) {
   BG.fill(0); OB.fill(0);
   setOrigin(0, 0);
-  sceneBack(si, k);
+  if (typeof sceneBack === 'function') sceneBack(si, k);   // a music-only project may draw nothing
   if (typeof sceneObjects === 'function') sceneObjects(si, k);
   setOrigin(0, 0);
   if (typeof sceneAfterObjects === 'function') sceneAfterObjects(si, k);
@@ -120,7 +120,7 @@ function renderFrame(k, out32) {
   if (!FADE_T) FADE_T = fadeThreshold();
   const { si, f, nx } = seasonAt(k);
   renderSeason(si, k, 0);
-  if (f <= 0) {
+  if (f <= 0 || nx === si) {           // a one-phase scene never dissolves into itself
     out32.set(RGB[0]);
     particles(si, k, 1, out32, DYN[0]);
     return;

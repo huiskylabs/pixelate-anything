@@ -1,0 +1,72 @@
+# Items, 8 to 10 px. Light from the upper left: highlight top-left, shade bottom-right.
+
+sprite: coin
+anchor: 4 7
+fps: 8
+tags: spin 0-3
+key: o=ol Y=gold3 G=gold2 g=gold1 d=gold0
+frame
+..oooo..
+.oYYGGo.
+oYYGGGgo
+oYGGGGgo
+oGGGGggo
+oGGGggdo
+.oGgggo.
+..oooo..
+frame
+..oooo..
+.oYGGgo.
+.oYGGgo.
+.oYGGgo.
+.oGGggo.
+.oGGgdo.
+.oGgddo.
+..oooo..
+frame
+...oo...
+...oYo..
+...oGo..
+...oGo..
+...oGo..
+...ogo..
+...ogo..
+...oo...
+frame
+..oooo..
+.ogGGYo.
+.ogGGYo.
+.ogGGYo.
+.oggGGo.
+.odgGGo.
+.oddgGo.
+..oooo..
+
+sprite: potion
+anchor: 5 10
+key: o=ol c=boot2 C=boot3 g=glass2 G=glass3 w=wh R=red2 r=red1 d=red0
+frame
+...oooo...
+...ocCo...
+...oggo...
+..oggGgo..
+.oggwgggo.
+oRRwRRRRRo
+oRwRRRRrro
+oRRRRRRrro
+oRRRRRrrdo
+.oRRrrrdo.
+..oooooo..
+
+sprite: heart
+anchor: 4 7
+key: o=ol R=red2 r=red1 d=red0 w=wh
+frame
+.oo...oo.
+oRRo.oRro
+oRwRRRRro
+oRRRRRRro
+.oRRRRro.
+..oRRdo..
+...odo...
+....o....

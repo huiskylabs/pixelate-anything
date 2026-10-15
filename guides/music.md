@@ -1,17 +1,65 @@
-# Music: the generative lofi soundtrack
+# Music: lofi, chiptune and ambient loops
 
 `music.js` defines `SCENE_MUSIC = { phases: [...], trans: [...] }`, with one entry of
-each per phase, in the order of `config.js`. All instruments are synthesised in the
-browser (no samples, no copyright): FM Rhodes, plucked guitar, felt piano, music box,
-pad, upright-style bass, drums, plus ambience beds and vinyl crackle, through tape
-wobble, reverb, a glue compressor and a limiter.
+each per phase, in the order of `config.js`. Every sound is synthesised (no samples, nothing to license).
+
+**Lofi:**
+- FM Rhodes, plucked guitar, felt piano, music box, pad and upright-style bass.
+- Drums, ambience beds (rain, waves, cicadas, wind, leaves, fire) and vinyl crackle.
+- Tape wobble.
+
+**Chiptune:**
+- NES-style pulse waves with a 4-bit stepped volume.
+- A 32-step triangle bass.
+- LFSR noise drums.
+
+**Ambient:** pads with sparse voices over a sub drone.
+
+All of it runs through reverb, a glue compressor and a limiter.
+
+## Music on its own (game loops, soundtracks)
+
+`pixelate new music my-track` gives a music-first project (a chiptune phase handing off
+to an ambient one) with a small equaliser for the page. Edit `music.js`, keep `cycle` as
+`check` reports it, then:
+
+```
+pixelate check my-track
+pixelate audio my-track theme.ogg      # .ogg for games, .wav for editing or video, .flac, .mp3
+```
+
+- **Exact loop:** the file is exactly one loop long (`cycle x grand` seconds) and its end flows into its start.
+- **Formats:** OGG and WAV loop gaplessly in game engines. MP3 adds encoder padding, so avoid it for loops.
+- **Length:** use `grand: 1` for a single pass through the phases, or more for longer, varied loops.
+
+## Styles
+
+Set `style` on a phase. The style fills in defaults, and anything the phase sets itself wins:
+
+| style | defaults |
+|---|---|
+| (none) = lofi | as below: Rhodes, guitar, piano or musicbox, swung drums, ambience |
+| `chiptune` | lead `pulse` (25% duty), comp `arp` (16th-note `pulse2` arpeggio), bass `tri` in octaves, noise kit (`ckick`, `csnare`, `chat`), no swing, no vinyl or tape |
+| `ambient` | comp `pad` with `padVoice` notes on top, `bassMode: 'drone'` (a sub pad), no drums, `mel` 0.5 |
+
+Phases of different styles can follow each other: the turnaround blends them as usual.
+
+Typical chiptune tempos run 110-160 bpm with simple triads, I-V-vi-IV or vi-IV-I-V, and a melody `scale` an octave up.
+Ambient runs 60-75 bpm with 7ths and 9ths, a slow `mel`, and `amb` wind or waves.
+
+Texture is global: `SCENE_MUSIC.texture = { vinyl: 0.4, tape: true }`. If every phase is chiptune, the default is neither.
 
 ## A phase
 
 ```js
 { name: 'rain',
   swing: 0.25,                   // 0.15 to 0.28: how far off-beat 16ths lean
-  lead: 'piano', comp: 'piano',  // lead: rhodes | guitar | piano | musicbox; comp may also be 'pad'
+  style: '',                     // '' (lofi) | 'chiptune' | 'ambient'
+  lead: 'piano', comp: 'piano',  // lead: rhodes | guitar | piano | musicbox | pulse; comp also 'pad' or 'arp'
+  padVoice: 'musicbox',          // comp 'pad': the instrument that plays over the pad
+  arpInst: 'pulse2',             // comp 'arp': the arpeggio instrument
+  bass: 'bass', bassMode: '',    // bass: bass | tri ; bassMode: '' (walking) | 'octaves' | 'drone'
+  drums: true,                   // false: no drums in this phase
   amb: [['rain', 0.5]],          // rain | waves | cicadas | wind | leaves | fire, with levels 0.05 to 0.6
   chords: [[45, [55, 59, 60, 64]], [41, [52, 57, 60, 65]], [38, [53, 57, 60, 64]], [40, [56, 59, 62, 64]]],
   scale: [64, 67, 69, 71, 72, 74, 76, 79, 81],   // notes the melody may use (MIDI)
@@ -63,7 +111,7 @@ the downbeat.
 ## Loudness and loop
 
 - The mix lands near -13 LUFS integrated with peaks around -0.7 dBFS. For YouTube that is fine (it normalises to -14).
-- `render_audio.py` renders one picture loop seeded so it repeats exactly. It checks the seam: audio after the loop must match the start, below -60 dB.
+- `pixelate audio` renders one picture loop seeded so it repeats exactly. It checks the seam: audio after the loop must match the start, below -60 dB.
 - Ambience beds and tape wobble are fitted automatically so they turn a whole number of times per loop.
 - If you add a continuous sound source to the engine, it must do the same, or the seam check fails.
 - Keep every stereo source out of the per-voice panners, or mono voices sharing that panner jump 3 dB louder. The engine's riser goes straight to the bus input for this reason.

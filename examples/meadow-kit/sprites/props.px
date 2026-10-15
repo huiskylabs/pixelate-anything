@@ -1,0 +1,51 @@
+# Props. One light source (upper left), outline in the darkest tone, berries as accents.
+
+sprite: bush
+anchor: 8 11
+key: o=ol L=leaf3 l=leaf2 d=leaf1 D=leaf0 r=red2
+frame
+....ooo..ooo....
+...oLLLooLLlo...
+..oLLLLlLLlllo..
+.oLLLLLllLllldo.
+.oLLrLlllllldo..
+oLLLLlllllrlddo.
+oLLlllllllllddo.
+olllllldllllddo.
+olllldddllldddo.
+.olddddddddddo..
+..oDDDDDDDDDo...
+...ooooooooo....
+
+sprite: rock
+anchor: 6 8
+key: o=ol S=stone3 s=stone2 d=stone1 D=stone0
+frame
+...ooooo....
+..oSSSssoo..
+.oSSSsssddo.
+.oSSssssddo.
+oSSsssssdddo
+osssssddddDo
+odsssddddDDo
+.oDDDDDDDDo.
+..oooooooo..
+
+sprite: flower
+anchor: 2 5
+durations: 700 500
+key: w=wh G=gold2 l=leaf2
+frame
+..w..
+.wGw.
+..w..
+..l..
+.ll..
+..l..
+frame
+...w.
+..wGw
+...w.
+..l..
+.ll..
+..l..

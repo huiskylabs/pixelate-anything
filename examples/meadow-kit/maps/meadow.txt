@@ -1,0 +1,23 @@
+# A small clearing: corner grid ('.' grass, '#' dirt), then props in pixels.
+tileset: grass_dirt
+tile: 16
+corners:
+............
+............
+..####......
+.######.....
+..####.###..
+.......####.
+.......###..
+............
+............
+props:
+bush 20 30
+bush 150 40
+rock 132 104
+flower 40 100
+flower 52 108
+flower 120 22
+hero_idle 72 70
+coin 104 60
+potion 24 70

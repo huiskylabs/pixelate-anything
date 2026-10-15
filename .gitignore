@@ -1,5 +1,8 @@
 dist/
 shots/
+out/
+.pixelate-tmp/
 *.wav
 *.mp4
 __pycache__/
+*.preview.png

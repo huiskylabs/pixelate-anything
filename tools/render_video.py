@@ -12,6 +12,9 @@ usage:
   render_video.py SCENE_DIR --info            canvas size, ticks, phase timing
   render_video.py SCENE_DIR --hash k [k...]   frame hashes (determinism checks)
   render_video.py SCENE_DIR --png k out.png [--scale S]   one frame as a PNG
+  render_video.py SCENE_DIR --gif out.gif [--scale S] [--fps 15] [--frames K0:K1]
+                  animated GIF (no sound) for social posts and READMEs; keep it short:
+                  design a scene with a small cycle (one phase, few bars) for a GIF that loops
 
 Defaults: --scale picks the largest whole scale with height <= 1080 (use --scale 8
 on a 480x270 canvas for 4K); --crf 14; --preset slow.
@@ -56,7 +59,7 @@ if (mode === 'info') {
 
 def bundle(scene):
     js = build.scene_js(scene, with_audio=False, with_main=False) + DRIVER
-    fn = pathlib.Path(tempfile.gettempdir()) / ('pixel-loop-%s.js' % abs(hash(str(pathlib.Path(scene).resolve()))))
+    fn = pathlib.Path(tempfile.gettempdir()) / ('pixelate-anything-%s.js' % abs(hash(str(pathlib.Path(scene).resolve()))))
     fn.write_text(js)
     return fn
 
@@ -121,6 +124,26 @@ def encode(scene, out, scale=None, k0=0, k1=None, crf=14, preset='slow', audio=N
     size = pathlib.Path(out).stat().st_size
     print('%s: %dx%d (%dx), %d frames in %.0f s, %.1f MB' % (out, W * scale, H * scale, scale, k1 - k0, dt, size / 1e6))
 
+def gif(scene, out, scale=None, fps=15, k0=0, k1=None):
+    """GIF via ffmpeg: one palette for the whole clip, no dithering (the art is already palettised)"""
+    i = info(scene)
+    W, H = i['W'], i['H']
+    scale = scale or max(1, 540 // H)
+    k1 = i['TICKS'] if k1 is None else k1
+    step = max(1, round(30 / fps))
+    raw = frames(scene, k0, k1)
+    n = (k1 - k0)
+    fsz = W * H * 4
+    sel = b''.join(raw[j * fsz:(j + 1) * fsz] for j in range(0, n, step))
+    vf = ('scale=%d:%d:flags=neighbor,split[a][b];[a]palettegen=max_colors=256:stats_mode=full:reserve_transparent=0[p];'
+          '[b][p]paletteuse=dither=none') % (W * scale, H * scale)
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', '%dx%d' % (W, H),
+                    '-framerate', '%g' % (30 / step), '-i', 'pipe:0', '-vf', vf, '-loop', '0', str(out)], input=sel, check=True)
+    print('wrote %s: %dx%d, %d frames at %g fps, %.1f MB' % (out, W * scale, H * scale, len(range(0, n, step)), 30 / step,
+          pathlib.Path(out).stat().st_size / 1e6))
+    if i['TICKS'] % step:
+        print('note: the loop length is not a whole number of GIF frames; the GIF may not loop seamlessly')
+
 if __name__ == '__main__':
     a = sys.argv[1:]
     if len(a) < 2:
@@ -134,6 +157,10 @@ if __name__ == '__main__':
         print(json.dumps(info(scene), indent=1))
     elif a[0] == '--hash':
         print(node(scene, 'hash', *a[1:]).strip())
+    elif a[0] == '--gif':
+        sc = opt('--scale'); fr = opt('--frames'); fps = float(opt('--fps', '15'))
+        k0, k1 = (int(x) for x in fr.split(':')) if fr else (0, None)
+        gif(scene, a[1], int(sc) if sc else None, fps, k0, k1)
     elif a[0] == '--png':
         sc = int(opt('--scale', '1'))
         png(scene, int(a[1]), a[2], sc)

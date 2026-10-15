@@ -1,4 +1,4 @@
-/* Hilltop Cabin: a starter scene for pixel-loop. Copy this folder, then change everything. */
+/* Hilltop Cabin: a starter scene for pixelate-anything. Copy this folder, then change everything. */
 const SCENE = {
   name: 'Hilltop Cabin',
   width: 240, height: 135,               // 16:9; exports at 8x = 1920x1080 or 16x = 3840x2160

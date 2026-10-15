@@ -31,11 +31,18 @@ def main(scene, page=False):
         print('ok   sprites and palettes')
     ratio = i['bpm'][0] / i['baseBpm'][0]
     natural = i['loopSeconds'] / i['GRAND'] * ratio
-    if abs(ratio - 1) > 0.03:
+    has_music = (pathlib.Path(scene) / 'music.js').exists()
+    if abs(ratio - 1) > 0.03 and has_music:
         ok = False
-        print('FAIL timing: tempos scaled by %.3f; set cycle to about %d s (natural length %.1f s)' % (ratio, round(natural), natural))
+        target = max(1, round(natural))
+        if target != i['loopSeconds'] / i['GRAND']:
+            print('FAIL timing: tempos scaled by %.3f; set cycle to %d s (natural length %.1f s)' % (ratio, target, natural))
+        else:
+            bpms = ', '.join('%.1f' % (b * natural / target) for b in i['baseBpm'])
+            print('FAIL timing: tempos scaled by %.3f; the natural length %.1f s is not near a whole second: '
+                  'set the bpms to %s (or change bars) for exactly %d s' % (ratio, natural, bpms, target))
     else:
-        print('ok   timing (tempos scaled by %.3f)' % ratio)
+        print('ok   timing (tempos scaled by %.3f)' % ratio if has_music else 'ok   timing (no music)')
     fr = lambda k0, k1: np.frombuffer(rv.frames(scene, k0, k1), np.uint32).reshape(-1, H, W)
     h = rv.node(scene, 'hash', 1234 % T, 1234 % T, 77 % T)
     import json

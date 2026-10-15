@@ -1,5 +1,5 @@
 /* ==========================================================================
-   pixel-loop engine: generative lofi soundtrack (Web Audio API).
+   pixelate-anything engine: generative soundtrack (Web Audio API): lofi, chiptune, ambient.
    The music spec (chords, scales, tempo, instruments, ambience per phase, and
    the ii-V turnaround between phases) comes from the scene's music.js
    (global SCENE_MUSIC).
@@ -214,6 +214,65 @@ const LOFI = (() => {
     return buf([norm(out, 0.9)]);
   }
 
+  /* ------------------------------------------------------------ chiptune voices */
+  // NES-style: pulse waves with a stepped 4-bit volume, a 32-step triangle, LFSR noise drums
+  function pulseWave(m, duty, dur) {
+    const f = mtof(m), n = Math.floor(dur * SR), out = new Float32Array(n);
+    const lp = onepoleLP(11000);
+    let ph = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / SR;
+      const vib = t > 0.22 ? 1 + 0.004 * Math.sin(2 * Math.PI * 5.5 * (t - 0.22)) : 1;
+      ph += f * vib / SR; if (ph >= 1) ph -= 1;
+      const env = (t < 0.004 ? t / 0.004 : Math.max(0.35, 1 - (t - 0.004) * 1.8)) * Math.max(0, Math.min(1, (dur - t) / 0.12));
+      out[i] = lp((ph < duty ? 1 : -1) * Math.round(env * 15) / 15);
+    }
+    return buf([norm(out, 0.7)]);
+  }
+  const pulse = m => pulseWave(m, 0.25, 1.6);
+  const pulse2 = m => pulseWave(m, 0.125, 0.9);
+  function tri(m) {
+    const f = mtof(m), n = Math.floor(2.4 * SR), out = new Float32Array(n);
+    let ph = 0;
+    for (let i = 0; i < n; i++) {
+      ph += f / SR; if (ph >= 1) ph -= 1;
+      const step = Math.floor(ph * 32), v = step < 16 ? step : 31 - step;   // 32-step triangle
+      out[i] = (v / 7.5 - 1) * Math.min(1, i / (0.002 * SR));
+    }
+    fadeOut(out, 0.05);
+    return buf([norm(out, 0.9)]);
+  }
+  function lfsrNoise(n, hold, short) {          // a 15-bit LFSR, each value held `hold` samples
+    const out = new Float32Array(n);
+    let reg = 1, v = 1, c = 0;
+    for (let i = 0; i < n; i++) {
+      if (c-- <= 0) { const b = (reg ^ (reg >> (short ? 6 : 1))) & 1; reg = (reg >> 1) | (b << 14); v = (reg & 1) ? 1 : -1; c = hold; }
+      out[i] = v;
+    }
+    return out;
+  }
+  function ckick(v) {
+    const n = Math.floor(0.22 * SR), out = new Float32Array(n);
+    let ph = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / SR, f = 45 + 140 * Math.exp(-t / (0.025 + v * 0.004));
+      ph += f / SR; if (ph >= 1) ph -= 1;
+      const step = Math.floor(ph * 32), tv = (step < 16 ? step : 31 - step) / 7.5 - 1;
+      out[i] = tv * Math.round(Math.exp(-t / 0.09) * 15) / 15;
+    }
+    return buf([norm(out, 0.95)]);
+  }
+  function csnare(v) {
+    const n = Math.floor(0.2 * SR), nz = lfsrNoise(n, Math.round(SR / (9000 + v * 800)), false), out = new Float32Array(n);
+    for (let i = 0; i < n; i++) out[i] = nz[i] * Math.round(Math.exp(-i / SR / (0.06 + v * 0.01)) * 15) / 15;
+    return buf([norm(out, 0.8)]);
+  }
+  function chat(v) {
+    const n = Math.floor(0.06 * SR), nz = lfsrNoise(n, Math.max(1, Math.round(SR / (22000 + v * 3000))), v === 2), out = new Float32Array(n);
+    for (let i = 0; i < n; i++) out[i] = nz[i] * Math.round(Math.exp(-i / SR / 0.018) * 15) / 15;
+    return buf([norm(out, 0.6)]);
+  }
+
   /* ------------------------------------------------------------ drums */
   function kick(v) {
     const n = Math.floor(0.55 * SR), out = new Float32Array(n);
@@ -424,36 +483,50 @@ const LOFI = (() => {
   }
 
   /* ------------------------------------------------------------ the scene's music */
-  const MUSIC = SCENE_MUSIC.phases;
+  // styles fill in defaults; anything the phase sets itself wins
+  const STYLE = {
+    chiptune: { swing: 0, lead: 'pulse', comp: 'arp', arpInst: 'pulse2', bass: 'tri', bassMode: 'octaves', kit: 'chip',
+      snd: 'csnare', hats: 8, shaker: 0, amb: [], kick: [[0, 0.9], [8, 0.8]], snare: [[4, 0.7], [12, 0.7]] },
+    ambient: { drums: false, bassMode: 'drone', comp: 'pad', hats: 0, shaker: 0, kick: [], snare: [], mel: 0.5 }
+  };
+  const MUSIC = SCENE_MUSIC.phases.map(M => (M.style && STYLE[M.style] ? Object.assign({}, STYLE[M.style], M) : M));
   const TRANS = SCENE_MUSIC.trans;
-  if (MUSIC.length !== NPH || TRANS.length !== NPH) throw new Error('pixel-loop: SCENE_MUSIC needs one phase and one trans entry per phase');
+  if (MUSIC.length !== NPH || TRANS.length !== NPH) throw new Error('pixelate-anything: SCENE_MUSIC needs one phase and one trans entry per phase');
   MUSIC.forEach((M, s) => { M.bpm = TIMELINE.bpm[s]; M.spb = 60 / M.bpm; });
 
   const CORE = NPH;                    // drums, bass and the riser: never crossfaded
   const LEVEL = { kick: 0.7, snare: 1.0, brush: 1.6, rim: 1.4, hat: 0.75, ohat: 0.4, shaker: 0.7, bass: 0.48,
-    rhodes: 0.34, guitar: 0.75, piano: 0.4, musicbox: 0.3, pad: 0.075, riser: 0.14 };
+    rhodes: 0.34, guitar: 0.75, piano: 0.4, musicbox: 0.3, pad: 0.075, riser: 0.14,
+    pulse: 0.16, pulse2: 0.09, tri: 0.5, ckick: 0.75, csnare: 0.42, chat: 0.26 };
   const LEAD_BOOST = 1.7;
   const MASTER = 0.72;
-  const SEND = { rhodes: 0.28, guitar: 0.22, piano: 0.32, musicbox: 0.55, pad: 0.45, snare: 0.08, brush: 0.12, rim: 0.12, riser: 0.3 };
+  const SEND = { rhodes: 0.28, guitar: 0.22, piano: 0.32, musicbox: 0.55, pad: 0.45, snare: 0.08, brush: 0.12, rim: 0.12, riser: 0.3,
+    pulse: 0.1, pulse2: 0.08 };
+  // texture: vinyl crackle level and tape wobble; chiptune-only scores default to neither
+  const ALLCHIP = MUSIC.every(M => M.kit === 'chip');
+  const TEX = Object.assign({ vinyl: ALLCHIP ? 0 : 0.4, tape: !ALLCHIP }, SCENE_MUSIC.texture || {});
+  const dn = (M, name) => (M.kit === 'chip' ? ({ kick: 'ckick', hat: 'chat', ohat: 'chat', shaker: 'chat' }[name] || name) : name);
 
   /* ------------------------------------------------------------ asset generation */
   function notesFor(s) {
     const M = MUSIC[s], set = new Set();
     const voicings = M.chords.map(c => c[1]).concat([TRANS[s].pre[1], TRANS[s].dom[1],
       TRANS[(s + NPH - 1) % NPH].pre[1], TRANS[(s + NPH - 1) % NPH].dom[1]]);
-    for (const v of voicings) v.forEach(n => { set.add(n); set.add(n + 12); if (M.lead === 'musicbox') set.add(n + 24); });
+    const mb = M.lead === 'musicbox' || (M.comp === 'pad' && (M.padVoice || 'musicbox') === 'musicbox');
+    for (const v of voicings) v.forEach(n => { set.add(n); set.add(n + 12); if (mb) set.add(n + 24); });
     M.scale.forEach(n => set.add(n));
     return [...set];
   }
-  const INST = { rhodes, guitar, piano, musicbox };
+  const INST = { rhodes, guitar, piano, musicbox, pulse, pulse2 };
   function jobsFor(si) {
     const M = MUSIC[si], jobs = [];
-    const inst = M.lead;
-    if (INST[inst]) notesFor(si).forEach(m => jobs.push([inst + m, () => INST[inst](m)]));
+    const insts = [M.lead, M.comp, M.comp === 'pad' ? (M.padVoice || 'musicbox') : null, M.comp === 'arp' ? (M.arpInst || 'pulse2') : null];
+    [...new Set(insts)].forEach(inst => { if (INST[inst]) notesFor(si).forEach(m => jobs.push([inst + m, () => INST[inst](m)])); });
     const bs = new Set();
     M.chords.forEach(([b]) => { [b, b + 7, b + 12, b - 1, b + 1, b - 2, b + 2].forEach(x => bs.add(x)); });
     for (const T of [TRANS[si], TRANS[(si + NPH - 1) % NPH]]) [T.pre[0], T.dom[0], T.approach].forEach(x => bs.add(x));
-    bs.forEach(m => jobs.push(['bass' + m, () => bass(m)]));
+    const bI = M.bass || 'bass';
+    bs.forEach(m => { jobs.push([bI + m, () => (bI === 'tri' ? tri(m) : bass(m))]); if (M.bassMode === 'octaves') jobs.push([bI + (m + 12), () => (bI === 'tri' ? tri(m + 12) : bass(m + 12))]); });
     M.amb.forEach(([a]) => jobs.push(['amb_' + a, AMB[a]]));
     return jobs;
   }
@@ -479,6 +552,8 @@ const LOFI = (() => {
         ['hat' + v, () => hat(v, false)], ['shaker' + v, () => shaker(v)], ['brush' + v, () => brush(v)]);
     }
     jobs.push(['ohat', () => hat(1, true)], ['amb_vinyl', AMB.vinyl], ['riser', riser]);
+    if (MUSIC.some(M => M.kit === 'chip'))
+      for (let v = 0; v < 3; v++) jobs.push(['ckick' + v, () => ckick(v)], ['csnare' + v, () => csnare(v)], ['chat' + v, () => chat(v)]);
     return jobs;
   }
   async function runJobs(jobs, yieldEvery) {
@@ -533,9 +608,9 @@ const LOFI = (() => {
     // tape: slow wow and a little flutter on the music only
     const tape = ctx.createDelay(0.05); tape.delayTime.value = 0.012;
     const wow = ctx.createOscillator(); wow.frequency.value = loopHz(0.425);  // whole turns per picture loop
-    const wowG = ctx.createGain(); wowG.gain.value = 0.0016;
+    const wowG = ctx.createGain(); wowG.gain.value = TEX.tape ? 0.0016 : 0;
     const flu = ctx.createOscillator(); flu.frequency.value = loopHz(5.3);
-    const fluG = ctx.createGain(); fluG.gain.value = 0.00009;
+    const fluG = ctx.createGain(); fluG.gain.value = TEX.tape ? 0.00009 : 0;
     wow.connect(wowG).connect(tape.delayTime); flu.connect(fluG).connect(tape.delayTime);
     wow.start(); flu.start();
     const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 9000; tone.Q.value = 0.5;
@@ -555,7 +630,7 @@ const LOFI = (() => {
     BUS.push(makeBus(1));               // CORE: the groove that carries through every season
     // vinyl bed under everything
     const vs = ctx.createBufferSource(); vs.buffer = BUF.amb_vinyl; vs.loop = true;
-    const vg = ctx.createGain(); vg.gain.value = 0.4;
+    const vg = ctx.createGain(); vg.gain.value = TEX.vinyl;
     vs.connect(vg).connect(master); vs.start();
     vinylGain = vg;
   }
@@ -577,6 +652,8 @@ const LOFI = (() => {
   // per season bus: segments [t0, t1, v0, v1, exponential?] in cycle time (may start < 0)
   const SEG = TIMELINE.seg;
   const ENVS = MUSIC.map((_, s) => {
+    if (NPH === 1) return {           // one phase: no crossfade, the bus stays open
+      gain: [[0, CYCLE, 1, 1]], lp: [[0, CYCLE, 16000, 16000, 1]], hp: [[0, CYCLE, 30, 30, 1]] };
     const tin = SEG[(2 * s + 2 * NPH - 1) % (2 * NPH)], tout = SEG[2 * s + 1];
     const inStart = s === 0 ? tin.start - CYCLE : tin.start, inEnd = SEG[2 * s].start;
     const outStart = tout.start, outEnd = tout.start + tout.dur;
@@ -688,17 +765,29 @@ const LOFI = (() => {
         if (urand() < 0.3) [12, 13, 14].forEach((stp, i) => ev.push(E({ k: 'note', bus: s, inst: 'piano', m: voic[(i + 1) % 4] + 12, vel: 0.3, dur: spb * 0.75 }, o + stp, true)));
       } else if (M.comp === 'pad') {
         ev.push(E({ k: 'pad', bus: s, notes: voic, dur: spb * 4 + 0.4, vel: 1 }, o, false));
-        const arp = pick(MB_ARP);
-        const tones = voic.map(x => x + 24).concat([voic[0] + 36]);
-        arp.forEach((stp, i) => { if (urand() < 0.85) ev.push(E({ k: 'note', bus: s, inst: 'musicbox', m: tones[(i + (bar & 1)) % tones.length], vel: rnd(0.35, 0.5), dur: 2.5 }, o + stp, true)); });
+        const arp = pick(MB_ARP), pv = M.padVoice || 'musicbox';
+        const tones = voic.map(x => x + (pv === 'musicbox' ? 24 : 12)).concat([voic[0] + (pv === 'musicbox' ? 36 : 24)]);
+        arp.forEach((stp, i) => { if (urand() < 0.85) ev.push(E({ k: 'note', bus: s, inst: pv, m: tones[(i + (bar & 1)) % tones.length], vel: rnd(0.35, 0.5), dur: 2.5 }, o + stp, true)); });
+      } else if (M.comp === 'arp') {
+        // chiptune: the chord as a fast 16th-note arpeggio, accents on the beat
+        const ai = M.arpInst || 'pulse2', tones = voic.map(x => x + 12);
+        for (let stp = 0; stp < 16; stp++) ev.push(E({ k: 'note', bus: s, inst: ai, m: tones[stp % tones.length], vel: stp % 4 ? 0.55 : 0.8, dur: spb * 0.22 }, o + stp, false));
       }
       // ---- bass on the core bus ----
-      ev.push(E({ k: 'note', bus: CORE, inst: 'bass', m: root, vel: 0.9, dur: spb * 1.75 }, o, false));
-      if (urand() < 0.6) ev.push(E({ k: 'note', bus: CORE, inst: 'bass', m: urand() < 0.5 ? root : root + 7, vel: 0.6, dur: spb }, o + 10, true));
-      if (urand() < 0.35) ev.push(E({ k: 'note', bus: CORE, inst: 'bass', m: nextRoot + pick([-1, 1, -2, 2]), vel: 0.5, dur: spb * 0.5 }, o + 14, true));
+      const bI = M.bass || 'bass';
+      if (M.bassMode === 'drone') {
+        ev.push(E({ k: 'pad', bus: CORE, notes: [root, root + 12], dur: spb * 4 + 0.6, vel: 2.4 }, o, false));   // overlapping sub pad
+      } else if (M.bassMode === 'octaves') {
+        [0, 3, 6, 8, 10, 14].forEach((stp, i) => ev.push(E({ k: 'note', bus: CORE, inst: bI, m: root + (i % 2 ? 12 : 0), vel: i ? 0.7 : 0.9, dur: spb * 0.4 }, o + stp, false)));
+      } else {
+        ev.push(E({ k: 'note', bus: CORE, inst: bI, m: root, vel: 0.9, dur: spb * 1.75 }, o, false));
+        if (urand() < 0.6) ev.push(E({ k: 'note', bus: CORE, inst: bI, m: urand() < 0.5 ? root : root + 7, vel: 0.6, dur: spb }, o + 10, true));
+        if (urand() < 0.35) ev.push(E({ k: 'note', bus: CORE, inst: bI, m: nextRoot + pick([-1, 1, -2, 2]), vel: 0.5, dur: spb * 0.5 }, o + 14, true));
+      }
+      if (M.drums === false) continue;
       // ---- drums on the core bus ----
-      for (const [stp, v] of M.kick) ev.push(E({ k: 'drum', bus: CORE, name: 'kick', vel: v * rnd(0.9, 1.05) }, o + stp, stp !== 0));
-      if (urand() < 0.22) ev.push(E({ k: 'drum', bus: CORE, name: 'kick', vel: 0.42 }, o + pick([3, 14]), true));
+      for (const [stp, v] of M.kick) ev.push(E({ k: 'drum', bus: CORE, name: dn(M, 'kick'), vel: v * rnd(0.9, 1.05) }, o + stp, stp !== 0));
+      if (urand() < 0.22) ev.push(E({ k: 'drum', bus: CORE, name: dn(M, 'kick'), vel: 0.42 }, o + pick([3, 14]), true));
       for (const [stp, v] of M.snare) ev.push(E({ k: 'drum', bus: CORE, name: M.snd, vel: v * rnd(0.9, 1.05) }, o + stp, true));
       if (urand() < 0.2) ev.push(E({ k: 'drum', bus: CORE, name: M.snd, vel: 0.18 }, o + pick([7, 15]), true));
       // fills mark the turnaround of the loop; the last bar leaves room for the transition
@@ -708,12 +797,12 @@ const LOFI = (() => {
         const thin = urand() < 0.1;
         for (let stp = 0; stp < 16; stp += (M.hats === 16 && !thin ? 1 : 2)) {
           const v = stp % 4 === 0 ? 0.55 : (stp % 2 === 0 ? 0.4 : 0.2);
-          ev.push(E({ k: 'drum', bus: CORE, name: 'hat', vel: v * rnd(0.8, 1.1) }, o + stp, true));
+          ev.push(E({ k: 'drum', bus: CORE, name: dn(M, 'hat'), vel: v * rnd(0.8, 1.1) }, o + stp, true));
         }
-        if (M.ohat && urand() < M.ohat) ev.push(E({ k: 'drum', bus: CORE, name: 'ohat', vel: 0.4 }, o + 14, true));
+        if (M.ohat && urand() < M.ohat) ev.push(E({ k: 'drum', bus: CORE, name: dn(M, 'ohat'), vel: 0.4 }, o + 14, true));
       }
       if (M.shaker) for (let stp = 0; stp < 16; stp += (M.shakerStep || 1))
-        ev.push(E({ k: 'drum', bus: CORE, name: 'shaker', vel: M.shaker * (stp % 2 ? 0.55 : 0.9) * rnd(0.85, 1.1) }, o + stp, true));
+        ev.push(E({ k: 'drum', bus: CORE, name: dn(M, 'shaker'), vel: M.shaker * (stp % 2 ? 0.55 : 0.9) * rnd(0.85, 1.1) }, o + stp, true));
     }
     // ---- melody: two-bar phrases, sometimes echoing the last rhythm ----
     for (let startBar = 0; startBar < SEASON_BARS; startBar += 2) {
@@ -748,12 +837,13 @@ const LOFI = (() => {
       if (M.comp === 'pad') {
         ev.push(E({ k: 'pad', bus, notes: T.pre[1], dur: spb * 2 + 0.3, vel: 0.9 }, 0, false));
         ev.push(E({ k: 'pad', bus, notes: T.dom[1], dur: spb * 2 + 0.7, vel: 0.9 }, 2, false));
-        [0.5, 1.5, 2.5, 3.25].forEach((b, i) => ev.push(E({ k: 'note', bus, inst: 'musicbox',
+        [0.5, 1.5, 2.5, 3.25].forEach((b, i) => ev.push(E({ k: 'note', bus, inst: M.padVoice || 'musicbox',
           m: (i < 2 ? T.pre[1] : T.dom[1])[(i * 2 + 1) % 4] + 24, vel: 0.38, dur: 2 }, b, true)));
       } else {
-        const strum = M.comp === 'guitar' ? 0.028 : 0.012;
-        ev.push(E({ k: 'chord', bus, inst: M.comp, notes: T.pre[1], vel: vIn, dur: spb * 1.9, strum }, 0, true));
-        ev.push(E({ k: 'chord', bus, inst: M.comp, notes: T.dom[1], vel: vIn, dur: spb * 2.3, strum }, 2, true));
+        const strum = M.comp === 'guitar' ? 0.028 : (M.comp === 'arp' ? 0.03 : 0.012);
+        const ci = M.comp === 'arp' ? (M.arpInst || 'pulse2') : M.comp;
+        ev.push(E({ k: 'chord', bus, inst: ci, notes: T.pre[1], vel: vIn, dur: spb * 1.9, strum }, 0, true));
+        ev.push(E({ k: 'chord', bus, inst: ci, notes: T.dom[1], vel: vIn, dur: spb * 2.3, strum }, 2, true));
       }
     }
     // the incoming voice often hums a short pickup over the dominant
@@ -766,18 +856,22 @@ const LOFI = (() => {
         m: tones[dirUp ? i % tones.length : (tones.length - 1 - i % tones.length)], vel: 0.8 * LEAD_BOOST, dur: spb * 0.6, pan: 3 }, b, true)));
     }
     // bass walks the ii-V and steps chromatically onto the new root
-    ev.push(E({ k: 'note', bus: CORE, inst: 'bass', m: T.pre[0], vel: 0.85, dur: spb * 1.8 }, 0, false));
-    ev.push(E({ k: 'note', bus: CORE, inst: 'bass', m: T.dom[0], vel: 0.8, dur: spb * 1.4 }, 2, false));
-    ev.push(E({ k: 'note', bus: CORE, inst: 'bass', m: T.approach, vel: 0.55, dur: spb * 0.45 }, 3.5, true));
+    const bA = A.bass || 'bass', bB = Bm.bass || 'bass';
+    ev.push(E({ k: 'note', bus: CORE, inst: bA, m: T.pre[0], vel: 0.85, dur: spb * 1.8 }, 0, false));
+    ev.push(E({ k: 'note', bus: CORE, inst: bA, m: T.dom[0], vel: 0.8, dur: spb * 1.4 }, 2, false));
+    ev.push(E({ k: 'note', bus: CORE, inst: bB, m: T.approach, vel: 0.55, dur: spb * 0.45 }, 3.5, true));
     // the groove keeps time through the tempo ramp: outgoing snare, then incoming snare and a fill
-    ev.push(E({ k: 'drum', bus: CORE, name: 'kick', vel: 0.85 }, 0, false));
-    ev.push(E({ k: 'drum', bus: CORE, name: 'kick', vel: 0.7 }, 2, true));
-    if (urand() < 0.5) ev.push(E({ k: 'drum', bus: CORE, name: 'kick', vel: 0.4 }, 2.75, true));
-    ev.push(E({ k: 'drum', bus: CORE, name: A.snd, vel: 0.55 }, 1, true));
-    ev.push(E({ k: 'drum', bus: CORE, name: Bm.snd, vel: 0.6 }, 3, true));
-    [3.25, 3.5, 3.75].forEach((b, i) => ev.push(E({ k: 'drum', bus: CORE, name: Bm.snd, vel: 0.2 + i * 0.09 }, b, true)));
-    if (A.hats || Bm.hats) for (let b = 0; b < 3; b += 0.5) ev.push(E({ k: 'drum', bus: CORE, name: 'hat', vel: (b % 1 ? 0.25 : 0.45) }, b, true));
-    if (A.shaker || Bm.shaker) for (let b = 0; b < 4; b += 0.5) ev.push(E({ k: 'drum', bus: CORE, name: 'shaker', vel: 0.3 }, b, true));
+    if (A.drums !== false || Bm.drums !== false) {
+      const G = A.drums !== false ? A : Bm, sA = A.snd || Bm.snd, sB = Bm.snd || A.snd;
+      ev.push(E({ k: 'drum', bus: CORE, name: dn(G, 'kick'), vel: 0.85 }, 0, false));
+      ev.push(E({ k: 'drum', bus: CORE, name: dn(G, 'kick'), vel: 0.7 }, 2, true));
+      if (urand() < 0.5) ev.push(E({ k: 'drum', bus: CORE, name: dn(G, 'kick'), vel: 0.4 }, 2.75, true));
+      ev.push(E({ k: 'drum', bus: CORE, name: sA, vel: 0.55 }, 1, true));
+      ev.push(E({ k: 'drum', bus: CORE, name: sB, vel: 0.6 }, 3, true));
+      [3.25, 3.5, 3.75].forEach((b, i) => ev.push(E({ k: 'drum', bus: CORE, name: sB, vel: 0.2 + i * 0.09 }, b, true)));
+      if (A.hats || Bm.hats) for (let b = 0; b < 3; b += 0.5) ev.push(E({ k: 'drum', bus: CORE, name: dn(G, 'hat'), vel: (b % 1 ? 0.25 : 0.45) }, b, true));
+      if (A.shaker || Bm.shaker) for (let b = 0; b < 4; b += 0.5) ev.push(E({ k: 'drum', bus: CORE, name: dn(G, 'shaker'), vel: 0.3 }, b, true));
+    }
     ev.push(E({ k: 'riser', bus: CORE, vel: 1 }, 0, false));
     return ev;
   }
@@ -827,7 +921,7 @@ const LOFI = (() => {
     g.connect(B.pans[pan === undefined ? 2 : pan]);
     if (SEND[inst]) g.connect(B.sends[inst]);
     src.start(t);
-    const rel = inst === 'bass' ? 0.12 : 0.35;
+    const rel = inst === 'bass' || inst === 'tri' ? 0.12 : (inst === 'pulse' || inst === 'pulse2' ? 0.05 : 0.35);
     const end = Math.min(t + dur, t + b.duration / rate - rel);
     g.gain.setValueAtTime(lv, end);
     g.gain.setTargetAtTime(0, end, rel / 3);
@@ -884,10 +978,10 @@ const LOFI = (() => {
 
   let SOLO = null;
   function cat(e) {
-    if (e.k === 'drum') return e.name === 'kick' ? 'kick' : (e.name === 'hat' || e.name === 'ohat' || e.name === 'shaker') ? 'hat' : 'snare';
+    if (e.k === 'drum') return (e.name === 'kick' || e.name === 'ckick') ? 'kick' : (e.name === 'hat' || e.name === 'ohat' || e.name === 'shaker' || e.name === 'chat') ? 'hat' : 'snare';
     if (e.k === 'pad') return 'pad';
     if (e.k === 'riser') return 'fx';
-    if (e.inst === 'bass') return 'bass';
+    if (e.inst === 'bass' || e.inst === 'tri') return 'bass';
     return e.lead ? 'lead' : 'keys';
   }
   function fire(e, t, g) {

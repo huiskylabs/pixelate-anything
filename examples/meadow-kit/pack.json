@@ -1,0 +1,7 @@
+{
+  "name": "Meadow Kit",
+  "palette": "palette.json",
+  "scale": 6,
+  "preview_bg": "#2a2836",
+  "maps": ["maps/meadow.txt"]
+}

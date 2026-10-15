@@ -1,67 +1,84 @@
-# pixel-loop
+# pixelate-anything
 
-An agent skill for making **hand-crafted pixel-art loops with a generative lofi
-soundtrack**: a scene that drifts through moods (seasons, dusk and night, weather)
-while the music changes key, tempo and instruments with it and blends between them
-like a DJ set. Picture and music loop exactly, so one short file can play for hours.
+**Hand-crafted pixel art for AI agents.** It ships three ways:
+- **An agent skill** (`SKILL.md`), which carries the craft.
+- **A CLI** (`pixelate`), which does the work.
+- **An MCP server**, so any MCP client can use the same tools, with previews returned as images the agent can look at.
 
 ![Lantern Isle through four seasons](docs/lantern-isle-seasons.png)
 
-Every frame is drawn from hand-placed pixel maps and strict per-scene palettes:
-no blur, no gradients, no filters. Motion is stepped like hand animation, and
-season changes dissolve through an ordered dither. The soundtrack is synthesised in
-the browser (Rhodes, guitar, felt piano, music box, pads, drums, rain, fire, vinyl),
-so there are no samples and nothing to license.
+| mode | what you get |
+|---|---|
+| **Image to pixel art** | photos, paintings, logos and screenshots turned into clean pixel art (palette fitting, majority sampling, despeckle, outlines), not a blurry downscale |
+| **Palettes** | hue-shifted ramps from a few base colours, extraction from references, presets, and export to Aseprite/GIMP/hex/JSON/PNG |
+| **Assets** | sprites, characters with animations, items, corner autotiles with variants, and tilemaps, exported as PNG strips with Aseprite-style JSON, an atlas, GIFs, contact sheets and silhouette checks |
+| **Scenes and loops** | pixel scenes that move through moods (seasons, dusk and rain, ...), exported as a live HTML page, a seamless 1080p/4K MP4, a GIF or stills |
+| **Music** | generative lofi, chiptune (NES-style pulse, triangle and noise) and ambient, which follows a scene or stands alone as seamless game loops (OGG/WAV) |
 
-**Outputs**
-- **A live page:** one self-contained HTML file that plays forever with live generative music.
-- **A crisp MP4:** 1080p or 4K, scaled by whole pixels with nearest neighbour, BT.709, H.264 with AAC 320k. It is one exact loop, ready to put on repeat for YouTube or social.
+![Photo to pixel art](docs/pixelate-photo.png)
+![Meadow Kit: a hero, items and a generated autotile set, laid out as a map](docs/meadow-map.png)
 
 ## Install
 
-The skill is this folder (`SKILL.md` at the root).
-
-- **Claude Code:** `git clone https://github.com/huiskylabs/pixel-loop ~/.claude/skills/pixel-loop`
-- **Claude apps:** zip the folder and add it as a custom skill.
-- **Other agents** that read `SKILL.md` skills: point them at the folder.
-
-Then ask for something like *"make a pixel-art lofi loop of a lighthouse keeper's
-cabin through a stormy night into a clear dawn, 4K for YouTube"*.
-
-**Needs:** `node` 18+, `python3` with `pillow` and `numpy`, `ffmpeg` with libx264, and
-Playwright Chromium (`pip install playwright && playwright install chromium`) for the
-soundtrack.
-
-## By hand
-
 ```sh
-cp -r templates/starter my-scene                          # 240x135, two phases: dusk and rain
-python3 tools/shot.py my-scene 10 40 --grid --zoom 4      # preview frames
-python3 tools/check.py my-scene --page                    # palettes, timing, loop seam, page
-python3 tools/build.py my-scene --release                 # my-scene/dist/hilltop-cabin.html
-python3 tools/render_audio.py my-scene loop.wav           # one seamless loop of the music
-python3 tools/render_video.py my-scene out.mp4 --audio loop.wav              # 1080p
-python3 tools/render_video.py my-scene out-4k.mp4 --scale 16 --audio loop.wav  # 4K
+git clone https://github.com/huiskylabs/pixelate-anything
+cd pixelate-anything
+pip install -r requirements.txt     # pillow and numpy are required; mcp and playwright are optional
+./pixelate doctor                   # shows what each mode needs (node for scenes, ffmpeg for video)
+./pixelate setup                    # registers the MCP server and the skill with your agents (asks first)
 ```
 
-![The starter scene](docs/starter.png)
+`setup` covers:
+- **Claude Code:** the MCP server, plus the skill in `~/.claude/skills`.
+- **Cursor, Codex and Gemini CLI:** the MCP server.
+
+It shows its plan, asks before changing anything, and backs up every file it edits. For any other MCP client, run the server with `python3 /path/to/pixelate-anything/pixelate mcp` (stdio).
+
+Then ask your agent for anything pixel art:
+- *"pixelate this photo of my dog in the Game Boy palette"*
+- *"make a 16x16 knight with idle and walk animations and a dungeon tileset"*
+- *"a 4K pixel-art lofi loop of a lighthouse through a storm into dawn"*
+- *"a chiptune overworld theme that loops for my game"*
+
+## CLI
+
+```
+pixelate image photo.jpg -o out.png --width 96 --palette sweetie-16
+pixelate palette ramps sky=#3b5dc9 leaf=#5aa04a --steps 5 -o pal/mine
+pixelate new assets my-pack && pixelate assets my-pack
+pixelate new scene my-scene && pixelate shot my-scene 10 40 --grid && pixelate check my-scene --page
+pixelate audio my-scene loop.wav && pixelate video my-scene out.mp4 --audio loop.wav
+pixelate new music theme && pixelate audio theme theme.ogg
+```
+
+## MCP tools
+
+The server's tools:
+- **Guides and projects:** `guide`, `new_project`.
+- **Files:** `write_file`, `read_file`, `list_files`. Writes stay inside the workspace.
+- **Image, palette, assets:** `pixelate_image`, `palette`, `export_assets`, `generate_sprites`.
+- **Scenes and output:** `preview_scene`, `check_scene`, `build_page`, `render_audio`, `render_video`, `render_gif`.
+
+Tools that make pictures return them as images, so the agent can judge its own work. That is the single biggest quality lever. The workspace is the directory the agent starts the server in, or `$PIXELATE_WORKSPACE`.
 
 ## Layout
 
 | path | what |
 |---|---|
-| `SKILL.md` | the workflow the agent follows |
-| `references/` | scene contract and API, craft rules for a hand-made look, music guide |
-| `engine/` | timeline, palette renderer, phase dissolve, soundtrack, page |
-| `tools/` | build, preview, checks, sprite generation, audio and video export |
-| `templates/starter/` | smallest complete scene to copy |
-| `examples/lantern-isle/` | a full scene: an island cottage through four seasons |
+| `SKILL.md` | entry point: picks the mode, points to its guide |
+| `guides/` | one guide per mode: pixelate, palettes, assets, scenes, music |
+| `references/` | craft rules for a hand-made look; the scene engine API |
+| `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them |
+| `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
+| `templates/` | `scene`, `music` and `assets` starting points |
+| `examples/` | `lantern-isle` (a 4-season loop video) and `meadow-kit` (a game asset pack) |
+| `palettes/` | presets |
 
-## How the loop stays exact
+## Why the loops are exact
 
-- **Picture:** every frame is a pure function of its tick, and every animation period divides the loop length.
-- **Music:** random choices are seeded per cycle, and ambience beds and tape wobble are fitted to a whole number of turns per loop.
-- **Rendering:** the soundtrack is rendered with a pre-roll, and the tools verify the seam: audio after the loop must match its start below −60 dB, and the last frame must step into the first like any other frame.
+- **Picture:** every frame is a pure function of its tick, and every animation period divides the loop.
+- **Music:** random choices are seeded per cycle, and ambience beds and tape wobble turn a whole number of times per loop.
+- **Checks:** the tools verify the seam. The audio after the loop matches its start (below −60 dB), and the last frame steps into the first like any other frame.
 
 ## License
 

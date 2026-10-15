@@ -1,8 +1,0 @@
-{
-  "name": "Wuxia RPG",
-  "about": "original scenes in the style of 90s Chinese wuxia RPGs (VGA 320x200), with Chinese dialogue in a CJK pixel font",
-  "palette": "palette.json",
-  "scale": 6,
-  "scene_scale": 4,
-  "preview_bg": "#07051a"
-}

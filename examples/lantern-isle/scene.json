@@ -1,0 +1,25 @@
+{
+  "title": "Lantern Isle",
+  "description": "A pixel-art island cottage looping through four seasons, with a generative lofi soundtrack.",
+  "alt": "Animated pixel-art scene: a small island cottage in a calm night sea, cycling through spring, summer, fall and winter.",
+  "files": [
+    "palettes.js",
+    "sprites.js",
+    "scene.js",
+    "sky.js",
+    "sea.js",
+    "fx.js",
+    "objects.js"
+  ],
+  "art": [
+    "art_island",
+    "art_cottage",
+    "art_trees",
+    "art_props",
+    "art_details",
+    "art_sky",
+    "art_fx",
+    "art_winter",
+    "art_ground"
+  ]
+}

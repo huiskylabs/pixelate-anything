@@ -1,0 +1,5 @@
+dist/
+shots/
+*.wav
+*.mp4
+__pycache__/

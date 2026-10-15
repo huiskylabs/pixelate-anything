@@ -1,0 +1,6 @@
+{
+  "title": "Hilltop Cabin",
+  "description": "A pixel-art cabin on a hill, from a warm dusk into a rainy night and back, with a lofi soundtrack.",
+  "alt": "Animated pixel-art scene: a small cabin and a pine on a hill at dusk, then in the rain.",
+  "files": ["palettes.js", "sprites.js", "scene.js"]
+}

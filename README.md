@@ -16,6 +16,12 @@
 |---|---|---|
 | ![SF rebuild](docs/sf-rebuild.gif) | ![SF isometric](docs/iso-city.gif) | ![Santorini](docs/santorini.gif) |
 
+**Classic genres, original games.** Console-era presets (8-bit NES-style, Game Boy-style, 16-bit) hold art to the hardware's limits and check it.
+
+| Rooftop Run, an 8-bit platformer screen | Island Village, Game Boy-style | Pixel Harbor, a title screen from the iso city |
+|---|---|---|
+| ![Rooftop Run](docs/rooftop-run.gif) | ![Island Village](docs/island-village.gif) | ![Pixel Harbor](docs/title-screen.gif) |
+
 ![One scene in the five pixel-art projections](docs/projections.png)
 
 ![Lantern Isle through four seasons](docs/lantern-isle-seasons.png)
@@ -23,6 +29,7 @@
 | mode | what you get |
 |---|---|
 | **Rebuild** | a photo of a place rebuilt as pixel art in side view, 3/4 top-down, 2:1 isometric, oblique or military projection. Boxes and curved solids (rounded boxes, vaults, domes, arches, terrain), cast shadows, palette swaps from day to night, and palette-cycled water |
+| **Eras** | original screens under real console limits: 8-bit NES-style (master palette, 4-colour blocks, 3-colour sprites), Game Boy-style 4 shades, 16-bit; a checker, retargeting, a pixel font for HUDs and dialogue |
 | **Convert** | paintings, logos, screenshots and bold photos turned into clean pixel art: palette fitting, majority sampling, despeckle, flattening, grading, cut-out sprites with outlines |
 | **Palettes** | hue-shifted ramps from a few base colours, extraction from references, presets, and export to Aseprite/GIMP/hex/JSON/PNG |
 | **Assets** | sprites, characters with animations, items, corner autotiles with variants, and tilemaps, exported as PNG strips with Aseprite-style JSON, an atlas, GIFs, contact sheets and silhouette checks |
@@ -54,11 +61,13 @@ Then ask your agent for anything pixel art:
 - *"make a 16x16 knight with idle and walk animations and a dungeon tileset"*
 - *"a 4K pixel-art lofi loop of a lighthouse through a storm into dawn"*
 - *"a chiptune overworld theme that loops for my game"*
+- *"an 8-bit side-scrolling platformer screen of my city at sunset, NES limits"*
 
 ## CLI
 
 ```
 pixelate image photo.jpg -o out.png --width 96 --palette sweetie-16
+pixelate era screen.png --era gameboy               # does it obey the console's limits?
 pixelate palette ramps sky=#3b5dc9 leaf=#5aa04a --steps 5 -o pal/mine
 pixelate new assets my-pack && pixelate assets my-pack
 pixelate new scene my-scene && pixelate shot my-scene 10 40 --grid && pixelate check my-scene --page
@@ -81,12 +90,12 @@ Tools that make pictures return them as images, so the agent can judge its own w
 | path | what |
 |---|---|
 | `SKILL.md` | entry point: picks the mode, points to its guide |
-| `guides/` | one guide per mode: rebuild, pixelate, palettes, assets, scenes, music |
+| `guides/` | one guide per mode: rebuild, eras, pixelate, palettes, assets, scenes, music |
 | `references/` | craft rules for a hand-made look; the scene engine API |
 | `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: projections and boxes; `sdf.py`: curved solids) |
 | `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
 | `templates/` | `scene`, `music` and `assets` starting points |
-| `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (conversions, palettes, sprites) |
+| `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `retro` (original 8-bit and Game Boy-style screens), `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (conversions, palettes, sprites) |
 | `demo/` | `cli_demo.sh` and `mcp_demo.py`: the gallery, made through each interface |
 | `palettes/` | presets |
 

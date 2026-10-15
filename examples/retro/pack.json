@@ -1,0 +1,8 @@
+{
+  "name": "Retro",
+  "about": "original classic-genre screens under console-era limits: an 8-bit platformer, a Game Boy-style RPG, an 8-bit title screen",
+  "palette": "palette.json",
+  "scale": 6,
+  "scene_scale": 3,
+  "preview_bg": "#2a2836"
+}

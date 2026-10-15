@@ -35,3 +35,8 @@ These are rebuilt rather than converted. The photos themselves are not in the re
 - https://en.wikipedia.org/wiki/Isometric_video_game_graphics
 - https://slynyrd.com/blog/2018/4/12/pixelblog-4-graphical-projection-part-2
 - https://compuphase.com/axometr.htm
+
+## Original work
+
+`examples/retro` (Rooftop Run, Island Village, Pixel Harbor) is all original: characters,
+places, titles and text. Console names in the era presets describe hardware limits only.

@@ -29,7 +29,8 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents.
 For a photo of a place or a thing, REBUILD it rather than convert it (guide('rebuild')): keep its
 composition, redraw it in a pixel-art projection (side, 3/4 top-down, 2:1 isometric) with
 tools/iso.py inside an asset pack's art/*.py (write_file), and export_assets to see it.
-Modes: rebuild (write_file + export_assets), convert an image (pixelate_image), palettes (palette), sprites/characters/items/tilesets
+Modes: rebuild (write_file + export_assets), classic-genre screens under console-era limits
+(guide('eras'), era to check), convert an image (pixelate_image), palettes (palette), sprites/characters/items/tilesets
 (new_project kind=assets, write .px files, export_assets), scenes and animated loops with a
 generative soundtrack (new_project kind=scene, preview_scene, check_scene, build_page,
 render_audio, render_video, render_gif), and music on its own (new_project kind=music, render_audio).
@@ -68,7 +69,7 @@ def thumb(path, max_w=1400):
 # ---------------------------------------------------------------- guides and files
 @server.tool()
 def guide(name: str) -> str:
-    """Read a guide. names: rebuild, pixelate, palettes, assets, scenes, music, craft, scene-contract, skill.
+    """Read a guide. names: rebuild, eras, pixelate, palettes, assets, scenes, music, craft, scene-contract, skill.
     Read the guide for the task's mode first, and 'craft' before drawing anything."""
     if name not in GUIDES:
         return 'guides: ' + ', '.join(GUIDES)
@@ -162,6 +163,20 @@ def palette(action: str, image: str = '', colors: int = 16, ramps: dict | None =
     code, text = cli(*args)
     sw = base.parent / (base.name + '-swatch.png')
     return [text] + ([thumb(sw)] if code == 0 and sw.exists() else [])
+
+@server.tool()
+def era(image: str, era: str = 'nes', out: str = '', layer: str = 'full', scale: int = 4) -> list:
+    """Hold an image to a console era's limits. era: nes | gameboy | snes | genesis | gba | pico-8
+    (screen size, palette or bit depth, colours on screen, colours per block for layer='bg').
+    Reports what breaks the rules; with out, also writes the image made legal and returns it."""
+    args = ['era', P(image), '--era', era, '--layer', layer, '--scale', scale]
+    if out:
+        args += ['-o', P(out, write=True)]
+    code, text = cli(*args)
+    if out:
+        prev = P(out).with_name(P(out).stem + '@%dx.png' % scale)
+        return [text] + ([thumb(prev)] if prev.exists() else [])
+    return [text]
 
 @server.tool()
 def export_assets(pack: str) -> list:

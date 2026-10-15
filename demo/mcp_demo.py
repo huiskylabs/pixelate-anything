@@ -11,6 +11,7 @@ What it does, in agent order:
   3. export_assets('examples/projections')  one scene in five pixel-art projections
   4. export_assets('examples/san-francisco')the aerial photo rebuilt (3/4) + the iso diorama
   5. export_assets('examples/santorini')    a Pexels aerial rebuilt as an isometric village
+     export_assets('examples/retro')        original 8-bit and Game Boy-style screens; era(...) checks them
   6. pixelate_image(...)                    a painting converted, for comparison
   7. render_audio('templates/music', ...)   a chiptune loop for a game
 Each image the server returns is what the agent would look at; they are saved as mcp/NN-*.png.
@@ -62,12 +63,15 @@ async def main():
             await call('export_assets', pack='examples/projections')
             await call('export_assets', pack='examples/san-francisco')
             await call('export_assets', pack='examples/santorini')
+            await call('export_assets', pack='examples/retro')
+            await call('era', image='examples/retro/out/island_village.png', era='gameboy')
+            await call('era', image='examples/retro/out/rooftop_run.png', era='nes')
             await call('pixelate_image', image='examples/gallery/sources/great_wave.jpg', out='examples/gallery/mcp/great-wave.png',
                        width=160, palette='examples/gallery/palettes/great-wave.hex', scale=4)
             await call('render_audio', scene='templates/music', out='examples/gallery/music/pixel-radio.ogg')
 
     # collect the animations next to the images
-    for pack in ('projections', 'san-francisco', 'santorini'):
+    for pack in ('projections', 'san-francisco', 'santorini', 'retro'):
         o = ROOT / 'examples' / pack / 'out'
         for f in sorted(o.glob('*')):
             if f.suffix in ('.mp4', '.gif') or f.name.endswith('@3x.png') or f.name.endswith('@2x.png'):

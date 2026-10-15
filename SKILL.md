@@ -24,6 +24,7 @@ The tools handle the mechanical parts (colour maths, exact loops, exports). The 
 |---|---|---|
 | a photo of a place, building or scene as pixel art (the default for photos) | rebuild | `guides/rebuild.md` |
 | an isometric or top-down city, diorama, map or tileset | rebuild / assets | `guides/rebuild.md` + `guides/assets.md` |
+| a screen in a classic console style (8-bit, Game Boy, 16-bit), a title screen, a retro look | eras | `guides/eras.md` (+ `guides/assets.md`) |
 | a quick conversion: a painting, logo, screenshot, or a photo as a reference underlay | image | `guides/pixelate.md` |
 | a palette (from a mood, a reference image, or for a game) | palette | `guides/palettes.md` |
 | sprites, a character with animations, items, icons, a tileset, a sprite sheet | assets | `guides/assets.md` |
@@ -42,7 +43,8 @@ pixelate doctor                         what is installed, what each mode needs
 pixelate new scene|music|assets DIR     start from a template
 pixelate image IMG -o out.png ...       image -> pixel art
 pixelate palette ramps|extract|show|list ...
-pixelate assets PACK                    export sprites, sheets, GIFs, atlas, tilemaps
+pixelate assets PACK                    export sprites, sheets, GIFs, atlas, tilemaps, whole animated scenes
+pixelate era IMG --era nes|gameboy|snes|genesis|gba|pico-8 [-o OUT]   check or force console-era limits
 pixelate shot SCENE 5 30 --grid         preview frames (then LOOK at them)
 pixelate check SCENE --page             automated checks
 pixelate build SCENE --release          live HTML page
@@ -79,6 +81,7 @@ If the agent has no shell but has the MCP server, the same tools exist as MCP to
 - `examples/`:
   - `san-francisco`: an aerial photo rebuilt in its own 3/4 camera and as an isometric diorama, day to night. The quality bar for rebuilds.
   - `projections`: one scene in the five projections (side, 3/4 top-down, 2:1 iso, oblique, military).
+  - `retro`: original classic-genre screens under console-era limits (8-bit platformer, Game Boy-style RPG, title screen).
   - `lantern-isle`: a 4-season loop, the quality bar for scenes.
   - `meadow-kit`: a hero, items, an autotile set and a map.
   - `gallery`: conversions, palettes, sprites from photos, a film clip as a pixel cutscene, with `demo/` scripts.

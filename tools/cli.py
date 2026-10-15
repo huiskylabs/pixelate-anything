@@ -5,6 +5,7 @@
   pixelate palette extract|ramps|show|js|list ...   palettes                      (guides/palettes.md)
   pixelate assets PACK                   export sprites, sheets, GIFs, tilemaps   (guides/assets.md)
   pixelate topx IMG PALETTE [NAME]       a PNG as an editable .px sprite (palette: .json/.hex/preset)
+  pixelate era IMG --era nes|gameboy|snes|genesis|gba|pico-8 [-o OUT]   check (or force) console-era limits
   pixelate sprites SCENE                 generate sprites.js from SCENE/art/*.py
   pixelate new scene|music|assets DIR    start a project from a template
   pixelate shot SCENE t [t...] [--grid]  preview frames                            (guides/scenes.md)
@@ -21,7 +22,7 @@ import os, pathlib, runpy, shutil, subprocess, sys
 
 TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
-SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py',
+SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py'}
 TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
 

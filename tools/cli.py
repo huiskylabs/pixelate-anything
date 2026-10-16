@@ -17,7 +17,8 @@
   pixelate new scene|music|assets DIR    start a project from a template
   pixelate shot SCENE t [t...] [--grid]  preview frames                            (guides/scenes.md)
   pixelate check SCENE [--page]          palettes, timing, loop seam, page
-  pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op]   the delivery gate
+  pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op] [--brief B]   the delivery gate
+  pixelate check BLOCKIN.png --blockin --brief brief.md [--scale N]   the greyscale block-in, before drawing
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
   pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P]   an independent art director: the brief, then the still
   pixelate check TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]   the music gate

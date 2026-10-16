@@ -102,14 +102,19 @@ def lint_brief(path: str) -> str:
     return cli('route', '--lint', P(path))[1]
 
 @server.tool()
-def check_frame(frame: str, style: str, scale: int = 1, palette: str = '', prelight: str = '',
-                actor: str = '', used: str = '', scene: str = '', era: str = '', brief: str = '') -> list:
+def check_frame(frame: str, style: str = '', scale: int = 1, palette: str = '', prelight: str = '',
+                actor: str = '', used: str = '', scene: str = '', era: str = '', brief: str = '',
+                blockin: bool = False) -> list:
     """The delivery gate for one frame: the style's value budget, square native pixels, banned light ops,
     palette subset, actor readability and pixel craft (orphans, jaggies, banding, pillow shading,
     clusters). scene: the style's scene variant (style_card lists them); era: the console era's checks
-    replace the value budget; brief: apply its `- Gate override: RULE BOUND (reason)` lines. Redraw
-    until every line passes; no frame is shown as final before that."""
-    args = ['check', P(frame), '--style', style, '--scale', scale]
+    replace the value budget; brief: apply its `- Gate override: RULE BOUND (reason)` lines and its
+    Hero and Planes lines (focus checks); blockin: check a greyscale block-in instead (value bands,
+    hero placement and size, plane shares). Redraw until every line passes; no frame is shown as
+    final before that."""
+    args = ['check', P(frame), '--scale', scale] + (['--style', style] if style else [])
+    if blockin:
+        args.append('--blockin')
     for flag, v in (('--pal', palette), ('--pre', prelight), ('--actor', actor), ('--used', used),
                     ('--scene', scene), ('--era', era), ('--brief', brief)):
         if v:

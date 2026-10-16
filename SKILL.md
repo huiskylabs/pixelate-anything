@@ -54,6 +54,7 @@ pixelate check FRAME.png --style S --scale N   the gate, one frame
 pixelate check SCENE --page             the gate, an engine scene
 pixelate build SCENE --release          live HTML page
 pixelate audio SCENE loop.wav|ogg       seamless music loop
+pixelate check TRACK.wav --style S --use loop|showcase|song   the music gate (any code made it)
 pixelate video SCENE out.mp4 --audio loop.wav [--scale S]
 pixelate gif SCENE out.gif
 ```
@@ -76,7 +77,7 @@ If the agent has no shell but has the MCP server, the same tools exist as MCP to
 - **Hand-place and keep it asymmetric.** Pick positions yourself; uniform scatter and symmetry read as generated.
 - **Outlines and one light direction.** Every form has a dark outline from its own ramp, a lit side and a shadow side.
 - **Look at every preview at zoom.** The usual failures are mush, noise, stripes, a subject too small, and a recolour sold as a variation. Fix them before adding more.
-- **Nothing is shown or delivered before the gate passes.** The frame gate checks budget, square pixels, palette (`--pal`, `--pre`), readability (`--actor`), allowed post ops (`--used`) and pixel craft (`--intent` marks deliberate flecks).
+- **Nothing is shown or delivered before the gate passes.** The frame gate checks budget, square pixels, palette (`--pal`, `--pre`), readability (`--actor`), allowed post ops (`--used`) and pixel craft (`--intent` marks deliberate flecks). The music gate does the same for sound: write the music yourself in any code, render it, `pixelate check TRACK.wav` until it passes (`guides/music.md`).
 - **Export at whole-number scales** with nearest neighbour, so pixels stay square. For video, use even scales, which keep colours exact.
 
 ## Layout

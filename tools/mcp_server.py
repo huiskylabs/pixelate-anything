@@ -33,7 +33,8 @@ Modes: rebuild (write_file + export_assets), classic-genre screens under console
 (guide('eras'), era to check), convert an image (pixelate_image), palettes (palette), sprites/characters/items/tilesets
 (new_project kind=assets, write .px files, export_assets), scenes and animated loops with a
 generative soundtrack (new_project kind=scene, preview_scene, check_scene, build_page,
-render_audio, render_video, render_gif), and music on its own (new_project kind=music, render_audio).
+render_audio, render_video, render_gif), and music on its own (new_project kind=music, render_audio). Every track goes through check_music
+until it passes, whatever code made it.
 For a new picture or scene, follow the flow: read the user's unstated intent, route_request (a hint,
 not the decision), write_brief and fill it, lint_brief, show the user the brief and its section 0 and
 wait for OK; then draw everything yourself in code, check_frame and redraw until it passes, show one
@@ -101,6 +102,20 @@ def check_frame(frame: str, style: str, scale: int = 1, palette: str = '', preli
             args += [flag, P(v) if flag != '--used' else v]
     code, text = cli(*args)
     return [('PASS\n' if code == 0 else 'FAIL\n') + text, thumb(P(frame))]
+
+@server.tool()
+def check_music(track: str, style: str = 'any', use: str = 'loop', bpm: float = 0, key: str = '') -> list:
+    """The music gate for a rendered track (any code made it): clipping, loudness, clicks, stereo,
+    silence, loop seam, band balance, tilt, dynamics, steady tempo, clear key, variety, a hook that
+    returns (use='showcase') and an arc. style: any, lofi, chiptune, ambient, orchestral, synthwave,
+    eastern. use: loop, showcase, song. Returns the report and an ear sheet (spectrogram, loudness,
+    pitch classes, bar similarity) to look at. Rewrite the music until every line passes."""
+    sheet = P(pathlib.Path(track).with_suffix('.sheet.png'), write=True)
+    args = ['check', P(track), '--style', style, '--use', use, '--sheet', sheet]
+    if bpm: args += ['--bpm', bpm]
+    if key: args += ['--key', key]
+    code, text = cli(*args)
+    return [('PASS\n' if code == 0 else 'FAIL\n') + text] + ([thumb(sheet)] if sheet.exists() else [])
 
 # ---------------------------------------------------------------- guides and files
 @server.tool()

@@ -1,5 +1,36 @@
 # Music: lofi, chiptune and ambient loops
 
+## Write it yourself, then pass the gate
+
+The styles below are what the engine's built-in phases already do, not a limit. Any music the
+picture asks for (16-bit strings, FM bass, synthwave, a pentatonic pluck, a dungeon drone) is
+written by you in code: new phases, new voices in `engine/audio.js`, your own Web Audio or Python
+synth, anything that renders a file. Then the gate listens to what came out:
+
+```
+pixelate check theme.wav --style chiptune --use showcase --bpm 140 --key Am --sheet ear.png
+```
+
+- `--use loop` (default): a background or game loop. Seamless wrap, no dead air, it must not repeat itself too soon.
+- `--use showcase`: a short piece people watch. It also needs a hook (a 5-note phrase that comes back at least 3 times) and an arc (it builds and releases).
+- `--use song`: a piece with an ending, with an arc but no wrap check.
+- `--style` (lofi, chiptune, ambient, orchestral, synthwave, eastern, or any) sets the mix limits: loudness, band balance, tilt, dynamics.
+- `--bpm` and `--key` are what your code asked for; the measured beat and key must match.
+
+Every line prints PASS or FAIL with the number and the limit, and says what a FAIL usually means
+(muddy, harsh, squashed, clicks at 12.3 s). Rewrite and render again until it all passes. Then LOOK
+at the ear sheet as you look at a frame preview: spectrogram, loudness, pitch classes and a bar-by-bar
+similarity grid (a bright checkerboard = the same bars over and over).
+
+### Self-critique (what numbers cannot hear)
+
+Before showing a track, answer these honestly and fix what fails:
+- **Your own melody.** Hum the hook. If it reminds you of a known game, film or song theme, rewrite it.
+- **It fits the picture.** Same mood, same era, same tempo of motion (a slow snowfall is not 160 bpm).
+- **Each section is a different moment.** A new instrument, register, rhythm or harmony, not only louder.
+- **The instruments belong to the style.** A Game Boy piece uses only two pulses, a wave and noise; a 16-bit piece can have strings and echo.
+- **Space.** The melody owns its register; chords and pads sit under it, not on top of it.
+
 `music.js` defines `SCENE_MUSIC = { phases: [...], trans: [...] }`, with one entry of
 each per phase, in the order of `config.js`. Every sound is synthesised (no samples, nothing to license).
 

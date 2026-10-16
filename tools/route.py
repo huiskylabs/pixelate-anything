@@ -331,14 +331,15 @@ def route(request, n=3):
 # The style decides how things are shaded; the subject decides what gets drawn. Each entry: the words
 # that bring it in and the kit calls that draw it.
 TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (note)', condition)
-    # conditions: 'iso' / 'topdown' / 'side' projection, 'post:OP' the style allows that light op,
+    # conditions: 'lofi' the JS-engine style, 'iso' / 'topdown' / 'side' projection, 'post:OP' the style allows that light op,
     # 'soft' the style has a light layer (alpha is fine), 'strict' it has none (opaque slots only)
     (['rain', 'storm', 'wet', 'puddle', '雨', '暴风', '湿', '水坑'], 'rain and wet', [
-        'fx.rain_cells (opaque streaks in palette slots)', 'texture.wet_streaks (speculars on up-facing edges)',
+        'fx.rain_cells (opaque streaks in palette slots)', 'fx.rain_splashes (crowns where those streaks land)', 'fx.splash_field', 'fx.ripple / fx.ripples (puddle rings)', 'fx.drip', 'texture.wet_streaks (speculars on up-facing edges)', ('particles.drizzle (lofi engine tables)', 'lofi'),
         'water.reflect (puddles)', ('fx.light_streaks (alpha streaks with a stepped tail)', 'soft'),
         ('Post.rain (screen-res hairlines)', 'post:rain')]),
     (['snow', 'winter', 'ice', '雪', '冬', '冰'], 'snow and ice', [
-        'texture.speckle (flakes on dark)', 'texture.stipple (drifts)', 'sky.strata (a flat winter sky)']),
+        'texture.speckle (flakes on dark)', 'texture.stipple (drifts)', 'sky.strata (a flat winter sky)',
+        ('particles.snow (lofi engine tables)', 'lofi')]),
     (['fog', 'mist', 'haze', '雾', '霭'], 'fog', [
         'palette.haze and haze_levels per depth plane', ('Post.fog', 'post:fog'),
         'canvas.wrap_offset for drifting banks (canvas.loop_dissolve in lofi only)']),
@@ -347,12 +348,14 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (n
       '码头'], 'water', [
         'water.depth_bands (sea by distance from land)', 'water.foam_rings (where things stand in water)',
         'water.reflect', 'water.pool (still basins)', 'water.waterfall', ('post.over (a translucent glaze)', 'post:over'),
-        'boats and docks: no prop yet, draw slot maps (a tool gap)']),
+        'props.boat (dory, sail, fishing; side or 3/4)', 'props.dock (jetty with piles, gaps, broken planks)',
+        'props.barrel', 'props.crate']),
     (['forest', 'tree', 'trees', 'garden', 'jungle', 'park', 'leaf', 'leaves', 'grass', 'bush', '森林', '树', '花园',
       '丛林', '公园', '叶', '草', '灌木'], 'foliage', [
         'texture.clumps (grass and bush clumps)', 'veg.fern', 'veg.vine', 'props.trunk',
         'veg.leaf_scales (round shingled canopies)', 'veg.leafmass (a leaf mass lining a frame)',
         'texture.leaflight (flecks in dark foliage)', 'shapes.lobes_along (far tree lines)',
+        ('particles.leaves / particles.petals / particles.fireflies (lofi engine tables)', 'lofi'),
         ('veg.leaf_glyphs (2:1 leaf glyphs, the iso sticker look)', 'iso')]),
     (['sky', 'cloud', 'clouds', 'sunset', 'dusk', 'dawn', '天空', '云', '日落', '黄昏', '清晨'], 'sky', [
         'sky.strata (flat undithered bands)', 'sky.wisp', 'sky.smile', 'sky.streaks',
@@ -360,21 +363,23 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (n
     (['cave', 'mine', 'rock', 'cliff', 'mountain', 'rubble', 'stone', 'underground', '洞', '矿', '岩', '悬崖', '山',
       '石', '地下'], 'rock', [
         'texture.stones (rubble, cave walls)', 'texture.flakes (layered rock)', 'texture.pebbles', 'shapes.ledges',
-        'shapes.noisy_edge', 'shapes.void_edge', 'props.rails, props.ladder and props.stairwell underground']),
+        'shapes.noisy_edge', 'shapes.void_edge', 'props.rails, props.ladder and props.stairwell underground',
+        'props.mine_cart / props.cart_on_rails', 'props.ore_node', 'props.crate', 'props.barrel']),
     (['city', 'town', 'street', 'building', 'house', 'houses', 'village', 'alley', 'castle', 'wall', 'brick', 'roof',
       '城', '镇', '街', '楼', '房', '村', '巷', '城堡', '墙', '砖', '屋顶'], 'buildings', [
         'layout.ashlar + texture.shade_cells (stone)', 'texture.bricks', 'texture.panels', 'texture.mottle',
         'texture.inset_frame (trim)', 'props.lantern (wall and paper lamps)', 'canvas.Canvas.catenary (cables, lines)',
         ("iso.Iso(camera='topdown') boxes and gables, with cast_shadows", 'topdown'),
         ('iso.Iso boxes, props.glass_streak for glass faces', 'iso'),
-        'roof shingles and plank walls: no texture yet (texture.bricks is the closest; a tool gap)']),
+        'texture.shingles (tiles, slate, shakes; slipped and missing tiles, moss)', 'texture.thatch',
+        'texture.planks (walls, floors, decks, board-and-batten)', 'props.pipe and props.drain', 'props.barrel']),
     (['industrial', 'factory', 'crane', 'construction', 'tower', '工厂', '吊车', '工地', '塔'], 'structure', [
         'props.girders', 'props.truss', 'texture.grille', 'texture.pits (concrete)']),
     (['tech', 'sci-fi', 'scifi', 'robot', 'mech', 'machine', 'computer', 'neon', 'space', 'cyberpunk', '科技', '科幻',
       '机器', '机甲', '电脑', '霓虹', '太空', '赛博'], 'tech', [
         'texture.circuit', 'texture.emitter_grid (lamp panels)', 'fx.indicator', 'texture.grille',
-        'fx.emissive (screens, tubes)', 'neon signs: glyphs.rune / glyphs.stamp for letters plus a glow where '
-        'allowed; no sign builder yet (a tool gap)']),
+        'fx.emissive (screens, tubes)', 'fx.neon_sign (tube letters with buzzing broken letters; returns the '
+        'emitter mask for a glow)', 'props.pipe', 'props.drain']),
     (['ruin', 'ruins', 'temple', 'rune', 'magic', 'spell', 'shrine', '遗迹', '神殿', '符文', '魔法', '法术', '神社'],
      'magic and ruins', [
         'glyphs.rune and glyphs.stamp', 'anim.cascade (runes lighting in turn)', 'fx.pixel_motes',
@@ -391,21 +396,23 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (n
         'props.lantern', 'light.flicker (held steps; pass t % T so the seam holds)', 'light.rim',
         'anim.chase (marquee and signal lights)', ('Post.lightmap (multiplied pools)', 'post:lightmap'),
         ('Post.light (shaped pools)', 'post:light'), ('Post.glow (from an emitter mask)', 'post:glow'),
-        ('light.Light.point / apply (pools drawn in palette steps)', 'strict')]),
+        ('light.Light.point / apply (pools drawn in palette steps)', 'strict'),
+        ('Post.lightmap occlude= (walls block light) and per-light flicker in the light tuple', 'post:lightmap')]),
     (['crowd', 'people', 'busy', 'traffic', 'market', 'festival', 'car', 'cars', '人群', '热闹', '车', '集市', '夜市',
       '庙会'], 'crowds', [
         ('compose.populate (traffic and crowds)', 'iso'), ('props.car', 'iso'), ('figures.iso_person', 'iso'),
         'compose.check_density']),
     (['cat', 'dog', 'deer', 'horse', 'animal', 'bird', 'birds', 'gull', 'gulls', 'seagull', 'crow', 'fish', '猫',
       '狗', '鹿', '马', '动物', '鸟', '海鸥', '乌鸦', '鱼'], 'animals', [
-        'figures.quadruped_slim (a slim deer; other animals are slot maps, a tool gap)',
+        'figures.cat (sit, sleep, walk, tail flicks)', 'figures.gull (perch, fly, far)',
+        'figures.quadruped_slim (a slim deer)',
         'anim.orbit (birds circling, fish)', 'anim.lag (tails)', 'sprite.drop_shadow']),
     (['slime', 'blob', '史莱姆', '黏液'], 'slimes', [
-        'anim.hop (squash-and-hop sizes per frame)', 'sprite.spec_edges', 'sprite.drop_shadow',
-        'the body itself: a slot-map dome, no drawer yet (a tool gap)']),
+        'anim.hop (squash-and-hop sizes per frame)', 'figures.slime (draws the dome from the hop)', 'sprite.drop_shadow']),
     (['person', 'people', 'character', 'hero', 'girl', 'boy', 'man', 'woman', 'kid', 'knight', 'samurai', 'walk',
       '人', '角色', '主角', '女孩', '男孩', '骑士', '武士', '走'], 'figures', [
-        'the style\'s figure (see section 11)', 'anim.lag (hair, capes, scarves)', 'sprite.chain (ropes, scarves)',
+        'the style\'s figure (see section 11)', ('figures.lofi (10-14 px diorama people: idle, walk, sit)', 'lofi'),
+        'figures.chibi size= and pose=\'sit\'', 'figures.thin hat= and sword=', 'anim.lag (hair, capes, scarves)', 'sprite.chain (ropes, scarves)',
         'sprite.drop_shadow', 'sprite.spec_edges', 'anim.hold / anim.Timeline for poses']),
 ]
 ALWAYS_TOOLS = ('checks: stats.budget_report (the style budget), anim.check_periods (every period divides the loop), '
@@ -435,6 +442,7 @@ CATALOG = [('post', 'the light layer: Post (none/native/screen), Stack (depth pl
            ('artlib', 'slot-map sprites for the lofi JS engine: Grid, stamping, orphan checks, export to sprites.js'),
            ('era', 'console-era limits (NES, Game Boy, SNES, Genesis, GBA, PICO-8, Neo Geo): check and force'),
            ('pixfont', 'the pixel font for HUD and captions'),
+           ('particles', 'lofi particles baked to engine tables: petals, leaves, snow, drizzle, fireflies'),
            ('cjkfont', 'a CJK pixel font for Chinese and Japanese text')]
 
 def catalog():
@@ -475,6 +483,8 @@ def _fits(cond, style, projection):
     st = styles.get(style)
     if cond in ('iso', 'topdown', 'side'):
         return {'iso': '2:1 iso', 'topdown': '3/4 top-down', 'side': 'side'}[cond] == projection
+    if cond == 'lofi':
+        return style == 'lofi'
     if cond == 'soft':
         return st['res'] != 'none'
     if cond == 'strict':
@@ -670,7 +680,7 @@ def lint(text):
 
 KIT_MODULES = ('post', 'light', 'palette', 'texture', 'layout', 'shapes', 'figures', 'props', 'compose', 'anim',
                'sprite', 'fx', 'glyphs', 'sky', 'veg', 'water', 'canvas', 'morph', 'stats', 'styles', 'assets',
-               'iso', 'artlib', 'era', 'pixfont', 'cjkfont')
+               'iso', 'artlib', 'era', 'pixfont', 'cjkfont', 'particles')
 
 def _tool_refs(text):
     """every `module.name` (or `module.Class.name`) in backticks must exist in the kit"""

@@ -83,3 +83,65 @@ Outputs:
 - **Signature elements for each phase**, not just a recolour.
 - **Sparse, layered weather.** Wide dithers (10-16 rows) in gradients.
 - **The subject fills about half the frame width.** Calm areas let the eye rest.
+
+## Using the Python kit in a lofi scene
+
+The lofi style plays in the JS engine, but every drawing tool in the kit is Python. The bridge
+is the scene's art modules (`my-scene/art/*.py`): `pixelate sprites my-scene` runs each
+module's `export()` and writes `sprites.js`. Two rules:
+
+- **Kit drawings become engine sprites.** Kit tools draw into a `canvas.Canvas` (its slot array
+  is `c.g`, `None` = transparent) or a plain slot grid. Copy it into an `artlib.Grid` with
+  `sprite.paste(grid, c.g, x0, y0)` and return `('sprite', name, [Grid, ...], ax, ay)`; the
+  generator writes it with `artlib.to_js`. Use the scene's slot names (the ones in
+  `palettes.js`): a tool that writes its own ramps (`fx.PALETTE`, such as `fire0..fire6`) needs
+  those slots added to every phase palette or renamed through its slot arguments, or
+  `pixelate check` reports unknown keys. Lofi allows no post ops, so nothing from `post.Post`
+  or alpha glazes crosses over.
+- **Python motion does not run in the page; bake it.** `anim.*`, `fx.*` with `t`, `sprite.chain`,
+  `canvas.drift` and the rest are pure functions of `t`, so call them once per drawing and ship
+  the drawings as frames (pick one in `scene.js` with a slow clock: `((k / 6) | 0) % n`), or ship
+  positions as a table through `('const', NAME, 'js literal')`. Every baked period must divide
+  `TICKS` (frames x hold), or `TICKS / 2` on the 15 Hz particle clock; `anim.check_periods`
+  says which do not.
+
+`tools/particles.py` bakes lofi weather this way: `petals`, `leaves`, `snow`, `drizzle` and
+`fireflies` each return a Field with hand-keyed drawings and per-particle tables whose periods
+divide `TICKS / 2`, so the particles loop exactly. `Field.export(NAME)` returns the drawings, the
+table and the engine helper `drawBaked`; `Field.grid(k2, W, H)` previews a step in Python.
+
+```python
+# my-scene/art/art_kit.py
+import anim, canvas, sprite, particles
+from artlib import Grid
+
+TICKS = 96 * 2 * 30                                  # cycle * grand * 30, as in config.js
+
+def buoy(t):
+    """one drawing of a bell buoy, bobbing 1 px"""
+    c = canvas.Canvas(9, 14)
+    dy = anim.stepped_sin(t, 8, amp=1, hold=1)
+    c.rect(2, 6 + dy, 6, 12 + dy, 'R2')
+    c.vline(4, 1 + dy, 5 + dy, 'K1')
+    c.outline(c.mask_of('R'), 'K0')
+    return c
+
+def to_grid(c):
+    g = Grid(c.W, c.H)
+    sprite.paste(g, c.g, 0, 0)                       # Canvas slots -> artlib.Grid
+    return g
+
+def export():
+    frames = [to_grid(buoy(t)) for t in range(8)]    # the bob, baked into 8 drawings
+    anim.check_periods(TICKS, {'buoy': 8 * 6})       # 8 drawings held 6 ticks each
+    rain = particles.drizzle(320, 180, T2=TICKS // 2)
+    return [('sprite', 'buoy', frames, 4, 13)] + rain.export('DRIZZLE')
+```
+
+```js
+// scene.js / fx.js
+blit(OB, SPR.buoy, 210, 150, ((k / 6) | 0) % 8);                 // in sceneObjects
+function sceneParticles(si, k, dens, out, D) {
+  if (si === DAWN) drawBaked(DRIZZLE, k >> 1, dens, out, D);     // fades with dens in a dissolve
+}
+```

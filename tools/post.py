@@ -54,7 +54,7 @@ Coordinates, radii and sigmas are in 1x art pixels, so they match the scene code
 of the ten references uses them; the style presets (tools/styles.py, guides/styles.md) say which
 ops a style allows. Don't use this module to rescue weak pixel art.
 """
-import math, pathlib, sys
+import hashlib, math, pathlib, sys
 import numpy as np
 from PIL import Image, ImageDraw
 
@@ -156,6 +156,56 @@ def _flicker(t, T, seed=0, hold=3, amount=0.06):
     """light.flicker, but periodic: held for `hold` frames and wrapped into the loop"""
     k = int(_wrap_t(t, T) // hold)
     return 1.0 + amount * (2.0 * float(_hash2(k, 7, seed + 101)) - 1.0)
+
+_VIS1, _VISW = {}, {}                       # occlusion caches: 1x visibility, and lifted
+
+def _cache_put(d, key, val, limit):
+    if len(d) >= limit:
+        d.pop(next(iter(d)))
+    d[key] = val
+    return val
+
+def visibility(block, x, y, reach, cell=1, near=1.5):
+    """a 1x visibility map of a point light: 1 where the straight line from the pixel centre to
+    (x, y) crosses no blocker pixel, 0 in its shadow (Stardew's mine walls, Katana ZERO's door
+    frames: lamp pools stop at the wall, the wall's own face still catches the light).
+    block: a 1x bool mask (walls, crates, the near boulder). Only pixels within `reach` px
+    (a box) are tested; the rest stay 1. Marches each ray in steps of at most 1 px; the target
+    pixel itself and anything within `near` px of the source never block, so a light set on a
+    lamp drawn into a wall still shines. cell > 1 tests every cell-th pixel (a coarse grid) and
+    resizes the result bicubically (softer, faster). Cached per (mask, light, reach, cell)."""
+    block = np.asarray(block, bool)
+    H, W = block.shape
+    key = (block.shape, block.tobytes() if block.size < 4096 else
+           hashlib.sha1(np.packbits(block).tobytes()).digest(),
+           round(float(x), 3), round(float(y), 3), round(float(reach), 3), int(cell), float(near))
+    hit = _VIS1.get(key)
+    if hit is not None:
+        return hit
+    vis = np.ones((H, W), np.float32)
+    x0, x1 = max(0, int(math.floor(x - reach))), min(W, int(math.ceil(x + reach)))
+    y0, y1 = max(0, int(math.floor(y - reach))), min(H, int(math.ceil(y + reach)))
+    if x1 > x0 and y1 > y0 and block.any():
+        cell = max(1, int(cell))
+        cols, rows = np.arange(x0, x1, cell), np.arange(y0, y1, cell)
+        ti, tj = np.meshgrid(rows, cols, indexing='ij')
+        tx, ty = tj + 0.5, ti + 0.5
+        dx, dy = x - tx, y - ty
+        d = np.hypot(dx, dy)
+        n = int(math.ceil(d.max())) + 1
+        shadow = np.zeros(tx.shape, bool)
+        for k in range(1, n):
+            f = k / n
+            px, py = tx + f * dx, ty + f * dy
+            ix, iy = np.floor(px).astype(np.int64), np.floor(py).astype(np.int64)
+            ok = (ix >= 0) & (ix < W) & (iy >= 0) & (iy < H) & ~((ix == tj) & (iy == ti))
+            ok &= (1 - f) * d >= near                     # distance from this sample to the light
+            shadow |= ok & block[np.clip(iy, 0, H - 1), np.clip(ix, 0, W - 1)]
+        v = (~shadow).astype(np.float32)
+        if cell > 1:
+            v = np.clip(smooth_up(v, len(cols) * cell, len(rows) * cell), 0, 1)
+        vis[y0:y1, x0:x1] = v[:y1 - y0, :x1 - x0]
+    return _cache_put(_VIS1, key, vis, 64)
 
 def _smoothstep(e0, e1, x):
     if e1 == e0:
@@ -484,7 +534,7 @@ class Post:
         return self
 
     def lightmap(self, ambient=0.3, lights=(), cap=1.3, geo=None, levels=None, t=None, T=None,
-                 flicker=0.06, hold=3, keep=None, behind=None):
+                 flicker=0.06, hold=3, keep=None, behind=None, occlude=None, occlude_cell=1):
         """multiplicative light: L = ambient + sum(gain * colour * gauss), clipped to cap, and
         out = frame * L, so black stays black and overlapping pools add (Stardew's mine: ambient
         (0.30, 0.33, 0.36), lamps sigma 18, colour (1, .85, .45), gain ~1, 4x the ambient at the
@@ -493,15 +543,34 @@ class Post:
         1x array or callable(xx, yy). geo: a 1x weight on the lamps only (wall 1, floor 0.15,
         void 0). levels: quantise L to 1/levels steps (bounds the colour count). With t and T the
         gains flicker by +-flicker, held `hold` frames (T % hold == 0 keeps the seam a hold).
-        keep (or behind, the Stack spelling): a 1x mask left untouched (lamp cores, UI)."""
+        keep (or behind, the Stack spelling): a 1x mask left untouched (lamp cores, UI).
+        Per-light flicker: a light may carry a 6th and 7th item, (..., gain, flicker, hold), or
+        (..., gain, (flicker, hold)); None or a missing item falls back to the call's flicker /
+        hold (a sputtering wick: (432, 72, 16, (1, .8, .42), 0.7, 0.25, 2); steady: 0).
+        occlude: a 1x blocker mask (walls, crates); a light does not pass through it (see
+        visibility(); hard 1x shadow edges at res='native', softened inside the art pixel at
+        res='screen'). occlude_cell: test every n-th pixel (coarse, soft). Cached per light."""
         keep = _either(keep, behind)
         L = self._field3(ambient)
         g = None if geo is None else self.up(np.asarray(geo, float))         # crisp: art edges
+        blk = None if occlude is None else self._crop1x(np.asarray(occlude, bool))
         for i, lt in enumerate(lights):
             x, y, sig, colour, gain = lt[:5]
             sx, sy = (sig, sig) if np.isscalar(sig) else sig
-            if t is not None and flicker:
-                f = _flicker(t, T, seed=i, hold=hold, amount=flicker)
+            amt, hd = flicker, hold
+            if len(lt) > 5 and lt[5] is not None:
+                if np.isscalar(lt[5]):
+                    amt = lt[5]
+                else:
+                    amt, hd = lt[5]
+            if len(lt) > 6 and lt[6] is not None:
+                hd = lt[6]
+            vis = None
+            if blk is not None:                           # unflickered reach: cached across t
+                vis = self._occlusion(blk, x, y, 4.0 * max(sx, sy) * (1 + 0.3 * abs(amt or 0)) + 1,
+                                      occlude_cell)
+            if t is not None and amt:
+                f = _flicker(t, T, seed=i, hold=hd, amount=amt)
                 gain, sx, sy = gain * f, sx * (1 + 0.3 * (f - 1)), sy * (1 + 0.3 * (f - 1))
             box = self._box(x - 4 * sx, y - 4 * sy, x + 4 * sx, y + 4 * sy)
             if box is None:
@@ -510,6 +579,8 @@ class Post:
             k = gain * np.exp(-0.5 * ((xs - x) / sx) ** 2) * np.exp(-0.5 * ((ys - y) / sy) ** 2)
             if g is not None:
                 k = k * g[sl]
+            if vis is not None:
+                k = k * vis[sl]
             L[sl] += (k[..., None] * rgbf(colour)).astype(np.float32)
         np.clip(L, 0, cap if cap is not None else np.inf, out=L)
         if levels:
@@ -520,6 +591,19 @@ class Post:
             out[km] = self.a[km]
         self.a = out.astype(np.float32, copy=False)
         return self
+
+    def _occlusion(self, blk, x, y, reach, cell):
+        """visibility() of one light at working resolution (nearest at native, bicubic at
+        screen), cached with the view so a 96-frame loop computes each light once"""
+        vis = visibility(blk, x, y, reach, cell)
+        key = (id(vis), self.s, self.res, self._view and tuple(self._view[:4]), self.H, self.W)
+        hit = _VISW.get(key)
+        if hit is not None and hit[0] is vis:
+            return hit[1]
+        up = self._lift(vis, smooth=self.res == 'screen')
+        up = np.clip(up, 0, 1).astype(np.float32) if self.s > 1 else up
+        _cache_put(_VISW, key, (vis, up), 16)
+        return up
 
     def ambient(self, amb, keep=None, behind=None):
         """multiply the frame by an ambient map: a number, colour, 1x array or callable(xx, yy)

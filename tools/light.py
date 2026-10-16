@@ -35,8 +35,12 @@ import morph
 
 BAYER4 = np.array([0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]).reshape(4, 4)
 
-def flicker(t, seed=0, hold=3, amount=0.15):
-    """a stepped flicker factor around 1.0, held for `hold` frames (flame reads as flame)"""
+def flicker(t, seed=0, hold=3, amount=0.15, T=None):
+    """a stepped flicker factor around 1.0, held for `hold` frames (flame reads as flame).
+    T: the loop length; t is wrapped into [0, T) so flicker(T) == flicker(0) and the loop is
+    seamless (pick T % hold == 0 so the last hold is as long as the others; None: no wrap)."""
+    if T:
+        t = t % T
     k = int(t // hold)
     h = ((k * 374761393 + seed * 668265263) & 0xFFFFFFFF)
     h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF

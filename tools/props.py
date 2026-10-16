@@ -1,4 +1,5 @@
-"""Prop kits: vehicles, tyres, poles, trunks, rails, ladders, lanterns, girders and stairwells.
+"""Prop kits: vehicles, tyres, poles, trunks, rails, ladders, lanterns, girders, stairwells,
+boats, docks, mine carts, crates, barrels, ore rocks, pipes and drains.
 
     import props
     from iso import Iso
@@ -11,12 +12,22 @@
     props.ladder(c, 200, 40, 120); props.lantern(c, 230, 60)        # lantern cores are lamp* slots
     props.girders(c, 300, 0, 380, 120, seed=2)                     # dark structure (06)
     m = props.stairwell(c, 209, 127, 273, 184)                     # stairs into black (03)
+    props.boat('dory', view='3q', oars=True).stamp(c, 120, 146)    # Figures with .points (04)
+    props.dock(c, 214, 268, 128, bottom=150, missing=(-3,), short={6: 3}, posts=(8,))
+    props.cart_on_rails(c, [(10, 150), (120, 150)], 40, load=0.6)   # a cart riding props.rails (10)
+    props.crate(kind='slat').stamp(c, 352, 148); props.barrel(lid=False).stamp(c, 380, 148)
+    props.ore_node(ore='ore', seed=4).stamp(c, 300, 200)           # rock with ore flecks (10)
+    run = props.pipe(c, [(0, 40), (60, 40), (60, 90)], end='open')  # run['drips'] for fx (09)
+    props.drain(c, 140, 160, kind='floor')
 
 Learned from: 07 Freitas (cars built from boxes with streaked glass and upright 10 x 17 tyre
 ovals, column-banded poles and trunks), 10 Stardew Valley (3-row rails 8 px apart with ties every
 8 px and filleted corners, the ladder, the 6 x 9 wall lantern), 06 Into the Breach (near-black
 girders a step above the dark, lattice towers), 03 Hyper Light Drifter (treads stepping into a
-black void, brighter each step toward the viewer).
+black void, brighter each step toward the viewer), 04 Sea of Stars (hulls as a sheer line with
+1 px plank seams and a lit gunwale, jetties as a piling rhythm), 10 again (the mine cart, ore
+rocks, crates and barrels as flat lit planes), 09 Katana ZERO (banded alley pipes, grates).
+Every design is original: the craft is learned, no game's boats, carts or items are copied.
 
 Sprites come back as figures.Figure (g plus the anchor, the ground point), Canvas helpers paint
 in place and return their masks. Slots are ramp names plus a step: car paint uses the Iso 5-step
@@ -30,7 +41,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from figures import Figure, _P, _outline, _h, _bresenham
 
 __all__ = ['car', 'tyre', 'pole', 'trunk', 'rails', 'ladder', 'lantern', 'girders', 'truss',
-           'stairwell', 'glass_streak', 'PALETTE', 'PAINTS']
+           'stairwell', 'glass_streak', 'boat', 'dock', 'mine_cart', 'rail_point', 'cart_on_rails',
+           'crate', 'barrel', 'ore_node', 'pipe', 'drain', 'BOATS', 'PALETTE', 'PAINTS']
 
 PAINTS = ('pink', 'teal', 'yellow', 'red', 'green', 'white', 'violet', 'orange')
 
@@ -604,6 +616,795 @@ def stairwell(c, x0, y0, x1, y1, void_rows=17, tread=3, riser=2, ramp='step', vo
         out['void'] &= ~m
     return out
 
+# ---------------------------------------------------------------- shared helpers for sprite props
+def _fig(g, ax, ay, points=None, parts=None):
+    """crop a padded slot grid to its drawn box (1 px kept for nothing: the outline is already in)
+    and return a Figure with .points (named (x, y) spots, figure-local) shifted to match"""
+    m = ~np.equal(g, None)
+    ys, xs = np.nonzero(m)
+    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    f = Figure(g[y0:y1, x0:x1].copy(), ax - x0, ay - y0,
+               {k: v[y0:y1, x0:x1].copy() for k, v in (parts or {}).items()})
+    f.points = _move_pts(points or {}, -x0, -y0)
+    return f
+
+def _move_pts(points, dx, dy, mirror_w=None):
+    def mv(p):
+        x, y = int(p[0]) + dx, int(p[1]) + dy
+        return (int(mirror_w - 1 - x) if mirror_w is not None else int(x), int(y))
+    return {k: ([mv(p) for p in v] if isinstance(v, list) else mv(v)) for k, v in points.items()}
+
+def _flip_fig(f):
+    """Figure.flip that also mirrors .points"""
+    g = f.flip()
+    g.points = _move_pts(getattr(f, 'points', {}), 0, 0, mirror_w=f.w)
+    return g
+
+def _ol(g, outline, ol, parts=None):
+    if outline:
+        _outline(g, outline if outline in ('slot', 'part') else 'slot', ol=ol)
+
+# ---------------------------------------------------------------- 04 boats
+BOATS = {
+    # L: length; rise: sheer rise (stern, bow) above the low point at u = low; free: freeboard at the
+    # low point; draft: rows under the waterline; stem / stern: columns the stem rakes and the
+    # transom rakes over; transom: share of the stern depth the transom keeps; fore: forefoot curve;
+    # beam: 3/4 view interior depth in px; tw: transom width share; plank: plank height in px
+    'dory': dict(L=26, rise=(2, 3), free=3, draft=1, low=0.45, stem=6, stern=2, transom=0.5, fore=1.0,
+                 beam=3, tw=0.4, plank=2, thwarts=(0.3, 0.6), mast=0, mast_at=0.68, mast_w=1),
+    'sail': dict(L=40, rise=(1, 3), free=4, draft=2, low=0.5, stem=9, stern=4, transom=0.45, fore=1.4,
+                 beam=5, tw=0.5, plank=2, thwarts=(0.24,), mast=30, mast_at=0.62, mast_w=2),
+    'fishing': dict(L=48, rise=(1, 4), free=6, draft=2, low=0.4, stem=7, stern=2, transom=0.8, fore=1.4,
+                    beam=7, tw=0.75, plank=3, thwarts=(), mast=16, mast_at=0.74, mast_w=2,
+                    house=(0.14, 0.40, 8)),
+}
+
+def boat(kind='dory', view='side', length=None, facing='right', mast=None, sail=None, oars=False,
+         hull='hull', wood='wood', stripe='trim', bottom='bottom', canvas_='sail', house='house',
+         glass=('glass2', 'glass3'), rope='rope', outline='slot', ol='ol'):
+    """a moored boat, side or 3/4 view (04 Sea of Stars harbour: hulls drawn as a sheer line,
+    1 px plank seams, a lit gunwale and a waterline stripe; every design original). kind: 'dory'
+    (26 px, strong sheer, raked stem and narrow transom, two thwarts), 'sail' (40 px, a mast and
+    a boom), 'fishing' (48 px, a high bow, a wheelhouse with windows and a short mast with a
+    crosstree). view 'side' or '3q' (the far gunwale and the inside show above the near one, with
+    the thwarts). length rescales the hull. mast: px tall (None = the kind's default, 0 = none;
+    a dory takes e.g. mast=14). sail: 'furled' (on the boom, the sail kind's default), 'up' (a
+    triangle) or None. oars=True rests an oar in its thole (dory). Slots: hull0-3 (hull3 the lit
+    gunwale, hull1 the seams), trim2 (the waterline stripe), bottom0-1 (below the waterline),
+    wood0-3 (inside, thwarts, spars), sail1-3, house0-3, glass, rope. Ropes and the mast are drawn
+    after the outline, so they stay 1-2 px. Returns a Figure anchored at the hull's middle on the
+    waterline row; parts {'hull', 'below', 'inside', 'house', 'sail'}; .points {'bow', 'stern',
+    'mast_top', 'seats', 'thole', 'deck'} for mooring lines, pennants and figures."""
+    K = dict(BOATS[kind])
+    if length:
+        sc = length / float(K['L'])
+        K['L'] = int(length)
+        K['stem'] = max(2, int(round(K['stem'] * sc)))
+        K['stern'] = max(1, int(round(K['stern'] * sc)))
+    L = K['L']
+    if mast is None:
+        mast = K['mast']
+    if sail is None and kind == 'sail':
+        sail = 'furled'
+    q = view in ('3q', '3/4')
+    W, PAD, HEAD = L + 24, 12, mast + 30
+    P = _P(W, HEAD + 16, oy=HEAD)                       # local y = 0 is the waterline row
+    r = lambda b, k: '%s%d' % (b, k)
+    xs = np.arange(L)
+    u = xs / float(L - 1)
+    m = K['low']
+    rs, rb = K['rise']
+    top = np.where(u < m, -K['free'] - rs * ((m - u) / m) ** 2,
+                   -K['free'] - rb * ((u - m) / (1 - m)) ** 2)
+    top = np.round(top).astype(int)
+    bot = np.full(L, K['draft'])
+    st, sn = K['stem'], K['stern']
+    for x in range(L - st, L):                          # the stem rakes up to a 1 px head
+        t = (x - (L - 1 - st)) / float(st)
+        bot[x] = int(round(K['draft'] + (top[x] - K['draft']) * t ** K['fore']))
+    b0 = top[0] + int(round(K['transom'] * (K['draft'] - top[0])))
+    for x in range(0, sn):                              # the transom rakes aft at the top
+        t = 1 - x / float(sn)
+        bot[x] = int(round(K['draft'] + (b0 - K['draft']) * t))
+    bot = np.maximum(bot, top)
+    X = lambda x: x + PAD
+    # plan half-beam for the 3/4 view: 0 at the stem, tw * beam at the transom
+    bm = np.where(u > m, K['beam'] * (1 - ((u - m) / (1 - m)) ** 2),
+                  K['beam'] * (1 - (1 - K['tw']) * ((m - u) / m) ** 2))
+    far = top - (np.round(bm).astype(int) if q else 0)
+    parts = {k: np.zeros(P.g.shape, bool) for k in ('hull', 'below', 'inside', 'house', 'sail')}
+    def mark(name, x, y):
+        yy = y + P.oy
+        if 0 <= x < W and 0 <= yy < P.H:
+            parts[name][yy, x] = True
+    pts = {'bow': (X(L - 1), int(top[-1])), 'stern': (X(0), int(top[0])), 'seats': []}
+    if q:                                               # the inside: far rail, far inner face, floor
+        for x in range(L):
+            if far[x] >= top[x]:
+                continue
+            P.put(X(x), far[x], r(hull, 2))
+            mark('hull', X(x), far[x])
+            for y in range(far[x] + 1, top[x]):
+                P.put(X(x), y, r(wood, 2) if y == far[x] + 1 else r(wood, 1))
+                mark('inside', X(x), y)
+            if x == 0:                                  # the transom's inner face
+                for y in range(far[x] + 1, top[x]):
+                    P.put(X(x), y, r(hull, 2))
+        for tu in K['thwarts']:
+            xt = int(round(tu * (L - 1)))
+            for dx in (0, 1):
+                for y in range(far[xt + dx] + 2, top[xt + dx]):
+                    P.put(X(xt + dx), y, r(wood, 3))
+            pts['seats'].append((X(xt), int((far[xt] + top[xt]) // 2)))
+    elif K['thwarts']:
+        for tu in K['thwarts']:
+            xt = int(round(tu * (L - 1)))
+            pts['seats'].append((X(xt), int(top[xt]) - 1))
+    if K.get('house'):                                  # the wheelhouse, behind the near rail
+        h0, h1, hh = K['house']
+        x0, x1 = int(round(h0 * L)), int(round(h1 * L))
+        base = int(top[x0:x1 + 1].max())
+        if q:
+            base = int((far[x0:x1 + 1].max() + top[x0:x1 + 1].max()) // 2) + 1
+        yr = base - hh
+        roof = 2 if q else 1
+        if q:                                           # the roof's top face
+            P.rect(X(x0), yr - 1, X(x1 + 1), yr, r(house, 3))
+        P.rect(X(x0 - 1), yr, X(x1 + 2), yr + 1, r(house, 2 if q else 3))
+        P.rect(X(x0), yr + 1, X(x1 + 1), base + 1, r(house, 2))
+        P.rect(X(x0), yr + 1, X(x0 + 1), base + 1, r(house, 3))
+        P.rect(X(x1), yr + 1, X(x1 + 1), base + 1, r(house, 1))
+        P.rect(X(x0), yr + 1, X(x1 + 1), yr + 2, r(house, 0))
+        for px in range(x0 + 2, x1 - 1, 4):            # 3 px panes, 1 px mullions
+            n = min(3, x1 - 1 - px)
+            if n >= 2:
+                P.rect(X(px), yr + 3, X(px + n), yr + 5, glass[0])
+                P.put(X(px), yr + 3, glass[1])
+        for y in range(yr - roof + 1, base + 1):
+            for x in range(x0 - 1, x1 + 2):
+                if P.get(X(x), y) is not None and str(P.get(X(x), y)).startswith(house):
+                    mark('house', X(x), y)
+        pts['roof'] = (X(x1), yr - roof + 1)
+    for x in range(L):                                  # the hull side: rail, planks, stripe, bottom
+        for y in range(top[x], bot[x] + 1):
+            d = y - top[x]
+            if y >= 1:
+                v = r(bottom, 0 if y == bot[x] else 1)
+                mark('below', X(x), y)
+            elif y == 0:
+                v = '%s2' % stripe
+            elif d == 0:
+                v = r(hull, 3)
+            elif (d - 1) % K['plank'] == K['plank'] - 1:
+                v = r(hull, 1)
+            else:
+                v = r(hull, 2)
+            P.put(X(x), y, v)
+            mark('hull', X(x), y)
+    xm = int(round(K['mast_at'] * (L - 1)))
+    foot = int(top[xm]) if not q else int((far[xm] + top[xm]) // 2)
+    mtop = foot - mast
+    if mast and sail in ('furled', 'up'):               # spars and sail join the outlined silhouette
+        yb = foot - 4
+        xb = int(round(0.1 * (L - 1)))
+        P.rect(X(xb), yb, X(xm), yb + 1, r(wood, 2))
+        if sail == 'furled':
+            P.rect(X(xb + 1), yb - 2, X(xm - 1), yb - 1, '%s3' % canvas_)
+            P.rect(X(xb + 1), yb - 1, X(xm - 1), yb, '%s2' % canvas_)
+            for x in range(xb + 3, xm - 2, 5):          # sail ties
+                P.put(X(x), yb - 2, '%s1' % canvas_); P.put(X(x), yb - 1, '%s1' % canvas_)
+        else:
+            for y in range(mtop + 2, yb):
+                f = (y - (mtop + 2)) / float(max(1, yb - 1 - (mtop + 2)))
+                xl = int(round(xm - 1 - f * (xm - 1 - xb)))
+                P.rect(X(xl), y, X(xm), y + 1, '%s2' % canvas_)
+                P.put(X(xl), y, '%s3' % canvas_)        # the lit leech
+            P.rect(X(xb + 1), yb - 1, X(xm), yb, '%s1' % canvas_)
+        for y in range(mtop, yb + 1):
+            for x in range(xb, xm):
+                if P.get(X(x), y) is not None and str(P.get(X(x), y)).startswith(canvas_):
+                    mark('sail', X(x), y)
+        pts['boom_end'] = (X(xb), yb)
+    _ol(P.g, outline, ol)
+    if mast:                                            # after the outline: a 1-2 px spar
+        if K['mast_w'] >= 2 and mast > 8:
+            P.rect(X(xm), mtop, X(xm + 1), foot, r(wood, 3))
+            P.rect(X(xm + 1), mtop, X(xm + 2), foot, r(wood, 1))
+        else:
+            P.rect(X(xm), mtop, X(xm + 1), foot, r(wood, 2))
+        pts['mast_top'] = (X(xm), mtop)
+        if kind != 'dory':
+            P.line(X(xm), mtop + 1, X(L - 1), int(top[-1]) - 1, rope)          # forestay
+        if 'boom_end' in pts:
+            P.line(X(xm) - 1, mtop + 1, pts['boom_end'][0], pts['boom_end'][1] - 3, rope)  # topping lift
+        if kind == 'fishing':
+            P.rect(X(xm - 2), mtop + 3, X(xm + 4), mtop + 4, r(wood, 2))     # crosstree
+            if 'roof' in pts:
+                P.line(X(xm) - 1, mtop + 4, pts['roof'][0] + 1, pts['roof'][1] - 1, rope)
+    if oars:
+        xo = int(round(0.5 * (L - 1)))
+        yo = int(top[xo])
+        P.put(X(xo), yo - 1, r(wood, 1))                # the thole pin
+        P.line(X(xo - 4), yo - 2, X(xo + 5), 0, r(wood, 3))
+        P.rect(X(xo + 5), 0, X(xo + 8), 2, r(wood, 3))  # the blade at the water
+        pts['thole'] = (X(xo), yo - 1)
+    pts['deck'] = (X(L // 2), int(top[L // 2]) - (1 if not q else int(bm[L // 2]) // 2))
+    f = _fig(P.g, X(L // 2), P.oy, {k: (v[0], v[1] + P.oy) if not isinstance(v, list)
+                                    else [(a, b + P.oy) for a, b in v] for k, v in pts.items()},
+             parts)
+    return _flip_fig(f) if facing == 'left' else f
+
+# ---------------------------------------------------------------- 04 dock / jetty
+def dock(c, x0, x1, y, bottom, top=2, face=3, plank=4, pile_every=6, pile_w=2, missing=(), broken=(),
+         short=None, posts=(), braces=False, wood='wood', nail='nail', seed=0):
+    """a wooden jetty seen from the side, slightly from above (04 Sea of Stars quays and jetties:
+    plank seams, a lit deck edge, a piling rhythm with one break): `top` rows of deck surface from
+    row y (planks across the jetty, `plank` px each with a 1 px wood1 seam, a hashed few a step
+    darker; top >= 6 is a top-down deck with nail rows), a `face` px stringer under it (wood2,
+    a wood0 shadow row, a nail where each pile is bolted), piles every `pile_every` px from the
+    stringer down to `bottom` (pile_w px: wood2 lit left, wood1 between, wood0 right). missing: plank
+    indices left out (negative counts from the end; the background shows through), broken:
+    plank indices drawn cracked and sagging 1 px, short: {pile index: px shorter}, posts: pile
+    indices that stand 3 px above the deck as mooring posts, braces: an X brace in every other
+    bay. Returns {'mask', 'deck', 'piles' (masks), 'pile_x', 'gaps' [(x0, x1)], 'posts' [(x, y)]}."""
+    r = lambda k: '%s%d' % (wood, k)
+    H, W = c.g.shape
+    before = c.g.copy()
+    nplank = max(1, int(math.ceil((x1 - x0) / float(plank))))
+    norm = lambda s: set(i % nplank for i in s)
+    miss, brk = norm(missing), norm(broken)
+    short = short or {}
+    ys0 = y + top                                        # stringer top
+    piles = []
+    px = int(x0) + 1
+    while px + pile_w <= x1 - 1:
+        piles.append(px)
+        px += pile_every
+    if piles and x1 - 1 - pile_w - piles[-1] > pile_every // 2:
+        piles.append(int(x1) - 1 - pile_w)
+    pile_mask = np.zeros((H, W), bool)
+    if braces:
+        for k in range(0, len(piles) - 1, 2):
+            a, b = piles[k] + pile_w, piles[k + 1] - 1
+            yb0, yb1 = ys0 + face + 1, min(bottom, ys0 + face + 1 + (b - a))
+            c.line(a, yb0, b, yb1, r(1)); c.line(a, yb1, b, yb0, r(1))
+    cols = [2] + [1] * (pile_w - 2) + [0] if pile_w >= 3 else [2, 0][:pile_w]
+    out_posts = []
+    for k, px in enumerate(piles):
+        ye = bottom - int(short.get(k, 0))
+        for i in range(pile_w):
+            c.rect(px + i, ys0, px + i + 1, ye, r(cols[i]))
+        pile_mask[max(0, ys0):max(0, ye), max(0, px):px + pile_w] = True
+    deck = np.zeros((H, W), bool)
+    gaps = []
+    for i in range(nplank):
+        a, b = int(x0) + i * plank, min(int(x1), int(x0) + (i + 1) * plank)
+        if i in miss:
+            gaps.append((a, b))
+            continue
+        tone = 2 if _h(i, 11, seed) < 0.18 else 3
+        sag = 1 if i in brk else 0
+        for x in range(a, b):
+            seam = x == b - 1
+            crack = sag and x == a + (b - a) // 2
+            for j in range(top):
+                yy = y + j
+                if sag and x > a + (b - a) // 2:
+                    if j == 0:
+                        continue                         # the broken half drops a row
+                if crack:
+                    v = r(0)
+                elif seam:
+                    v = r(1)
+                elif top >= 6 and (j in (1, top - 2)) and x == a + 1:
+                    v = nail
+                else:
+                    v = r(tone)
+                c.put(x, yy, v)
+                if 0 <= x < W and 0 <= yy < H:
+                    deck[yy, x] = True
+    c.rect(x0, ys0, x1, ys0 + face - 1, r(2))           # the stringer
+    c.rect(x0, ys0 + face - 1, x1, ys0 + face, r(0))
+    if face >= 3:
+        c.rect(x0, ys0, x1, ys0 + 1, r(1))              # the seam under the deck edge
+    for k, px in enumerate(piles):
+        if k in posts:                                  # mooring posts stand in front, 3 px proud
+            yt = y - 3
+            for i in range(pile_w):
+                c.rect(px + i, yt, px + i + 1, ys0 + face, r(cols[i]))
+            c.rect(px, yt, px + pile_w, yt + 1, r(3))
+            pile_mask[max(0, yt):ys0 + face, max(0, px):px + pile_w] = True
+            out_posts.append((px + pile_w // 2, yt))
+        else:
+            c.put(px + pile_w // 2, ys0 + face // 2, nail)
+    deck[max(0, ys0):ys0 + face, max(0, x0):x1] = True
+    return {'mask': ~np.equal(c.g, before), 'deck': deck, 'piles': pile_mask, 'pile_x': piles,
+            'gaps': gaps, 'posts': out_posts}
+
+# ---------------------------------------------------------------- 10 mine cart, crate, barrel, ore
+_WHEEL5 = """
+    .ooo.
+    oiIio
+    oIhIo
+    oiIio
+    .ooo."""
+
+def _heap(P, x0, x1, ybase, hmax, rock, ore, seed, flecks=3):
+    """an ore heap over [x0, x1) whose foot is row ybase: 3 x 2 px lumps in rock1/rock2 with a
+    rock3 lit top-left pixel, and 2 px ore clusters (ore2 glint, ore1)"""
+    w = x1 - x0
+    if hmax <= 0 or w <= 2:
+        return []
+    cx = (x0 + x1 - 1) / 2.0
+    hs = []
+    for x in range(x0, x1):
+        d = abs(x - cx) / (w / 2.0)
+        lump = 1 if _h(x // 3, 21, seed) < 0.35 else 0
+        hs.append(max(1, int(round(hmax * math.sqrt(max(0.0, 1 - d * d)))) + lump - (1 if d > 0.8 else 0)))
+    hs[0] = min(hs[0], max(1, hmax // 2)); hs[-1] = min(hs[-1], max(1, hmax // 2))
+    for i, x in enumerate(range(x0, x1)):
+        for k in range(min(hs[i], hmax + 1)):
+            yy = ybase - k
+            row = (ybase - yy) // 2
+            cell = (x + (row % 2) * 1) // 3
+            st = 1 if _h(cell, row, seed) < 0.45 else 2
+            lit = k == hs[i] - 1 and (x + (row % 2)) % 3 == 0
+            P.put(x, yy, '%s%d' % (rock, 3 if lit else st))
+    out = []
+    for n in range(flecks):
+        i = int(_h(n, 23, seed) * max(1, w - 3)) + 1
+        k = int(_h(n, 24, seed) * max(1, hs[i] - 1))
+        x, yy = x0 + i, ybase - k
+        if P.get(x, yy) is not None and P.get(x + 1, yy) is not None:
+            P.put(x, yy, '%s2' % ore); P.put(x + 1, yy, '%s1' % ore)
+            out.append((x, yy))
+    return out
+
+def mine_cart(view='side', w=None, h=None, load=0.5, dent=None, along='x', body='iron', rim='wood',
+              rock='rock', ore='ore', nail='nail', seed=0, outline='slot', ol='ol'):
+    """a mine cart (10 Stardew Valley mine: a tub on rails, read by its trapezoid and two small
+    wheels; the design original). view 'side': a w x h (26 x 18) trapezoid tub, a 2 px timber
+    rim (wood3 lit, wood2), an iron body (iron1, lit left edge iron2, dark right edge and floor
+    iron0) with two 2 px iron2 straps and rivets, two 5 px wheels in front; anchored at the
+    wheels' contact row (stamp it at (x, y + gauge // 2) on a props.rails centreline, or use
+    cart_on_rails). view 'top': a top-down w x h (18 x 12) tub (along 'x' or 'y'): timber rim,
+    inner walls in shadow on the lit side, a bumper at each end, anchored at its centre. load
+    0..1: an ore heap of rock1-3 lumps with ore1-2 flecks (4 rows over the rim at 1). dent:
+    'left' / 'right', a 2 px notch in that top corner. Returns a Figure; .points {'flecks',
+    'load'} (where glints and dropped lumps go)."""
+    r = lambda b, k: '%s%d' % (b, k)
+    if view == 'top':
+        L, D = (w or 18), (h or 12)
+        P = _P(L + 6, D + 6)
+        ox, oy = 3, 3
+        P.rect(ox, oy, ox + L, oy + D, r(rim, 2))
+        P.rect(ox, oy, ox + L, oy + 1, r(rim, 3)); P.rect(ox, oy, ox + 1, oy + D, r(rim, 3))
+        P.rect(ox, oy + D - 1, ox + L, oy + D, r(rim, 1)); P.rect(ox + L - 1, oy, ox + L, oy + D, r(rim, 1))
+        P.rect(ox + 1, oy + 1, ox + L - 1, oy + D - 1, r(body, 1))
+        P.rect(ox + 1, oy + 1, ox + L - 1, oy + 2, r(body, 0)); P.rect(ox + 1, oy + 1, ox + 2, oy + D - 1, r(body, 0))
+        fl = []
+        if load > 0:
+            fl = _heap(P, ox + 2, ox + L - 1, oy + D - 2, int(round(load * (D - 4))), rock, ore, seed)
+        cy = oy + D // 2
+        P.rect(ox - 1, cy - 1, ox, cy + 1, r(body, 2)); P.rect(ox + L, cy - 1, ox + L + 1, cy + 1, r(body, 2))
+        if dent in ('left', 'right'):
+            dx = ox if dent == 'left' else ox + L - 2
+            P.rect(dx, oy, dx + 2, oy + 1, None); P.put(dx + (1 if dent == 'left' else 0), oy + 1, r(rim, 1))
+        _ol(P.g, outline, ol)
+        f = _fig(P.g, ox + L // 2, oy + D // 2, {'flecks': fl, 'load': (ox + L // 2, oy + D // 2)})
+        if along == 'y':
+            g = f.g.T.copy()
+            f2 = Figure(g, f.ay, f.ax)
+            f2.points = {k: ([(b, a) for a, b in v] if isinstance(v, list) else (v[1], v[0]))
+                         for k, v in f.points.items()}
+            return f2
+        return f
+    w, h = (w or 26), (h or 18)
+    P = _P(w + 4, h + 8, oy=6)
+    ox = 2
+    yb0, yb1 = 4, h - 3                                  # body rows (rim first) above the wheel centres
+    n = yb1 - yb0
+    for j in range(n):
+        y = yb0 + j
+        ins = 0 if j < 2 else 1 + int(round(2.0 * (j - 2) / max(1, n - 3)))
+        a, b = ox + ins, ox + w - ins
+        if j == 0:
+            P.rect(a, y, b, y + 1, r(rim, 3))
+        elif j == 1:
+            P.rect(a, y, b, y + 1, r(rim, 2))
+        else:
+            P.rect(a, y, b, y + 1, r(body, 0 if j == n - 1 else 1))
+            if j < n - 1:
+                P.put(a, y, r(body, 2)); P.put(b - 1, y, r(body, 0))
+    for sx in (int(round(w * 0.3)), int(round(w * 0.7)) - 2):   # straps with rivets
+        P.rect(ox + sx, yb0 + 2, ox + sx + 2, yb1 - 1, r(body, 2))
+        P.put(ox + sx, yb0 + 3, nail); P.put(ox + sx + 1, yb1 - 3, nail)
+    fl = []
+    if load > 0:
+        fl = _heap(P, ox + 2, ox + w - 2, yb0 - 1, int(round(load * 4)), rock, ore, seed)
+    if dent in ('left', 'right'):
+        dx = ox if dent == 'left' else ox + w - 2
+        P.rect(dx, yb0, dx + 2, yb0 + 2, None)
+        P.put(dx + (1 if dent == 'left' else 0), yb0 + 2, r(body, 0))
+    key = {'o': r(body, 0), 'i': r(body, 1), 'I': r(body, 2), 'h': nail}
+    for wx in (5, w - 6):
+        P.stamp(_WHEEL5, key, ox + wx - 2, h - 5)
+    _ol(P.g, outline, ol)
+    return _fig(P.g, ox + w // 2, h - 1 + P.oy,
+                {'flecks': [(x, y + P.oy) for x, y in fl], 'load': (ox + w // 2, yb0 - 1 + P.oy)})
+
+def rail_point(pts, s, gauge=8, corner_r=4):
+    """the point at arc length s px along a props.rails centreline (10), with the same fillets:
+    -> (x, y, tx, ty), the tangent a unit vector. s is clamped to the track."""
+    path = _fillet(pts, corner_r + gauge / 2.0)
+    i = int(max(0, min(len(path) - 1, round(s))))
+    x, y, tx, ty = path[i]
+    return float(x), float(y), float(tx), float(ty)
+
+def cart_on_rails(c, pts, s, gauge=8, corner_r=4, **cart):
+    """stamp a mine_cart onto a props.rails track (10) at arc length s: a side-view cart on
+    horizontal and 45 degree runs (wheels on the near rail), a top-view cart along y on vertical
+    runs. cart: mine_cart keywords. Returns (box, figure)."""
+    x, y, tx, ty = rail_point(pts, s, gauge, corner_r)
+    if abs(tx) >= abs(ty):
+        f = mine_cart(view='side', **cart)
+        return f.stamp(c, x, y + gauge // 2), f
+    f = mine_cart(view='top', along='y', **cart)
+    return f.stamp(c, x, y), f
+
+def crate(w=16, h=12, top=3, kind='closed', crack=None, wood='wood', nail='nail', contents=None,
+          seed=0, outline='slot', ol='ol'):
+    """a wooden crate, front face plus `top` rows of lid (10 Stardew Valley / 05 Metal Slug props:
+    a lit frame board around a darker recessed panel, nails at the corners). kind 'closed' (panel
+    planks with 1 px seams and a 2 px diagonal brace), 'slat' (2 px slats over dark gaps), 'open'
+    (no lid: the back rim and a dark inside, filled with the `contents` slot if given). top=0
+    draws the front only. crack: 'left' / 'right', a 2 px notch in that top corner and a 3 px
+    crack. Slots wood0-3 (wood3 the lid), nail. Returns a Figure anchored at the bottom centre;
+    .points {'top'} (where a mug or a lantern stands)."""
+    r = lambda k: '%s%d' % (wood, k)
+    P = _P(w + 2, h + top + 2)
+    ox, oy = 1, 1 + top
+    if top:
+        if kind == 'open':
+            P.rect(ox + 1, 1, ox + w - 1, 2, r(3))
+            P.rect(ox, 2, ox + w, oy, r(0))
+            P.rect(ox, 1, ox + 1, oy, r(3)); P.rect(ox + w - 1, 1, ox + w, oy, r(2))
+            if contents and top >= 2:
+                P.rect(ox + 2, oy - 1 - min(2, top - 2), ox + w - 2, oy, contents)
+        else:
+            P.rect(ox + 1, 1, ox + w - 1, oy, r(3))
+            P.rect(ox, 2, ox + w, oy, r(3))
+            for x in range(ox + 4, ox + w - 1, 5):
+                P.rect(x, 1, x + 1, oy, r(2))
+    P.rect(ox, oy, ox + w, oy + h, r(2))                 # the frame boards
+    P.rect(ox, oy, ox + w, oy + 1, r(3))
+    P.rect(ox, oy + h - 1, ox + w, oy + h, r(1))
+    ix0, iy0, ix1, iy1 = ox + 2, oy + 2, ox + w - 2, oy + h - 2
+    if kind == 'slat':
+        for y in range(iy0, iy1):
+            P.rect(ix0, y, ix1, y + 1, r(0) if (y - iy0) % 3 == 2 else r(2 if (y - iy0) % 3 == 0 else 1))
+    else:
+        P.rect(ix0, iy0, ix1, iy1, r(1))
+        for y in range(iy0 + 2, iy1, 3):
+            P.rect(ix0, y, ix1, y + 1, r(0))
+        if kind == 'closed':
+            n = ix1 - ix0
+            for i in range(n):
+                yy = iy1 - 1 - int(round(i * (iy1 - iy0 - 1) / float(max(1, n - 1))))
+                P.put(ix0 + i, yy, r(2)); P.put(ix0 + i, yy - 1 if yy - 1 >= iy0 else yy, r(2))
+    P.rect(ix0, iy0, ix1, iy0 + 1, r(0))                 # the frame's shadow on the panel
+    for (x, y) in ((ox + 1, oy + 1), (ox + w - 2, oy + 1), (ox + 1, oy + h - 2), (ox + w - 2, oy + h - 2)):
+        P.put(x, y, nail)
+    if crack in ('left', 'right'):
+        cx = ox if crack == 'left' else ox + w - 2
+        y0 = 1 if top else oy
+        P.rect(cx, y0, cx + 2, y0 + 2, None)
+        kx = cx + (2 if crack == 'left' else -1)
+        for k in range(3):
+            P.put(kx + (k // 2 if crack == 'left' else -(k // 2)), oy + k, r(0))
+    _ol(P.g, outline, ol)
+    return _fig(P.g, ox + w // 2, oy + h - 1, {'top': (ox + w // 2, 1 if top else oy)})
+
+def barrel(w=10, h=14, top=2, lid=True, hoops=(0.15, 0.85), dent_hoop=None, wood='wood', iron='iron',
+           inside='water1', outline='slot', ol='ol'):
+    """a stave barrel (10 Stardew Valley / 07 Freitas column bands: a cylinder lit from the left
+    as flat column bands, never pillow shading): w x h staves bulging 1 px at the middle, bands
+    wood2 | wood3 | wood2 | wood1 | wood0 left to right, iron hoops at `hoops` (row shares, the
+    same bands in iron0-2), and `top` rows of lid (wood3 under a wood2 back rim; lid=False shows
+    the `inside` slot, a rain barrel's water). dent_hoop: index of a hoop dented 1 px down on
+    its right. Returns a Figure anchored at the bottom centre; .points {'top'} (the lid or water
+    centre, for drizzle rings)."""
+    P = _P(w + 2, h + top + 2)
+    ox, oy = 1, 1 + top
+    cx = ox + w / 2.0
+    def span(j):
+        e = abs((j + 0.5) - h / 2.0) / (h / 2.0)
+        ins = 1 if e > 0.72 else 0
+        return ox + ins, ox + w - ins
+    def band(f, ramp, darker=0):
+        st = 2 if f < 0.18 else 3 if f < 0.45 else 2 if f < 0.72 else 1 if f < 0.9 else 0
+        if ramp == iron:
+            st = {3: 2, 2: 1, 1: 1, 0: 0}[st]
+        return '%s%d' % (ramp, max(0, st - darker))
+    hoop_rows = {}
+    for k, hf in enumerate(hoops):
+        hoop_rows[k] = min(h - 1, max(0, int(round(hf * (h - 1)))))
+    for j in range(h):
+        a, b = span(j)
+        for x in range(a, b):
+            f = (x - a + 0.5) / float(b - a)
+            ramp = wood
+            for k, hr in hoop_rows.items():
+                dy = 1 if (k == dent_hoop and x >= a + (b - a) * 0.55 and x < b - 1) else 0
+                if j == hr + dy:
+                    ramp = iron
+            P.put(x, oy + j, band(f, ramp, 1 if (j == 0 and top) else 0))   # the chime under the lid
+    if top:
+        a, b = span(0)
+        P.rect(a + 1, oy - top, b - 1, oy - top + 1, '%s2' % wood)
+        for k in range(1, top):
+            y = oy - top + k
+            if lid:
+                P.rect(a, y, b, y + 1, '%s3' % wood)
+            else:
+                P.rect(a, y, b, y + 1, '%s2' % wood)
+                P.rect(a + 1, y, b - 1, y + 1, inside)
+    _ol(P.g, outline, ol)
+    return _fig(P.g, ox + w // 2, oy + h - 1, {'top': (ox + w // 2, oy - max(1, top) + (1 if top > 1 else 0))})
+
+def ore_node(w=14, h=10, ore='ore', rock='rock', flecks=4, lobes=3, seed=0, outline='slot', ol='ol'):
+    """a rock with ore in it (10 Stardew Valley mine: a squat lumpy stone, a lit cap and a dark
+    right side as flat planes, small ore clusters set into it; the design original): `lobes`
+    hash-placed domes (the middle one tallest) in a w x h box, each lit as planes: rock3 on the
+    top-left cap, rock2 the front, rock1 the right side and the base row, rock0 cracks down from
+    the valleys between lobes. flecks: 2-3 px ore clusters (ore2 glint, ore1 body, ore0 under
+    it) kept off the edges, never touching each other. ore: the ore ramp (copper, iron, gem:
+    swap the slot). Returns a Figure anchored at the bottom centre; parts {'ore'}; .points
+    {'flecks'} (glint pixels, for anim.hold sparkles)."""
+    P = _P(w + 2, h + 2)
+    ox, oy = 1, 1
+    base = oy + h - 1
+    L = []
+    for k in range(max(1, lobes)):
+        if k == 0:
+            L.append((w / 2.0 + (_h(k, 31, seed) - 0.5) * w * 0.15, w * 0.36, h))
+        else:
+            side = -1 if k % 2 else 1
+            cxk = w / 2.0 + side * w * (0.24 + 0.08 * _h(k, 32, seed))
+            L.append((cxk, w * (0.22 + 0.06 * _h(k, 33, seed)), h * (0.55 + 0.2 * _h(k, 34, seed))))
+    tops, owner = [], []
+    for i in range(w):
+        x = i + 0.5
+        best, bk = 0, 0
+        for k, (cxk, rxk, hk) in enumerate(L):
+            d = (x - cxk) / rxk
+            v = hk * math.sqrt(max(0.0, 1 - d * d)) if abs(d) < 1 else 0
+            if v > best:
+                best, bk = v, k
+        tops.append(max(1 if 0 < i < w - 1 else 0, int(round(best))))
+        owner.append(bk)
+    for i in range(w):
+        if tops[i] == 0:
+            continue
+        cxk, rxk, hk = L[owner[i]]
+        d = (i + 0.5 - cxk) / rxk
+        for k in range(tops[i]):
+            y = base - k
+            depth = tops[i] - 1 - k
+            if k == 0:
+                st = 1
+            elif d > 0.3:
+                st = 1
+            elif depth < 2 and d < 0.25:
+                st = 3
+            else:
+                st = 2
+            P.put(ox + i, y, '%s%d' % (rock, st))
+    for i in range(1, w - 1):                            # cracks down from the valleys
+        if owner[i] != owner[i - 1] and tops[i] >= 3:
+            j = i if tops[i] <= tops[i - 1] else i - 1
+            for k in range(2):
+                P.put(ox + j, base - tops[j] + 1 + k, '%s0' % rock)
+    om = np.zeros(P.g.shape, bool)
+    out, taken = [], []
+    shapes = (((0, 0), (1, 0)), ((0, 0), (0, 1)), ((0, 0), (1, 0), (0, 1)))
+    for n in range(flecks * 6):
+        if len(out) >= flecks:
+            break
+        i = 2 + int(_h(n, 35, seed) * max(1, w - 5))
+        if tops[i] < 4:
+            continue
+        k = 2 + int(_h(n, 36, seed) * max(1, tops[i] - 3))
+        x, y = ox + i, base - k
+        shp = shapes[int(_h(n, 37, seed) * 3) % 3]
+        cells = [(x + a, y + b) for a, b in shp]
+        if any(abs(px - qx) < 3 and abs(py - qy) < 3 for px, py in cells for qx, qy in taken):
+            continue
+        if not all(P.get(px, py) is not None and str(P.get(px, py)) != '%s0' % rock and
+                   P.get(px + 1, py) is not None and P.get(px, py + 1) is not None for px, py in cells):
+            continue
+        for j, (px, py) in enumerate(cells):
+            P.put(px, py, '%s%d' % (ore, 2 if j == 0 else 1))
+            om[py, px] = True
+        lx, ly = cells[-1]
+        if P.get(lx, ly + 1) is not None and str(P.get(lx, ly + 1)).startswith(rock) and ly + 1 < base:
+            P.put(lx, ly + 1, '%s0' % ore); om[ly + 1, lx] = True
+        taken += cells
+        out.append(cells[0])
+    _ol(P.g, outline, ol)
+    return _fig(P.g, ox + w // 2, base, {'flecks': out}, {'ore': om})
+
+# ---------------------------------------------------------------- 09 pipes and drains
+def _pipe_bands(w):
+    """cross-section steps for a w px pipe lit from the upper left: top (or left) edge step 2, the
+    highlight step 3, then 2 ... a step 1 and the dark far edge step 0"""
+    if w <= 1:
+        return [2]
+    if w == 2:
+        return [3, 1]
+    if w == 3:
+        return [3, 2, 0]
+    return [2, 3] + [2] * (w - 4) + [1, 0]
+
+def pipe(c, pts, w=4, ramp='pipe', joint_every=16, flanges=True, start=None, end=None, void='void'):
+    """a pipe run along an axis-aligned polyline (09 Katana ZERO alleys: banded metal pipes,
+    flanged joints, an elbow at each turn): straight runs in cross-section bands (_pipe_bands:
+    lit along the top of horizontal runs and the left of vertical ones, ramp steps 0-3), round
+    tight elbows whose bands follow the bend, 2 px flange collars 1 px proud every `joint_every`
+    px and on both sides of each elbow. start / end: None (cut flat), 'cap' (a flange) or 'open'
+    (a flange around a dark `void` mouth). Returns {'mask', 'joints' [(x, y)], 'elbows' [(x, y)],
+    'drips' [(x, y)]}: drips are the pixels just under each joint of a horizontal run and under
+    an open end that faces down, where fx drips should start."""
+    H, W = c.g.shape
+    before = c.g.copy()
+    B = _pipe_bands(w)
+    Bf = _pipe_bands(w + 2)
+    lo = -(w // 2)
+    def put(x, y, v):
+        if 0 <= x < W and 0 <= y < H:
+            c.g[y, x] = v
+    pts = [(int(a), int(b)) for a, b in pts]
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        if ax != bx and ay != by:
+            raise ValueError('pipe: runs must be horizontal or vertical: %r -> %r' % ((ax, ay), (bx, by)))
+    segs = list(zip(pts, pts[1:]))
+    joints, elbows, drips = [], [], []
+    def flange(x, y, horiz, down_drip):
+        """a 2 px collar centred across the run at (x, y): along the run px x, x+1 (or y, y+1)"""
+        for k in range(2):
+            for i, st in enumerate(Bf):
+                st = max(0, st - k)
+                if horiz:
+                    put(x + k, y + lo - 1 + i, '%s%d' % (ramp, st))
+                else:
+                    put(x + lo - 1 + i, y + k, '%s%d' % (ramp, st))
+        joints.append((x, y))
+        if horiz and down_drip:
+            drips.append((x + 1, y + lo + w + 1))
+    for (ax, ay), (bx, by) in segs:                      # straight runs
+        horiz = ay == by
+        n = abs(bx - ax) if horiz else abs(by - ay)
+        sg = 1 if (bx - ax if horiz else by - ay) > 0 else -1
+        for k in range(n + 1):
+            x, y = (ax + sg * k, ay) if horiz else (ax, ay + sg * k)
+            for i, st in enumerate(B):
+                if horiz:
+                    put(x, y + lo + i, '%s%d' % (ramp, st))
+                else:
+                    put(x + lo + i, y, '%s%d' % (ramp, st))
+    for j in range(1, len(pts) - 1):                     # elbows
+        (ax, ay), (bx, by), (cx_, cy_) = pts[j - 1], pts[j], pts[j + 1]
+        d0 = (np.sign(bx - ax), np.sign(by - ay))
+        d1 = (np.sign(cx_ - bx), np.sign(cy_ - by))
+        if d0 == d1:
+            continue
+        sx0, sy0 = bx + lo, by + lo                      # the corner square
+        gx, gy = sx0 + w / 2.0, sy0 + w / 2.0
+        piv = (gx + (w / 2.0) * (-d0[0] + d1[0]), gy + (w / 2.0) * (-d0[1] + d1[1]))
+        # clear the square, then paint the quarter disc around the inner corner
+        for yy in range(sy0, sy0 + w):
+            for xx in range(sx0, sx0 + w):
+                if 0 <= xx < W and 0 <= yy < H:
+                    c.g[yy, xx] = before[yy, xx]
+        for yy in range(sy0, sy0 + w):
+            for xx in range(sx0, sx0 + w):
+                vx, vy = xx + 0.5 - piv[0], yy + 0.5 - piv[1]
+                d = math.hypot(vx, vy)
+                if d > w + 0.2:
+                    continue
+                ux, uy = (vx / d, vy / d) if d > 1e-6 else (0.0, 0.0)
+                s = d - w / 2.0
+                t = s * (ux + uy) / max(1e-6, abs(ux) + abs(uy))
+                i = int(max(0, min(w - 1, math.floor(t + w / 2.0))))
+                put(xx, yy, '%s%d' % (ramp, B[i]))
+        elbows.append((bx, by))
+        if flanges:
+            for d, inward in ((d0, True), (d1, False)):
+                horiz = d[1] == 0
+                if horiz:
+                    fx = (sx0 - 2 if d[0] > 0 else sx0 + w) if inward else (sx0 + w if d[0] > 0 else sx0 - 2)
+                    flange(fx, by, True, True)
+                else:
+                    fy = (sy0 - 2 if d[1] > 0 else sy0 + w) if inward else (sy0 + w if d[1] > 0 else sy0 - 2)
+                    flange(bx, fy, False, False)
+    if flanges and joint_every:                          # joints along the straight runs
+        for si, ((ax, ay), (bx, by)) in enumerate(segs):
+            horiz = ay == by
+            n = abs(bx - ax) if horiz else abs(by - ay)
+            sg = 1 if (bx - ax if horiz else by - ay) > 0 else -1
+            for k in range(joint_every, n, joint_every):
+                if k < w // 2 + 8 or k > n - w // 2 - 8:   # keep clear of elbow flanges and ends
+                    continue
+                x, y = (ax + sg * k, ay) if horiz else (ax, ay + sg * k)
+                flange(x, y, horiz, True)
+    for which, kind in (('start', start), ('end', end)):
+        if not kind:
+            continue
+        (px_, py_), (qx, qy) = (pts[0], pts[1]) if which == 'start' else (pts[-1], pts[-2])
+        horiz = py_ == qy
+        sg = 1 if (px_ - qx if horiz else py_ - qy) > 0 else -1   # outward
+        if horiz:
+            flange(px_ - 1 if sg > 0 else px_, py_, True, False)
+            if kind == 'open':                          # the mouth, seen a little from the side
+                for i in range(1, w - 1):
+                    put(px_, py_ + lo + i, void)
+                drips.append((px_, py_ + lo + w + 1))
+        else:
+            flange(px_, py_ - 1 if sg > 0 else py_, False, False)
+            if kind == 'open':
+                for i in range(1, w - 1):
+                    put(px_ + lo + i, py_, void)
+                if sg > 0:
+                    drips.append((px_ + lo + w // 2, py_ + 1))
+    return {'mask': ~np.equal(c.g, before), 'joints': joints, 'elbows': elbows, 'drips': drips}
+
+def drain(c, x, y, w=12, h=6, kind='floor', ramp='iron', void='void', pitch=2):
+    """a drain grate (09 Katana ZERO alley floors and walls; the design original). kind 'floor': a
+    grate seen from above in a w x h frame (iron1, its top row iron2 lit), bars every `pitch` px
+    (iron1 with a lit iron2 top pixel) over dark slots (`void`, the far inner lip iron0). kind
+    'wall': a w x h dark opening with 2 px bars (iron2 lit left, iron1) and a lit sill (iron2 over
+    iron0). Returns {'mask', 'holes' (the void pixels), 'outfall' (x, y)}: the pixel under the
+    middle of the grate or sill where a trickle or drip starts."""
+    r = lambda k: '%s%d' % (ramp, k)
+    H, W = c.g.shape
+    before = c.g.copy()
+    holes = np.zeros((H, W), bool)
+    def hole(px, py):
+        c.put(px, py, void)
+        if 0 <= px < W and 0 <= py < H:
+            holes[py, px] = True
+    if kind == 'wall':
+        for yy in range(y, y + h - 2):
+            for xx in range(x, x + w):
+                hole(xx, yy)
+        bx = x + 1 + (w - 2 - ((w - 2) // 4) * 4) // 2
+        while bx + 2 <= x + w - 1:
+            c.rect(bx + 1, y, bx + 2, y + h - 2, r(2))
+            c.rect(bx + 2, y, bx + 3, y + h - 2, r(1))
+            if 0 <= y < H:
+                holes[y:y + h - 2, bx + 1:bx + 3] = False
+            bx += 4
+        c.rect(x - 1, y + h - 2, x + w + 1, y + h - 1, r(2))
+        c.rect(x - 1, y + h - 1, x + w + 1, y + h, r(0))
+        out = (x + w // 2, y + h)
+    else:
+        c.rect(x, y, x + w, y + h, r(1))
+        c.rect(x, y, x + w, y + 1, r(2))
+        c.rect(x, y + h - 1, x + w, y + h, r(0))
+        for xx in range(x + 1, x + w - 1):
+            if (xx - x - 1) % pitch == 0 and xx < x + w - 2:
+                for yy in range(y + 1, y + h - 1):
+                    if yy == y + 1:
+                        c.put(xx, yy, r(0))
+                        if 0 <= xx < W and 0 <= yy < H:
+                            holes[yy, xx] = False
+                    else:
+                        hole(xx, yy)
+            else:
+                c.put(xx, y + 1, r(2))
+        out = (x + w // 2, y + h)
+    return {'mask': ~np.equal(c.g, before), 'holes': holes, 'outfall': out}
+
 # ---------------------------------------------------------------- demo palette
 PALETTE = {
     'ol': '#000000', 'void': '#000000',
@@ -619,6 +1420,14 @@ PALETTE = {
     'lamp1': '#c88a3a', 'lamp2': '#e7c259', 'lamp3': '#f8eba9',
     'metal0': '#080808', 'metal1': '#101012', 'metal2': '#202024',
     'step0': '#0d160c', 'step1': '#182917', 'step2': '#1e341a', 'step3': '#22401e', 'step4': '#344c2a',
+    'hull0': '#3a1416', 'hull1': '#7a2a26', 'hull2': '#b0443a', 'hull3': '#e07a5a',
+    'trim2': '#f1e2c0', 'bottom0': '#1e2a2c', 'bottom1': '#34484a',
+    'sail1': '#b8a888', 'sail2': '#e6dcc4', 'sail3': '#fff6e0', 'rope': '#9a8a6a',
+    'house0': '#4a4038', 'house1': '#9a8e7a', 'house2': '#d8ccb0', 'house3': '#f4ecd8',
+    'rock0': '#1c1820', 'rock1': '#3a3440', 'rock2': '#5a5260', 'rock3': '#7e7484',
+    'ore0': '#5a2a14', 'ore1': '#c87a3a', 'ore2': '#f2b874',
+    'pipe0': '#14161a', 'pipe1': '#2e3238', 'pipe2': '#4c525a', 'pipe3': '#7a828c',
+    'water1': '#2c4a63',
 }
 for _name, _hexes in {
         'pink': ('#7a0030', '#c4004e', '#ff0a6e', '#ff1a78', '#ff6aa4'),

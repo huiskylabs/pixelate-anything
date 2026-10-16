@@ -53,6 +53,10 @@ each colour's a/b toward the fog and squeezes its L toward the fog's L, and retu
 under a prefix (far_rock3 ...), so each depth layer stays indexed. haze_levels() makes the 01
 k = 0.12 / 0.25 / 0.40 planes in one call.
 
+Era ramps: era_ramp('#00a800', 3, anchor_dark='#000000', base_index=2) -> 000000 006800 00a800: an ordered ramp out of a
+fixed console palette (NES, Game Boy, PICO-8) instead of computing tones that fall off it;
+era_ramps() is its slot-dict form.
+
 Families: families() writes a whole 03-style palette as role families (frame, heart, warm, hot,
 spark, void) whose frame hue drifts across x; drift() makes the in-between ramps of two
 families and drift_index() says which one each pixel uses.
@@ -356,6 +360,114 @@ def ramps(bases, steps=None, shift=None, extra=None, **kw):
             hexes = ramp(b, k.pop('steps', steps), k.pop('shift', shift), **k)
         else:
             hexes = ramp(base, steps, shift, **kw)
+        for i, h in enumerate(hexes):
+            pal['%s%d' % (name, i)] = h
+    pal.update(extra or {})
+    return pal
+
+# ---------------------------------------------------------------- ramps held to a fixed console palette
+ERA_PALETTES = {'nes': 'nes', 'famicom': 'nes', 'gameboy': 'gameboy', 'gb': 'gameboy', 'pico-8': 'pico-8', 'pico8': 'pico-8'}
+
+def _era_colours(era, exclude=()):
+    """(hexes, OKLab) of an era's fixed palette, a palette preset/file, or a hex list; duplicates dropped"""
+    if isinstance(era, (list, tuple, dict)):
+        hexes = cl.palette_list(era)
+    elif era in ERA_PALETTES:
+        hexes = cl.palette_list(cl.load_palette(ERA_PALETTES[era]))
+    elif era in ('snes', 'genesis', 'gba', 'neogeo'):
+        raise ValueError('era %r has no fixed palette (a bit depth): use ramp() and era.enforce' % era)
+    else:
+        hexes = cl.palette_list(cl.load_palette(era))
+    drop = {('#' + h.lstrip('#')).lower() for h in exclude}
+    out = []
+    for h in hexes:
+        h = ('#' + h.lstrip('#')).lower()
+        if h not in out and h not in drop:
+            out.append(h)
+    return out, cl.rgb_to_oklab(np.array([cl.hex_to_rgb(h) for h in out], float))
+
+def era_ramp(base, steps=3, era='nes', dL=0.2, min_dL=None, base_index=None, anchor_dark=None,
+             chroma_fall=0.2, exclude=(), centre=0.03):
+    """'#hex' -> [hex] darkest first, every step a colour of the era's fixed palette, learnt from NES
+    and Game Boy art, where a material ramp is 3 or 4 hand-picked master-palette entries (black,
+    005800, 00a800) rather than computed tones. The palette colour nearest the base is always in the
+    ramp; the other steps are the ordered choice (L strictly rising by at least min_dL) that stays
+    closest to the base's hue and chroma (falling by chroma_fall per step away from it) near
+    evenly spaced L targets dL apart. Deterministic: a dynamic programme, no randomness.
+    min_dL None is 0.06, relaxed to any rise when the palette is too small for it (Game Boy).
+
+    era          'nes', 'gameboy', 'pico-8' (aliases famicom, gb, pico8), any palette preset or file,
+                 or a list of hexes
+    base_index   where the base sits; None tries every position and keeps the best, a position
+                 costing `centre` per step away from the lofi ramp's (55% up the ramp)
+    anchor_dark  step 0 is fixed to the palette colour nearest this (the NES backdrop '#000000')
+    exclude      palette hexes never used (a colour reserved for the HUD)
+    """
+    hexes, lab = _era_colours(era, exclude)
+    n = int(steps)
+    if n < 1:
+        raise ValueError('a ramp needs at least one step')
+    P = len(hexes)
+    L, ab = lab[:, 0], lab[:, 1:]
+    b = cl.rgb_to_oklab(np.array(cl.hex_to_rgb(base), float)).reshape(3)
+    a_idx = int(cl.nearest(b[None], lab)[0])
+    d_idx = None if anchor_dark is None else int(cl.nearest(
+        cl.rgb_to_oklab(np.array(cl.hex_to_rgb(anchor_dark), float)).reshape(1, 3), lab)[0])
+    if n == 1:
+        return [hexes[a_idx]]
+    lo, hi = float(L.min()), float(L.max())
+    mid = min(n - 1, max(0, round((n - 1) * 0.55)))
+    for gap in ((0.06, 1e-6) if min_dL is None else (min_dL,)):
+        best = _era_dp(L, ab, n, a_idx, d_idx, lo, hi, dL, gap, chroma_fall,
+                       [base_index] if base_index is not None else range(n), mid, centre)
+        if best[1] is not None:
+            break
+    if best[1] is None:
+        raise ValueError('no %d-step ordered ramp through %s in the %s palette (%d colours)' % (
+            n, hexes[a_idx], era if isinstance(era, str) else 'given', P))
+    return [hexes[j] for j in best[1]]
+
+def _era_dp(L, ab, n, a_idx, d_idx, lo, hi, dL, min_dL, chroma_fall, positions, mid, centre):
+    """the cheapest ordered path of n palette indices through a_idx -> (cost, path or None)"""
+    P = len(L)
+    best = (np.inf, None)
+    for bi in positions:
+        if d_idx is not None and (bi == 0) != (d_idx == a_idx):
+            continue
+        cost = np.empty((n, P))
+        for k in range(n):
+            Lt = min(hi, max(lo, L[a_idx] + (k - bi) * dL))
+            s = max(0.0, 1.0 - chroma_fall * abs(k - bi))
+            cost[k] = np.linalg.norm(ab - s * ab[a_idx], axis=1) + 0.5 * np.abs(L - Lt)
+        cost[bi] = np.inf; cost[bi, a_idx] = 0.0
+        if d_idx is not None:
+            cost[0] = np.inf; cost[0, d_idx] = 0.0
+        ok = (L[None, :] - L[:, None]) >= min_dL                  # ok[i, j]: j may follow i
+        acc, back = cost[0].copy(), np.zeros((n, P), int)
+        for k in range(1, n):
+            t = np.where(ok, acc[:, None], np.inf)                # (from, to)
+            back[k] = t.argmin(0)
+            acc = t.min(0) + cost[k]
+        j = int(acc.argmin())
+        if np.isfinite(acc[j]) and acc[j] + centre * abs(bi - mid) < best[0]:
+            path = [j]
+            for k in range(n - 1, 0, -1):
+                path.append(int(back[k][path[-1]]))
+            best = (float(acc[j]) + centre * abs(bi - mid), path[::-1])
+    return best
+
+def era_ramps(bases, steps=3, era='nes', extra=None, **kw):
+    """{'leaf': '#00a800'} -> {'leaf0': .., 'leaf2': ..}: era_ramp per material, slot names as ramps();
+    a list of hexes is taken as the ramp itself, a dict value is per-material era_ramp kwargs"""
+    pal = {}
+    for name, base in bases.items():
+        if isinstance(base, (list, tuple)):
+            hexes = list(base)
+        elif isinstance(base, dict):
+            k = dict(kw); k.update(base); b = k.pop('base')
+            hexes = era_ramp(b, k.pop('steps', steps), k.pop('era', era), **k)
+        else:
+            hexes = era_ramp(base, steps, era, **kw)
         for i, h in enumerate(hexes):
             pal['%s%d' % (name, i)] = h
     pal.update(extra or {})

@@ -26,7 +26,14 @@ Styles (proportions measured in the style study, every design original):
   iso_person      07 Freitas: 14 x 36 at 3.3 heads, black outline and seams, loud hair, 3 tones
                   per material, facing 'se' or 'sw'; stand, walk, wave
   thin            09 Katana ZERO: 0.175 H tall at 4.7 heads, 2-4 px limbs from a joint rig, no
-                  outline, a 1 px warm rim on the side that faces the lamp; stand, walk, run
+                  outline, a 1 px warm rim on the side that faces the lamp; stand, walk, run;
+                  optional hat ('brim', 'cone') and sword ('sheathed', 'drawn')
+  slime           10 Stardew creatures: a toy-ramp dome sized per frame by anim.hop, own-step
+                  line, a 2 px glint, dash eyes that blink
+  cat             10: a small side-view cat; sit (tail flick), sleep (breath, flick), walk
+  gull            10 / 04 coast: perched 6 x 7, flying 11 x 5 (3 flap drawings), far 5 x 3
+  lofi            lantern-isle (this repo): 10-14 px people with own-material outlines for a
+                  320 x 180 diorama; idle, walk, sit (chibi also sits, and takes size 22-32)
 
 Randomness only from an integer hash of (seed, k): the same arguments always give the same pixels.
 """
@@ -36,7 +43,7 @@ import numpy as np
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 __all__ = ['Figure', 'slim', 'quadruped_slim', 'block', 'chibi', 'iso_person', 'thin', 'at',
-           'drawing', 'HOLDS', 'PALETTES', 'drop_shadow', 'BLOCK_HERO']
+           'drawing', 'HOLDS', 'PALETTES', 'drop_shadow', 'BLOCK_HERO', 'slime', 'cat', 'gull', 'lofi']
 
 # ---------------------------------------------------------------- hashing (iso.hash2's mix)
 def _h(a, b=0, s=0):
@@ -250,11 +257,16 @@ HOLDS = {
     'quadruped_slim': {'idle': [(0, 16), (1, 2), (0, 4), (2, 2)], 'walk': [(0, 3), (1, 3), (2, 3), (3, 3)],
                        'graze': [(0, 8), (1, 12), (2, 4)]},
     'block': {'idle': [(0, 4), (1, 4), (3, 4), (2, 4), (0, 8)], 'walk': [(0, 3), (1, 3), (2, 3), (3, 3)]},
-    'chibi': {'idle': [(0, 4), (1, 4)], 'walk': [(0, 3), (1, 3), (2, 3), (3, 3)]},
+    'chibi': {'idle': [(0, 4), (1, 4)], 'walk': [(0, 3), (1, 3), (2, 3), (3, 3)], 'sit': [(0, 16), (1, 8)]},
     'iso_person': {'stand': [(0, 24)], 'walk': [(0, 3), (1, 3), (2, 3), (3, 3)],
                    'wave': [(0, 4), (1, 4)], 'idle': [(0, 16), (1, 8)], 'sit': [(0, 24)]},
     'thin': {'stand': [(0, 16), (1, 8)], 'walk': [(0, 3), (1, 3), (2, 3), (3, 3)],
              'run': [(0, 2), (1, 2), (2, 2), (3, 2)]},
+    'cat': {'sit': [(0, 16), (1, 2), (2, 2), (1, 4)], 'sleep': [(0, 12), (1, 8), (0, 2), (2, 2)],
+            'walk': [(0, 3), (1, 3), (2, 3), (3, 3)]},
+    'gull': {'perch': [(0, 20), (1, 4)], 'fly': [(0, 2), (1, 2), (2, 2), (1, 2)], 'glide': [(1, 24)],
+             'far': [(0, 2), (1, 2)]},
+    'lofi': {'idle': [(0, 16), (1, 8)], 'walk': [(0, 3), (1, 3), (2, 3), (3, 3)], 'sit': [(0, 16), (1, 8)]},
 }
 
 def drawing(style, pose, t, phase=0):
@@ -668,8 +680,24 @@ CHIBI_LEGS = {          # rows below the body; columns: left leg 2-4, right leg 
         ...oooooo..""",
 }
 
+CHIBI_SIT = {           # seated legs, stamped where the standing legs start
+    'down': """
+        .pPPPPPPPp.
+        ..PPp.pPP..
+        ..BBo.BBo..
+        ..oBo.oBo..""",
+    'side': """
+        ..PPPPPPPp.
+        ..ppppPPPp.
+        .......PPp.
+        .......BBBo
+        .......ooo.""",
+    'up': """
+        .pPPPPPPPp.""",
+}
+
 def chibi(seed=0, facing='down', hair=None, outline='part', ol='ol_char', frame=0, pose='idle', slots=None,
-          parts=None):
+          parts=None, size=26):
     """a chibi actor (04 Sea of Stars, 10 Stardew): 13 x 26 with the outline, the head about 45%.
     facing 'down' (front), 'up' (back), 'side' (profile to the right; .flip() for left).
     hair: one of CHIBI_HAIR (default by seed; 'cap' is a brimmed hat). outline 'part' (each part
@@ -679,7 +707,13 @@ def chibi(seed=0, facing='down', hair=None, outline='part', ol='ol_char', frame=
     pose 'idle' (0 rest, 1 head and torso 1 px down) or 'walk' (0 left foot up, 1 pass with the
     body 1 px up, 2 right foot up, 3 pass). parts: your own ASCII {'head', 'body', 'legs', 'key'}
     (any subset; 11 columns, legs columns 2-4 and 6-8 so the walk can lift them; key extends
-    CHIBI_KEY) in place of the built-in drawings."""
+    CHIBI_KEY, 'sit' replaces the seated legs) in place of the built-in drawings.
+    pose 'sit' (0 rest, 1 breath; CHIBI_SIT legs: lap and dangling shins from the front, thigh
+    forward and shin down in profile, only the seat from the back): the anchor is the hips'
+    lowest row, so stamp it on the row just above the seat (the outline lands on its edge).
+    size: the height with the outline, 22-32 (default 26 = the 13 x 26 drawings unchanged); the
+    head keeps its 11 rows and torso and leg rows are dropped or repeated (older figures get
+    longer legs first). Every pose of one size shares one box."""
     hair = hair or _pick(CHIBI_HAIR, seed, 21)
     if facing not in ('down', 'up', 'side'):
         raise ValueError("facing: 'down', 'up' or 'side'")
@@ -690,27 +724,43 @@ def chibi(seed=0, facing='down', hair=None, outline='part', ol='ol_char', frame=
     if parts:
         head, body, legs = parts.get('head', head), parts.get('body', body), parts.get('legs', legs)
         key = dict(CHIBI_KEY, **parts.get('key', {}))
+    d = int(size) - 26
+    if d:
+        if not -4 <= d <= 6:
+            raise ValueError('chibi size: 22-32')
+        if not (parts and 'body' in parts):             # torso rows: drop or repeat the arm rows
+            b = _rows(body)
+            b = b[:2] + b[4:] if d <= -2 else b[:3] + b[4:] if d < 0 else b[:3] + [b[3]] * (1 + d // 2) + b[4:]
+            body = '\n'.join(b)
+        if not (parts and 'legs' in parts):             # leg rows: drop or repeat the shins
+            l = _rows(legs)
+            l = l[:1] + l[3:] if d <= -4 else l[:1] + l[2:] if d == -3 else l if d < 0 else \
+                l[:1] + [l[1]] * (1 + (d + 1) // 2) + l[2:]
+            legs = '\n'.join(l)
     hr, br, lr = _rows(head), _rows(body), _rows(legs)
     Hh, Hb, Hl = len(hr), len(br), len(lr)
+    hand = 4 if not d else Hb - 3                       # the hand row inside the body drawing
     W, H = 13, Hh + Hb + Hl + 2
     P = _P(W + 2, H + 2)
     ox, oy = 2, 2                                       # 2 rows of headroom: the pass frames lift the head under its outline
     legy = oy + Hh + Hb
+    if pose == 'sit':
+        legs = parts.get('sit', CHIBI_SIT[facing]) if parts else CHIBI_SIT[facing]
     P.stamp(legs, key, ox, legy)
     P.stamp(body, key, ox, oy + Hh)
     P.stamp(head, key, ox, oy)
     if pose == 'walk' and facing != 'up':                # arms swing: one hand a row lower
-        y = oy + Hh + 4
+        y = oy + Hh + hand
         if frame in (0, 2):
             near, far = (ox, ox + 10) if frame == 0 else (ox + 10, ox)
             if facing == 'down':
                 P.put(near, y + 1, 'skin1')
                 P.put(far, y, 'shirt1')
             else:
-                for yy in range(oy + Hh + 2, oy + Hh + 6):      # the near arm swings a column
+                for yy in range(oy + Hh + 2, oy + Hh + hand + 2):   # the near arm swings a column
                     if P.get(ox + 5, yy) in ('shirt1', 'skin2'):
-                        P.put(ox + 5, yy, 'shirt2' if yy < oy + Hh + 5 else 'belt')
-                        P.put(ox + 5 + (1 if frame == 0 else -1), yy, 'shirt1' if yy < oy + Hh + 5 else 'skin2')
+                        P.put(ox + 5, yy, 'shirt2' if yy < oy + Hh + hand + 1 else 'belt')
+                        P.put(ox + 5 + (1 if frame == 0 else -1), yy, 'shirt1' if yy < oy + Hh + hand + 1 else 'skin2')
     if pose == 'walk' and frame in (0, 2):              # a foot lifts: its leg columns rise a row
         if facing == 'side':
             cols = range(ox + 3, ox + 6) if frame == 0 else range(ox + 6, ox + 9)
@@ -723,11 +773,11 @@ def chibi(seed=0, facing='down', hair=None, outline='part', ol='ol_char', frame=
     if pose == 'walk' and frame in (1, 3):              # pass: the body rises, the hips stretch
         P.shift((0, legy), 0, -1)
         P.g[legy - 1] = P.g[legy]
-    if pose == 'idle' and frame == 1:                   # breath: head and torso settle a pixel
+    if pose in ('idle', 'sit') and frame == 1:          # breath: head and torso settle a pixel
         P.shift((0, legy), 0, 1)
     if outline:
         _outline(P.g, outline, ol=ol)
-    f = Figure(P.g, ox + 5, oy + H - 3)
+    f = Figure(P.g, ox + 5, oy + H - 3 if pose != 'sit' else legy + (1 if facing == 'side' else 0))
     return f.recolor(slots) if slots else f
 
 # ---------------------------------------------------------------- 07 iso people
@@ -999,21 +1049,28 @@ THIN_POSES = {
              hipb=(-1, 23), knb=(1, 31), ftb=(0, 40), hipf=(1, 23), knf=(4, 29), ftf=(-1, 34), waist=2.5, lean=2)],
 }
 
-def thin(h=38, seed=0, facing=1, pose='stand', frame=0, light_dir=1, rim=True, slots=None, vest=None):
+def thin(h=38, seed=0, facing=1, pose='stand', frame=0, light_dir=1, rim=True, slots=None, vest=None,
+         hat=None, sword=None):
     """a thin noir actor (09): 0.175 H tall (38 px on 216 lines), 4.7 heads, no outline, limbs 2-4 px
     from a joint rig, back limbs one step darker. facing 1 = right. light_dir: the side the lamp is
     on (+1 right, -1 left, 0 none); rim=True draws a 1 px warm rim down that contour ('rim1' on
     the shirt and skin, 'rim0' elsewhere), never on the soles. vest: a dark waistcoat over the
     shirt (default by seed). Ramps shirt/vest/pants/skin/hair/shoe steps 1-3; slots renames them.
-    pose 'stand' (0, 1 breath), 'walk' (4 keys), 'run' (4 keys, leaning)."""
+    pose 'stand' (0, 1 breath), 'walk' (4 keys), 'run' (4 keys, leaning).
+    hat: None, 'brim' (a low crown under a 1 px flat brim 13 px wide at 42, its front tip 1 px
+    down) or 'cone' (a wide shallow cone with a 1 px rim, a straw rain hat); ramp 'hat' steps
+    1-3. sword: None, 'sheathed' (a 2 px scabbard off the back hip, 25 degrees down, the hilt
+    forward of the belt) or 'drawn' (the empty scabbard plus a 1 px blade held low and forward
+    in the front hand); ramps 'sheath' and 'blade' steps 1-3, 'grip' for the hilt wrap.
+    Both default to None, which draws exactly the plain figure."""
     S = dict(slots or {})
     if facing < 0:                                      # draw facing right with the lamp mirrored
-        return thin(h, seed, 1, pose, frame, -light_dir, rim, slots, vest).flip()
+        return thin(h, seed, 1, pose, frame, -light_dir, rim, slots, vest, hat, sword).flip()
     sc = h / 42.0
     vest = (_h(seed, 61) < 0.6) if vest is None else vest
     keys = THIN_POSES[pose][frame % len(THIN_POSES[pose])]
     W = int(round(30 * sc)) + 6
-    pad = int(math.ceil(1.2 * sc))                     # headroom: the walk passes lift the head
+    pad = int(math.ceil(1.2 * sc)) + (int(math.ceil(3 * sc)) if hat else 0)   # headroom: the walk passes lift the head (and a hat)
     P = _P(W, h + 2 + pad, oy=pad)
     cx = W // 2
     def pt(k):
@@ -1057,9 +1114,29 @@ def thin(h=38, seed=0, facing=1, pose='stand', frame=0, light_dir=1, rim=True, s
     P.stroke(*pt('hipf'), *pt('knf'), lw(4), lw(3.5), v=r('pants', 2))
     P.stroke(*pt('knf'), *pt('ftf'), lw(3.5), lw(3), v=r('pants', 2))
     x, y = pt('ftf'); P.rect(x - lw(2), y - lw(1.5), x + lw(3.5), y + 1, r('shoe', 2))
+    if sword:                                           # scabbard off the back hip, the hilt forward
+        hx_, hy_ = cx + 0.5 * sc, (keys['hipb'][1] - 0.5) * sc
+        ang = math.radians(25)
+        L = 17 * sc
+        ex, ey = hx_ - L * math.cos(ang), hy_ + L * math.sin(ang)
+        P.stroke(hx_, hy_, ex, ey, lw(2), lw(2), v=r('sheath', 2))
+        P.line(hx_, hy_ - 1, ex, ey - 1, r('sheath', 3))                  # the lit top edge
+        P.put(ex, ey, r('sheath', 1))                                     # the chape
+        gx, gy = hx_ + 1.5 * sc, hy_ - 0.7 * sc
+        P.rect(gx, gy - lw(1.5), gx + 1, gy + lw(1.5) + 1, r('sheath', 1)) # the guard
+        if sword != 'drawn':
+            P.line(gx + 1, gy, gx + 5.5 * sc * math.cos(ang), gy - 5.5 * sc * math.sin(ang), S.get('grip', 'grip'))
     P.stroke(*pt('shf'), *pt('elf'), lw(3), lw(3), v=r('shirt', 2))
     P.stroke(*pt('elf'), *pt('haf'), lw(2.5), lw(2), v=r('shirt', 2))
     x, y = pt('haf'); P.rect(x - lw(1), y, x + lw(1) + 1, y + lw(2.5), r('skin', 2))
+    if sword == 'drawn':                                # the blade low and forward from the front hand
+        hx_, hy_ = x + 0.5, y + lw(1.2)
+        bl = 20 * sc
+        a2 = math.radians(30)
+        P.line(hx_, hy_, hx_ - 3 * sc * math.cos(a2), hy_ - 3 * sc * math.sin(a2), S.get('grip', 'grip'))
+        P.line(hx_ + 1, hy_, hx_ + bl * math.cos(a2), hy_ + bl * math.sin(a2), r('blade', 2))
+        P.put(hx_ + 1, hy_ - 1, r('blade', 1))                            # the guard
+        P.put(hx_ + 1, hy_ + 1, r('blade', 1))
     # head: a 7 x 9 oval (at 42), hair over the top and the back, one eye pixel, a jaw shadow
     hx, hy = pt('head')
     hw2, hh2 = 3.5 * sc, 4.5 * sc
@@ -1075,6 +1152,24 @@ def thin(h=38, seed=0, facing=1, pose='stand', frame=0, light_dir=1, rim=True, s
     P.put(hx + 1.6 * sc, hy - 0.1 * hh2, r('hair', 1))           # the eye
     P.rect(int(hx - 1 * sc), int(hy + hh2) - 1, int(hx + 2.5 * sc) + 1, int(hy + hh2), r('skin', 1))   # jaw
     P.rect(int(math.floor(hx - 1 * sc)), int(hy + hh2), int(math.floor(hx + 1.5 * sc)) + 1, y0 + 1, r('skin', 1))  # neck
+    if hat == 'brim':                                   # a low crown, a flat brim tipped down at the front
+        top = int(math.floor(hy - hh2))
+        by = top + max(2, int(round(2.5 * sc)))
+        P.rect(int(math.floor(hx - 3 * sc + 0.5)), top - 1, int(math.floor(hx + 3 * sc + 0.5)) + 1, by, r('hat', 2))
+        P.rect(int(math.floor(hx - 3 * sc + 0.5)), top - 1, int(math.floor(hx + 3 * sc + 0.5)) + 1, top, r('hat', 3))
+        bx0, bx1 = int(math.floor(hx - 6 * sc + 0.5)), int(math.floor(hx + 6.5 * sc + 0.5))
+        P.rect(bx0, by, bx1 - 1, by + 1, r('hat', 1))
+        P.put(bx1 - 1, by + 1, r('hat', 1))
+        P.put(bx1 - 2, by + 1, r('hat', 1))
+    elif hat == 'cone':                                 # a wide shallow cone: the slope steps 2 px per row
+        top = int(math.floor(hy - hh2)) - 2
+        rows = max(3, int(round(4 * sc)))
+        for k in range(rows):
+            half = 1 + int(round(k * (7 * sc - 1) / max(1, rows - 1)))
+            P.rect(int(math.floor(hx + 0.5)) - half, top + k, int(math.floor(hx + 0.5)) + half + 1, top + k + 1,
+                   r('hat', 3 if k < rows // 2 else 2))
+        half = 1 + int(round(7 * sc - 1))
+        P.rect(int(math.floor(hx + 0.5)) - half, top + rows, int(math.floor(hx + 0.5)) + half + 1, top + rows + 1, r('hat', 1))
     # rim: contour pixels facing the lamp, warm, from the eye row down to the hips (09: neck to
     # hips); never on the hair, the soles or the crown
     g = P.g
@@ -1095,13 +1190,396 @@ def thin(h=38, seed=0, facing=1, pose='stand', frame=0, light_dir=1, rim=True, s
     f = Figure(g, cx, int(round(40 * sc)) + pad)
     return f
 
+# ---------------------------------------------------------------- 10 creatures: slime, cat, gull
+def _inner(m):
+    """bool: set pixels whose 4 neighbours are all set (the mask minus its 1 px ring)"""
+    p = np.pad(m, 1)
+    return m & p[:-2, 1:-1] & p[2:, 1:-1] & p[1:-1, :-2] & p[1:-1, 2:]
+
+def slime(hop=None, w=12, h=13, seed=0, facing=1, blink=False, slots=None, light_dir=-1, inside=None,
+          glint=True):
+    """a slime body (10 Stardew creatures, an original design): a toy-ramp dome on a flat base,
+    sized each frame by anim.hop, outlined in its own darkest step, lit from the upper left, a
+    2 px near-white glint and two 1 x 2 dash eyes (no antenna, no dot eyes).
+    hop: an anim.Hop (its w, h and alt) or a (w, h) pair; None = at rest at w x h (outline
+    included: 12 x 13 by default). Slots: the 'slime' ramp, steps 0-4 as palette.ramp(base,
+    style='toy') gives them (0 the line, 1 shade, 2 body, 3 light, 4 glint), plus 'eye'
+    (default slime0); slots={'slime': 'goo'} renames the ramp. facing +1/-1: the eyes sit 1 px
+    toward that side. blink: the eyes close (2 x 1 dashes). light_dir -1: light from the upper
+    left, +1 upper right. inside: a slot for a 2 x 2 swallowed lump low in the body (place by
+    seed), None for none. The box is (w + 4) x (h + 7) for every HOP8 pose (alt up to 4), the
+    anchor the ground pixel under the centre; alt lifts the body off it, so stamp on the ground.
+        h = anim.hop(t, T, 12, 13); fg.slime(h, facing=1, blink=anim.hold(tab, t)).stamp(c, x, y)"""
+    if hop is None:
+        bw, bh, alt = int(w), int(h), 0
+    elif hasattr(hop, 'alt'):
+        bw, bh, alt = int(hop.w), int(hop.h), int(hop.alt)
+    else:
+        bw, bh, alt = int(hop[0]), int(hop[1]), 0
+    S = dict(slots or {})
+    r = lambda k: S.get('slime', 'slime') + str(k)
+    eye = S.get('eye', r(0))
+    W, H = int(w) + 4, int(h) + 3 + max(4, alt)
+    g = np.full((H, W), None, object)
+    x0 = (W - bw) // 2
+    base = H - 1 - alt                                  # the body's bottom row
+    top = base - bh + 1
+    # silhouette: a half superellipse standing on the base, the bottom corners cut by a pixel;
+    # the inset only grows going up, so every curve is a clean stair
+    a = bw / 2.0
+    m = np.zeros((H, W), bool)
+    prev = 0
+    for j in range(bh):                                 # j = 0 is the base row
+        if j == 0:
+            k = 1
+        else:
+            v = min(1.0, (j - 0.5) / max(1.0, bh - 1.0))
+            k = int(math.floor(a - a * (1 - v ** 2.8) ** (1 / 2.8) + 0.5))
+            k = 0 if j == 1 else max(k, prev)
+        prev = k if j else 0
+        if bw - 2 * k <= 0:
+            break
+        m[base - j, x0 + k:x0 + bw - k] = True
+    rows = np.nonzero(m.any(1))[0]
+    top = int(rows.min())
+    bh = base - top + 1
+    ring = m & ~_inner(m)
+    cx = x0 + (bw - 1) / 2.0
+    ld = -1 if light_dir < 0 else 1
+    lx, ly = cx + ld * 0.3 * a, top + bh * 0.36
+    for y, x in zip(*np.nonzero(m)):
+        u = (x - cx) / a * (-ld)                        # +1 on the side away from the light
+        v = (y - (top + bh * 0.5)) / (bh * 0.5)         # +1 at the base
+        g[y, x] = r(2)
+        if y >= base - 1 or u * 0.7 + v * 0.7 > 0.6:    # a core shadow on the far low side
+            g[y, x] = r(1)
+        if ((x - lx) / (0.4 * a)) ** 2 + ((y - ly) / (0.24 * bh)) ** 2 < 1.0:
+            g[y, x] = r(3)
+    g[ring] = r(0)
+    if glint:                                           # 2 px near white at the lit patch's light-side top
+        lit = np.argwhere(np.equal(g, r(3)))
+        if len(lit):
+            y = lit[:, 0].min()
+            xs = lit[lit[:, 0] == y][:, 1]
+            gx = xs.min() if ld < 0 else xs.max()
+            g[y, gx] = r(4)
+            if g[y + 1, gx] == r(3):
+                g[y + 1, gx] = r(4)
+    # eyes: two dashes just above the middle, 1 px toward the facing side
+    ey = top + int(round(bh * 0.42))
+    half = max(1, int(round(bw * 0.1)))
+    f = 1 if facing > 0 else -1
+    for ex in (int(math.floor(cx)) - half + f, int(math.ceil(cx)) + half + f):
+        while ring[ey, ex] or ring[ey + 1, ex] or (blink and ring[ey + 1, ex - f]):
+            ex -= f                                     # keep both eyes off the line
+        if blink:
+            g[ey + 1, ex] = eye
+            g[ey + 1, ex - f] = eye
+        else:
+            g[ey, ex] = eye
+            g[ey + 1, ex] = eye
+    if inside:                                          # a swallowed lump, 2 x 2, low in the body
+        ix = int(math.floor(cx)) - 2 + int(_h(seed, 81) * 3)
+        iy = base - 3 - int(_h(seed, 82) * 2)
+        if iy > ey + 2:
+            g[iy:iy + 2, ix:ix + 2] = inside
+    return Figure(g, W // 2, H - 1, {'body': m})
+
+# Cat drawings, side view facing right, the line drawn by hand (at this size an outline pass
+# would swallow the ears). Keys: o line, D shade, F fur, L lit back, e eye. Bottom aligned in one
+# 16 x 11 box; the walk's last two rows are its legs, one pair of rows per drawing (CAT_WALK_LEGS).
+CAT_SIT = """
+        ......o..o.
+        .....oLooLo
+        .....oLLLLo
+        .....oFFeFFo
+        ....oLFFFoo.
+        ...oLFFFDo..
+        ..oLFFFFDo..
+        ..oFFFFFDo..
+        .oDFFFFDDo..
+        oDDDDDDDDDo.
+        .ooooooooo.."""
+CAT_SLEEP = """
+        ...oooo..o..o
+        ..oLLLLooLooLo
+        .oLFFFFLoLLLLo
+        oLFFFFFFFFeFFo
+        oDFFFFFFFDDDo.
+        oDDDDDDDDDDDo.
+        .ooooooooooo.."""
+CAT_WALK = """
+        .o.........o..o.
+        oDo.......oLooLo
+        .oDo......oLLLLo
+        ..oLoooooooFFeFFo
+        ..oLLLLLLLFFFFoo.
+        ..oFFFFFFFFFDo...
+        ..oDDDDDDDDDDo...
+        .................
+        ................."""
+CAT_WALK_LEGS = (("..o..o...o..o..", ".o....o.o....o."),   # stride
+                 ("...o.o....o.o..", "...o.o....o.o.."),   # pass
+                 ("...oo.....oo...", "..o..o...o..o.."),   # the other stride
+                 ("..o.o.....o.o..", "..o.o.....o.o.."))   # pass
+
+def _cat_edit(rows, edits):
+    """rows with single pixels replaced: edits [(y, x, ch), ...], y counted from the bottom row"""
+    rows = [list(r) for r in rows]
+    for y, x, ch in edits:
+        rr = rows[len(rows) - 1 - y]
+        rr.extend('.' * (x + 1 - len(rr)))
+        rr[x] = ch
+    return [''.join(r) for r in rows]
+
+def cat(seed=0, pose='sit', frame=0, facing=1, slots=None, outline='part', ol='ol_char'):
+    """a small cat (10 Stardew's farm animals, an original design), side view: 'sit' 12 x 11
+    (the tail along the paws; frames 0 rest, 1 tail tip up, 2 tail tip curled high: the flick),
+    'sleep' 14 x 7 (a curled loaf, chin on the paws, eye shut; 0 rest, 1 breath: the back rises
+    a pixel, 2 the tail tip flicks up), 'walk' 17 x 9 (4 drawings: stride, pass, other stride,
+    pass; tail up). All poses share one 17 x 11 box, so a pose change never jumps. facing 1 =
+    right. Slots: the 'cat' ramp, steps 0-3 (0 the line, 1 shade, 2 fur, 3 lit back) and
+    'cateye'; slots={'cat': 'ginger'} renames the ramp. outline 'part' (the line in cat0),
+    'slot' (one tinted near-black `ol`) or None (the line in cat1: a black cat in a no-outline
+    style keeps its ears)."""
+    if pose not in ('sit', 'sleep', 'walk'):
+        raise ValueError("pose: 'sit', 'sleep' or 'walk'")
+    S = dict(slots or {})
+    r = lambda k: S.get('cat', 'cat') + str(k)
+    line = {'part': r(0), 'slot': ol}.get(outline, r(1))
+    key = {'o': line, 'D': r(1), 'F': r(2), 'L': r(3), 'e': S.get('cateye', 'cateye')}
+    k = frame % (4 if pose == 'walk' else 3)
+    if pose == 'sit':
+        rows = _rows(CAT_SIT)
+        if k == 1:
+            rows = _cat_edit(rows, [(2, 10, 'o'), (2, 11, 'o'), (1, 10, 'D'), (1, 11, 'o'), (0, 10, '.')])
+        elif k == 2:
+            rows = _cat_edit(rows, [(3, 10, 'o'), (3, 11, 'o'), (2, 10, 'D'), (2, 11, 'o'), (1, 10, 'D'),
+                                    (1, 11, 'o'), (0, 10, '.')])
+    elif pose == 'sleep':
+        rows = _rows(CAT_SLEEP)
+        rows[3] = rows[3].replace('e', 'F')             # asleep: the eye shut
+        if k == 1:                                      # breath: the back rises a pixel, the head stays
+            rows = ['...oooo', '..oLLLLo' + rows[0][8:], '.oLFFFFLo' + rows[1][9:],
+                    'oLFFFFFFo' + rows[2][9:]] + rows[3:]
+        elif k == 2:
+            rows = _cat_edit(rows, [(1, 13, 'o'), (2, 13, 'o'), (1, 12, 'D'), (0, 12, 'o')])
+    else:
+        rows = _rows(CAT_WALK)
+        legs = CAT_WALK_LEGS[k]
+        rows = rows[:7] + ([legs[0]] if k % 2 else []) + list(legs)   # passes: the body rides a pixel up
+    W, H = 17, 11
+    P = _P(W, H)
+    art = '\n'.join(rows)
+    P.stamp(art, key, 0, H - len(rows))
+    f = Figure(P.g, 7, H - 1)
+    return f if facing > 0 else f.flip()
+
+# Gull drawings (original), facing right. Keys: W white (gull4), w white shade (gull3), M mantle
+# (gull2), m mantle shade (gull1), t wingtip and eye (gull0), b beak and legs.
+GULL_ART = {
+    'perch': ["""
+        ..WW..
+        .wWtWb
+        ..WW..
+        mMwW..
+        tmMW..
+        .tmw..
+        ..b...""", """
+        ..WW..
+        bWtWw.
+        ..WW..
+        mMwW..
+        tmMW..
+        .tmw..
+        ..b..."""],
+    'fly': ["""
+        t.........t
+        .m.......m.
+        ..M.....M..
+        ...MwWwMb..
+        ....ww.....""", """
+        ...........
+        .mMM...MMm.
+        t...MwM...t
+        ....wWWb...
+        ...........""", """
+        ...........
+        ....wWWb...
+        ..MMwwwMM..
+        .m.......m.
+        t.........t"""],
+    'far': ["""
+        t...t
+        .M.M.
+        ..W..""", """
+        .....
+        .MWM.
+        t...t"""],
+}
+
+def gull(seed=0, pose='perch', frame=0, facing=1, slots=None):
+    """a gull (10 Stardew's birds and 04's coast, an original design): 'perch' 6 x 7 side view
+    (0 head forward, 1 head turned back), 'fly' 11 x 5 seen from below (0 wings up, 1 glide with
+    the 1 px elbow bend, 2 wings down; flap [0, 1, 2, 1]), 'far' 5 x 3 for the distant sky (0 up,
+    1 down). facing 1 = right (the beak side). Slots: the 'gull' ramp, steps 0-4 (0 wingtips and
+    eye, 1-2 the grey mantle, 3-4 the white body) and 'beak'; slots={'gull': 'tern'} renames
+    the ramp. No outline: the navy tips and the grey mantle carry the silhouette."""
+    if pose not in GULL_ART:
+        raise ValueError("pose: 'perch', 'fly' or 'far'")
+    S = dict(slots or {})
+    r = lambda k: S.get('gull', 'gull') + str(k)
+    key = {'t': r(0), 'm': r(1), 'M': r(2), 'w': r(3), 'W': r(4), 'b': S.get('beak', 'beak')}
+    arts = GULL_ART[pose]
+    rows = _rows(arts[frame % len(arts)])
+    W, H = len(rows[0]), max(len(_rows(a)) for a in arts)
+    P = _P(W, H)
+    P.stamp('\n'.join(rows), key, 0, H - len(rows))
+    f = Figure(P.g, 2 if pose == 'perch' else W // 2, H - 1)
+    return f if facing > 0 else f.flip()
+
+# ---------------------------------------------------------------- lofi small figures
+# Inner art 5 wide (the own-material outline makes it 7), 12 px tall with the outline: head rows
+# 0-3, torso 4-6, legs 7-9. Keys as CHIBI_KEY (hair K/H/h, skin S/s, eye E, shirt T/t, pants
+# P/p, boots B/o, hat A/a).
+LOFI_HEAD = {
+    ('side', 'short'): """
+        .HHH.
+        HHHHH
+        hHSES
+        .hSSS""",
+    ('side', 'long'): """
+        .HHH.
+        HHHHH
+        HHSES
+        hhSSS""",
+    ('side', 'cap'): """
+        .AAA.
+        aaaaa
+        hHSES
+        .hSSS""",
+    ('down', 'short'): """
+        .HHH.
+        HHHHH
+        hSSSh
+        .ESE.""",
+    ('down', 'long'): """
+        .HHH.
+        HHHHH
+        HSSSH
+        hESEh""",
+    ('down', 'cap'): """
+        .AAA.
+        aaaaa
+        hSSSh
+        .ESE.""",
+}
+LOFI_HAIR = ('short', 'long', 'cap')
+LOFI_TORSO = {'side': """
+        .TtT.
+        .TtT.
+        .TsT.""", 'down': """
+        tTTTt
+        tTTTt
+        sTTTs"""}
+LOFI_LEGS = {
+    ('side', 'stand'): """
+        .pPP.
+        .pPP.
+        .oBBB""",
+    ('side', 'stride'): """
+        .pPP.
+        pP.pP
+        o..oB""",
+    ('side', 'sit'): """
+        .pPPP
+        ...pP
+        ...oB""",
+    ('down', 'stand'): """
+        .PPP.
+        .P.P.
+        .B.B.""",
+    ('down', 'sit'): """
+        pPPPp
+        .P.P.
+        .B.B.""",
+}
+
+def lofi(h=12, seed=0, facing='side', hair=None, pose='idle', frame=0, slots=None, outline='part', ol='ol_char'):
+    """a small lofi figure for a 320 x 180 diorama (lantern-isle, this repo; an original design):
+    10-14 px tall with the outline (h), 7 px wide, a 4-row head, lined in each material's own
+    darkest step (hair0, skin0, shirt0 ...). facing 'side' (profile to the right; .flip() for
+    left) or 'down' (front). hair: one of LOFI_HAIR (default by seed; 'cap' is a brimmed cap).
+    pose 'idle' (0 rest, 1 breath: head and torso a pixel down), 'walk' (0 stride, 1 pass with the
+    body a pixel up, 2 the other stride, 3 pass; the hand swings), 'sit' (0 rest, 1 breath; legs
+    forward: the anchor is the hips' lowest row, stamp it just above the seat). Ramps
+    hair/skin/shirt/pants/boot/hat steps 0-3 (PALETTES['chibi'] works) plus eye; slots renames
+    them. outline 'part', 'slot' (one `ol`) or None. Every pose and frame of one h share a box."""
+    if facing not in ('side', 'down'):
+        raise ValueError("facing: 'side' or 'down'")
+    if not 10 <= int(h) <= 14:
+        raise ValueError('lofi figures are 10-14 px tall')
+    hair = hair or _pick(LOFI_HAIR, seed, 91)
+    head = _rows(LOFI_HEAD[(facing, hair)])
+    torso = _rows(LOFI_TORSO[facing])
+    f4 = frame % 4
+    if pose == 'sit':
+        lk = 'sit'
+    elif pose == 'walk' and facing == 'side' and f4 in (0, 2):
+        lk = 'stride'
+    else:
+        lk = 'stand'
+    legs = _rows(LOFI_LEGS[(facing, lk)])
+    d = int(h) - 12                                     # height: torso and leg rows added or dropped
+    if d < 0:
+        torso = torso[:1] + torso[2:]
+    if d < -1:
+        legs = legs[:1] + legs[2:]
+    if d > 0:
+        legs = legs[:1] + legs
+    if d > 1:
+        torso = torso[:1] + torso
+    Hi = len(head) + len(torso) + len(legs)
+    W, H = 7, Hi + 3                                    # outline ring plus a row of headroom for the passes
+    P = _P(W, H)
+    ox, oy = 1, 2
+    legy = oy + len(head) + len(torso)
+    P.stamp('\n'.join(legs), CHIBI_KEY, ox, legy)
+    if lk == 'stride' and f4 == 2:                      # the other stride: the back leg in front
+        for y in range(legy + 1, legy + len(legs)):
+            row = P.g[y, ox:ox + 5].copy()
+            P.g[y, ox:ox + 5] = [{'pants2': 'pants1', 'pants1': 'pants2'}.get(v, v) for v in row]
+    P.stamp('\n'.join(torso), CHIBI_KEY, ox, oy + len(head))
+    P.stamp('\n'.join(head), CHIBI_KEY, ox, oy)
+    hand = legy - 1
+    if pose == 'walk' and f4 in (0, 2):
+        if facing == 'side':                            # the hand swings a column fore or aft
+            sx = 1 if f4 == 0 else -1
+            P.put(ox + 2, hand, 'shirt1')
+            P.put(ox + 2 + sx, hand, 'skin1')
+        else:                                           # front: a foot lifts, its hand drops
+            lx = ox + (1 if f4 == 0 else 3)
+            P.put(lx, legy + len(legs) - 1, None)
+            P.put(lx, legy + len(legs) - 2, 'boot2')
+    if pose == 'walk' and f4 in (1, 3):                 # pass: the body rises, the hips stretch
+        P.shift((0, legy), 0, -1)
+        P.g[legy - 1] = np.where(np.equal(P.g[legy - 1], None), P.g[legy], P.g[legy - 1])
+    if pose in ('idle', 'sit') and frame % 2 == 1:      # breath: head and torso settle a pixel
+        P.shift((0, legy), 0, 1)
+    if outline:
+        _outline(P.g, outline, ol=ol)
+    f = Figure(P.g, ox + 2, legy if pose == 'sit' else legy + len(legs) - 1)
+    return f.recolor(slots) if slots else f
+
 # ---------------------------------------------------------------- demo palettes
 PALETTES = {
     'thin': {'shirt1': '#7d7468', 'shirt2': '#aea395', 'shirt3': '#dfd9d4', 'vest1': '#1c1716', 'vest2': '#2b2422',
              'vest3': '#3d3431', 'pants1': '#2e2d2c', 'pants2': '#4f4e4c', 'pants3': '#6a6866',
              'skin1': '#8c5a3e', 'skin2': '#c98f62', 'skin3': '#eab98a', 'hair1': '#141011', 'hair2': '#2e2622',
              'hair3': '#4a3c34', 'shoe1': '#9a958e', 'shoe2': '#d8d4cc', 'shoe3': '#f4f2ec',
-             'rim0': '#fee187', 'rim1': '#fef9c4'},
+             'rim0': '#fee187', 'rim1': '#fef9c4',
+             'hat1': '#2a201c', 'hat2': '#4a3a30', 'hat3': '#6e5a48', 'sheath1': '#1a1214', 'sheath2': '#3a2428',
+             'sheath3': '#5e3a3e', 'blade1': '#6a6e78', 'blade2': '#c4c8d0', 'blade3': '#f0f2f4', 'grip': '#4a4450'},
     'iso_person': {
         'ol': '#000000',
         'hgreen1': '#009a00', 'hgreen2': '#00d400', 'hgreen3': '#00ff00',
@@ -1134,8 +1612,15 @@ PALETTES = {
               'eye': '#1a1830', 'glint': '#f4f0e0', 'belt': '#c6a844', 'ol_char': '#020815'},
     'slim': {'fig0': '#141518', 'fig1': '#262830', 'fig2': '#3d4352', 'fig3': '#6b7891',
              'lamp1': '#c9723e', 'lamp2': '#ffd27a'},
+    'slime': dict(zip(['slime0', 'slime1', 'slime2', 'slime3', 'slime4'],
+                      ['#2a6550', '#44997b', '#5fd0a8', '#6dedc0', '#dcf5ea'])),   # palette.ramp('#5fd0a8', style='toy')
+    'cat': {'cat0': '#2a1410', 'cat1': '#8a3e1c', 'cat2': '#c8682a', 'cat3': '#eaa04e', 'cateye': '#a8d84a',
+            'ol_char': '#020815'},
+    'gull': {'gull0': '#1c2340', 'gull1': '#6c7a94', 'gull2': '#9aa8c0', 'gull3': '#d4dae4', 'gull4': '#fbfcfa',
+             'beak': '#e0a838'},
     'quadruped_slim': {'deer0': '#17140f', 'deer1': '#4a3a2a', 'deer2': '#6e5638', 'deer3': '#9a7f55'},
     'block': {'hat': '#a8743f', 'hat_shade': '#6e4a2c', 'head': '#24323d', 'visor': '#bff2e2',
               'collar': '#e8574a', 'mantle': '#ecd9a8', 'cloak': '#2f8a8c', 'emblem': '#e8574a', 'satchel': '#a8743f',
               'leg': '#24323d', 'foot': '#c9d6c4'},
 }
+PALETTES['lofi'] = dict(PALETTES['chibi'])

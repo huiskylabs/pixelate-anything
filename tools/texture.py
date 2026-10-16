@@ -13,6 +13,8 @@ Three engines and a kit, all painting palette slots (BASE + step) into a canvas.
            leaflight, flakes, mottle, jitter_dots, stipple_field
   kit      profile (moulding stacks), panels (ring tables), grille, inset_frame, emitter_grid,
            cap, wet_streaks, tapestry, circuit, segments, slats
+  roofs    shingles (scallop / rect / shake courses, slipped and missing tiles, moss), thatch,
+           planks (walls, floors, board-and-batten: grain ticks, knots, short and replaced boards)
 
     import layout, texture as tx
     ids = layout.ashlar(0, 96, 200, 140, h=9, w=(10, 16), seed=2, frame=c)
@@ -1458,3 +1460,299 @@ def circuit(c, mask, slot, inset=2, keep=0.6, hooks=0.4, pipes=6, pipe_len=(6, 2
     if cut is not None:
         c.g[cutm] = cut
     return line
+
+# ---------------------------------------------------------------- C6: roofs and boards
+def _runs(p0, n, lenfn, start=0):
+    """1-D runs over positions p0 .. p0 + n - 1: (run index, offset in the run, run length) per
+    position; run k is lenfn(k) long and run 0 starts at `start` (walked back to cover p0)."""
+    k, s = 0, int(start)
+    while s > p0:
+        k -= 1
+        s -= max(1, int(lenfn(k)))
+    idx = np.zeros(n, np.int64); off = np.zeros(n, np.int64); ln = np.ones(n, np.int64)
+    p = p0
+    while p < p0 + n:
+        L = max(1, int(lenfn(k)))
+        if s + L > p:
+            a, b = max(p, s), min(s + L, p0 + n)
+            idx[a - p0:b - p0] = k
+            off[a - p0:b - p0] = np.arange(a - s, b - s)
+            ln[a - p0:b - p0] = L
+            p = b
+        s += L
+        k += 1
+    return idx, off, ln
+
+def _span(m, origin):
+    ys, xs = np.nonzero(m)
+    X0, X1, Y0, Y1 = int(xs.min()), int(xs.max()) + 1, int(ys.min()), int(ys.max()) + 1
+    ox, oy = (X0, Y0) if origin is None else (int(origin[0]), int(origin[1]))
+    return X0, X1, Y0, Y1, ox, oy
+
+def _lenfn(size, key, seed):
+    """a run-length rule: an int is fixed, (lo, hi) a hashed length per run"""
+    if isinstance(size, (tuple, list)):
+        lo, hi = int(size[0]), int(size[1])
+        return (lambda k: lo + int(_hash(k, key, seed) * (hi - lo + 1))), lo
+    return (lambda k: int(size)), int(size)
+
+def _moss(c, m, shade, lit, amount, ramp, cell, seed, steps, base=2):
+    """moss patches over a coursed surface: value-noise patches covering `amount` of the mask,
+    growing first in `shade` (the rows under a lip, the seams) and over whole units in the patch
+    cores; orphan pixels dropped. Moss is base in the shade, base+1 on bodies, base+2 on `lit`."""
+    xx, yy = _grid(c)
+    nz = _vnoise(xx, yy, cell, seed + 50)
+    if not m.any() or amount <= 0:
+        return np.zeros_like(m)
+    lo = np.quantile(nz[m], 1 - min(1.0, amount))
+    core_t = np.quantile(nz[m], 1 - min(1.0, amount * 0.45))
+    mm = m & (((nz >= lo) & shade) | (nz >= core_t))
+    mm = morph.remove_small(mm, 3, 4)
+    k = np.where(shade, base, np.where(lit, base + 2, base + 1))
+    names = _names(ramp, steps)
+    c.g[mm] = names[np.clip(k, 0, steps - 1)][mm]
+    return mm
+
+def _shingle_rows(h, view):
+    if h <= 1:
+        return [0]
+    r = [0] * h
+    r[0], r[-1] = -2, 1
+    if view != 'side' and h >= 4:
+        r[1] = -1
+    return r
+
+def shingles(c, mask=None, ramp='roof', size=None, base=3, shape='scallop', view='side', rows=None,
+             seam=-2, vary=0.12, slipped=0.03, missing=0.015, under=None, moss=0.0, moss_ramp='moss',
+             moss_cell=12, origin=None, seed=0, steps=7):
+    """roof shingles and tiles: offset courses of tiles, each with a dark shadow row under the lip
+    of the course above, a 1 px seam between tiles and a 1 px lit lower edge (01 HLD roofs, 04
+    Sea of Stars 3/4 roofs, 10 Stardew shingles: banded courses, never pillow-shaded tiles).
+    shape 'scallop' rounds each tile's lower corners (the seam and the shadow meet in a V),
+    'rect' squares them (slate, flat tiles), 'shake' is rect with hashed widths (default (3, 7))
+    and a 1 px ragged drop on some tiles. size=(w, h) per tile, w an int or (lo, hi); view
+    'side' (default 6x3: shadow, body, lit) or '34' (6x5, adds a half shade row under the lip);
+    rows overrides the per-row step offsets, top to bottom. A `vary` share of tiles sits one step
+    off; `missing` tiles show `under` (default ramp0) with a lath row, `slipped` tiles hang 1 px
+    low with a dark sliver above; moss > 0 grows moss_ramp patches from the laps and seams.
+    Courses start at the mask's top-left (or origin). Returns the tile id map (-1 outside)."""
+    m = _mask(c, mask)
+    ids = np.full((c.H, c.W), -1, np.int64)
+    if not m.any():
+        return ids
+    if size is None:
+        size = ((3, 7) if shape == 'shake' else 6, 3 if view == 'side' else 5)
+    w, h = size
+    h = int(h)
+    rows = list(rows) if rows is not None else _shingle_rows(h, view)
+    rows = (rows + [rows[-1]] * h)[:h]
+    X0, X1, Y0, Y1, ox, oy = _span(m, origin)
+    U = np.zeros((c.H, c.W), np.int64); WL = np.ones((c.H, c.W), np.int64)
+    V = np.zeros((c.H, c.W), np.int64)
+    r0, r1 = (Y0 - oy) // h, (Y1 - 1 - oy) // h
+    for r in range(r0, r1 + 1):
+        fn, lo = _lenfn(w, r, seed + 1)
+        if isinstance(w, (tuple, list)):
+            start = -int(_hash(r, 0, seed + 2) * lo)
+        else:
+            start = -(int(w) // 2) * (r % 2)
+        idx, off, ln = _runs(X0 - ox, X1 - X0, fn, start)
+        ya, yb = max(Y0, oy + r * h), min(Y1, oy + (r + 1) * h)
+        if yb <= ya:
+            continue
+        ids[ya:yb, X0:X1] = (r + 4096) * 65536 + (idx + 32768)[None, :]
+        U[ya:yb, X0:X1] = off[None, :]
+        WL[ya:yb, X0:X1] = ln[None, :]
+        V[ya:yb, X0:X1] = (np.arange(ya, yb) - oy - r * h)[:, None]
+    ids[~m] = -1
+    tid = np.where(ids >= 0, ids, 0)
+    hv = _hash_arr(tid, tid // 65536, seed + 3)
+    rows_a = np.asarray(rows, np.int64)
+    k = base + rows_a[np.clip(V, 0, h - 1)]
+    k = k + np.where(hv < vary * 0.7, -1, np.where(hv > 1 - vary * 0.3, 1, 0))
+    dist = np.minimum(U, WL - U)
+    d = np.zeros_like(U)
+    if shape == 'scallop' and h >= 3:
+        d[dist == 1] = 1 + ((h >= 5) & (WL >= 7))[dist == 1]
+        d[(dist == 2) & (WL >= 7) & (h >= 4)] = 1
+    elif shape == 'shake':
+        d = np.where(_hash_arr(tid, 7, seed + 4) < 0.3, -1, 0) * np.ones_like(U)
+    edge = h - 1 - np.maximum(d, 0)
+    lit_m = (V == edge) & (U > 0)
+    k = np.where(lit_m, base + rows_a[-1] + (k - base - rows_a[np.clip(V, 0, h - 1)]), k)
+    dark = (U == 0) | (V > edge)
+    k = np.where(dark, base + seam, k)
+    names = _names(ramp, steps)
+    c.g[m] = names[np.clip(k, 0, steps - 1)][m]
+    # shakes that hang 1 px: their lit edge drops over the shadow row of the course below
+    if shape == 'shake':
+        drop = m & lit_m & (d < 0) & (V == h - 1)
+        below = morph.shift(drop, 0, 1, False) & m
+        c.g[below] = morph.shift(c.g, 0, 1, None)[below]
+        c.g[drop] = names[min(steps - 1, max(0, base))]
+    under = under if under is not None else names[0]
+    lath = names[min(steps - 1, 1)]
+    hs = _hash_arr(tid, 11, seed + 5)
+    holes = m & (hs < missing) & (V >= 0)
+    c.g[holes] = under
+    if h >= 4:
+        c.g[holes & (V == h // 2)] = lath
+    for t_ in np.unique(ids[m & (hs >= missing) & (hs < missing + slipped)]):
+        tm = (ids == t_)
+        moved = morph.shift(tm, 0, 1, False) & m
+        src = morph.shift(c.g, 0, 1, None)
+        c.g[moved] = src[moved]
+        c.g[tm & ~moved] = under
+    if moss > 0:
+        shade = m & ((V <= 0) | (U <= 0) | (V > edge))
+        _moss(c, m & ~holes, shade & ~holes, lit_m, moss, moss_ramp, moss_cell, seed, steps)
+    return ids
+
+def planks(c, mask=None, ramp='wood', width=5, length=(16, 36), base=3, vertical=False, gap=1,
+           lit=1, seam=-2, grain=0.45, knots=0.12, short=0.1, replaced=0.06, replaced_ramp=None,
+           replaced_step=1, vary=0.15, nails=False, battens=False, light=(-0.45, -0.89),
+           origin=None, seed=0, steps=7):
+    """plank walls, floors, decks and doors: boards `width` px across (gap px of them the dark
+    seam) cut into hashed lengths with 1 px butt joints staggered board to board, a lit edge
+    row on the side facing the light, short 2-4 px grain ticks one step down, the odd knot (a
+    dark pair with softer ends) (07 Stardew floors and fences, 10 cabin walls, 09 Katana ZERO
+    panelling: flat boards, edge light only). vertical=True stands the boards up (lit column on
+    the light's side). A `short` share of boards is cut short; a `replaced` share is newer wood
+    (replaced_ramp, else replaced_step steps lighter) with less grain; vary shifts a share one
+    step. nails puts a nail head 2 px in from each joint; battens (board-and-batten) lays a
+    2 px batten over every seam with a cast shadow on the far side. Returns the board id map."""
+    m = _mask(c, mask)
+    ids = np.full((c.H, c.W), -1, np.int64)
+    if not m.any():
+        return ids
+    X0, X1, Y0, Y1, ox, oy = _span(m, origin)
+    width, gap = int(width), max(0, int(gap))
+    A = np.zeros((c.H, c.W), np.int64); L = np.ones((c.H, c.W), np.int64)
+    B = np.zeros((c.H, c.W), np.int64)
+    lo, hi = (length, length) if not isinstance(length, (tuple, list)) else length
+    if vertical:
+        a0, a1, b0, b1, oa, ob = Y0, Y1, X0, X1, oy, ox
+    else:
+        a0, a1, b0, b1, oa, ob = X0, X1, Y0, Y1, ox, oy
+    for j in range((b0 - ob) // width, (b1 - 1 - ob) // width + 1):
+        def fn(k, j=j):
+            n = lo + int(_hash(k, j, seed + 1) * (hi - lo + 1))
+            return max(4, n // 2 - 1) if _hash(k, j, seed + 2) < short else n
+        start = -int(_hash(j, 0, seed + 3) * lo)
+        idx, off, ln = _runs(a0 - oa, a1 - a0, fn, start)
+        ba, bb_ = max(b0, ob + j * width), min(b1, ob + (j + 1) * width)
+        if bb_ <= ba:
+            continue
+        bs = (np.arange(ba, bb_) - ob - j * width)
+        sid = (j + 4096) * 65536 + (idx + 32768)
+        if vertical:
+            ids[a0:a1, ba:bb_] = sid[:, None]; A[a0:a1, ba:bb_] = off[:, None]
+            L[a0:a1, ba:bb_] = ln[:, None]; B[a0:a1, ba:bb_] = bs[None, :]
+        else:
+            ids[ba:bb_, a0:a1] = sid[None, :]; A[ba:bb_, a0:a1] = off[None, :]
+            L[ba:bb_, a0:a1] = ln[None, :]; B[ba:bb_, a0:a1] = bs[:, None]
+    ids[~m] = -1
+    sid = np.where(ids >= 0, ids, 0)
+    face = width - gap                                    # board face px across
+    toward = (light[0] if vertical else light[1]) < 0     # light on the low-b side
+    Bf = B if toward else (face - 1 - B)                  # 0 = the lit edge, gap rows stay >= face
+    Bf = np.where(B >= face, B, Bf)
+    hv = _hash_arr(sid, 1, seed + 4)
+    new = _hash_arr(sid, 2, seed + 5) < replaced
+    k = base + np.where(new, 0, np.where(hv < vary * 0.6, -1, np.where(hv > 1 - vary * 0.4, 1, 0)))
+    k = np.where(new & (replaced_ramp is None), k + replaced_step, k)
+    body = (B < face) & (Bf > 0) & (A > 0)
+    # knots: a dark pair with a softer pixel each side, mid board, grain cleared around it
+    kmid = max(1, face // 2)
+    kp = 3 + (_hash_arr(sid, 3, seed + 8) * np.maximum(1, L - 8)).astype(np.int64)
+    hasknot = (_hash_arr(sid, 4, seed + 9) < knots) & (L >= 10) & (face >= 3) & (B < face)
+    onrow = hasknot & (Bf == kmid)
+    near = hasknot & (np.abs(Bf - kmid) <= 1) & (A >= kp - 3) & (A <= kp + 4)
+    # grain ticks: 2-4 px, at most one per 7 px cell per row (so ticks never touch end to end),
+    # cells staggered 3 px row to row and only every other cell per row
+    q = A + 3 * Bf
+    cell = q // 7
+    ht = _hash_arr(sid * 31 + Bf, cell, seed + 6)
+    s0 = 1 + (_hash_arr(sid * 31 + Bf, cell, seed + 7) * 2).astype(np.int64)
+    tl = 2 + (_hash_arr(sid * 31 + Bf, cell, seed + 10) * 3).astype(np.int64)
+    gdens = np.where(new, grain * 0.3, grain)
+    tick = (body & (ht < gdens) & (q % 7 >= s0) & (q % 7 < s0 + tl) & (A < L - 1)
+            & ((Bf + cell) % 2 == 0) & ~near)
+    k = np.where(tick, k - 1, k)
+    kb = k
+    k = np.where(onrow & ((A == kp) | (A == kp + 1)), kb - 2, k)
+    k = np.where(onrow & ((A == kp - 1) | (A == kp + 2)), kb - 1, k)
+    if face >= 6:
+        k = np.where(hasknot & (Bf == kmid - 1) & ((A == kp) | (A == kp + 1)), kb - 1, k)
+    k = np.where((Bf == 0) & (B < face), k + lit, k)
+    k = np.where(B >= face, base + seam, k)                # the seam between boards
+    k = np.where((A == 0) & (B < face), base + seam, k)    # butt joints
+    if nails and face >= 3:
+        nail = (B < face) & (Bf == kmid) & ((A == 2) | (A == L - 2)) & (L >= 8)
+        k = np.where(nail, base - 2, k)
+    names = _names(ramp, steps)
+    kk = np.clip(k, 0, steps - 1)
+    c.g[m] = names[kk][m]
+    if replaced_ramp is not None:
+        rn = _names(replaced_ramp, steps)
+        sel = m & new
+        c.g[sel] = rn[kk][sel]
+    if battens and width >= 4:
+        # a 2 px batten over each seam (the seam px and the next board's first px), lit on the
+        # light's side, and a 1 px cast shadow on the board beside it on the far side
+        lo_c, hi_c = (B == width - 1), (B == 0)
+        bat = m & (lo_c | hi_c)
+        bk = np.where(lo_c if toward else hi_c, base + lit, base)
+        c.g[bat] = names[np.clip(bk, 0, steps - 1)][bat]
+        shadow = m & ((B == 1) if toward else (B == width - 2))
+        c.g[shadow] = names[max(0, base - 2)]
+    return ids
+
+def thatch(c, mask=None, ramp='straw', course=5, base=3, fringe=(0, 2), strokes=0.45, moss=0.0,
+           moss_ramp='moss', moss_cell=14, origin=None, seed=0, steps=7):
+    """thatch: courses of straw laid bottom first, each hanging over the one below with a ragged
+    lit fringe (clumps of 2-3 straws share a drop of fringe px) and a 1 px shadow under it,
+    vertical straw strokes one step down every other column (study 07 cottage roofs: coursed,
+    edge-lit, no per-straw noise). moss > 0 adds moss_ramp patches in the shadow rows.
+    Returns the course index map (-1 outside)."""
+    m = _mask(c, mask)
+    ids = np.full((c.H, c.W), -1, np.int64)
+    if not m.any():
+        return ids
+    X0, X1, Y0, Y1, ox, oy = _span(m, origin)
+    course = int(course)
+    names = _names(ramp, steps)
+    K = np.full((c.H, c.W), base, np.int64)
+    shade = np.zeros((c.H, c.W), bool); litm = np.zeros((c.H, c.W), bool)
+    xs = np.arange(X0, X1)
+    r0, r1 = (Y0 - oy) // course, (Y1 - 1 - oy) // course
+    for r in range(r1, r0 - 1, -1):                       # bottom course first
+        cy0 = oy + r * course
+        idx, off, ln = _runs(X0 - ox, X1 - X0, lambda k, r=r: 2 + int(_hash(k, r, seed + 1) * 2),
+                             -int(_hash(r, 1, seed + 2) * 2))
+        f = fringe[0] + (_hash_arr(idx, r, seed + 3) * (fringe[1] - fringe[0] + 1)).astype(np.int64)
+        bottom = cy0 + course - 1 + f
+        sk = (_hash_arr(xs, r, seed + 4) < strokes) & ((xs + r) % 2 == 0)
+        slen = 2 + (_hash_arr(xs, r, seed + 5) * 2).astype(np.int64)
+        for i, x in enumerate(xs.tolist()):
+            ya, yb = max(0, cy0), min(c.H, int(bottom[i]) + 1)
+            if yb <= ya:
+                continue
+            col = np.full(yb - ya, base, np.int64)
+            if sk[i]:
+                s0 = max(0, (yb - ya) - 1 - int(slen[i]))
+                col[s0:(yb - ya) - 1] = base - 1
+            col[-1] = base + 1
+            K[ya:yb, x] = col
+            ids[ya:yb, x] = r
+            shade[ya:yb, x] = False; litm[ya:yb, x] = False
+            litm[yb - 1, x] = True
+            if yb < c.H:
+                K[yb, x] = base - 2
+                shade[yb, x] = True
+                litm[yb, x] = False
+    ids[~m] = -1
+    c.g[m] = names[np.clip(K, 0, steps - 1)][m]
+    if moss > 0:
+        _moss(c, m, m & shade, m & litm, moss, moss_ramp, moss_cell, seed, steps)
+    return ids

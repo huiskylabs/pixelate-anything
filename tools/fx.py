@@ -1,5 +1,6 @@
 """Effects as opaque palette sprites driven by age: fire, smoke, dust, shots, muzzle flashes,
-sparks, casings, debris, crisp motes, cell rain, light streaks and indicator lights.
+sparks, casings, debris, crisp motes, cell rain, light streaks, indicator lights, neon signs,
+rain splashes, drips and puddle ripples.
 
 Every effect is a pure function of (inputs, age or t, seed): no state, no blur, no alpha in the
 pixel layer. Slot effects write ramp slots (fire0..fire6, smoke0..smoke5, dust0..dust4, ...) into
@@ -26,6 +27,11 @@ loop spawn from a table and take age = ((t - t0) mod T) / life (anim.age does th
     img = fx.pixel_motes(img, t, T, region=side_mask)              # twinkling dots and diamonds (03)
     img = fx.light_streaks(img, t, T, region=(200, 60, 300, 232))  # stepped-alpha streaks (03)
     fx.indicator(c, 225, 121, t=t, phase=2)                        # amber chase in a brass frame (06)
+    tube, emit = fx.neon_sign(c, 40, 20, 'OPEN', t=t, T=T, broken=(2,))  # 1 px tubes, a buzzing P (09)
+    fx.rain_splashes(c, t, T, n=30, length=30, cycles=8)           # crowns where those streaks land (02)
+    fx.splash_field(c, t, T, (0, 150, 384, 178), n=12, every=12)   # hashed floor splashes (02)
+    fx.drip(c, 104, 101, 152, t, period=20, offset=7)              # bead, fall, splash, loops (10)
+    fx.ripples(c, t, T, puddle_mask, n=3, life=24, squash=0.4)     # 1 px rings squashed for 3/4 (10)
     fx.drop_shadow(c, 60, 101, rx=5)                               # see sprite.drop_shadow
 
 References: Metal Slug 3 (fireball, smoke, muzzle, casings, sparks, hit flash), Owlboy (emissive
@@ -44,7 +50,9 @@ from sprite import grid_of, drop_shadow
 __all__ = ['PALETTE', 'fireball', 'smoke_puff', 'trail', 'puff', 'burst', 'emissive', 'shot',
            'muzzle', 'muzzle_light', 'casing', 'sparks', 'hit_flash', 'debris', 'crescent', 'tumble',
            'CARDS', 'pixel_motes',
-           'rain_cells', 'light_streaks', 'indicator', 'drop_shadow']
+           'rain_cells', 'light_streaks', 'indicator', 'drop_shadow',
+           'neon_tube', 'neon_state', 'neon_sign', 'splash', 'rain_splashes', 'splash_field',
+           'ripple', 'ripples', 'drip', 'SPLASH']
 
 # measured ramps (05 fire and smoke, 09 dust, 08 emissive, 06 indicator), darkest first
 FIRE = ['#2a0602', '#611e05', '#a8420f', '#d86f1e', '#eda13f', '#f7d98e', '#fbf4dc']
@@ -56,7 +64,9 @@ for _n, _r in (('fire', FIRE), ('smoke', SMOKE), ('dust', DUST)):
 PALETTE.update({'fx_rim': '#e47815', 'fx_mid': '#dec04e', 'fx_core': '#eadbbd',
                 'brass0': '#4a3410', 'brass1': '#9a7428', 'brass2': '#e0c060',
                 'amber2': '#745a24', 'amber4': '#e8b040', 'frame0': '#2d2510', 'halo': '#2c2924',
-                'rain': '#ffffff', 'spec': '#e6e8ec', 'mote1': '#1afc88', 'mote0': '#13a868'})
+                'rain': '#ffffff', 'spec': '#e6e8ec', 'mote1': '#1afc88', 'mote0': '#13a868',
+                'neon_core': '#f2fffd', 'neon_rim': '#16b8b0', 'neon_off': '#1c2e30',
+                'drip': '#a8c8e0', 'ripple1': '#8fb0c8', 'ripple0': '#4e6a82'})
 
 def _h(a, b, s=0):
     """integer hash -> [0, 1) (the hash of iso.hash2 and texture._hash_arr), vectorised"""
@@ -878,3 +888,388 @@ def indicator(grid, x, y, vertical=False, t=0, phase=0, hold=3, slots=('amber2',
         arr[ys, xs] = m[ys.start - y:ys.stop - y, xs.start - x:xs.stop - x]
     commit()
     return full
+
+# ---------------------------------------------------------------- neon signs
+NEON_STATES = ('off', 'dim', 'on')
+
+def _glyph_bool(g):
+    """a glyph as a bool array: a bool/int array, or a '#'/'.' string with rows split by '|'"""
+    if isinstance(g, str):
+        rows = g.split('|')
+        return np.array([[ch == '#' for ch in r] for r in rows], bool)
+    return np.asarray(g, bool)
+
+def _line_cells(x0, y0, x1, y1):
+    """Bresenham cells from (x0, y0) to (x1, y1), both ends included"""
+    dx, dy = abs(x1 - x0), -abs(y1 - y0)
+    sx, sy = (1 if x1 > x0 else -1), (1 if y1 > y0 else -1)
+    e, out = dx + dy, []
+    while True:
+        out.append((x0, y0))
+        if x0 == x1 and y0 == y1:
+            return out
+        e2 = 2 * e
+        if e2 >= dy:
+            e += dy
+            x0 += sx
+        if e2 <= dx:
+            e += dx
+            y0 += sy
+
+def neon_tube(g, scale=1, trace='stroke'):
+    """a 1 px neon tube path (bool array) bent from a glyph, learned from 09 Katana ZERO's club
+    signs (1 px tubes, a hot core, a saturated rim, a short outer glow). trace 'stroke': every
+    glyph pixel is a point of the tube, spaced `scale` px apart and joined to its side and corner
+    neighbours by 1 px Bresenham runs (a corner join is skipped when a side pixel already turns
+    it, so bends stay single-width), which suits thin fonts (pixfont). trace 'edge': the glyph is
+    blown up by `scale` and only its 4-connected inner edge is kept, the outline tube of a filled
+    shape (a glyphs.rune, a heart mask)."""
+    m = _glyph_bool(g)
+    s = max(1, int(scale))
+    h, w = m.shape
+    if trace == 'edge':
+        big = np.kron(m, np.ones((s, s), bool))
+        return morph.boundary(big, outer=False, conn=4, border=False) if big.any() else big
+    out = np.zeros(((h - 1) * s + 1, (w - 1) * s + 1), bool)
+    for j, i in zip(*np.nonzero(m)):
+        out[j * s, i * s] = True
+        for dj, di in ((0, 1), (1, 0), (1, 1), (1, -1)):
+            jj, ii = j + dj, i + di
+            if not (0 <= jj < h and 0 <= ii < w and m[jj, ii]):
+                continue
+            if dj and di and (m[j, ii] or m[jj, i]):
+                continue
+            for xx, yy in _line_cells(i * s, j * s, ii * s, jj * s):
+                out[yy, xx] = True
+    return out
+
+def neon_state(t, T=None, k=0, broken=False, buzz=0.35, flicker=0.0, hold=1, seed=0):
+    """the state of neon letter k at frame t: 2 on, 1 dim, 0 off (09: a dying tube buzzes in
+    short hashed bursts, the rest of the sign holds). Hashed per `hold` frames on (t mod T), so
+    with hold dividing T frame T is frame 0. broken: the letter buzzes, off with chance buzz/2
+    and dim with chance buzz/2 on each hold. flicker: the chance per hold that the whole sign
+    (every letter, same hash) drops to dim."""
+    tt = int(t) % int(T) if T else int(t)
+    step = tt // max(1, int(hold))
+    if flicker and _hf(step, 977, seed) < flicker:
+        return 1
+    if broken:
+        r = _hf(step, 31 + int(k), seed)
+        if r < buzz * 0.5:
+            return 0
+        if r < buzz:
+            return 1
+    return 2
+
+def neon_sign(c, x, y, text=None, glyphs=None, scale=1, trace='stroke', gap=2, vertical=False,
+              core='neon_core', rim='neon_rim', off='neon_off', dim=None, lit=None, t=0, T=None,
+              broken=(), buzz=0.35, flicker=0.0, hold=2, seed=0, rim_conn=8):
+    """a neon sign of 1 px tubes, each tube pixel in the hot `core` slot with a 1 px `rim` slot
+    hugging it on both sides, learned from 09 Katana ZERO's club signs (the tube burns
+    near-white, its glass edge carries the hue, and post.Post.glow kernel 'outer' adds the halo).
+    Letters come from `text` through pixfont's 5x7 font (lower case folds to upper; spaces
+    advance) or from `glyphs`, a list of bool arrays or '#.|' strings (glyphs.rune, your own
+    shapes), bent into tubes by neon_tube(scale, trace). Letters run left to right `gap` px
+    apart, or top to bottom when vertical. Each letter's state (2 on, 1 dim, 0 off) comes from
+    lit (a sequence, one per letter, of states or bools) or else from neon_state(t, T, k, k in
+    broken, buzz, flicker, hold, seed): broken letters buzz on a hashed hold table that loops
+    over T. On: rim then core. Dim: the tube in `dim` (default the rim slot), no rim. Off: the
+    tube in `off` (unlit glass; None draws nothing). rim_conn 8 also fills the rim's corners,
+    4 gives a thinner rim. Returns (tube, emit): bool masks in grid size, tube every tube
+    pixel drawn, emit the core and rim of the lit letters (feed it to post.Post.glow)."""
+    arr, commit = grid_of(c)
+    H, W = arr.shape
+    if glyphs is None:
+        import pixfont
+        glyphs = [None if ch == ' ' else pixfont.GLYPHS.get(ch.upper(), pixfont.GLYPHS['?'])
+                  for ch in (text or '')]
+    tubes = [None if g is None else neon_tube(g, scale, trace) for g in glyphs]
+    adv = (5 - 1) * max(1, int(scale)) + 1 if trace == 'stroke' else 5 * max(1, int(scale))
+    tube = np.zeros((H, W), bool)
+    emit = np.zeros((H, W), bool)
+    placed, cx, k = [], 0, 0
+    for tb in tubes:
+        if tb is None:
+            cx += adv + gap
+            continue
+        th, tw = tb.shape
+        ox, oy = (x, y + cx) if vertical else (x + cx, y)
+        m = np.zeros((H, W), bool)
+        ys, xs = np.nonzero(tb)
+        ys, xs = ys + oy, xs + ox
+        ok = (xs >= 0) & (xs < W) & (ys >= 0) & (ys < H)
+        m[ys[ok], xs[ok]] = True
+        if lit is not None:
+            st = lit[k] if k < len(lit) else 2
+            st = 2 if st is True else (0 if st is False else int(st))
+        else:
+            st = neon_state(t, T, k, k in tuple(broken), buzz, flicker, hold, seed)
+        placed.append((m, st))
+        cx += (th if vertical else tw) + gap
+        k += 1
+    for m, st in placed:                                   # rims first, so cores win overlaps
+        if st == 2 and rim is not None:
+            r = morph.boundary(m, outer=True, conn=rim_conn, border=False)
+            arr[r] = rim
+            emit |= r
+    for m, st in placed:
+        tube |= m
+        v = core if st == 2 else ((dim or rim) if st == 1 else off)
+        if v is not None:
+            arr[m] = v
+        if st:
+            emit |= m
+    commit()
+    return tube, emit
+
+# ---------------------------------------------------------------- splashes, drips, ripples
+SPLASH = {                       # bottom-aligned at the hit row, centred on the hit column
+    1: (('#.#', '.#.'),          # a 3 px crown
+        ('#...#', '.....', '.....'),   # two split drops thrown up and out
+        ('#...#',)),             # landing back as 2 dots
+    2: (('#.#.#', '.###.'),      # a 5 px crown with 3 prongs
+        ('#.....#', '.#...#.', '.......'),
+        ('#.....#',)),
+}
+
+def splash(c, x, y, frame, size=1, slots=('rain', 'rain'), over=None):
+    """a rain splash crown at its hit point (x, y), drawing `frame` 0..2 (02 Celeste rain, read as
+    opaque cells): 0 a 3 px crown (size 2: a 5 px three-prong crown) in slots[0], 1 two split
+    drops thrown up and out, 2 the two drops landing, both in slots[-1]. Any other frame draws
+    nothing. over: a bool mask where nothing is drawn. Returns True when it drew."""
+    seq = SPLASH[2 if size >= 2 else 1]
+    if not 0 <= int(frame) < len(seq):
+        return False
+    arr, commit = grid_of(c)
+    H, W = arr.shape
+    rows = seq[int(frame)]
+    v = slots[0] if int(frame) == 0 else slots[-1]
+    blk = None if over is None else np.asarray(over, bool)
+    for j, row in enumerate(rows):
+        yy = y - (len(rows) - 1 - j)
+        for i, ch in enumerate(row):
+            xx = x - len(row) // 2 + i
+            if ch == '#' and 0 <= xx < W and 0 <= yy < H and (blk is None or not blk[yy, xx]):
+                arr[yy, xx] = v
+    commit()
+    return True
+
+def rain_splashes(c, t, T, n=30, length=30, cycles=8, seed=11, region=None, slant=0, floor=None,
+                  size=1, frames=3, slots=('rain', 'rain'), over=None, big=0.0):
+    """crowns where fx.rain_cells streaks hit the ground (02 Celeste rain): pass the same n,
+    length, cycles, seed, region and slant as the rain_cells call and each streak's head is
+    tracked exactly; on the frame it crosses its floor row a splash() plays for `frames`
+    (1..3) frames at the column it reached. floor: None (the region's last row), an int row,
+    a (lo, hi) band where each streak lands on its own hashed row (a floor seen in 3/4), or a
+    per-column array of rows (a curb, steps). big: the share of splashes drawn at size 2
+    (hashed per hit). The head moves on whole spans per loop, so frame T is frame 0. over: a
+    bool mask where no splash is drawn (the awning shelter). Returns the hit points drawn."""
+    arr, commit = grid_of(c)
+    H, W = arr.shape
+    x0, y0, x1, y1 = region or (0, 0, W, H)
+    x0, y0, x1, y1 = max(0, x0), max(0, y0), min(W, x1), min(H, y1)
+    hits = []
+    if x1 <= x0 or y1 <= y0 or n <= 0:
+        commit()
+        return hits
+    S = (y1 - y0) + length
+    cyc = cycles if isinstance(cycles, (tuple, list)) else (cycles,)
+    tm = int(t) % int(T)
+    for i in range(n):
+        xs = x0 + int(_hf(i, 0, seed) * (x1 - x0))
+        off = int(_hf(i, 1, seed) * S)
+        cy = cyc[int(_hf(i, 2, seed) * len(cyc))]
+        if floor is None:
+            fy = y1 - 1
+        elif isinstance(floor, (tuple, list)) and len(floor) == 2:
+            fy = int(floor[0]) + int(_hf(i, 7, seed) * (int(floor[1]) - int(floor[0]) + 1))
+        elif np.ndim(floor) == 0:
+            fy = int(floor)
+        else:
+            fy = int(np.asarray(floor)[min(W - 1, max(0, xs))])
+        fy = min(y1 - 1, max(y0, fy))
+        k = fy - y0 + 1                          # head row fy <=> (u mod S) == k
+        u = lambda tt: off + (cy * S * tt) // int(T)
+        for back in range(max(1, min(3, int(frames)))):
+            a, b = u(tm - back), u(tm - back - 1)
+            if (a - k) // S > (b - k) // S:
+                hx = xs + (fy // slant if slant else 0)
+                hx = x0 + (hx - x0) % (x1 - x0)
+                gen = (a - k) // S
+                sz = 2 if (big and _hf(i, 5000 + gen % 4096, seed) < big) else size
+                if splash(arr, hx, fy, back, sz, slots, over):
+                    hits.append((hx, fy))
+                break
+    commit()
+    return hits
+
+def splash_field(c, t, T, region, n=12, every=12, size=1, slots=('rain', 'rain'), over=None,
+                 seed=0, big=0.0):
+    """splashes at hashed floor spots (02, for a floor the streaks don't reach): n crowns per
+    generation inside region (x0, y0, x1, y1), a new generation every `every` frames, each crown
+    starting on its own hashed frame of the generation and playing 3 frames. Generations are
+    hashed on (t mod T) // every, so with every dividing T frame T is frame 0."""
+    arr, commit = grid_of(c)
+    x0, y0, x1, y1 = region
+    tm = int(t) % int(T)
+    gen, ph = tm // int(every), tm % int(every)
+    for i in range(n):
+        for g in (gen, gen - 1):                  # a crown started late in the last generation
+            gg = g % max(1, int(T) // int(every))
+            start = int(_hf(i, 3 + 11 * gg, seed) * int(every))
+            f = (ph if g == gen else ph + int(every)) - start
+            if 0 <= f < 3:
+                hx = x0 + int(_hf(i, 1 + 11 * gg, seed) * (x1 - x0))
+                hy = y0 + int(_hf(i, 2 + 11 * gg, seed) * (y1 - y0))
+                sz = 2 if (big and _hf(i, 9 + 11 * gg, seed) < big) else size
+                splash(arr, hx, hy, f, sz, slots, over)
+                break
+    commit()
+    return c
+
+def _ellipse_ring(rx, ry):
+    """the midpoint-ellipse outline (8-connected, single width) as a set of (dx, dy)"""
+    rx, ry = int(rx), int(ry)
+    pts = set()
+    if rx <= 0 and ry <= 0:
+        return {(0, 0)}
+    if ry <= 0:
+        return {(-rx, 0), (rx, 0)}
+    if rx <= 0:
+        return {(0, -ry), (0, ry)}
+    def add(a, b):
+        pts.update({(a, b), (-a, b), (a, -b), (-a, -b)})
+    rx2, ry2 = rx * rx, ry * ry
+    xx, yy = 0, ry
+    dx, dy = 0, 2 * rx2 * yy
+    d1 = ry2 - rx2 * ry + 0.25 * rx2
+    while dx < dy:
+        add(xx, yy)
+        xx += 1
+        dx += 2 * ry2
+        if d1 < 0:
+            d1 += dx + ry2
+        else:
+            yy -= 1
+            dy -= 2 * rx2
+            d1 += dx - dy + ry2
+    d2 = ry2 * (xx + 0.5) ** 2 + rx2 * (yy - 1) ** 2 - rx2 * ry2
+    while yy >= 0:
+        add(xx, yy)
+        yy -= 1
+        dy -= 2 * rx2
+        if d2 > 0:
+            d2 += rx2 - dy
+        else:
+            xx += 1
+            dx += 2 * ry2
+            d2 += dx - dy + rx2
+    return pts
+
+def ripple(c, x, y, age, r=(1, 6), squash=0.4, slots=('ripple1', 'ripple0'), back=None,
+           rings=1, gap=3, mask=None):
+    """an expanding 1 px ripple ring on still water at (x, y), age 0..1 (10 Stardew Valley
+    puddles, ponds in 3/4): radius r[0] -> r[1] with age, drawn as a midpoint ellipse squashed
+    to ry = rx * squash for the 3/4 view (1.0 seen from above), so its outline stays single
+    width with no doubled corners. The slot steps through `slots` with age (bright first).
+    back: a slot for the far (upper) half of the ring, which a 3/4 view reads darker. rings > 1
+    adds inner rings `gap` px behind the first, each born when the outer one has spread that
+    far. mask: bool, the ring only shows inside it (the puddle). Returns the drawn bool mask."""
+    arr, commit = grid_of(c)
+    H, W = arr.shape
+    out = np.zeros((H, W), bool)
+    if not 0 <= age < 1:
+        return out
+    blk = None if mask is None else np.asarray(mask, bool)
+    rad = r[0] + (r[1] - r[0]) * age
+    v = slots[min(len(slots) - 1, int(age * len(slots)))]
+    for q in range(max(1, int(rings))):
+        rr = rad - q * gap
+        if rr < r[0] - 0.01:
+            break
+        rx = int(round(rr))
+        ry = int(round(rr * squash))
+        for dx, dy in _ellipse_ring(rx, ry):
+            px, py = x + dx, y + dy
+            if 0 <= px < W and 0 <= py < H and (blk is None or blk[py, px]):
+                arr[py, px] = back if (back is not None and dy < 0) else v
+                out[py, px] = True
+    commit()
+    return out
+
+def ripples(c, t, T, mask, n=3, life=24, seed=0, **kw):
+    """puddle ripples (10 Stardew Valley rain on ponds): n ripple sources inside a bool mask, each
+    spawning a ripple() every `life` frames (snapped so a whole number fit the loop) at a hashed
+    pixel of the mask, with its own hashed start phase; spots are hashed per generation on
+    (t mod T), so frame T is frame 0. kw goes to ripple() (r, squash, slots, back, rings, gap);
+    the ring is clipped to the mask. Returns the drawn bool mask."""
+    m = np.asarray(mask, bool)
+    ys, xs = np.nonzero(m)
+    arr, commit = grid_of(c)
+    out = np.zeros(arr.shape, bool)
+    if not len(ys):
+        return out
+    gens = max(1, int(round(int(T) / float(life))))
+    L = int(T) / gens
+    tm = int(t) % int(T)
+    for i in range(n):
+        ph = _hf(i, 0, seed) * L
+        tt = (tm + ph) % int(T)
+        g = int(tt // L)
+        age = (tt - g * L) / L
+        j = int(_hf(i, 1 + 13 * g, seed) * len(ys))
+        kw.setdefault('mask', m)
+        out |= ripple(arr, int(xs[j]), int(ys[j]), age, **kw)
+    commit()
+    return out
+
+def drip(c, x, y, y_floor, t, period=48, offset=0, form=None, swell=4, fall=None, g=2.0,
+         splash_frames=3, rings=0, ring_hold=4, idle=0, slots=('drip', 'drip'), splash_slots=None,
+         ring_kw=None, size=1):
+    """a drip that forms, falls and splashes, looping every `period` frames (10 Stardew Valley
+    cave drips): a 1 px bead at the tip (x, y) for `form` frames, a 1x2 hanging drop for `swell`
+    frames, a 1x2 streak falling to row y_floor under gravity g px/frame^2 (fall frames, default
+    from the drop height: 18 px in 4 frames), a splash() of `splash_frames` (0..3) frames, then
+    `rings` ripple rings held `ring_hold` frames each (ring_kw goes to ripple(); r and squash
+    default to a 1 px ring growing by 2 px per ring, squash 0.4), then `idle` empty frames.
+    form None fills what the period leaves. k = (t - offset) mod period, so with period
+    dividing T frame T is frame 0; x, y may move (a hat brim). slots: (bead, falling drop).
+    Returns the stage drawn: 'form', 'swell', 'fall', 'splash', 'ring' or 'idle'."""
+    arr, commit = grid_of(c)
+    d = max(1, int(y_floor) - int(y))
+    if fall is None:
+        fall = max(2, int(round(math.sqrt(2.0 * d / g))))
+    splash_frames = max(0, min(3, int(splash_frames)))
+    rest = swell + fall + splash_frames + rings * ring_hold + idle
+    if form is None:
+        form = max(0, int(period) - rest)
+    k = (int(t) - int(offset)) % int(period)
+    bead, drop = slots[0], slots[-1]
+    stage = 'idle'
+    if k < form:
+        _put(arr, x, y, bead)
+        stage = 'form'
+    elif k < form + swell:
+        _put(arr, x, y, bead)
+        _put(arr, x, y + 1, drop)
+        stage = 'swell'
+    elif k < form + swell + fall:
+        f = (k - form - swell + 1) / float(fall)
+        yy = int(y) + 1 + int(round((d - 1) * f * f))
+        yy = min(int(y_floor) - 1, yy)
+        _put(arr, x, yy - 1, drop)
+        _put(arr, x, yy, drop)
+        stage = 'fall'
+    elif k < form + swell + fall + splash_frames:
+        splash(arr, int(x), int(y_floor), k - form - swell - fall, size, splash_slots or (drop, drop))
+        stage = 'splash'
+    elif k < form + swell + fall + splash_frames + rings * ring_hold:
+        q = (k - form - swell - fall - splash_frames) // ring_hold
+        kw = dict(r=(1, 1 + 2 * rings), squash=0.4)
+        kw.update(ring_kw or {})
+        r0, r1 = kw.pop('r')
+        rad = r0 + (r1 - r0) * (q + 1) / float(rings + 1)
+        ripple(arr, int(x), int(y_floor), 0.0, r=(rad, rad), **kw)
+        stage = 'ring'
+    commit()
+    return stage

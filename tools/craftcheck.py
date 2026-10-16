@@ -614,6 +614,7 @@ FOCUS_THUMB = 160   # thumbnail width in cells
 FOCUS_TOP = 0.005   # the frame's peak: its top 0.5% of cells by value and by local contrast
 FOCUS_MASS_DE = 0.12   # a figure cell departs this far (OKLab) from its neighbourhood (1/8 frame wide)
 FOCUS_HUE = 35.0    # chroma rivals: same hue family as the hero's most saturated cell, within this
+FOCUS_JOIN_DL = 0.10 # rival masses: neighbouring figure cells join only when their L is this close
 # Limits, from the ten showcase stills (art director's hero score: kite 2 and 3, canal 3 and 3 fail;
 # observatory 4 and 4, noodle 4 and 4, lighthouse 3 and 4, Lantern Isle pass). Measured pass / fail:
 #   focus_value     share of the top values in the hero (or a named light): pass .83-1.00, kite r1 .22,
@@ -624,7 +625,12 @@ FOCUS_HUE = 35.0    # chroma rivals: same hue family as the hero's most saturate
 #                   canal 11 and 24 -> at most 2.5
 #   focus_rival     the loudest figure mass outside the hero, as a multiple of the hero's own (area x
 #                   departure): pass .04-.22, kite 1.81 and 1.34 (island and blossom), canal 50-80 (the
-#                   whole busy frame is one mass) -> at most 0.6 (the art director's own cap)
+#                   whole busy frame is one mass) -> at most 0.6 (the art director's own cap). Masses join
+#                   only within FOCUS_JOIN_DL of L, so a dense iso block is several masses, not one
+#                   (joined, windows 1 px wider took the canal v4 still from 0.40x to 2.95x). With the
+#                   split, run v4: kite .05, observatory .49 (the snowfield the AD flagged), canal .33,
+#                   noodle .45 (the blank shop roof), lighthouse .25, Lantern Isle .15; earlier kite
+#                   rounds 1.16 and 1.32, earlier canal 6.0 still fail
 #   focus_size      the drawn hero (--actor bbox) over the brief's planned bbox: at least 0.85
 # The lighthouse round 1 (hero 3: the boat is a speck) passes: a bbox cannot tell a readable hero from
 # a speck inside it; the art director still judges that.
@@ -642,7 +648,7 @@ def _boxmask(shape, c, boxes):
         m[max(0, y0 // c):max(0, y1 // c + 1), max(0, x0 // c):max(0, x1 // c + 1)] = True
     return m
 
-def focus(img, hero, value_owners=(), chroma_owners=(), chroma=True):
+def focus(img, hero, value_owners=(), chroma_owners=(), chroma=True, join_dl=None):
     """{key: (value, detail)} for the FOCUS keys but focus_size. hero: (x0, y0, x1, y1) at 1x,
     inclusive; value_owners / chroma_owners: bboxes of named lights or objects that may hold the value
     or chroma peak outside the hero. chroma=False skips focus_chroma (an era palette, a greyscale
@@ -678,7 +684,9 @@ def focus(img, hero, value_owners=(), chroma_owners=(), chroma=True):
         out['focus_chroma'] = (float(riv.sum() / n), (int(np.median(xs)) * c, int(np.median(ys)) * c) if len(xs) else None)
     d = np.linalg.norm(t - _box(t, max(2, w // 8)), axis=-1)
     fg = d > FOCUS_MASS_DE
-    lab, nc = _components(fg, fg[:, 1:] & fg[:, :-1], fg[1:] & fg[:-1])
+    jdl = FOCUS_JOIN_DL if join_dl is None else join_dl     # masses join only inside one value band
+    lab, nc = _components(fg, fg[:, 1:] & fg[:, :-1] & (np.abs(L[:, 1:] - L[:, :-1]) < jdl),
+                          fg[1:] & fg[:-1] & (np.abs(L[1:] - L[:-1]) < jdl))
     herol = float(d[fg & hm].sum())
     best = (0.0, None)
     if nc:
@@ -855,7 +863,7 @@ def repeats(img, seg=None):
 # ---------------------------------------------------------------- block-in
 # A block-in is a greyscale layout drawn before any detail: one flat value per plane, the hero's
 # light the brightest. BLOCK_* are what `pixelate check BLOCKIN.png --blockin` holds it to.
-BLOCK_BANDS = (3, 4)       # distinct value bands (each at least BLOCK_MIN of the frame)
+BLOCK_BANDS = (3, 7)       # distinct value bands (each at least BLOCK_MIN of the frame): 3 groups up to 7 greys
 BLOCK_MIN = 0.01
 BLOCK_MERGE = 0.05         # values closer than this (L) are one band
 BLOCK_PLANE_TOL = 0.08     # a plane's share may miss the brief's by this much (of the frame)
@@ -894,6 +902,125 @@ def blockin_empty(img, bands, cols=16):
     top = np.stack([(b == k).mean(-1) for k in range(len(bands))], -1).max(-1)
     empty = top >= 0.97
     return {'empty': float(empty.mean()), 'empty_low': float(empty[gh - gh // 3:].mean())}
+
+# ---------------------------------------------------------------- the brief's objects, planes and calm areas
+# What the brief promises beyond the hero, measured on the native 1x frame inside the brief's own boxes
+# (inclusive x0,y0,x1,y1): a secondary object is there and reads against what is around it, each plane
+# lands near its planned L, calm areas stay a minority, and the rest of the frame has something in
+# every window. Limits from the five run-v4 stills against their art director critiques (see
+# references/delivery.md#gate):
+PRESENCE_DL = 0.10      # a key object differs from the ring around its box by this much L
+PRESENCE_STD = 0.015    # ... and a box whose L spread is under this holds nothing (missing or flat)
+PRESENCE_TOP = 0.4      # the object's L: the mean of the box's pixels most unlike the ring (this share)
+PRESENCE_RIM = 0.15     # a rim: pixels this far from the ring along this share of the box's perimeter
+PLANE_TOL = 0.06        # a plane's measured mean L may miss its plan by this much
+CALM_MAX = 0.30         # calm boxes cover at most this share of the frame
+DENSITY_WIN = 100       # a window of this many delivered px holds something readable (outside calm)
+
+def _clip(box, W, H):
+    x0, y0, x1, y1 = box
+    return max(0, x0), max(0, y0), min(W - 1, x1), min(H - 1, y1)
+
+def _pxmask(shape, boxes):
+    m = np.zeros(shape, bool)
+    for x0, y0, x1, y1 in boxes:
+        m[max(0, y0):max(0, y1 + 1), max(0, x0):max(0, x1 + 1)] = True
+    return m
+
+def presence(img, box, exclude=(), rim=False, dl=None):
+    """does the object in box (x0,y0,x1,y1, 1x inclusive) read? {'dL': object L minus the ring's
+    median L (the mean of the PRESENCE_TOP share of box pixels most unlike the ring), 'std': L spread in
+    the box, 'ring': ring L, 'obj': object L, 'rim': rim pixels, 'rim_need', 'ok', 'why'}. The ring is a
+    band 2-8 px wide around the box, with `exclude` boxes (the hero, other keys) left out when enough
+    ring remains. rim=True: the object may share its ground's L if a 1 px band along part of its
+    outline differs by PRESENCE_DL (rim pixels >= PRESENCE_RIM of the box perimeter). dl replaces
+    PRESENCE_DL (a brief override)."""
+    dl = PRESENCE_DL if dl is None else dl
+    F = _F(img)
+    H, W = F.H, F.W
+    x0, y0, x1, y1 = _clip(box, W, H)
+    if x1 < x0 or y1 < y0:
+        return {'ok': False, 'why': 'outside', 'dL': 0.0, 'std': 0.0, 'ring': None, 'obj': None, 'rim': 0, 'rim_need': 0}
+    w, h = x1 - x0 + 1, y1 - y0 + 1
+    r = int(np.clip(min(w, h) // 2, 2, 8))
+    inner = _pxmask((H, W), [(x0, y0, x1, y1)])
+    ring = _pxmask((H, W), [(x0 - r, y0 - r, x1 + r, y1 + r)]) & ~inner
+    ex = [b for b in exclude if not (b[0] <= x0 and b[1] <= y0 and b[2] >= x1 and b[3] >= y1)]
+    if ex:
+        r2 = ring & ~_pxmask((H, W), ex)
+        if r2.sum() >= 0.3 * ring.sum():
+            ring = r2
+    L = F.L
+    if not ring.any():
+        return {'ok': True, 'why': 'no ring', 'dL': 0.0, 'std': float(L[inner].std()), 'ring': None, 'obj': None, 'rim': 0, 'rim_need': 0}
+    rl = float(np.median(L[ring]))
+    v = L[inner]
+    d = v - rl
+    k = max(1, int(PRESENCE_TOP * d.size))
+    top = d[np.argsort(np.abs(d))[::-1][:k]]
+    dL = float(top.mean())
+    std = float(v.std())
+    out = {'dL': dL, 'std': std, 'ring': rl, 'obj': rl + dL, 'rim': 0, 'rim_need': 0}
+    if rim:
+        grow = _pxmask((H, W), [(x0 - 1, y0 - 1, x1 + 1, y1 + 1)])
+        out['rim'] = int((grow & (np.abs(L - rl) >= dl)).sum())
+        out['rim_need'] = int(max(4, PRESENCE_RIM * 2 * (w + h)))
+    if std < PRESENCE_STD and abs(dL) < dl:
+        out.update(ok=False, why='missing')
+    elif abs(dL) >= dl or (rim and out['rim'] >= out['rim_need']):
+        out.update(ok=True, why='reads' if abs(dL) >= dl else 'rim')
+    else:
+        out.update(ok=False, why='blends')
+    return out
+
+def plane_value(img, box, exclude=()):
+    """(mean L, share of the box measured) of a plane region, the `exclude` boxes (keys, hero) masked out"""
+    F = _F(img)
+    x0, y0, x1, y1 = _clip(box, F.W, F.H)
+    m = _pxmask((F.H, F.W), [(x0, y0, x1, y1)])
+    n = m.sum()
+    if exclude:
+        m &= ~_pxmask((F.H, F.W), exclude)
+    if not m.any():
+        return None, 0.0
+    return float(F.L[m].mean()), float(m.sum() / max(1, n))
+
+def calm_share(shape, boxes):
+    """the share of an (H, W) frame the union of the calm boxes covers"""
+    return float(_pxmask(shape, boxes).mean()) if boxes else 0.0
+
+def density(img, scale=1, calm=(), win=DENSITY_WIN):
+    """windows of about `win` delivered px (win / scale at 1x, on the composition cell grid) outside the
+    calm boxes that hold nothing readable: {'empty': n, 'windows': n, 'share': empty share, 'worst':
+    (x0, y0, x1, y1) at 1x of the emptiest window or None, 'busy': its busy-cell share, 'cell': c, 'k': k}.
+    A cell holds something when a few of its pixels depart strongly from its own ground (_cells); a
+    window counts when under half of it lies in calm boxes, and is empty when none of its cells outside
+    the calm boxes holds anything."""
+    F = _F(img)
+    busy, c = _cells(F)
+    gh, gw = busy.shape
+    k = max(1, int(win / float(scale) / c + 0.5))
+    k = min(k, gh, gw)
+    cm = _pxmask((F.H, F.W), calm)[:gh * c, :gw * c].reshape(gh, c, gw, c).mean((1, 3)) > 0.5
+    live = busy & ~cm
+    ii = lambda a: np.pad(np.cumsum(np.cumsum(a.astype(int), 0), 1), ((1, 0), (1, 0)))
+    def wsum(S):
+        return S[k:, k:] - S[:-k, k:] - S[k:, :-k] + S[:-k, :-k]
+    nb, nc = wsum(ii(live)), wsum(ii(cm))
+    counted = nc < 0.5 * k * k
+    if not counted.any():
+        return {'empty': 0, 'windows': 0, 'share': 0.0, 'worst': None, 'busy': None, 'cell': c, 'k': k}
+    free = k * k - nc
+    frac = np.where(counted, nb / np.maximum(1, free), np.inf)
+    empty = counted & (nb == 0)
+    j, i = np.unravel_index(int(np.argmin(frac)), frac.shape)
+    if empty.any():                      # the empty window with the most empty windows around it
+        sc = wsum(ii(np.pad(empty, ((0, k - 1), (0, k - 1)))))[:empty.shape[0], :empty.shape[1]]
+        sc = np.where(empty, sc, -1)
+        j, i = np.unravel_index(int(np.argmax(sc)), sc.shape)
+    worst = (int(i * c), int(j * c), int((i + k) * c - 1), int((j + k) * c - 1))
+    return {'empty': int(empty.sum()), 'windows': int(counted.sum()), 'share': float(empty.sum() / counted.sum()),
+            'worst': worst, 'busy': float(frac[j, i]), 'cell': c, 'k': k}
 
 def report(img_1x, style, intent=None, objects=None, values=None):
     """[(metric, value, lo, hi, 'ok'|'fail')] against CRAFT[style] (a name or {metric: (lo, hi)})"""

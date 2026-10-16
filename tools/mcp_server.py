@@ -34,6 +34,10 @@ Modes: rebuild (write_file + export_assets), classic-genre screens under console
 (new_project kind=assets, write .px files, export_assets), scenes and animated loops with a
 generative soundtrack (new_project kind=scene, preview_scene, check_scene, build_page,
 render_audio, render_video, render_gif), and music on its own (new_project kind=music, render_audio).
+For a new picture or scene, follow the flow: read the user's unstated intent, route_request (a hint,
+not the decision), write_brief and fill it, lint_brief, show the user the brief and its section 0 and
+wait for OK; then draw everything yourself in code, check_frame and redraw until it passes, show one
+still for go/no-go, and only then animate. Small asks (a palette, one sprite) need no full brief.
 Start every task by reading guide(name) for its mode ('pixelate', 'palettes', 'assets', 'scenes',
 'music') and guide('craft') before drawing. Look at every preview image you get back and fix what
 looks wrong before going on: the art is only as good as that loop. Paths are relative to the workspace."""
@@ -65,6 +69,38 @@ def thumb(path, max_w=1400):
     tp = path.with_name(path.stem + '.preview.png')
     small.save(tp)
     return Image(path=str(tp))
+
+# ---------------------------------------------------------------- one line to a brief, and the gate
+@server.tool()
+def route_request(request: str) -> str:
+    """Rank the style presets for a plain request, with reasons, the mode, technique hints for the
+    subject and the defaults for what the request leaves open. A hint: choose with the user's intent."""
+    return cli('route', request)[1]
+
+@server.tool()
+def write_brief(request: str, out: str, style: str = '') -> str:
+    """Write the pre-filled scene brief (section 0 choices to confirm, then 11 sections) to `out`,
+    for the top style or `style`. Fill every TODO with concrete choices, then lint_brief."""
+    return cli('route', request, '--brief', *([style] if style else []), '-o', P(out, write=True))[1]
+
+@server.tool()
+def lint_brief(path: str) -> str:
+    """Self-critique a filled brief: TODOs left, thin or missing sections, vague words, motion periods
+    that don't divide the loop, kit names that don't exist. Fix until it says ready, then show the user."""
+    return cli('route', '--lint', P(path))[1]
+
+@server.tool()
+def check_frame(frame: str, style: str, scale: int = 1, palette: str = '', prelight: str = '',
+                actor: str = '', used: str = '') -> list:
+    """The delivery gate for one frame: the style's value budget, square native pixels, banned light ops,
+    palette subset, actor readability and pixel craft (orphans, jaggies, banding, pillow shading,
+    clusters). Redraw until every line passes; no frame is shown as final before that."""
+    args = ['check', P(frame), '--style', style, '--scale', scale]
+    for flag, v in (('--pal', palette), ('--pre', prelight), ('--actor', actor), ('--used', used)):
+        if v:
+            args += [flag, P(v) if flag != '--used' else v]
+    code, text = cli(*args)
+    return [('PASS\n' if code == 0 else 'FAIL\n') + text, thumb(P(frame))]
 
 # ---------------------------------------------------------------- guides and files
 @server.tool()

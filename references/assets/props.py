@@ -38,6 +38,7 @@ import math, pathlib, sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(1, str(pathlib.Path(__file__).resolve().parents[2] / 'tools'))
 from figures import Figure, _P, _outline, _h, _bresenham
 
 __all__ = ['car', 'tyre', 'pole', 'trunk', 'rails', 'ladder', 'lantern', 'girders', 'truss',

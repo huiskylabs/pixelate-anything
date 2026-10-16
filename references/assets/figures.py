@@ -41,6 +41,7 @@ import math, pathlib, sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(1, str(pathlib.Path(__file__).resolve().parents[2] / 'tools'))
 
 __all__ = ['Figure', 'slim', 'quadruped_slim', 'block', 'chibi', 'iso_person', 'thin', 'at',
            'drawing', 'HOLDS', 'PALETTES', 'drop_shadow', 'BLOCK_HERO', 'slime', 'cat', 'gull', 'lofi']

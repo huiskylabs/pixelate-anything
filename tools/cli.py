@@ -12,6 +12,7 @@
   pixelate new scene|music|assets DIR    start a project from a template
   pixelate shot SCENE t [t...] [--grid]  preview frames                            (guides/scenes.md)
   pixelate check SCENE [--page]          palettes, timing, loop seam, page
+  pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op]   the delivery gate
   pixelate build SCENE [--release]       one self-contained HTML page
   pixelate audio SCENE out.{wav,ogg,flac,mp3}   one seamless loop of the music     (guides/music.md)
   pixelate video SCENE out.mp4 [--scale S] [--audio loop.wav]   crisp MP4

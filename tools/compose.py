@@ -31,6 +31,8 @@ import math, pathlib, sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+# finished-object examples (props, figures) live in references/assets; populate() and the stage helpers read them
+sys.path.append(str(pathlib.Path(__file__).resolve().parent.parent / 'references' / 'assets'))
 import morph
 
 __all__ = ['Plan', 'proscenium', 'stage', 'room', 'frame_mask', 'bands_plan', 'spine_plan',

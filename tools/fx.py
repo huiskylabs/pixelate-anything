@@ -208,6 +208,22 @@ def debris(c, x, y, age, n=8, seed=0, speed=(16, 34), g=30.0, spread=(0.05, 0.95
     commit()
 
 # ---------------------------------------------------------------- smoke, trails, dust
+def _despeckle(code):
+    """a code array with every pixel that matches none of its 4 side neighbours set to its most
+    common neighbour code (0 removes it), so no isolated single pixels or 1 px tone flecks remain"""
+    H, W = code.shape
+    p = np.pad(code, 1)
+    nb = np.stack([p[:-2, 1:-1], p[2:, 1:-1], p[1:-1, :-2], p[1:-1, 2:]])
+    lone = (code > 0) & ~(nb == code[None]).any(0)
+    if not lone.any():
+        return code
+    ks = np.arange(int(code.max()) + 1)
+    votes = (nb[None] == ks[:, None, None, None]).sum(1)    # (codes, H, W)
+    best = votes.argmax(0)
+    out = code.copy()
+    out[lone] = best[lone]
+    return out
+
 def smoke_puff(c, cx, cy, age, seed=0, r=(1.5, 6.5), ramp='smoke', pores=0.1, lobes=7, rise=3.0,
                sway=1.5, steps=6):
     """an opaque cauliflower smoke puff (05): `lobes` lobes (radius base * (0.6 + 0.5 h), base
@@ -252,17 +268,21 @@ def smoke_puff(c, cx, cy, age, seed=0, r=(1.5, 6.5), ramp='smoke', pores=0.1, lo
         code = np.where(m, np.clip(k, 1, 5) + 1, code)
         lit = np.where(m, l, lit)
     body = code > 0
-    pore = body & (lit < 0.25) & (_h(ix // 2, iy // 2, seed + 11) < pores + 0.15 * age) \
-        & (_h(ix, iy, seed + 12) < 0.45) & morph.erode(body, 1, 'cross', border=False)
+    inner = morph.erode(body, 1, 'cross', border=False)
+    pore = inner & (lit < 0.25) & (_h(ix // 2, iy, seed + 11) < 0.5 * (pores + 0.15 * age))   # 2x1 dashes, not dots
+    pore &= np.roll(pore, 1, 1) | np.roll(pore, -1, 1)
     code[pore] = 2
-    fr = morph.dilate(body, 2, 'disc') & ~body
-    fringe = fr & (_h(ix // 2, iy // 2, seed + 3) < 0.25 * (1 - age)) & (_h(ix, iy, seed + 4) < 0.55)
+    fr = morph.dilate(body, 1, 'cross') & ~body           # the fringe touches the body: no loose crumbs
+    fringe = fr & (_h(ix // 3, iy // 2, seed + 3) < 0.3 * (1 - age)) & (lit > -0.2)
     code[fringe] = 4
-    if age > 0.55:                                         # crumble from the edge in 2x2 clusters
+    if age > 0.55:                                         # thin from the edge and break into lobes
         kk = (age - 0.55) / 0.45
-        edge = 1 - np.minimum(1, morph.distance(code > 0, 'chessboard', border=False) / max(1.0, base_r))
-        kill = (_h(ix // 2, iy // 2, seed + 7) < kk * (0.7 + 0.8 * edge)) | (_h(ix, iy, seed + 9) < kk * 0.15)
-        code[kill] = 0
+        dist = morph.distance(code > 0, 'chessboard', border=False)
+        cut = kk * max(1.0, base_r) * (0.6 + 0.8 * _h(ix // 4, iy // 4, seed + 7))
+        code[dist <= cut] = 0
+        keep = morph.remove_small(code > 0, 4, conn=4)    # fragments under 4 px go too
+        code[~keep] = 0
+    code = _despeckle(code)
     slots = list(ramp) if isinstance(ramp, (list, tuple)) else ['%s%d' % (ramp, i) for i in range(int(steps))]
     n = len(slots)
     if n < 2:
@@ -332,36 +352,55 @@ def puff(c, x, y_floor, frame, frames=6, ramp='dust', lobes=6, light=(1, -1), se
     commit()
 
 def burst(c, x, y, t, t0, n=8, slots=('dust4', 'dust3', 'dust1'), life=12, speed=(0.5, 1.5),
-          normal=(0, -1), spread=60, g=0.05, seed=0, T=None):
+          normal=(0, -1), spread=60, g=0.05, seed=0, T=None, clusters=None):
     """event dust in hard cells (02 wall kick): n particles leave (x, y) at frame t0 within
-    `spread` degrees of `normal`, size 3 -> 2 -> 1 px and slot slots[0] -> [1] -> [2] in steps of
-    3 frames, positions floored. T wraps the event across the loop seam."""
+    `spread` degrees of `normal`, gathered into `clusters` coherent puffs (default n // 3, at least
+    2): each puff flies as one body, its particles packed within 1-2 px of its centre, so the dust
+    reads as a few puffs and never as scattered speckle. Each particle is 3 -> 2 -> 1 px and slot
+    slots[0] -> [1] -> [2] in steps of 3 frames, positions floored; a pixel left with no side
+    neighbour in its puff is dropped, so no isolated single pixels remain (a puff that shrinks to
+    one pixel is gone). T wraps the event across the loop seam."""
     k = t - t0
     if T:
         k %= T
     if not 0 <= k < life:
         return
     arr, commit = grid_of(c)
+    H, W = arr.shape[:2]
     base = math.atan2(normal[1], normal[0])
     stage = min(2, int(k) // 3)
     sz = 3 - stage
-    for i in range(n):
-        li = life - 3 * _hf(i, 3, seed)                    # 9-12 frames each
-        if k >= li:
+    slot = slots[min(len(slots) - 1, stage)]
+    nc = max(2, int(clusters or n // 3))
+    ext = int(life * max(speed) + 0.5 * g * life * life + 8)
+    x0b, y0b = int(math.floor(x)) - ext, int(math.floor(y)) - ext
+    loc = np.zeros((2 * ext + 1, 2 * ext + 1), bool)
+    for q in range(nc):                                    # each puff flies as one body
+        lq = life - 3 * _hf(q, 3, seed)                    # 9-12 frames each
+        if k >= lq:
             continue
-        a = base + math.radians(spread) * (2 * _hf(i, 1, seed) - 1)
-        sp = speed[0] + (speed[1] - speed[0]) * _hf(i, 2, seed)
-        j = 3 * (2 * _hf(i, 5, seed) - 1)                   # spawn spread along the surface
-        px = x - math.sin(base) * j + math.cos(a) * sp * (k + 1)
-        py = y + math.cos(base) * j + math.sin(a) * sp * (k + 1) + 0.5 * g * k * k
-        s = max(1, sz - (1 if _hf(i, 4, seed) < 0.3 else 0))
-        slot = slots[min(len(slots) - 1, stage)]
-        x0, y0 = int(math.floor(px - (s - 1) / 2)), int(math.floor(py - (s - 1) / 2))
-        for dy in range(s):
-            for dx in range(s):
-                if s == 3 and dx != 1 and dy != 1:         # a 3 px blob is a plus, not a square
-                    continue
-                _put(arr, x0 + dx, y0 + dy, slot)
+        a = base + math.radians(spread) * (2 * (q + 0.2 + 0.6 * _hf(q, 1, seed)) / nc - 1)
+        sp = speed[0] + (speed[1] - speed[0]) * _hf(q, 2, seed)
+        j = 3 * (2 * _hf(q, 5, seed) - 1)                   # spawn spread along the surface
+        cxq = x - math.sin(base) * j + math.cos(a) * sp * (k + 1)
+        cyq = y + math.cos(base) * j + math.sin(a) * sp * (k + 1) + 0.5 * g * k * k
+        for i in range(q, n, nc):                          # its particles, packed round its centre
+            ox = (2 * _hf(i, 6, seed) - 1) * (1.6 - 0.3 * stage)
+            oy = (2 * _hf(i, 7, seed) - 1) * (1.2 - 0.3 * stage)
+            s = max(1, sz - (1 if _hf(i, 4, seed) < 0.3 else 0))
+            px0 = int(math.floor(cxq + ox - (s - 1) / 2)) - x0b
+            py0 = int(math.floor(cyq + oy - (s - 1) / 2)) - y0b
+            for dy in range(s):
+                for dx in range(s):
+                    if s == 3 and dx != 1 and dy != 1:     # a 3 px blob is a plus, not a square
+                        continue
+                    if 0 <= py0 + dy < loc.shape[0] and 0 <= px0 + dx < loc.shape[1]:
+                        loc[py0 + dy, px0 + dx] = True
+    side = np.zeros_like(loc)                              # a side neighbour, or the pixel goes
+    side[1:] |= loc[:-1]; side[:-1] |= loc[1:]; side[:, 1:] |= loc[:, :-1]; side[:, :-1] |= loc[:, 1:]
+    loc &= side
+    for yy, xx in zip(*np.nonzero(loc)):
+        _put(arr, x0b + xx, y0b + yy, slot)
     commit()
 
 # ---------------------------------------------------------------- emissive shots

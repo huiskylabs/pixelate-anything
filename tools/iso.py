@@ -418,6 +418,57 @@ class Iso:
                     self.shadow[Y, X] = False
         return oid
 
+    def line(self, a, b, slot, sag=0, bias=0.3):
+        """a 1 px line between world points a = (x, y, z) and b (a wire, a rail, a rope, a pole
+        stay, a tram cable): the endpoints are projected, and the line steps along its main screen
+        axis with its slope snapped to a pixel-art ratio (1 px every n, or n px every 1), so a line
+        along x or y of the floor is the clean 2:1 stair (2 across, 1 down, every run equal), a
+        vertical one (only z changes) is a straight column, and nothing jags. Each pixel takes the
+        depth of its point on the segment plus `bias`, so the line draws over the face it runs on
+        and boxes in front still hide it. sag: px the middle droops (a hanging wire), one parabola
+        added to the stair and rounded once (lines flatter than 45 degrees on screen; a steeper one
+        ignores it). The line gets no outline or rim (it would turn into the outline
+        colour); give it a dark slot against a light ground or a light one against a dark ground.
+        Returns its object id."""
+        self.nobj += 1; oid = self.nobj
+        self.nolines.add(oid)
+        pa, pb = np.array(a, float), np.array(b, float)
+        x0, y0 = self.to_screen(*pa)
+        x1, y1 = self.to_screen(*pb)
+        dx, dy = x1 - x0, y1 - y0
+        steep = abs(dy) > abs(dx)
+        L = abs(dy) if steep else abs(dx)
+        n = int(math.floor(L + 0.5))
+        sgn = 1 if (dy if steep else dx) >= 0 else -1
+        k = ((dx / dy) if steep else (dy / dx)) if L > 1e-9 else 0.0
+        cs = 1 if (dx if steep else dy) >= 0 else -1     # which way the across steps go
+        if abs(k) < 1e-3:
+            off = lambda i: 0
+        elif abs(k) <= 1:
+            run = max(1, int(round(1 / abs(k))))             # 1 px across every `run` px along
+            off = lambda i: cs * (i // run)
+        else:
+            off = lambda i: cs * int(round(abs(k))) * i
+        sx0, sy0 = math.floor(x0 + 0.5), math.floor(y0 + 0.5)
+        prev = None
+        for i in range(n + 1):
+            u = i / n if n else 0.0
+            X, Y = (sx0 + off(i), sy0 + sgn * i) if steep else (sx0 + sgn * i, sy0 + off(i))
+            if sag and not steep:                            # one curve, rounded once: no zigzag
+                ks = 0.0 if abs(k) < 1e-3 else cs / run if abs(k) <= 1 else cs * round(abs(k))
+                Y = sy0 + int(math.floor(ks * i + 4 * sag * u * (1 - u) + 1e-9))
+            d = float(self.view @ (pa + (pb - pa) * u)) + bias
+            pts = [(X, Y)]
+            if prev is not None and abs(Y - prev[1]) > 1 and X != prev[0]:      # keep a sagging wire unbroken
+                st = 1 if Y > prev[1] else -1
+                pts = [(X, yy) for yy in range(prev[1] + st, Y + st, st)]
+            prev = (X, Y)
+            for X, Y in pts:
+                if 0 <= X < self.W and 0 <= Y < self.H and d >= self.depth[Y, X]:
+                    self.depth[Y, X] = d; self.slot[Y, X] = slot; self.obj[Y, X] = oid; self.face[Y, X] = 4
+                    self.shadow[Y, X] = False
+        return oid
+
     def _shade(self, slot, step):
         s2 = shade(slot, step)
         return s2 if self.slots is None or s2 in self.slots else slot

@@ -114,18 +114,26 @@ def cloud_mask(shape, cx, cy, rx, ry, r=(5, 13), spacing=9, belly=3, seed=0, var
     px of perimeter per 9 px of lobe radius (about 1.7 r apart: distinct bumps), r from
     r=(lo, hi) by hash and `belly` px bigger on the lower half, so the bottom is the heavier
     scalloped row. Without the core, random discs read as bubbles.
-    vary (0..1, default 1): how uneven the lobes are, by seed. At 1 about a quarter of the lobes
-    are billows up to 1.6x and a third are small ones down to 0.65x, the lobes on top grow up
-    to 1.45x more (a crown), the gaps run from tight clusters to 2x the even step and the lobes
-    stand proud by up to 0.7 r, so the edge reads as
-    one mass with a few big heads instead of a row of equal bubbles. vary=0 is the older even
-    row, pixel for pixel."""
+    vary (0..1, default 1): how uneven the mass is, by seed. At 1 one dominant head (a disc up to
+    about 1.3 ry, set off-centre on top by seed) rises out of the core and the lobes near it
+    swell up to 1.9x while the far side tapers to 0.5x, so there is one big mass and a trailing
+    shoulder, never a row; the lobe radii also spread (a quarter of them billows, a third small
+    ones), the gaps run from tight clusters to 2.5x the even step with the odd skipped lobe, and
+    the lobes under the belly sit flatter (a heavy, flat base). vary=0 is the older even row,
+    pixel for pixel."""
     H, W = shape
     yy, xx = np.mgrid[0:H, 0:W] + 0.5
     m = ((xx - cx) / (0.92 * rx)) ** 2 + ((yy - cy) / (0.92 * ry)) ** 2 <= 1
     per = math.pi * (3 * (rx + ry) - math.sqrt((3 * rx + ry) * (rx + 3 * ry)))
     a, i = 0.0, 0
     a0 = 2 * math.pi * _hs(0, 9, seed)
+    if vary:                                         # one dominant head, off-centre on top
+        side = 1 if _hs(1, 9, seed) < 0.5 else -1
+        hx = cx + side * rx * (0.12 + 0.3 * _hs(2, 9, seed)) * vary
+        hr = min(ry * (1 + 0.3 * vary), 0.45 * rx)
+        hy = cy - 0.35 * ry * vary
+        m |= (xx - hx) ** 2 + (yy - hy) ** 2 <= hr * hr
+        hang = math.atan2(-ry, side * rx * 0.5)      # the head's direction from the centre
     while a < 2 * math.pi - 1e-6:
         ang = a0 + a
         px, py = cx + rx * math.cos(ang), cy + ry * math.sin(ang)
@@ -136,15 +144,20 @@ def cloud_mask(shape, cx, cy, rx, ry, r=(5, 13), spacing=9, belly=3, seed=0, var
             u = _hs(i, 4, seed)
             rad *= 1 + vary * (0.6 * (u - 0.75) / 0.25 if u > 0.75 else -0.35 * (0.33 - u) / 0.33 if u < 0.33 else 0)
             rad *= 1 + 0.45 * vary * max(0.0, -math.sin(ang)) ** 2       # a crown: the heads rise on top
+            near = 0.5 + 0.5 * math.cos(ang - hang)                       # 1 at the head, 0 opposite it
+            up = 0.3 + 0.7 * max(0.0, -math.sin(ang))                     # the swell is on top, the base stays flat
+            rad *= 1 + vary * (0.9 * up * near ** 3 - 0.5 * (1 - near) ** 2)   # swell by the head, taper away
             proud *= min(1.0, rad0 / rad)                                  # a big head sits into the mass
+            if math.sin(ang) > 0.3:
+                proud *= 1 - 0.7 * vary                                    # a flat, heavy base
         px += proud * rad * math.cos(ang)
         py += proud * rad * math.sin(ang)
         x0, y0, x1, y1 = _bbox(H, W, px, py, rad, rad)
-        if x1 > x0 and y1 > y0:
+        if x1 > x0 and y1 > y0 and not (vary and _hs(i, 5, seed) < 0.12 * vary):   # the odd lobe skipped
             sub = (xx[y0:y1, x0:x1] - px) ** 2 + (yy[y0:y1, x0:x1] - py) ** 2 <= (rad + 0.15) ** 2
             m[y0:y1, x0:x1] |= sub
         u = _hs(i, 1, seed)
-        step = (0.6 + 0.7 * u) * (1 - vary) + vary * (0.3 + 1.6 * u * u)   # clusters and the odd long gap
+        step = (0.6 + 0.7 * u) * (1 - vary) + vary * (0.3 + 2.0 * u ** 2.5)   # clusters and the odd long gap
         a += 2 * math.pi * (spacing / 9.0) * 1.7 * rad * step / per
         i += 1
     return m
@@ -540,13 +553,18 @@ def _stepped(a, b, span, t):
         return a + np.sign(k) * np.floor(np.maximum(t, 0) / max(1, round(1 / abs(k))))
     return a + np.sign(k) * round(abs(k)) * np.floor(np.maximum(t, 0))
 
-def ray(shape, x, y, angle=90, length=100, width=(4, 16)):
+def ray(shape, x, y, angle=90, length=100, width=(4, 16), clip=None):
     """a hard-edged light ray as an H x W bool mask: a band from (x, y) toward `angle` degrees (90 =
-    straight down, as in post.Post.shaft) over `length` px, widening from width[0] to width[1]. Each
-    edge is a straight line stepped in equal runs (its slope snapped to 1:n or n:1), so it reads as a
-    drawn pixel-art ray, not a jagged polygon. Fill it with a slot one ramp step lighter (Canvas.fill),
-    or step what it crosses up a slot (rain, flakes, crests inside the mask): the angled ray for styles
-    with no soft shaft. Within 45 degrees of vertical it steps per row, otherwise per column."""
+    straight down, as in post.Post.shaft) over `length` px, widening from width[0] to width[1]. The
+    centre line is one straight line stepped in equal runs (its slope snapped to 1:n or n:1) and both
+    edges ride it, so they step on the same rows; the widening is added on top as its own even step
+    (one px out on each side every m rows), so the band grows steadily and never swells or pinches
+    (two edges snapped on their own drift apart: at 35 degrees, width (3, 9) swelled to 36 rows).
+    It reads as a drawn pixel-art ray, not a jagged polygon. clip: an H x W bool mask the ray is cut
+    to (the cloud gap, the room, the sea below the horizon), so its ends stop on what it lights
+    instead of in open sky. Fill it with a slot one ramp step lighter (Canvas.fill), or step what it
+    crosses up a slot (rain, flakes, crests inside the mask): the angled ray for styles with no soft
+    shaft. Within 45 degrees of vertical it steps per row, otherwise per column."""
     H, W = shape
     a = math.radians(angle)
     ux, uy = math.cos(a), math.sin(a)
@@ -556,11 +574,17 @@ def ray(shape, x, y, angle=90, length=100, width=(4, 16)):
     k = dc / abs(ds)                                 # across shift per px along it
     h0, h1 = width[0] / 2 / abs(ds), width[1] / 2 / abs(ds)
     t = (np.arange(N) + 0.5 - s0) * (1 if ds > 0 else -1)
-    lo = _stepped(c0 - h0, c0 + k * span - h1, span, t)
-    hi = _stepped(c0 + h0, c0 + k * span + h1, span, t)
+    shift = _stepped(0, k * span, span, t)           # the centre line's steps, shared by both edges
+    grow = _stepped(0, max(0.0, h1 - h0), span, t)   # the widening, per side, in its own even steps
+    lo0 = float(np.round(c0 - h0))
+    hi0 = lo0 + max(1.0, float(np.round(2 * h0)))
+    lo, hi = lo0 + shift - grow, hi0 + shift + grow
     cc = np.arange(M) + 0.5
     m = ((t >= 0) & (t <= span))[:, None] & (cc[None, :] >= lo[:, None]) & (cc[None, :] < hi[:, None])
-    return m if vertical else m.T
+    m = m if vertical else m.T
+    if clip is not None:
+        m = m & np.asarray(clip, bool)
+    return m
 
 def _orient(a, side):
     """view an array so `side` is the top (the void above the room)"""

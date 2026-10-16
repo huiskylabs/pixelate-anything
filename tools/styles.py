@@ -30,7 +30,8 @@ Each preset is measured from one reference game (study/NN, guides/styles.md) and
   motion       'stepped' (hold tables, 2-12 fps) or 'subpixel' (actors move in screen pixels)
   scale, size  integer delivery scale and native canvas size; fps
   colours      rough count of authored colours on screen
-  paint_C      the chroma floor of the style's paints, when it has one: the hero's accent goes above it
+  paint_C      the chroma floor of the style's paints, when it has one: the hero's accent goes above it;
+               clamped per hue to the sRGB gamut (chroma_floor, gamut_C)
   music        a direction, not a preset: voices, feel (metre, mode, tempo), one sync point to the loop and
                the `pixelate check TRACK.wav --style` mix to judge it with (route.music_line adapts it)
 The two-layer rule: the pixel layer is always strict (slots, integer grid, no anti-aliasing,
@@ -305,6 +306,42 @@ def ramps(name, bases, steps=None, **kw):
         steps = steps or 7
     return palette.ramps(bases, steps, style=None if rs == 'lofi' else rs, **kw)
 
+# the sRGB gamut caps chroma per hue: no L reaches C .22 at lemon yellow or cyan, so a fixed floor
+# (paint_C, and the hero's paint_C + .04) is clamped per hue to what the gamut allows
+HUES = (('red', 25), ('orange', 55), ('lemon yellow', 105), ('green', 140), ('cyan', 195), ('blue', 255),
+        ('violet', 300), ('magenta', 330))
+_GAMUT = {}
+
+def gamut_C(hue):
+    """the largest OKLCH chroma any lightness reaches at this hue (degrees) inside sRGB"""
+    k = int(round(hue)) % 360
+    if k not in _GAMUT:
+        import colorlib as cl
+        _GAMUT[k] = max(cl.clamp_chroma(L / 100.0, 0.4, k) for L in range(30, 99))
+    return _GAMUT[k]
+
+def chroma_floor(name, hue):
+    """(paint floor, hero target) at this hue for a style with paint_C, clamped to the sRGB gamut:
+    the paints sit at C >= min(paint_C, top - .03) and the hero's accent aims at min(paint_C + .04, top),
+    with top = gamut_C(hue). sticker-iso lemon yellow (top .20): paints .17, hero .20. None without paint_C."""
+    st = get(name)
+    if not st.get('paint_C'):
+        return None
+    top = gamut_C(hue)
+    return round(min(st['paint_C'], top - 0.03), 3), round(min(st['paint_C'] + 0.04, top), 3)
+
+def gamut_note(name):
+    """one line naming the hues where the gamut clamps the style's chroma floor, or ''"""
+    st = get(name)
+    if not st.get('paint_C'):
+        return ''
+    low = [(n, gamut_C(h)) for n, h in HUES if gamut_C(h) < st['paint_C'] + 0.04]
+    if not low:
+        return ''
+    return ('the floor is clamped per hue to the sRGB gamut (styles.chroma_floor): %s; at those hues the paints '
+            'sit .03 under the top and the hero takes the top itself' % ', '.join(
+                '%s tops out at C %s' % (n, ('%.2f' % c)[1:]) for n, c in low))
+
 def check(img_1x, name, big=None, scale=None, masks=None, grid=None, pal=None, used=()):
     """everything a style can check on a frame -> list of problems ([] = fine):
     the numeric budget (stats.budget), native cells of the delivered frame `big` for 'none' and
@@ -388,7 +425,8 @@ def card(name):
                                                        ('; ramp_kw %s' % st['ramp_kw']) if st.get('ramp_kw') else '')]
     if st.get('paint_C'):
         L.append('- peak chroma: the paints already sit at C >= %.2f, so the hero\'s accent must exceed that floor '
-                 '(about C %.2f or more) to hold the frame\'s top chroma alone.' % (st['paint_C'], st['paint_C'] + 0.04))
+                 '(about C %.2f or more) to hold the frame\'s top chroma alone; %s.' % (
+                     st['paint_C'], st['paint_C'] + 0.04, gamut_note(n)))
     for k in ('grade', 'haze'):
         if st.get(k):
             L.append('- %s: %s.' % (k, st[k]))

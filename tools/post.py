@@ -545,7 +545,11 @@ class Post:
         """a number, colour, callable(xx, yy) or 1x array -> working-res (H, W, 3) field"""
         if callable(v):
             yy, xx = self.grid()
-            f = np.asarray(v(xx, yy), np.float32) * np.ones((self.H, self.W), np.float32)
+            f = np.asarray(v(xx, yy), np.float32)
+            if f.ndim == 1 and f.shape[0] == 3:              # one colour for the whole frame
+                f = f[None, None, :]
+            # a scalar, an (H, W) field or an (H, W, 3) RGB field (an (H, W, 3) result times 2D ones crashed)
+            f = np.broadcast_to(f, (self.H, self.W) + ((3,) if f.ndim == 3 else ())).astype(np.float32)
         elif isinstance(v, np.ndarray) and v.ndim >= 2:
             f = self.up(v.astype(np.float32), smooth=True).astype(np.float32)
         elif np.isscalar(v) and not isinstance(v, str):

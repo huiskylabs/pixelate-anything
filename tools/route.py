@@ -1025,6 +1025,7 @@ def lint(text):
         if loose:
             probs.append('The scene: %d object line(s) with no count, size or position: %s' % (len(loose), _quote(loose)))
     probs += _scene_plan(sc)
+    probs += _key_plan(text)
     probs += _one_line(text, 'light direction', True)
     probs += _one_line(text, 'wind', bool(re.search(r'\b(?:lean|sway|trail|scarf|flag|smoke|steam|drift|gust)', text, re.I)))
     probs += _hex_check(text)
@@ -1103,6 +1104,247 @@ def _scene_plan(sc):
         if 'TODO' not in pl and got < mn:
             out.append('The scene: 3/4 top-down gives the ground %d%% of the frame; it is the largest plane, at least '
                        '%d%% (the street, plaza or yard), or the picture reads as a facade' % (got, mn))
+    return out
+
+# ---------------------------------------------------------------- object boxes: keys, values, calm areas
+# The scene's box lines (native px, inclusive, square brackets), one object or region per line:
+#   - Key: OBJECT [x0,y0,x1,y1]; L .30 on PLANE .15      a secondary object or named story beat that must read
+#   - Key: OBJECT [x0,y0,x1,y1]; rim: DESCRIPTION          ... or read by a rim slot instead of a value step
+#   - Value: PLANE [x0,y0,x1,y1] L .40                     the planned mean L of a plane region
+#   - Calm: NAME [x0,y0,x1,y1]; texture: DESCRIPTION       a planned calm area and its designed texture
+#   - Sprites: NAME [x0,y0,x1,y1], NAME [x0,y0,x1,y1]      an era scene's hardware-sprite actors
+# A Key whose box overlaps the hero or another Key on purpose says "overlaps NAME on purpose".
+BOX_RE = r'\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]'
+KEY_MIN_DL = 0.10           # a Key differs from the plane behind it by this much L, or names a rim
+CALM_MAX = 0.30             # calm areas total at most this share of the frame
+DENSITY_WIN = 100           # outside calm areas every window this wide holds a Key or the hero
+_NUM = r'(?<![\d.])(0?\.\d+|[01](?:\.\d+)?)(?![\d.%])'
+_STOP = {'the', 'and', 'with', 'its', 'his', 'her', 'their', 'from', 'into', 'over', 'under', 'onto', 'for',
+         'one', 'two', 'three', 'small', 'big', 'little', 'tiny', 'near', 'far', 'left', 'right', 'top', 'bottom',
+         'side', 'that', 'this', 'each', 'every', 'only'}
+
+def _words(name):
+    """the content words of a name, plural s dropped: 'The keeper's window' -> {'keeper', 'window'}"""
+    out = set()
+    for w in re.findall(r'[a-z一-鿿]+', re.sub(r"'s\b", '', (name or '').lower())):
+        if len(w) >= 3 and w not in _STOP:
+            out.add(w[:-1] if w.endswith('s') and len(w) > 3 and not w.endswith('ss') else w)
+    return out
+
+def _same(a, b):
+    return bool(_words(a) & _words(b))
+
+def _clean(name):
+    """a box's name as written, without markup, a line label or a leading article"""
+    n = re.sub(r'[`*_]', '', (name or '').strip())
+    n = re.sub(r'^[-*\s]*(?:key|value|calm|sprites?|hero|layout|planes)\s*:\s*', '', n, flags=re.I)
+    n = re.sub(r'^(?:(?:and|with|plus|then|or|its|their|the|an|a)\s+)*', '', n.strip(' -'), flags=re.I)
+    return re.sub(r'\s+', ' ', n).strip(' ,;:.-')
+
+def _norm(name):
+    return _clean(name).lower()
+
+def _box_lines(text, label):
+    """[(name, (x0, y0, x1, y1), rest of the line, whole line)] of every `- LABEL:` line with a box"""
+    out = []
+    for line in re.findall(r'^\s*[-*]\s+\**%s\**\s*:\s*(.*)$' % label, text, re.M | re.I):
+        if 'TODO' in line:
+            continue
+        items = re.split(r'(?<=\])\s*,\s*', line) if label.lower().startswith('sprite') else [line]
+        for it in items:
+            m = re.search(BOX_RE, it)
+            if m:
+                out.append((_clean(it[:m.start()]), tuple(int(v) for v in m.groups()), it[m.end():], line))
+    return out
+
+def _canvas(text):
+    m = re.search(r'\bcanvas\s+(\d+)\s*[x×]\s*(\d+)', text, re.I) or re.search(r'\bnative\s+(\d+)\s*[x×]\s*(\d+)', text, re.I)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+def _hero_box(text):
+    m = re.search(r'^\s*[-*]\s*\**Hero\**:\s*\**\s*\[?\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', text, re.M | re.I)
+    return tuple(int(v) for v in m.groups()) if m else None
+
+def _overlap(a, b):
+    return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
+
+def _fmt_box(b):
+    return '[%d,%d,%d,%d]' % b
+
+def _on_purpose(line, other):
+    return any(_same(n, other) or _norm(n) == _norm(other) for n in
+               re.findall(r'overlaps?\s+(.+?)\s+on purpose', line, re.I))
+
+def _union_area(boxes, W, H):
+    import numpy as np
+    m = np.zeros((H, W), bool)
+    for x0, y0, x1, y1 in boxes:
+        m[max(0, y0):min(H, y1 + 1), max(0, x0):min(W, x1 + 1)] = True
+    return m
+
+def _beats(text):
+    """the named story beats of section 5: its `- NAME: ...` bullets (a name of at most six words)"""
+    sec = _sections(text)('Lived-in details') or ''
+    out = []
+    for b in _bullets(sec):
+        m = re.match(r'\**([^:*\d][^:]{1,60}?)\**\s*:\s*\S', b)
+        if m and 'TODO' not in b and len(m.group(1).split()) <= 6 and \
+                not re.match(r'(?:key|value|calm|sprites?|changes?|per phase)\b', m.group(1), re.I):
+            out.append(m.group(1).strip())
+    return out
+
+def eramod_limit(name):
+    """the era's unique background tile limit, or None"""
+    import era as eramod
+    return eramod.ERAS.get(name, {}).get('bg_tiles')
+
+def _key_plan(text):
+    """the box lines of section 4 against each other and the brief: every Key reads against its plane
+    (.10 L or a rim), sits inside the canvas and does not collide with the hero or another Key unless it
+    says so, the calm areas stay under 30% with a texture each, the Value lines agree with the Value
+    plan, every named story beat has a Key, the same object never gets two boxes, and outside the calm
+    areas every 100 px window holds a Key or the hero. An era brief counts its sprites per scanline."""
+    sc = _sections(text)('The scene')
+    if sc is None:
+        return []
+    out = []
+    keys, vals, calm = _box_lines(sc, 'Key'), _box_lines(sc, 'Value'), _box_lines(sc, 'Calm')
+    sprites = _box_lines(sc, 'Sprites?')
+    todo = lambda lab: re.search(r'^\s*[-*]\s+\**%s\**\s*:.*TODO' % lab, sc, re.M | re.I)
+    for lab, got, fix in (('Key', keys, '`- Key: OBJECT [x0,y0,x1,y1]; L .30 on PLANE .15` (or `; rim: DESCRIPTION`)'),
+                          ('Value', vals, '`- Value: PLANE [x0,y0,x1,y1] L .40`'),
+                          ('Calm', calm, '`- Calm: NAME [x0,y0,x1,y1]; texture: DESCRIPTION`')):
+        if not got and not todo(lab):
+            out.append('The scene has no %s line: write one per %s as %s' % (
+                lab, {'Key': 'secondary object and named story beat that must read', 'Value': 'plane region',
+                      'Calm': 'calm area (or `- Calm: none`)'}[lab], fix))
+    if not calm and re.search(r'^\s*[-*]\s+\**Calm\**\s*:\s*none\b', sc, re.M | re.I):
+        out = [x for x in out if 'no Calm line' not in x]
+    canvas = _canvas(text)
+    hero = _hero_box(sc)
+    vL = {}
+    for n, b, rest, _ in vals:
+        m = re.search(r'\bL\s*' + _NUM, rest)
+        if not m:
+            out.append('Value: %s %s has no planned L (`L .40`)' % (n, _fmt_box(b)))
+        else:
+            vL[n] = float(m.group(1))
+    plane_L = lambda name: next((v for n, v in vL.items() if _norm(n) == _norm(name)), None) or \
+        next((v for n, v in vL.items() if _same(n, name)), None)
+    for n, b, rest, line in keys:
+        if re.search(r'\brim\s*:\s*\S', rest, re.I):
+            continue
+        m = re.search(r'\bL\s*' + _NUM + r'\s+on\s+(?:the\s+)?(.+?)(?:\s+(?:L\s*)?' + _NUM + r')?\s*(?:[;,(]|$)', rest)
+        if not m:
+            out.append('Key: %s has no planned read: write `; L .30 on PLANE .15` (at least %.2f L apart) or '
+                       '`; rim: DESCRIPTION`' % (n, KEY_MIN_DL))
+            continue
+        kl, pn, pl = float(m.group(1)), m.group(2).strip(), m.group(3)
+        vp = plane_L(pn)
+        if pl is not None and vp is not None and abs(float(pl) - vp) > 0.05:
+            out.append('Key: %s puts %s at L %s but its Value line says %s: one number for the plane' % (
+                n, pn, pl, ('%.2f' % vp).lstrip('0')))
+        pl = float(pl) if pl is not None else vp
+        if pl is None:
+            out.append('Key: %s sits on %s with no L for it: give the plane\'s L here or in a Value line' % (n, pn))
+        elif abs(kl - pl) < KEY_MIN_DL - 1e-9:
+            out.append('Key: %s at L %s on %s at %s is %.2f apart: it will not read; move it %.2f or more '
+                       'from the plane, or name a rim (`; rim: the light-facing edge in SLOT`)' % (
+                           n, ('%.2f' % kl).lstrip('0'), pn, ('%.2f' % pl).lstrip('0'), abs(kl - pl), KEY_MIN_DL))
+    if canvas:
+        W, H = canvas
+        for lab, got in (('Key', keys), ('Value', vals), ('Calm', calm), ('Sprites', sprites)):
+            for n, b, _, _ in got:
+                if b[2] < b[0] or b[3] < b[1]:
+                    out.append('%s: %s %s is not x0,y0,x1,y1 with x1 >= x0 and y1 >= y0' % (lab, n, _fmt_box(b)))
+                elif not (0 <= b[0] and b[2] < W and 0 <= b[1] and b[3] < H):
+                    out.append('%s: %s %s runs off the %dx%d canvas (boxes are native px, inclusive)' % (
+                        lab, n, _fmt_box(b), W, H))
+    for i, (n, b, _, line) in enumerate(keys):
+        if hero and _overlap(b, hero) and not _on_purpose(line, 'hero'):
+            out.append('Key: %s %s overlaps the hero %s: move it clear, or say "overlaps hero on purpose"' % (
+                n, _fmt_box(b), _fmt_box(hero)))
+        for n2, b2, _, line2 in keys[i + 1:]:
+            if _overlap(b, b2) and not (_on_purpose(line, n2) or _on_purpose(line2, n)):
+                out.append('Key: %s %s and %s %s overlap: separate them, or say "overlaps %s on purpose"' % (
+                    n, _fmt_box(b), n2, _fmt_box(b2), n2))
+    if canvas and calm:
+        W, H = canvas
+        share = _union_area([b for _, b, _, _ in calm], W, H).mean()
+        if share > CALM_MAX + 1e-9:
+            out.append('Calm areas cover %d%% of the frame; at most %d%%: give the rest objects or story' % (
+                round(100 * share), round(100 * CALM_MAX)))
+    for n, b, rest, _ in calm:
+        if not re.search(r'texture\s*:\s*\S', rest, re.I):
+            out.append('Calm: %s %s names no texture: write `; texture: DESCRIPTION` (long swell dashes, a '
+                       'stipple at one step, wet flags)' % (n, _fmt_box(b)))
+    vp_line = _plan_line(sc, 'value plan')
+    if vp_line and vals and 'TODO' not in vp_line:
+        clauses = re.split(r';|\.\s', vp_line.split(':', 1)[1] if ':' in vp_line else vp_line)
+        for n, v in vL.items():
+            nums = [float(x) for c in clauses if _words(n) & _words(c) for x in re.findall(_NUM, c)]
+            nums = [x for x in nums if x <= 1]
+            if nums and min(abs(v - x) for x in nums) > 0.05 + 1e-9:
+                out.append('Value: %s at L %s, but the Value plan puts it at %s: one number for each plane' % (
+                    n, ('%.2f' % v).lstrip('0'), ', '.join(sorted({('%.2f' % x).lstrip('0') for x in nums}))))
+    beats = _beats(text)
+    miss = [bt for bt in beats if not any(_same(bt, n) for n, _, _, _ in keys)]
+    if keys and miss:
+        out.append('Lived-in details: %d named story beat(s) with no Key line: %s (give each `- Key: NAME '
+                   '[x0,y0,x1,y1]; L .30 on PLANE .15` in section 4, or fold it into plain text)' % (len(miss), _quote(miss)))
+    seen = {}
+    for line in text.splitlines():
+        if 'TODO' in line:
+            continue
+        last = 0
+        for m in re.finditer(BOX_RE, line):
+            head = line[last:m.start()]
+            last = m.end()
+            n = _norm(re.split(r'[:;,(]', head)[-1])
+            if n and _words(n):
+                seen.setdefault(n, []).append(tuple(int(v) for v in m.groups()))
+    for n, bs in seen.items():
+        if len(set(bs)) > 1:
+            out.append('%s has %d different boxes in the brief (%s): one box per object' % (
+                n, len(set(bs)), ', '.join(_fmt_box(b) for b in dict.fromkeys(bs))))
+    if canvas and keys:
+        W, H = canvas
+        busy = [b for _, b, _, _ in keys] + ([hero] if hero else [])
+        cm = _union_area([b for _, b, _, _ in calm], W, H)
+        empty = []
+        w = min(DENSITY_WIN, W, H)
+        for y in sorted({*range(0, H - w + 1, w // 2), H - w}):
+            for x in sorted({*range(0, W - w + 1, w // 2), W - w}):
+                win = (x, y, x + w - 1, y + w - 1)
+                if cm[y:y + w, x:x + w].mean() >= 0.5 or any(_overlap(win, b) for b in busy):
+                    continue
+                empty.append(win)
+        if empty:
+            out.append('density: %d window(s) of %d px hold no Key, no hero and no calm area (%s): put a readable '
+                       'object or story there, or plan it as calm with a texture' % (
+                           len(empty), w, ', '.join(_fmt_box(b) for b in empty[:3])))
+    era = re.search(r'--era\s+([\w-]+)', text)
+    if era and sprites:
+        import era as eramod
+        E = eramod.ERAS.get(era.group(1), {})
+        sw, sh = E.get('sprite_size') or (8, 8)
+        cols = lambda b: -(-(b[2] - b[0] + 1) // sw)
+        rows = lambda b: -(-(b[3] - b[1] + 1) // sh)
+        if E.get('sprite_line') and canvas:
+            worst = max(sum(cols(b) for _, b, _, _ in sprites if b[1] <= y <= b[3]) for y in range(canvas[1]))
+            if worst > E['sprite_line']:
+                out.append('Sprites: %d hardware sprites share one scanline; %s allows %d (stagger the actors '
+                           'vertically or draw one into the background)' % (worst, E['name'], E['sprite_line']))
+        tot = sum(cols(b) * rows(b) for _, b, _, _ in sprites)
+        if E.get('sprite_total') and tot > E['sprite_total']:
+            out.append('Sprites: %d hardware sprites in all; %s allows %d' % (tot, E['name'], E['sprite_total']))
+    if era:
+        tb = re.search(r'^\s*[-*]\s+\**Tile budget\**\s*:(.*)$', text, re.M | re.I)
+        nums = re.findall(r'(?<![\dx])(\d+)(?![\dx])', tb.group(1)) if tb and 'TODO' not in tb.group(1) else []
+        lim = str(eramod_limit(era.group(1)))
+        if tb is None or ('TODO' not in tb.group(1) and not [n for n in nums if n != lim]):
+            out.append('Technical has no tile budget: write `- Tile budget: N unique 8x8 background tiles against '
+                       'the limit of 256` from `pixelate era bg.png --era %s --tiles`' % era.group(1))
     return out
 
 def _music(text):
@@ -1609,7 +1851,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              '`pixelate style %s` for the style\'s rules).' % st['name'])
     L.append('- Silhouette keys: TODO for each must-read object, the 2-3 features that make it that thing and its '
              'nearest misread (a kite: tall diamond, visible spars, no belly band; not an envelope); crowds in 3 or '
-             'more poses, gathered in vignettes.')
+             'more poses, gathered in vignettes. Each of these objects also gets a Key line in section 4 (its box '
+             'and how it reads).')
     L.append('- Light direction: TODO where the one key light comes from; every rim, lit side and shadow follows it.')
     L.append('- Wind: TODO its direction and strength, or none; every lean, trail, smoke and drift follows it.')
     L.append('- Every object is drawn in this scene\'s code from the primitives; anything the kit has no primitive for '
@@ -1620,20 +1863,40 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'values; peak chroma: TODO the object that alone holds the top chroma%s. A figure stays at least %d px '
              'tall at the delivered cell; no other mass over 0.6x the hero\'s area or within 0.1 L of its peak '
              '(see references/drawing.md#composition).' % (
-                 (' (the style\'s paints sit at C >= %.2f, so the hero\'s accent goes above that floor)' % st['paint_C'])
+                 (' (the style\'s paints sit at C >= %.2f, so the hero\'s accent goes above that floor, about C %.2f; '
+                  'both are clamped per hue to the sRGB gamut%s: `styles.chroma_floor(STYLE, HUE)` gives the paint '
+                  'floor and the hero\'s target for a hue)' % (
+                      st['paint_C'], st['paint_C'] + 0.04, ''.join(
+                          (', where %s' % ', '.join('%s tops out at C %s' % (n, ('%.2f' % styles.gamut_C(h))[1:])
+                                                    for n, h in styles.HUES
+                                                    if styles.gamut_C(h) < st['paint_C'] + 0.04)) or '')))
                  if st.get('paint_C') and not E else '', MIN_HERO_PX))
     L.append('- Planes: TODO each object or place and its share of the frame, with the grey band it takes in the '
              'block-in when you want it checked (darkest, dark, mid, light, brightest or 1-4; planes may share a band), '
              'e.g. street 45%% (mid), sky 20%% (light), houses 25%% (dark), door wedge 10%% (brightest)%s.' % (
         PLANE_MIN.get(_proj_key(proj), ('', 0, ''))[2]))
-    L.append('- Layout: TODO what owns each region as boxes (x0-x1, y0-y1), the calm areas as boxes with what may sit '
-             'in them; counts are maximums ("4 houses, no more").')
+    L.append('- Layout: TODO what owns each region as boxes [x0,y0,x1,y1] (native px, inclusive), the calm areas as '
+             'boxes with what may sit in them; counts are maximums ("4 houses, no more"). One box per object: the '
+             'same name never gets two boxes in the brief.')
     L.append('- Masses: TODO three or four masses of very different size, with sizes (say 50%, 25%, 15% of the '
              'width), for every field that fills a band (cloud sea, sea, roofs, crowd, canopy); never an even row '
              'of equal lobes, domes or houses (see references/drawing.md#composition).')
     L.append('- Value plan: TODO three or four value groups with what falls in each and its L (far, middle, near, '
              'hero), one of them dark; the brightest group only at the one focal light and its one repeat%s.' % (
                  _top_budget_note(styles.budgets(st['name'], scene)) if not E else ''))
+    L.append('- Value: TODO one line per plane region, `- Value: PLANE [x0,y0,x1,y1] L .40`, its planned mean L; '
+             'the numbers match the Value plan\'s groups.')
+    L.append('- Key: TODO one line per secondary object and per named story beat that must read (the supporting '
+             'cast the gate does not measure): `- Key: OBJECT [x0,y0,x1,y1]; L .30 on PLANE .15`, at least .10 L '
+             'from the plane behind it, or `- Key: OBJECT [x0,y0,x1,y1]; rim: DESCRIPTION` (a rim slot on its '
+             'light-facing edge). Keep Key boxes clear of the hero and of each other; a box that overlaps one on '
+             'purpose says "overlaps NAME on purpose" (see references/drawing.md#drawing-objects).')
+    L.append('- Calm: TODO one line per calm area, `- Calm: NAME [x0,y0,x1,y1]; texture: DESCRIPTION` (a designed '
+             'texture: swell dashes, a one-step stipple, wet flags), all of them at most 30% of the frame; outside '
+             'them every 100 px window holds a readable object or story (see references/drawing.md#composition).')
+    if E:
+        L.append('- Sprites: TODO each actor drawn as hardware sprites, `- Sprites: NAME [x0,y0,x1,y1], NAME '
+                 '[x0,y0,x1,y1]`; lint counts them per scanline against the %s limits (era.check_sprites).' % E['name'])
     L.append('- TODO the full object list with counts and rough positions (left third, on the ridge, by the door) '
              '(see references/brief.md#4-the-scene; run `pixelate tools TOPIC` for each subject).')
     if st.get('stack'):
@@ -1642,7 +1905,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     L.append('\n## 5. Lived-in details')
     L.append('- TODO five to ten small, specific things that tell a story, each with its native size (at least 4x3 '
              'px) and the value step against what it sits on; three readable beat eight invisible; say which change per phase '
-             '(see references/drawing.md#drawing-objects).')
+             '(see references/drawing.md#drawing-objects). Write each named story beat as `- NAME: ...` and give it a '
+             'Key line in section 4 (lint checks every one has a Key).')
     L.append('\n## 6. Phases')
     L.append('- Accent ration: TODO each accent hue, the only objects that may carry it, and its share of the frame.')
     L.append('- TODO for each phase: the palette by named roles, its signature elements (not a recolour), what the '
@@ -1964,6 +2228,23 @@ GAP_CASES = [
     ('A busy canal market at noon in isometric.', 'purpose and outputs', ['story beats', 'every period divides'],
      [], False),
 ]
+# a scene section with every box line right (lint finds nothing), and one fault per variant below
+KEY_BASE = ('## 4. The scene\n- Projection: side. Canvas 160x144.\n'
+            '- Hero: 100,44,130,79 (native px); peak value: the sail; peak chroma: the sail\n'
+            '- Layout: the headland [0,64,63,143] with the tower on it; breaker A and the boat right\n'
+            '- Value plan: sky L .35; headland and troughs .2; breaker lips .55; brightest only at the sail\n'
+            '- Value: sky [0,0,159,63] L .35\n- Value: headland [0,64,63,143] L .2\n'
+            '- Key: tower [20,5,40,62]; L .55 on sky .35\n- Key: gull [44,10,52,14]; rim: S2 on its right edge\n'
+            '- Key: keeper\'s window [14,58,17,60]; L .55 on headland .2\n'
+            '- Key: breaker B [38,100,99,143]; L .35 on headland\n'
+            '- Calm: far sea [64,80,96,99]; texture: long S1 swell dashes\n'
+            '## 5. Lived-in details\n- The keeper\'s window: 4x3 px S2 in the S0 wall\n- The gull: 9x5 px on the rail\n'
+            '- a coil of rope by the hut, 5x3 px\n')
+_in4 = lambda line: KEY_BASE.replace('## 5.', line + '\n## 5.')
+KEY_ERA = KEY_BASE.replace('Canvas 160x144.', 'Canvas 160x144. Gate `--era gameboy`.').replace(
+    '## 5.', '- Sprites: boat [100,63,129,79], sailor [118,70,121,77], gull [44,10,52,14]\n## 5.') + (
+    '## 11. Technical\n- Tile budget: 180 unique 8x8 tiles against the limit of 256\n')
+
 # (function, argument, expect a problem): the lint's false positives stay fixed and its substance checks fire
 LINT_CASES = [
     ('vague', ('Phases', '- a cool blue rim on the left'), False),
@@ -1980,6 +2261,24 @@ LINT_CASES = [
     ('banned', 'Style `pastel-cell`\n- Gate override: allow Post.shaft (the rays through the gap are the subject)\n'
                '- Rays: Post.shaft from the gap', False),
     ('banned', 'Style `pastel-cell`\n- Gate override: allow Post.shaft\n- Rays: Post.shaft from the gap', True),
+    ('keys', KEY_BASE, 0),
+    ('keys', KEY_BASE.replace('L .55 on sky .35', 'L .41 on sky .35'), 1),                  # under .10 L apart
+    ('keys', KEY_BASE.replace('; rim: S2 on its right edge', ''), 1),                       # no planned read
+    ('keys', KEY_BASE.replace('gull [44,10,52,14]', 'gull [150,10,170,14]'), 1),          # off the canvas
+    ('keys', KEY_BASE.replace('gull [44,10,52,14]', 'gull [96,40,104,46]'), 1),           # into the hero box
+    ('keys', KEY_BASE.replace('gull [44,10,52,14]; rim:', 'gull [96,40,104,46] (overlaps hero on purpose); rim:'), 0),
+    ('keys', _in4('- Key: rocks [40,100,63,130]; L .45 on headland .2'), 1),        # two Keys collide
+    ('keys', _in4('- Key: rocks [40,100,63,130]; L .45 on headland .2; overlaps breaker B on purpose'), 0),
+    ('keys', KEY_BASE.replace('far sea [64,80,96,99]', 'night sky [0,0,159,63]'), 1),      # calm over 30%
+    ('keys', KEY_BASE.replace('; texture: long S1 swell dashes', ''), 1),                   # calm with no texture
+    ('keys', _in4('- Value: troughs [64,120,159,143] L .5'), 1),                     # against the Value plan
+    ('keys', KEY_BASE.replace('L .55 on sky .35', 'L .55 on sky .2'), 1),                   # against its Value line
+    ('keys', KEY_BASE + '- The sailor bailing: 4x8 px in the stern\n', 1),                  # a beat with no Key
+    ('keys', KEY_BASE.replace('the headland [0,64,63,143]', 'the headland [0,60,63,143]'), 1),   # two boxes
+    ('keys', KEY_BASE.replace('Canvas 160x144', 'Canvas 400x144'), 1),                      # empty 100 px windows
+    ('keys', KEY_ERA, 0),
+    ('keys', KEY_ERA.replace('gull [44,10,52,14]\n', 'gull [44,10,52,14], crowd [0,70,90,77]\n'), 1),  # scanline
+    ('keys', KEY_ERA.replace('180 unique 8x8 tiles', 'the unique 8x8 tiles'), 1),           # no tile count
     ('plan', '- Projection: side view.\n- Hero: 100,60,220,150 (native px); peak value: the lamp; peak chroma: the kite\n'
              '- Planes: sky 55%, sea 30%, island 15%\n- Layout: island x 180-250, y 60-110; calm sky x 0-150\n'
              '- Masses: cloud sea as a 140 px bank, a 60 px trough, tufts of 20 and 12 px\n'
@@ -2027,6 +2326,8 @@ def _lint_case(fn, arg):
         return len(_one_line(arg, 'light direction', True) + _one_line(arg, 'wind', 'trail' in arg))
     if fn == 'hex':
         return len(_hex_check(arg))
+    if fn == 'keys':
+        return len(_key_plan(arg))
 
 def selftest(verbose=False):
     """-> number of cases that route wrong or whose brief misses a line (printed)"""

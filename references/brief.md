@@ -27,12 +27,14 @@ diorama with seasons; the same words from a game developer are a top-down overwo
 
 ## Route as a hint
 
-`pixelate route "the request"` ranks the styles with reasons, names the mode (scene, rebuild, era,
-assets, music), suggests kit calls for the subject, and lists what the request leaves open with
-defaults. It matches keywords, so it is a hint, not the decision: choose from its top picks and your read of the
-intent, and say why in section 0. `pixelate style NAME` prints everything one style fixes;
-`pixelate style --list` gives one line per style. Only when none of the picks fits, read
-"Picking a style" ([guides/styles.md](../guides/styles.md#picking-a-style)).
+`pixelate route "the request" --brief` routes and writes the brief skeleton in one call: section 0
+names the picked style, the runners-up, and the defaults for what the request leaves open. It
+matches keywords, so it is a hint, not the decision: choose from its picks and your read of the
+intent, rerun with `--brief STYLE` if you disagree, and say why in section 0. Plain
+`pixelate route "the request"` ranks the styles with reasons when you want to compare first.
+`pixelate style NAME` prints everything one style fixes; `pixelate style --list` gives one line per
+style. Only when none of the picks fits, read "Picking a style"
+([guides/styles.md](../guides/styles.md#picking-a-style)).
 
 ## Expand into a brief
 

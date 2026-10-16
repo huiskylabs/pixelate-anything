@@ -304,7 +304,7 @@ BRIGHT_STYLES = ('sticker-iso', 'hd-overworld', 'illustrated', 'pastel-cell')
 
 def _hit(text, w):
     if w.isascii() and w[:1].isalnum():          # English: whole words, so 'nes' is not in 'japanese'
-        return re.search(r'(?<![a-z0-9])' + re.escape(w.strip()) + (r'(?:e?s)?(?![a-z0-9])' if w[-1:].isalnum() else ''),
+        return re.search(r'(?<![a-z0-9])' + re.escape(w.strip()) + (r'(?:e?s|y)?(?![a-z0-9])' if w[-1:].isalnum() else ''),
                          text) is not None
     return w in text                              # Chinese: substrings
 
@@ -590,7 +590,7 @@ def topic_tools(request, style=None, projection=None):
 # ---------------------------------------------------------------- what the request leaves open
 WORDS = dict(
     time=['night', 'dusk', 'dawn', 'sunset', 'sunrise', 'noon', 'morning', 'evening', 'day', 'rain', 'snow',
-          'fog', 'mist', 'storm', 'winter', 'summer', 'spring', 'autumn',
+          'fog', 'foggy', 'mist', 'storm', 'winter', 'summer', 'spring', 'autumn',
           '夜', '黄昏', '清晨', '日落', '日出', '中午', '早晨', '傍晚', '白天', '雨', '雪', '雾', '风暴', '冬', '夏', '春', '秋'],
     phases=['seasons', 'four seasons', 'day to night', 'day and night', 'cycle', 'phases', 'timelapse',
             '四季', '昼夜', '日夜', '循环', '轮换'],

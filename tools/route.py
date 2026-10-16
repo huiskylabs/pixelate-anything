@@ -733,7 +733,7 @@ def lint(text):
                 probs.append('Motion table: %s drawings x %s frames = %d does not divide the %d-frame loop' % (
                     n, k, int(n) * int(k), T))
     if m is not None:
-        slow = [b for b in _bullets(m) if not re.match(r'(todo|checks?|motion|note)\b', b, re.I)
+        slow = [b for b in _bullets(m) if not re.match(r'(todo|checks?|motion|note|keep|at most|only)\b', b, re.I)
                 and not b.endswith(':') and not re.search(RATE, b, re.I)]
         if slow:
             probs.append('Motion table: %d line(s) with no rate or frame count: %s' % (len(slow), _quote(slow)))
@@ -1303,7 +1303,7 @@ def main(a):
             print(text)
         return 0
     print('request: %s' % req)
-    print('mode: %s (read %s)%s' % (r['mode'], r['guide'], '' if r['mode'] == 'scene' else ', then a style for the finish'))
+    print('mode: %s (%s is for drawing, step 5)%s' % (r['mode'], r['guide'], '' if r['mode'] == 'scene' else ', then a style for the finish'))
     for i, p in enumerate(r['picks']):
         st = styles.get(p['style'])
         print('\n%d. %s  (score %d, %s, light %s, %dx %dx%d)' % (i + 1, p['style'], p['score'], p['projection'],

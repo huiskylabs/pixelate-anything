@@ -175,7 +175,8 @@ def query(q='', style=None):
         return listing()
     if '.' in q and _path(q.split('.')[0]):
         return member(q) or ('no %s: try `pixelate tools %s`\n' % (q, q.split('.')[0]))
-    parts = [x for x in (topic(q, style), module(q) if _path(q) else None) if x]
+    t = topic(q, style)
+    parts = [x for x in (t, module(q) if _path(q) and not (t and style) else None) if x]   # with --style, a topic wins
     if parts:
         return '\n'.join(parts)
     return 'nothing for %r. Topics and modules:\n\n%s' % (q, listing())

@@ -13,7 +13,7 @@ Read only what each step names.
 
 1. **Read the intent.** One line on what the user wants but didn't say. Read `references/brief.md#read-the-intent`.
 2. **Route as a hint.** Run `pixelate route "REQUEST"`. The mode's guide (table below) is for step 5; the brief doesn't need it.
-3. **Expand into a brief** (a short brief for a small ask; `--full` forces all 11 sections). Run `pixelate route "REQUEST" --brief -o brief.md`, fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md`; each TODO names its section and command. The brief lists techniques for the subjects the request names; run `pixelate tools TOPIC` only for a subject it lacks.
+3. **Expand into a brief** (a short brief for a small ask; `--full` forces all 11 sections). Run `pixelate route "REQUEST" --brief [STYLE] -o brief.md` (STYLE defaults to the top pick), fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md` and `examples/lantern-isle/BRIEF.md` (the bar); each TODO names the `references/drawing.md` section and command it needs, read just those. The brief lists techniques for the subjects the request names; run `pixelate tools TOPIC` only for a subject it lacks.
 4. **The user confirms the brief.** Read `references/brief.md#confirm`.
 5. **Draw everything from scratch in code.** Run `pixelate tools TOPIC` or `pixelate tools MODULE`. Read the `references/drawing.md` section for what you draw.
 6. **Pass the gate.** Run `pixelate check FRAME.png --style S --scale N`; redraw until every line passes. Read `references/delivery.md#gate`.

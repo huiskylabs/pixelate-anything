@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """pixelate: one command for everything in pixelate-anything.
 
+  pixelate route "REQUEST" [--brief [STYLE] -o brief.md]   pick a style, expand to a brief  (references/craft.md)
+  pixelate route --lint brief.md         self-critique a brief before showing it
   pixelate image IMG -o OUT [...]        photo or art -> clean pixel art          (guides/pixelate.md)
   pixelate palette extract|ramps|show|js|list ...   palettes                      (guides/palettes.md)
   pixelate assets PACK                   export sprites, sheets, GIFs, tilemaps   (guides/assets.md)
@@ -23,7 +25,8 @@ import os, pathlib, runpy, shutil, subprocess, sys
 TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
 SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
-           'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py'}
+           'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
+           'route': 'route.py'}
 TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
 
 def run(script, args):

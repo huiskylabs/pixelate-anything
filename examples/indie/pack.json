@@ -1,0 +1,8 @@
+{
+  "name": "Indie Styles",
+  "about": "original scenes that learn from modern indie pixel art: each one rebuilds a style's grammar (palette, light regime, shapes, motion) in code, never its characters or places",
+  "palette": "palette.json",
+  "scale": 6,
+  "scene_scale": 6,
+  "preview_bg": "#2a2240"
+}

@@ -1,6 +1,6 @@
-# Delivery: gate, still, animation plan
+# Delivery: gate, art director, still, animation plan
 
-Steps 6 to 8 of every job, after the brief is approved ([brief.md](brief.md)) and the frame is
+Steps 6 to 9 of every job, after the brief is approved ([brief.md](brief.md)) and the frame is
 drawn ([drawing.md](drawing.md)). Nothing is shown or delivered before the gate passes.
 
 ## Gate
@@ -41,16 +41,28 @@ failing line says what to change. The limits sit in `craftcheck.COMPOSITION` per
 on the showcase finals and drafts and the style references; a style with no failing draft to
 calibrate on has no limit yet. Readability also needs a lightness difference now: an actor that
 differs from its surroundings by hue alone, with under 0.025 L between them, fails. The gate does
-not judge whether there is one clear focal point; look at the frame for that.
+not judge whether there is one clear focal point; the art director does (below).
 
 The music gate does
 the same for sound: write the music yourself in any code, render it, `pixelate check TRACK.wav`
 until it passes (`guides/music.md`).
 
+## Art director
+
+The gate passes weak drafts; an outside eye catches what it can't. Run
+`pixelate critique FRAME.png --brief brief.md [--style S]`: it writes a 480 px thumbnail and its
+greyscale next to the frame and prints a ready prompt (the rubric in
+[art-director.md](art-director.md), the brief's section 0 and signature elements, the image paths and
+the bar). Send that prompt to a fresh agent or a second model that did not draw the frame; it
+returns a grade, 12 scores and up to 5 ranked fixes. Apply the fixes, pass the gate again and run a
+new critique, until it grades A. Don't argue with a fix; if the brief causes it, change the brief.
+
 ## Still
 
-Show one still for go/no-go. One frame, at the delivered scale, gate passed. The user accepts it
-or says what to change; change it, gate it again and show it again.
+Show one still for go/no-go: one frame, at the delivered scale, gate passed and graded A by the art
+director, with its last critique in one line (`AD: A, signature: ..., kept: ...`). Only an A still
+goes to the user. The user accepts it or says what to change; change it, gate it, critique it again
+and show it again.
 
 ## Animation plan
 
@@ -79,7 +91,7 @@ readability, post ops and pixel craft. The rest of this list is judged by eye.
 - [ ] Smoke, mist or light reads as dots or squares: hand-shape it.
 - [ ] A trailing scarf or tail reads as a stick: shorten the chain and fix its segment length.
 - [ ] Too busy: cut particles and motion.
-- [ ] Subject too small, or empty half-frame: recompose.
+- [ ] Subject too small, or empty half-frame: recompose. The art director grades it (`pixelate critique`).
 - [ ] A phase only looks like a recolour: add signature elements.
 - [ ] The gate fails a budget or craft line (orphans, jaggies, stripes, doubled outlines, pillow shading, clusters): redraw, then run it again.
 - [ ] The seam jumps at loop end: `pixelate check` flags it in engine scenes; in Python scenes compare `frame(T)` with `frame(0)`.

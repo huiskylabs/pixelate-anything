@@ -19,6 +19,7 @@
   pixelate check SCENE [--page]          palettes, timing, loop seam, page
   pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op]   the delivery gate
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
+  pixelate critique FRAME.png --brief brief.md [--style S]   the prompt for an independent art director
   pixelate check TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]   the music gate
   pixelate build SCENE [--release]       one self-contained HTML page
   pixelate audio SCENE out.{wav,ogg,flac,mp3}   one seamless loop of the music     (guides/music.md)
@@ -37,7 +38,7 @@ TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
 SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
-           'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py'}
+           'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py'}
 TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
 
 def run(script, args):

@@ -43,7 +43,7 @@ Outputs:
    pixelate check still.png --style lofi --scale 4 [--pal P] [--actor MASK]
    pixelate check my-scene
    ```
-   Redraw until every line passes, then show the user that one still for go/no-go. For a still-only job, this is the delivery.
+   Redraw until every line passes, run the art director until it grades A (`pixelate critique still.png --brief brief.md`, `references/delivery.md#art-director`), then show the user that one still for go/no-go. For a still-only job, this is the delivery.
 
 7. **Confirm the animation plan.** Show the loop length (`cycle`, `grand`, ticks), what moves, and each rate and frame count, every period dividing the loop (the brief's motion table, updated). Animate only after the user says OK.
 

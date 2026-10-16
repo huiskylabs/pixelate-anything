@@ -80,6 +80,7 @@ pixelate audio my-scene loop.wav && pixelate video my-scene out.mp4 --audio loop
 pixelate new music theme && pixelate audio theme theme.ogg
 pixelate style --list && pixelate style lofi        # every style, then one style's card
 pixelate tools rain && pixelate tools post.Post.lightmap   # the kit on demand: a topic, a signature
+pixelate critique still.png --brief brief.md        # the prompt for an independent art director
 ```
 
 ## MCP tools
@@ -89,17 +90,18 @@ The server's tools:
 - **Styles and the kit on demand:** `style_card`, `kit_tools` (the same as `pixelate style NAME` and `pixelate tools [QUERY]`).
 - **Files:** `write_file`, `read_file`, `list_files`. Writes stay inside the workspace.
 - **Image, palette, assets:** `pixelate_image`, `palette`, `export_assets`, `generate_sprites`.
+- **Gate and critique:** `check_frame`, `check_music`, `critique_prompt` (the prompt for an independent art director).
 - **Scenes and output:** `preview_scene`, `check_scene`, `build_page`, `render_audio`, `render_video`, `render_gif`.
 
-Tools that make pictures return them as images, so the agent can judge its own work. That is the single biggest quality lever. The workspace is the directory the agent starts the server in, or `$PIXELATE_WORKSPACE`.
+Tools that make pictures return them as images, so the agent can judge its own work. A second agent that did not draw it judges better: `critique_prompt` hands it the rubric, the brief and the images. The workspace is the directory the agent starts the server in, or `$PIXELATE_WORKSPACE`.
 
 ## Layout
 
 | path | what |
 |---|---|
-| `SKILL.md` | lean entry point: the eight steps, each naming one command and one file to read |
+| `SKILL.md` | lean entry point: the nine steps, each naming one command and one file to read |
 | `guides/` | one guide per mode: rebuild, eras, pixelate, palettes, assets, scenes, music |
-| `references/` | `brief.md` (intent to approved brief), `drawing.md` (how to draw), `delivery.md` (gate, still, animation plan); the scene engine API |
+| `references/` | `brief.md` (intent to approved brief), `drawing.md` (how to draw), `delivery.md` (gate, art director, still, animation plan), `art-director.md` (the critique rubric); the scene engine API |
 | `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: projections and boxes; `sdf.py`: curved solids) |
 | `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
 | `templates/` | `scene`, `music` and `assets` starting points |

@@ -22,10 +22,19 @@ the ceiling: it predates the light layer, so a brief today also decides the ligh
 emitter, the allowed post ops, the value budget and the depth planes, which Lantern Isle never had
 to. Do it in this order, before drawing anything:
 
-1. **Route.** `python3 tools/route.py "the request"` ranks the styles with reasons, names the
-   mode (scene, rebuild, era, assets, music) and lists what the request leaves open (time and
-   weather, phases, figures, purpose and outputs, music, projection, the style itself) with the
-   default each takes. Read the reasons; override the pick when the request means something else.
+1. **Read the intent, then route.** Before any tool, write one line on what the user most
+   likely wants but didn't say: the feeling (calm, epic, eerie, cute), the use (a stream cover, a
+   game mock, a wallpaper), the era or game it recalls, and what would disappoint them. "A pixel
+   island" from someone making lofi videos is a calm diorama with seasons; the same words from a
+   game developer are a top-down overworld tile. Then run `python3 tools/route.py "the request"`.
+   It ranks the styles with reasons, names the mode (scene, rebuild, era, assets, music), suggests
+   the kit calls for the subject, and lists what the request leaves open with defaults. It matches
+   keywords, so it is a hint, not the decision: choose with the questions in "Picking a style"
+   (`guides/styles.md`) and your read of the intent, and say why in section 0.
+   Know the whole kit, not only what the router names: `guides/toolkit.md` lists every function
+   with one line on what it does, by subject and by module. The best brief reaches for whatever
+   the scene needs (a scarf on `sprite.chain`, wet cobbles from `texture.wet_streaks`, a crowd from
+   `compose.populate`) and names each by its real function.
 2. **Expand.** `python3 tools/route.py "the request" --brief -o brief.md` writes the 11 sections
    with everything the style decides already filled in, plus section 0, the choices to confirm.
    Fill every TODO yourself with a concrete choice: the objects with counts and positions, five to

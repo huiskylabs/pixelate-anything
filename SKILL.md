@@ -32,7 +32,7 @@ The tools handle the mechanical parts (colour maths, exact loops, exports). The 
 | an animated loop or lofi video cover, as a live page, MP4 or GIF | scene | `guides/scenes.md` + `guides/music.md` |
 | music: a lofi, chiptune or ambient loop, game music, a soundtrack | music | `guides/music.md` |
 
-Before drawing anything in any mode, route the request and expand it into a full brief: run `python3 tools/route.py "the request"`, then `--brief`, fill every TODO with concrete defaults, `--lint` it, and show the user the brief with the choices you made (see "From one line to a brief" in `references/craft.md`). Build only once they say OK. Read `references/craft.md`: it holds the rules that separate hand-made pixel art from generic output, and the brief every scene starts from. For a look learned from a game style (pastel platformer, contre-jour, neon noir, arcade, tactics iso and others), read `guides/styles.md`.
+Before drawing anything in any mode, route the request and expand it into a full brief: run `python3 tools/route.py "the request"`, then `--brief`, fill every TODO with concrete defaults, `--lint` it, and show the user the brief with the choices you made (see "From one line to a brief" in `references/craft.md`). Build only once they say OK. `guides/toolkit.md` lists every tool in the kit; know it before you write the brief. Read `references/craft.md`: it holds the rules that separate hand-made pixel art from generic output, and the brief every scene starts from. For a look learned from a game style (pastel platformer, contre-jour, neon noir, arcade, tactics iso and others), read `guides/styles.md`.
 
 ## Run things
 

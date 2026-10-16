@@ -64,8 +64,10 @@ one. The full loop is in `references/craft.md`, "From one line to a brief".
 | NES, Game Boy, 8-bit, SNES | mode era, then a style | | | |
 | a sprite sheet, a tileset, icons | mode assets | | | |
 
-When nothing scores, the router picks `lofi`, the toolkit's own look. Treat the result as a
-proposal: read the reasons and say which style you chose and why.
+When nothing scores, the router picks `lofi`, the toolkit's own look. The router matches
+keywords, so treat it as a proposal: weigh it against what the user most likely means, answer
+the questions below, and say which style you chose and why. For the tools a subject needs, see
+`guides/toolkit.md`.
 
 ## Picking a style
 

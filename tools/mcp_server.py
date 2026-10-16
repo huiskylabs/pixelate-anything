@@ -33,15 +33,19 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
    scenes (+ music), rebuild, eras, assets, music; a quick conversion is pixelate, a palette is palettes.
 3. write_brief (a short brief for a small ask), fill every TODO (each names its section and command),
    lint_brief until it says ready. style_card(name) prints one style's rules, light, budgets and limits.
-4. Show the user the brief with section 0 and wait for OK.
-5. Draw everything yourself in code (guide('drawing')). kit_tools() lists topics and modules,
+4. Draw a greyscale block-in of the layout (flat value shapes from the brief's boxes; its gate is
+   `pixelate check BLOCKIN.png --blockin --brief brief.md`), then critique_prompt(brief, block=...):
+   send the prompt to a separate agent that did not write the brief, apply its changes, lint_brief
+   again, repeat until it grades A.
+5. Show the user the brief with section 0 and wait for OK.
+6. Draw everything yourself in code (guide('drawing')). kit_tools() lists topics and modules,
    kit_tools('rain') the techniques for a subject, kit_tools('post.Post.lightmap') one signature.
    references/assets holds examples to read, never to call.
-6. check_frame and redraw until every line passes (guide('delivery')).
-7. critique_prompt(frame, brief): send the prompt it returns to a separate agent that did not draw
-   the frame, apply its fixes, check_frame again, repeat until it grades A.
-8. Show one still for go/no-go, only once it is graded A, with the last critique in one line.
-9. Confirm the animation plan (loop length, what moves, rates), then animate.
+7. check_frame and redraw until every line passes (guide('delivery')).
+8. critique_prompt(brief, frame, prev=last critique): the same for the still; apply its fixes,
+   check_frame again, repeat until it grades A. Passing the gate means legal, not good: never self-grade.
+9. Show one still for go/no-go, only once it is graded A, with the last critique in one line.
+10. Confirm the animation plan (loop length, what moves, rates), then animate.
 Hard rules: pixel-art projections only (side, 3/4 top-down, 2:1 iso, oblique, military); originals
 only, no existing IP; rebuild a photo rather than convert it; every effect is done in code. Every
 track goes through check_music until it passes. Look at every preview image you get back and fix what
@@ -98,14 +102,19 @@ def lint_brief(path: str) -> str:
     return cli('route', '--lint', P(path))[1]
 
 @server.tool()
-def check_frame(frame: str, style: str, scale: int = 1, palette: str = '', prelight: str = '',
-                actor: str = '', used: str = '', scene: str = '', era: str = '', brief: str = '') -> list:
+def check_frame(frame: str, style: str = '', scale: int = 1, palette: str = '', prelight: str = '',
+                actor: str = '', used: str = '', scene: str = '', era: str = '', brief: str = '',
+                blockin: bool = False) -> list:
     """The delivery gate for one frame: the style's value budget, square native pixels, banned light ops,
     palette subset, actor readability and pixel craft (orphans, jaggies, banding, pillow shading,
     clusters). scene: the style's scene variant (style_card lists them); era: the console era's checks
-    replace the value budget; brief: apply its `- Gate override: RULE BOUND (reason)` lines. Redraw
-    until every line passes; no frame is shown as final before that."""
-    args = ['check', P(frame), '--style', style, '--scale', scale]
+    replace the value budget; brief: apply its `- Gate override: RULE BOUND (reason)` lines and its
+    Hero and Planes lines (focus checks); blockin: check a greyscale block-in instead (value bands,
+    hero placement and size, plane shares). Redraw until every line passes; no frame is shown as
+    final before that."""
+    args = ['check', P(frame), '--scale', scale] + (['--style', style] if style else [])
+    if blockin:
+        args.append('--blockin')
     for flag, v in (('--pal', palette), ('--pre', prelight), ('--actor', actor), ('--used', used),
                     ('--scene', scene), ('--era', era), ('--brief', brief)):
         if v:
@@ -114,14 +123,18 @@ def check_frame(frame: str, style: str, scale: int = 1, palette: str = '', preli
     return [('PASS\n' if code == 0 else 'FAIL\n') + text, thumb(P(frame))]
 
 @server.tool()
-def critique_prompt(frame: str, brief: str, style: str = '') -> str:
-    """The prompt for an independent art director, as `pixelate critique`: the rubric
-    (references/art-director.md), the brief's request, section 0 and signature elements, and the paths
-    of the frame, a 480 px nearest-neighbour thumbnail and its greyscale (written next to the frame) and
-    the bar image. Send it to a separate agent or model that did not draw the frame; apply the fixes it
-    returns, check_frame again, and repeat until it grades A."""
+def critique_prompt(brief: str, frame: str = '', block: str = '', prev: str = '', style: str = '') -> str:
+    """The prompt for an independent art director, as `pixelate critique`. With no frame it grades
+    the brief before anything is drawn (step 4), with the greyscale block-in `block` if given; drawing
+    waits for an A. With a frame it grades the still (step 8), writing a 480 px nearest-neighbour
+    thumbnail and its greyscale next to the frame. prev: the previous critique's file, so each earlier
+    fix is checked first as fixed, partly or not. It holds the rubric (references/art-director.md, the
+    part for that stage), the brief's request, section 0 and signature elements, and the paths of the
+    brief and the bar. Send it to a separate agent or model that did not write or draw the work; apply
+    the fixes it returns, lint_brief or check_frame again, and repeat until it grades A."""
     import critique
-    return critique.prompt(P(frame, write=True), P(brief), style)
+    return critique.prompt(P(frame, write=True) if frame else None, P(brief), style,
+                           prev=P(prev) if prev else None, block=P(block) if block else None)
 
 @server.tool()
 def check_music(track: str, style: str = 'any', use: str = 'loop', bpm: float = 0, key: str = '') -> list:

@@ -5,6 +5,7 @@ usage: check.py SCENE_DIR [--page]
        check.py FRAME.png --style S --scale N [--pal palette.json] [--pre prelight.png]
                 [--actor actor_mask.png] [--used op,op] [--intent mask.png]
                 [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
+       check.py BLOCKIN.png --blockin [--scale N] [--brief brief.md] [--style S]
        check.py TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]
                 (the music gate: see musiccheck.py)
 
@@ -30,16 +31,29 @@ Frame mode (FRAME is an image: any scene, Python or engine, at its delivered N x
   7. composition: a near-empty bottom third, a bare frame, a brick-shaped mass, a flat-slab edge and
      light banded into rings, inside the style's craftcheck.COMPOSITION limits; each failing line
      says what to change
+  8. focus: with a hero (the brief's `- Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma:
+     OBJECT` line, else the --actor mask's bbox), read at thumbnail size: the hero holds the frame's
+     top values and its strongest local contrast (or a light the brief names with its own bbox,
+     `peak value: the sun disc (244,6,268,32)`), no same-hue colour outside it out-saturates it, no
+     mass outside it outweighs it, and with both --actor and the Hero line the drawn hero fills 85% of
+     the planned bbox (craftcheck.focus, craftcheck.FOCUS)
+  9. repeat (WARN, never FAIL): rows of near-identical lobes or units, e.g. equal cloud scallops or the
+     same house stamped along a street (craftcheck.repeats)
+  --blockin: the frame is a greyscale block-in (flat value masses, no detail): 3-4 value bands with the
+     hero's light the brightest, the hero placed and sized as the brief's bbox, the brief's
+     `- Planes: ground 45%, sky 20%` shares, empty cells on a coarse grid, a long inner slab edge, focus
   --scene NAME: the style's scene variant budget (`pixelate style S` lists them), e.g. cosy-lightmap
      exterior, contre-jour beam
   --era ERA: the console era's own checks (size, colour count, fixed palette or bit depth, colours per
      block, unique tiles; tools/era.py) replace the value budget; --style still sets the craft limits
   --brief brief.md: apply its `- Gate override: RULE BOUND (reason)` lines; --budget adds one from the
      command line in the same form, e.g. --budget 'L>0.75 <= 0.02 (the beam is the subject)'. BOUND is
-     `<= V`, `>= V`, `LO..HI` or `off`, for a budget rule, a craft limit or a composition limit; an
+     `<= V`, `>= V`, `LO..HI` or `off`, for a budget rule, a craft limit, a composition limit or a
+     focus key (focus_value, focus_contrast, focus_chroma, focus_rival, focus_size, `focus off`,
+     `repeat off`, `repeat <= N`); an
      override without a reason is rejected, and the report still says how far the frame is from the
      style's own bound. `- Gate override: allow Post.OP (reason)` is for route lint: noted, no bound moves
-Each check prints PASS, FAIL or SKIP with the measured value and the limit.
+Each check prints PASS, FAIL, WARN or SKIP with the measured value and the limit; WARN never fails.
 Exit status 1 if anything fails.
 """
 import asyncio, pathlib, re, sys
@@ -191,6 +205,114 @@ def brief_overrides(path):
         text = text[:nxt.start()] if nxt else text
     return [parse_override(x) for x in OVERRIDE_LINE.findall(text) if x.lower().rstrip('.') != 'none']
 
+# The hero line of a brief (section 4), read by the gate's focus lines and by --blockin:
+#   - Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT
+# The bbox is inclusive, at 1x. An OBJECT that is not the hero (a sun, a lamp) gives its own bbox in
+# brackets, `peak value: the sun disc (244,6,268,32)`, so the peak may sit there instead.
+# The plane line, read by --blockin:   - Planes: ground 45%, sky 20%, buildings 25%
+_BOX = r'(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)'
+HERO_LINE = re.compile(r'^\s*[-*]\s*\**Hero\**:\s*\**\s*' + _BOX + r'(.*)$', re.M | re.I)
+PLANES_LINE = re.compile(r'^\s*[-*]\s*\**Planes\**:\s*(.+?)\s*$', re.M | re.I)
+
+def _owner(rest, what):
+    m = re.search(what + r'\s*:\s*([^;]+)', rest, re.I)
+    if not m:
+        return None, None
+    name = m.group(1).strip().rstrip('.')
+    b = re.search(r'\(\s*' + _BOX + r'\s*\)', name)
+    return re.sub(r'\s*\(.*?\)\s*', ' ', name).strip(), (tuple(int(v) for v in b.groups()) if b else None)
+
+def brief_hero(path):
+    """the brief's `- Hero:` line -> {'bbox', 'value', 'value_box', 'chroma', 'chroma_box'}, or None"""
+    m = HERO_LINE.search(pathlib.Path(path).read_text())
+    if not m:
+        return None
+    x0, y0, x1, y1 = (int(v) for v in m.groups()[:4])
+    if x1 < x0 or y1 < y0:
+        raise SystemExit('brief Hero bbox %d,%d,%d,%d: write it as x0,y0,x1,y1 with x1 >= x0 and y1 >= y0' % (x0, y0, x1, y1))
+    v, vb = _owner(m.group(5), 'peak value')
+    c, cb = _owner(m.group(5), 'peak chroma')
+    return {'bbox': (x0, y0, x1, y1), 'value': v, 'value_box': vb, 'chroma': c, 'chroma_box': cb}
+
+def brief_planes(path):
+    """the brief's `- Planes: ground 45%, sky 20%` line -> [(name, share)], or None"""
+    m = PLANES_LINE.search(pathlib.Path(path).read_text())
+    if not m:
+        return None
+    out = [(n.strip(), float(v) / 100) for n, v in re.findall(r'([^,;:]+?)\s+(\d+(?:\.\d+)?)\s*%', m.group(1))]
+    return out or None
+
+FOCUS_KEYS = ('focus_value', 'focus_contrast', 'focus_chroma', 'focus_rival', 'focus_size')
+
+def _focus_lines(img, hero, actor_box, line, note, ovr, chroma=True, size=True):
+    """the focus lines (craftcheck.focus) for a hero bbox; ovr: {key: (lo, hi, reason)} or 'focus' off"""
+    import craftcheck
+    if 'focus' in ovr:
+        line('SKIP', 'focus', '', 'off by override (%s)' % ovr['focus'][2])
+        return
+    hb = hero['bbox'] if hero else actor_box
+    src = 'brief Hero line' if hero else '--actor bbox'
+    owners_v = [hero['value_box']] if hero and hero.get('value_box') else []
+    owners_c = [hero['chroma_box']] if hero and hero.get('chroma_box') else []
+    vals = craftcheck.focus(img, hb, owners_v, owners_c, chroma=chroma)
+    if hero and actor_box:
+        a = (actor_box[2] - actor_box[0] + 1) * (actor_box[3] - actor_box[1] + 1)
+        p = (hb[2] - hb[0] + 1) * (hb[3] - hb[1] + 1)
+        vals['focus_size'] = (a / p, None)
+    note('focus: hero x %d-%d, y %d-%d (%s)%s%s' % (hb[0], hb[2], hb[1], hb[3], src,
+         ('; peak value: %s%s' % (hero['value'], ' %s' % (hero['value_box'],) if hero['value_box'] else '')) if hero and hero.get('value') else '',
+         ('; peak chroma: %s' % hero['chroma']) if hero and hero.get('chroma') else ''))
+    for key in FOCUS_KEYS:
+        lo, hi = craftcheck.FOCUS[key]
+        reason = None
+        if key in ovr:
+            olo, ohi, reason = ovr[key]
+            if olo == 'off':
+                line('SKIP', key.replace('_', ' '), '', 'off by override (%s)' % reason); continue
+            lo, hi = (olo if olo is not None else lo), (ohi if ohi is not None else hi)
+        if key not in vals:
+            if key == 'focus_chroma':
+                line('SKIP', 'focus chroma', '', 'a fixed era palette or a greyscale block-in')
+            elif key == 'focus_size' and size:
+                line('SKIP', 'focus size', '', 'needs both --actor and a brief Hero line')
+            continue
+        v, detail = vals[key]
+        bad = (lo is not None and v < lo) or (hi is not None and v > hi)
+        fmt = (lambda x: '%.0f%%' % (100 * x)) if key in ('focus_value', 'focus_contrast', 'focus_size') else (lambda x: '%.2fx' % x)
+        line('FAIL' if bad else 'PASS', key.replace('_', ' '), fmt(v),
+             '[%s .. %s]' % (fmt(lo) if lo is not None else '', fmt(hi) if hi is not None else '') + (' override' if reason else ''))
+        if bad:
+            note(craftcheck.focus_advice(key, v, detail, hb))
+        if reason:
+            b = craftcheck.FOCUS[key]
+            note('limit [%s .. %s] (override: %s)' % (fmt(b[0]) if b[0] is not None else '', fmt(b[1]) if b[1] is not None else '', reason))
+
+def _repeat_line(img, line, note, ovr):
+    import craftcheck
+    if 'repeat' in ovr and ovr['repeat'][0] == 'off':
+        line('SKIP', 'repeat', '', 'off by override (%s)' % ovr['repeat'][2]); return
+    hits = craftcheck.repeats(img)
+    allow = int(ovr['repeat'][1]) if 'repeat' in ovr and ovr['repeat'][1] is not None else 0
+    line('WARN' if len(hits) > allow else 'PASS', 'repeat', '%d rows' % len(hits),
+         '[ .. %d] rows of near-identical lobes or units (a warning)' % allow + (' override' if 'repeat' in ovr else ''))
+    for _, kind, where in hits[:3]:
+        note('%s: make them 3 to 6 of mismatched size (no two neighbours within 25%%), with uneven gaps, '
+             'or vary the units (size, roof, windows)' % where)
+    if 'repeat' in ovr:
+        note('override: %s' % ovr['repeat'][2])
+
+def _ovr_map(ovr, keys):
+    """parse_override tuples for these keys -> {key: (lo, hi, reason)} ('off' as lo for off)"""
+    out = {}
+    for key, op, lo, hi, reason in ovr:
+        if key in keys:
+            out[key] = ('off', None, reason) if op == 'off' else (lo, hi, reason)
+    return out
+
+def _actor_box(m):
+    ys, xs = np.nonzero(m)
+    return (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())) if len(xs) else None
+
 def _apply(rules, ovr):
     """rules with the overrides applied -> (rules, {key: ((lo, hi) before the override, reason)})"""
     out, notes = dict(rules), {}
@@ -216,11 +338,12 @@ def _away(v, lo, hi, fmt):
     return 'inside it too'
 
 def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), intent=None, scene=None, era=None,
-          overrides=()):
+          overrides=(), hero=None):
     """the delivery gate for one frame: print a PASS / FAIL / SKIP line per check, return True
     when nothing fails. scene: a style's scene variant (styles.budgets); era: the console era's own
     checks replace the value budget (tools/era.py); overrides: parse_override tuples, each moving one
-    budget or craft bound, printed with its reason and how far the frame is from the style's own bound"""
+    budget or craft bound, printed with its reason and how far the frame is from the style's own bound;
+    hero: brief_hero() of the brief, for the focus lines (else the --actor mask's bbox)"""
     from PIL import Image
     import stats, styles, craftcheck
     if style is None and era is None:
@@ -244,6 +367,8 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
             note('override allow %s (%s): an allowed-effect override, checked by route lint; the gate '
                  'moves no bound for it' % (key, reason))
     overrides = [o for o in overrides if o[1] != 'allow']
+    f_ovr = _ovr_map(overrides, FOCUS_KEYS + ('focus', 'repeat'))
+    overrides = [o for o in overrides if o[0] not in f_ovr]
     crafts = set(next(iter(craftcheck.CRAFT.values())))
     comps = set(craftcheck.COMP_METRICS)
     b_ovr = [o for o in overrides if o[0] not in crafts and o[0] not in comps]
@@ -322,8 +447,10 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
                  'off-palette, limit 0' + ('; e.g. ' + ', '.join(h for h, _ in p['top'][:3]) if not p['ok'] else ''))
     else:
         line('SKIP', 'palette', '', 'no --pal')
+    actor_box = None
     if actor:
         m = _load_mask(actor, (img.size[1], img.size[0]), scale)
+        actor_box = _actor_box(m)
         r = stats.readability(img, m)
         dl = max(abs(r['edge_dL']), abs(r['fill_dL']))
         hue = r['dhue'] == r['dhue'] and r['dhue'] >= READ_HUE
@@ -378,6 +505,146 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
                 note('style limit [ .. %s]: %s (override: %s)' % (f(key, bhi), _away(v, blo, bhi, lambda x, k=key: f(k, x)), reason))
     else:
         line('SKIP', 'craft', '', 'no --style: no craft limits')
+    if hero or actor_box:
+        _focus_lines(img, hero, actor_box, line, note, f_ovr, chroma=not era)
+    else:
+        line('SKIP', 'focus', '', 'no hero: pass --actor, or a brief with a `- Hero: x0,y0,x1,y1` line')
+    _repeat_line(img, line, note, f_ovr)
+    ok = 'FAIL' not in rows
+    print(('ALL PASS' if ok else 'FAIL: %d of %d checks' % (rows.count('FAIL'), len(rows) - rows.count('SKIP')))
+          + (' (%d warning%s)' % (rows.count('WARN'), 's' * (rows.count('WARN') > 1)) if 'WARN' in rows else ''))
+    return ok
+
+def blockin(path, scale=1, brief=None, style=None, overrides=()):
+    """the block-in gate: a greyscale layout of flat value masses, judged before any drawing. Prints a
+    PASS / FAIL / SKIP line per check and returns True when nothing fails."""
+    from PIL import Image
+    import stats, craftcheck
+    big = Image.open(path).convert('RGB')
+    img = stats.to_native(big, scale) if scale > 1 else big
+    W, H = img.size
+    rows = []
+    def line(state, what, value='', limit=''):
+        rows.append(state)
+        print('%-4s %-26s %-12s %s' % (state, what, value, limit))
+    def note(text):
+        print('     %s' % text)
+    print('%s: block-in, %dx%d at 1x (x%d)%s' % (path, W, H, scale, (', brief %s' % brief) if brief else ''))
+    hero = brief_hero(brief) if brief else None
+    planes = brief_planes(brief) if brief else None
+    f_ovr = _ovr_map([o for o in overrides if o[1] != 'allow'], FOCUS_KEYS + ('focus', 'repeat', 'slab', 'empty', 'empty_low'))
+    F = craftcheck._Frame(img)
+    chroma = float(np.hypot(F.lab[..., 1], F.lab[..., 2]).max())
+    if chroma > 0.03:
+        note('the block-in has colour (chroma up to %.2f); it is judged on lightness alone' % chroma)
+    bands = craftcheck.value_bands(F)
+    lo, hi = craftcheck.BLOCK_BANDS
+    nb = len(bands)
+    line('PASS' if lo <= nb <= hi else 'FAIL', 'value bands', '%d' % nb, '[%d .. %d] flat values over %.0f%% of the frame'
+         % (lo, hi, 100 * craftcheck.BLOCK_MIN))
+    note('bands (L, share): ' + ', '.join('%.2f %.0f%%' % (b[0], 100 * b[1]) for b in bands))
+    if nb < lo:
+        note('only %d value bands: separate the planes (far, middle, near) into their own flat greys and keep the '
+             'hero\'s light as the brightest' % nb)
+    elif nb > hi:
+        note('%d value bands: a block-in groups the frame into 3 or 4 values; merge the bands closer than '
+             '%.2f L and leave detail for the drawing' % (nb, 0.1))
+    m = craftcheck.band_map(F, bands) if bands else None
+    top = None
+    if bands:
+        bright = m == len(bands) - 1
+        lab, n = craftcheck._components(bright, bright[:, 1:] & bright[:, :-1], bright[1:] & bright[:-1])
+        if n:
+            size = np.bincount(lab[lab >= 0], minlength=n)
+            ys, xs = np.nonzero(lab == int(np.argmax(size)))
+            top = (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()))
+    if hero and top:
+        hb = hero['bbox']
+        ex = [hero['value_box']] if hero.get('value_box') else []
+        bright = m == len(bands) - 1
+        inside = craftcheck._boxmask(bright.shape, 1, [hb] + ex)
+        share = float((bright & inside).sum() / max(1, bright.sum()))
+        line('PASS' if share >= 0.5 else 'FAIL', 'focal light brightest', '%.0f%%' % (100 * share),
+             '[50% .. ] of the brightest band inside the hero bbox' + (' or the named light' if ex else ''))
+        if share < 0.5:
+            note('the brightest grey sits mostly outside the hero (its largest patch is x %d-%d, y %d-%d): make the '
+                 'hero\'s light the one brightest value' % (top[0], top[2], top[1], top[3]))
+        inside_top = float(craftcheck._boxmask(m.shape, 1, [hb])[top[1]:top[3] + 1, top[0]:top[2] + 1].mean())
+        line('PASS' if inside_top >= 0.8 else 'FAIL', 'hero placement', '%.0f%%' % (100 * inside_top),
+             '[80% .. ] of the brightest patch inside the hero bbox')
+        if inside_top < 0.8:
+            note('the brightest patch is x %d-%d, y %d-%d; the brief puts the hero at x %d-%d, y %d-%d. Move the '
+                 'hero\'s light onto the hero (or fix the bbox in the brief)' % (top[0], top[2], top[1], top[3], hb[0], hb[2], hb[1], hb[3]))
+        # the hero's size: what inside the bbox stands out from the band around it
+        r = 3
+        ring = np.zeros(m.shape, bool)
+        ring[max(0, hb[1] - r):hb[3] + r + 1, max(0, hb[0] - r):hb[2] + r + 1] = True
+        box = craftcheck._boxmask(m.shape, 1, [hb])
+        ring &= ~box
+        ground = np.bincount(m[ring], minlength=len(bands)).argmax() if ring.any() else -1
+        ys, xs = np.nonzero(box & (m != ground))
+        if len(xs):
+            drawn = (xs.max() - xs.min() + 1) * (ys.max() - ys.min() + 1)
+            ratio = drawn / float((hb[2] - hb[0] + 1) * (hb[3] - hb[1] + 1))
+            line('PASS' if ratio >= 0.85 else 'FAIL', 'hero size', '%.0f%%' % (100 * ratio), '[85% .. ] of the planned bbox')
+            if ratio < 0.85:
+                note('the hero mass is x %d-%d, y %d-%d, only %.0f%% of its planned bbox: block it in at full size'
+                     % (xs.min(), xs.max(), ys.min(), ys.max(), 100 * ratio))
+        else:
+            line('FAIL', 'hero size', '0%', 'nothing in the hero bbox stands out from its surroundings')
+    else:
+        line('SKIP', 'hero placement', '', 'needs a brief with a `- Hero: x0,y0,x1,y1` line')
+    if planes and bands:
+        rest = sorted(bands[:-1] if len(bands) > len(planes) else bands, key=lambda b: -b[1])
+        want = sorted(planes, key=lambda p: -p[1])
+        bad = []
+        for (name, share), b in zip(want, rest):
+            if abs(share - b[1]) > craftcheck.BLOCK_PLANE_TOL:
+                bad.append((name, share, b))
+        state = 'FAIL' if bad or len(rest) < len(want) else 'PASS'
+        line(state, 'plane shares', '%d planes' % len(want), 'each within %.0f points of the brief (largest plane '
+             'to largest band)' % (100 * craftcheck.BLOCK_PLANE_TOL))
+        note('brief: ' + ', '.join('%s %.0f%%' % (p[0], 100 * p[1]) for p in want) + '; block-in: ' +
+             ', '.join('L %.2f %.0f%%' % (b[0], 100 * b[1]) for b in rest))
+        for name, share, b in bad:
+            note('%s should be %.0f%% of the frame; the matching band (L %.2f) is %.0f%%: %s it' % (
+                name, 100 * share, b[0], 100 * b[1], 'grow' if b[1] < share else 'shrink'))
+        if len(rest) < len(want):
+            note('the brief names %d planes and the block-in has %d bands besides the focal light: give each '
+                 'plane its own grey' % (len(want), len(rest)))
+    else:
+        line('SKIP', 'plane shares', '', 'needs a brief with a `- Planes: ground 45%, sky 20%` line')
+    if bands:
+        e = craftcheck.blockin_empty(F, bands)
+        lim = {'empty': craftcheck.COMPOSITION[style]['empty'][1] if style else None, 'empty_low': 0.88}
+        for key in ('empty', 'empty_low'):
+            hi = lim[key]
+            if key in f_ovr:
+                if f_ovr[key][0] == 'off':
+                    line('SKIP', 'block-in ' + key, '%.0f%%' % (100 * e[key]), 'off by override (%s)' % f_ovr[key][2]); continue
+                hi = f_ovr[key][1]
+            if hi is None:
+                line('PASS', 'block-in ' + key, '%.0f%%' % (100 * e[key]), 'no limit (%s)' % ('the style has none' if style else 'no --style'))
+                continue
+            bad = e[key] > hi
+            line('FAIL' if bad else 'PASS', 'block-in ' + key, '%.0f%%' % (100 * e[key]), '[ .. %.0f%%] of coarse cells one flat value' % (100 * hi))
+            if bad:
+                note('%.0f%% of the %s is one flat value with no mass in it; bring a mass into it or crop' % (
+                    100 * e[key], 'bottom third' if key == 'empty_low' else 'frame'))
+        s = craftcheck.silhouettes(F)['slab']
+        hi = craftcheck.BLOCK_SLAB
+        if 'slab' in f_ovr and f_ovr['slab'][0] == 'off':
+            line('SKIP', 'block-in slab', '%.0f%%' % (100 * s[0]), 'off by override (%s)' % f_ovr['slab'][2])
+        else:
+            hi = f_ovr['slab'][1] if 'slab' in f_ovr else hi
+            line('FAIL' if s[0] > hi else 'PASS', 'block-in slab', '%.0f%%' % (100 * s[0]), '[ .. %.0f%%] one inner straight edge' % (100 * hi))
+            if s[0] > hi:
+                note(craftcheck.comp_advice('slab', s[0], s[1], hi))
+        line('SKIP', 'block-in blocky', '', 'a block-in is made of blocks')
+    if hero:
+        _focus_lines(F, hero, None, line, note, f_ovr, chroma=False, size=False)
+    else:
+        line('SKIP', 'focus', '', 'needs a brief with a `- Hero: x0,y0,x1,y1` line')
     ok = 'FAIL' not in rows
     print('ALL PASS' if ok else 'FAIL: %d of %d checks' % (rows.count('FAIL'), len(rows) - rows.count('SKIP')))
     return ok
@@ -393,11 +660,15 @@ def frame_main(a):
     brief = opt('--brief')
     if brief:
         ovr = brief_overrides(brief) + ovr
+    if '--blockin' in a:
+        a.remove('--blockin')
+        return blockin(a[0], int(opt('--scale', '1')), brief, opt('--style'), ovr)
     style, era = opt('--style'), opt('--era')
     if not style and not era:
         raise SystemExit('frame mode needs --style (one of styles.STYLES) or --era (one of era.ERAS)')
     return frame(a[0], style, int(opt('--scale', '1')), opt('--pal'), opt('--pre'), opt('--actor'),
-                 [o for o in (opt('--used') or '').split(',') if o], opt('--intent'), opt('--scene'), era, ovr)
+                 [o for o in (opt('--used') or '').split(',') if o], opt('--intent'), opt('--scene'), era, ovr,
+                 brief_hero(brief) if brief else None)
 
 def _run():
     if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):

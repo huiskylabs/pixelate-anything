@@ -38,6 +38,35 @@ Vignette, grain, scanlines and chromatic aberration are off unless a preset list
 the ten references uses grain, scanlines or aberration. Darkness is drawn into the scene (voids,
 doorways, a drawn frame), not filtered onto it.
 
+## Routing a request
+
+`tools/route.py` turns a plain request into a style. It scores every preset on five kinds of
+signal (subject, mood and key, time and weather, what it is for, a named reference game or repo
+example), adjusts for dark or bright words and a stated projection, and returns the top three
+with reasons. It also names the mode, so a photo goes to the rebuild guide and "NES" to the era
+guide first. With `--brief` it writes the pre-filled brief; with `--lint` it critiques a finished
+one. The full loop is in `references/craft.md`, "From one line to a brief".
+
+| Request sounds like | Style | Light | Projection | Closest example |
+|---|---|---|---|---|
+| a calm diorama, island, cottage, seasons, lofi stream | `lofi` | none | side | `examples/lantern-isle` |
+| a bright pastel platformer, wind, a climber, a summit | `pastel-cell` | native | side | `examples/indie/art/rose_squall.py` |
+| ruins, a lone wanderer, glowing sigils, a dusky world | `native-glow` | native | 3/4 | |
+| a JRPG overworld, a town, sunlit water, rich HD-2D-like | `hd-overworld` | native | 3/4 | |
+| an arcade shooter, soldiers, tanks, explosions, chunky action | `arcade` | none | side | |
+| a tactics board, mechs, a grid, a battle map | `tactics` | none | 2:1 iso | `examples/projections` |
+| a city block, a busy street, a cross-section, many tiny people | `sticker-iso` | none | 2:1 iso | `examples/san-francisco` |
+| a big monument, a painted vista, an airship, clouds | `illustrated` | none | side | |
+| a neon city at night, rain, a samurai, noir, a club | `neon-noir` | native | side | |
+| a farm, a cosy village, lamps at night, a warm interior | `cosy-lightmap` | screen | 3/4 | |
+| a backlit forest, a mountain at night, fog, a pillar of light, cinematic | `contre-jour` | screen | side | |
+| a photo or an aerial | mode rebuild, then a style for the finish | | keep the photo's camera | |
+| NES, Game Boy, 8-bit, SNES | mode era, then a style | | | |
+| a sprite sheet, a tileset, icons | mode assets | | | |
+
+When nothing scores, the router picks `lofi`, the toolkit's own look. Treat the result as a
+proposal: read the reasons and say which style you chose and why.
+
 ## Picking a style
 
 1. **Where does the softness come from?**

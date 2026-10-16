@@ -14,6 +14,32 @@ art rules, every object, the lived-in details, a palette and signature elements 
 motion rates, and the technical numbers. Write every new scene's brief to that density, show
 it, and only then build. If you can't fill a section, you don't know the scene yet.
 
+### From one line to a brief
+
+Users usually give one line: "make me a pixel island". Turning that line into a brief at the
+density of `examples/lantern-isle/BRIEF.md` is the skill's main job. That brief is the floor, not
+the ceiling: it predates the light layer, so a brief today also decides the light regime and every
+emitter, the allowed post ops, the value budget and the depth planes, which Lantern Isle never had
+to. Do it in this order, before drawing anything:
+
+1. **Route.** `python3 tools/route.py "the request"` ranks the styles with reasons, names the
+   mode (scene, rebuild, era, assets, music) and lists what the request leaves open (time and
+   weather, phases, figures, purpose and outputs, music, projection, the style itself) with the
+   default each takes. Read the reasons; override the pick when the request means something else.
+2. **Expand.** `python3 tools/route.py "the request" --brief -o brief.md` writes the 11 sections
+   with everything the style decides already filled in, plus section 0, the choices to confirm.
+   Fill every TODO yourself with a concrete choice: the objects with counts and positions, five to
+   ten lived-in details, the palette by named roles, every light, every motion rate. Invent the
+   specifics the user didn't give; never leave them to the user.
+3. **Self-critique.** `python3 tools/route.py --lint brief.md` flags TODOs left, thin or missing
+   sections, vague words, a motion table without numbers and periods that don't divide the loop.
+   Then read the brief against Lantern Isle's: would it build at least that quality in one pass? Is
+   every object specific enough to draw, every imperfection named, every phase more than a
+   recolour? Fix what falls short and lint again.
+4. **Confirm.** Show the user the brief with section 0 on top: "these are the choices I made; say
+   OK, or change any line". One OK should be enough to build. If they change something, revise
+   the brief and show only what changed. Build only from an approved brief.
+
 The brief has these sections. Each one is concrete: names, counts, positions, colours, rates.
 
 1. **Purpose and delivery.** What it is for (a video cover, a game key art, a showcase of one

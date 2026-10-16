@@ -53,7 +53,9 @@ STYLES = {
         dither=(), dither_where='none',
         outline='none', rims='1 px directional rims on the light side, dotted on far planes',
         ramp=('between', 'lofi'), ramp_kw=dict(between=('#0d151a', '#a07167')),
-        palette='about 20 colours: one navy covers 55-70%, a rose bridge ramp, 3-5 emitter accents',
+        palette='about 20 colours: one navy covers 55-70%, a rose bridge ramp, 3-5 emitter accents; the near-plane '
+                'silhouette sits at least 0.06 below the sky behind it in OkLab L (sky about .24-.28, silhouette .16 or '
+                'lower, darker than the ramp\'s bottom step #0d151a at .19)',
         haze=dict(fog='#1c2a35', levels=(0.12, 0.25, 0.40)),
         allowed_post=('light', 'shaft', 'flare', 'streak', 'glow', 'motes', 'rain:hair', 'fog'),
         banned_post=_FILTERS,

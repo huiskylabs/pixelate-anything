@@ -10,8 +10,9 @@
     b = compose.bands_plan(224, W=304)                # 05: HUD, void, one action band, ground
     sp = compose.spine_plan(480, 270)                 # 03: a light spine with dark flanks
     lanes = compose.strips([('road', 30), ('curb', 2), ('paving', 18)], start=-40)
-    objs = compose.populate(s, lanes=[(10, -60, 200, 1)], walks=[(-40, 40, 160, 60)], seed=3, t=t, T=96)
-    compose.vignette(s, 40, 52, 4, seed=7)            # 07: a chatting group facing its centre
+    objs = compose.populate(s, lanes=[(10, -60, 200, 1)], walks=[(-40, 40, 160, 60)], seed=3, t=t, T=96,
+                            car=my_car, person=my_person)   # your own drawings; compose only places them
+    compose.vignette(s, 40, 52, 4, seed=7, person=my_person)  # 07: a chatting group facing its centre
     fails = compose.check_density(objs, (0, 0, 600, 600), road=road_mask)
 
 Every template returns a Plan: a dict of named H x W bool masks, plus .meta (rows, points and the
@@ -31,9 +32,7 @@ import math, pathlib, sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-# finished-object examples (props, figures) live in references/assets; populate() and the stage helpers read them
-sys.path.append(str(pathlib.Path(__file__).resolve().parent.parent / 'references' / 'assets'))
-import morph
+import morph                    # no references/assets here: populate() and vignette() take your own drawings
 
 __all__ = ['Plan', 'proscenium', 'stage', 'room', 'frame_mask', 'bands_plan', 'spine_plan',
            'strips', 'paint_strips', 'populate', 'vignette', 'check_density', 'mirror_points']
@@ -421,7 +420,9 @@ def paint_strips(s, bands, x0, x1, mats, z=0):
         s.box(x0, y0, z, x1 - x0, y1 - y0, 0, mat, top=top, lines=False, cast=False)
 
 KINDS = (('sedan', 0.58), ('pickup', 0.21), ('convertible', 0.13), ('bus', 0.08))
-LENGTH = {'sedan': 40, 'pickup': 40, 'convertible': 40, 'bus': 84}
+# kind -> (length along the lane, depth across it, screen height in px) in world units
+SIZES = {'sedan': (40, 17, 28), 'pickup': (40, 17, 28), 'convertible': (40, 17, 28), 'bus': (84, 24, 50)}
+LENGTH = {k: v[0] for k, v in SIZES.items()}
 
 def _choose(table, u):
     tot = sum(w for _, w in table)
@@ -442,33 +443,76 @@ def _poisson(lam, u):
         c += p
     return k
 
-def populate(s, lanes=(), walks=(), density=None, seed=0, t=0, T=None, schedule=None, paints=None,
-             people=True, cars=True, walkers=0.25):
-    """fill an Iso scene with 07 traffic and crowds.
+def _need(fn, name, what):
+    if fn is None:
+        raise TypeError('compose.%s needs %s=: a function that draws your own %s (compose only places '
+                        'them; references/assets shows how one was built, read it, never call it)'
+                        % (what[0], name, what[1]))
+    return fn
+
+def _sprite(f):
+    """a figure from a person callback -> (grid, ax, ay, w, h): an object with .grid() and .ax,
+    .ay (anchor), a (grid, ax, ay) tuple, or a bare grid anchored at its bottom centre"""
+    def size(g):
+        if hasattr(g, 'w') and hasattr(g, 'h'):          # an artlib.Grid
+            return g.w, g.h
+        return len(g[0]), len(g)
+    if hasattr(f, 'grid') and callable(f.grid):
+        g = f.grid()
+        w, h = size(g)
+        return g, f.ax, f.ay, getattr(f, 'w', w), getattr(f, 'h', h)
+    if isinstance(f, tuple):
+        g, ax, ay = f
+    else:
+        g = f
+        ax, ay = None, None
+    w, h = size(g)
+    return g, (w // 2 if ax is None else ax), (h - 1 if ay is None else ay), w, h
+
+def _place_person(s, f, x, y):
+    g, ax, ay, w, h = _sprite(f)
+    oid = s.sprite(g, x, y, 0, anchor=(ax, ay))
+    sx, sy = s.to_screen(x, y, 0)
+    return dict(kind='person', x=x, y=y, oid=oid,
+                box=(int(sx) - ax, int(sy) - ay, int(sx) - ax + w, int(sy) - ay + h))
+
+def populate(s, lanes=(), walks=(), car=None, person=None, density=None, seed=0, t=0, T=None, schedule=None,
+             paints=None, people=True, cars=True, walkers=0.25, kinds=KINDS, sizes=None):
+    """fill an Iso scene with 07 traffic and crowds: the placement only. The cars and people are
+    yours, drawn by the two callbacks:
+      car(s, x, y, kind, paint, heading, seed) -> object ids: draw one vehicle into the scene
+        with its near-left corner at world (x, y) (boxes and sprites; kind from `kinds`, paint
+        one of `paints`, heading 'x' or '-x').
+      person(pose, facing, seed, t=0, phase=0) -> a sprite: pose 'stand', 'idle', 'wave' or
+        'walk', facing 'se' or 'sw'; return an object with .grid(), .ax, .ay (an anchor at the
+        feet), a (grid, ax, ay) tuple, or a bare slot grid (anchored at its bottom centre).
     lanes: [(y, x0, x1, dir), ...] in world units: a lane of cars along x at y (its near side), a
     torus from x0 to x1 (make it longer than the frame: the world 25% larger on every side).
     Vehicles follow one another 2-6 units apart (a wider gap now and then), kinds weighted
-    sedan .58 pickup .21 convertible .13 bus .08 (07's bikes are not built), paints by hash so neighbours differ. With T,
-    lane k moves by anim-style whole-unit offsets: schedule [(frames, units per frame), ...]
-    covering T (default one lap per loop); dir -1 drives toward -x.
+    sedan .58 pickup .21 convertible .13 bus .08 by default (07's bikes are not built), paints by
+    hash so neighbours differ (paints: your list of paint names; default 0..5). sizes: kind ->
+    (length, depth, screen px tall), default SIZES. With T, lane k moves by anim-style whole-unit
+    offsets: schedule [(frames, units per frame), ...] covering T (default one lap per loop); dir
+    -1 drives toward -x.
     walks: [(x0, y0, x1, y1), ...] paving and plaza rects: groups of 1 + Poisson(1.6) people
     (density['person'] per 1000 screen px^2, default 0.11; 1 unit^2 = 4 px^2), centres at
-    least 20 units apart, members on a circle of 4-7 units facing the centre. A share `walkers`
-    of the singles pace back and forth at 1 unit per 2 frames instead, looping exactly over T.
+    least 20 units apart, members on a circle of 4-7 units facing the centre (vignette()). A
+    share `walkers` of the singles pace back and forth at 1 unit per 2 frames instead, looping
+    exactly over T.
     Returns a list of dicts (kind, x, y, oid, box (screen x0, y0, x1, y1))."""
-    import props, figures as fg
     density = dict({'car': None, 'person': 0.11}, **(density or {}))
-    paints = paints or props.PAINTS
+    paints = list(paints) if paints else list(range(6))
+    sizes = dict(SIZES, **(sizes or {}))
     objs = []
-    tyre = props.tyre().grid()
     for li, lane in enumerate(lanes if cars else ()):
+        draw = _need(car, 'car', ('populate', 'vehicles'))
         y, x0, x1, d = lane[:4]
         Lw = x1 - x0
         x, k, prev = 0.0, 0, None
         fleet = []
         while True:
-            kind = _choose(KINDS, _h1(li, k, seed))
-            L = LENGTH[kind]
+            kind = _choose(kinds, _h1(li, k, seed))
+            L = sizes[kind][0]
             if x + L > Lw:
                 break
             p = int(_h1(li, k + 50, seed) * len(paints))
@@ -494,13 +538,11 @@ def populate(s, lanes=(), walks=(), density=None, seed=0, t=0, T=None, schedule=
                 used += f_
             off = int(math.floor(dist + 1e-9))
         for (xa, kind, paint, k) in fleet:
-            L = LENGTH[kind]
+            L, depth, tall = sizes[kind]
             pos = (xa + d * off) % Lw
             wx = x0 + pos
-            depth = 24 if kind == 'bus' else 17
-            ids = props.car(s, wx, y - depth, kind=kind, paint=paint, heading='x' if d > 0 else '-x',
-                            seed=seed * 131 + li * 17 + k, tyre_grid=tyre)
-            objs.append(dict(kind=kind, x=wx, y=y - depth, oid=ids, box=_box_of(s, wx, y - depth, L, depth, 50 if kind == 'bus' else 28)))
+            ids = draw(s, wx, y - depth, kind, paint, 'x' if d > 0 else '-x', seed * 131 + li * 17 + k)
+            objs.append(dict(kind=kind, x=wx, y=y - depth, oid=ids, box=_box_of(s, wx, y - depth, L, depth, tall)))
     if people:
         for wi, (ax0, ay0, ax1, ay1) in enumerate(walks):
             area = (ax1 - ax0) * (ay1 - ay0)
@@ -517,10 +559,10 @@ def populate(s, lanes=(), walks=(), density=None, seed=0, t=0, T=None, schedule=
                 centres.append((cx, cy))
                 size = 1 + _poisson(1.6, _h1(wi, 3 * k + 2, seed + 7))
                 if size == 1 and _h1(wi, k, seed + 9) < walkers and T:
-                    objs.append(_walker(s, fg, (ax0, ay0, ax1, ay1), cy, seed * 977 + wi * 31 + k, t, T))
+                    objs.append(_walker(s, person, (ax0, ay0, ax1, ay1), cy, seed * 977 + wi * 31 + k, t, T))
                     placed += 1
                     continue
-                objs += vignette(s, cx, cy, size, seed=seed * 977 + wi * 31 + k, t=t)
+                objs += vignette(s, cx, cy, size, seed=seed * 977 + wi * 31 + k, t=t, person=person)
                 placed += size
     return objs
 
@@ -529,10 +571,11 @@ def _box_of(s, x, y, L, D, Hpx):
     xs, ys = [p[0] for p in pts], [p[1] for p in pts]
     return (int(min(xs)), int(min(ys)), int(max(xs)) + 1, int(max(ys)) + 1)
 
-def _walker(s, fg, rect, y, seed, t, T):
+def _walker(s, person, rect, y, seed, t, T):
     """a pedestrian pacing along x at walking speed (07: 1 unit per 2 frames): out T // 4 units
     and back again, a closed path of T / 2 units, so frame T == frame 0 for any T divisible by 4
     (otherwise the turn lands within a frame of the start)"""
+    person = _need(person, 'person', ('populate', 'people'))
     ax0, ay0, ax1, ay1 = rect
     half = max(1, T // 4)
     span = max(1, (ax1 - ax0) - half)
@@ -543,17 +586,16 @@ def _walker(s, fg, rect, y, seed, t, T):
     else:
         pos, d = start + half - (p - 2 * half) // 2, -1
     pos = min(pos, start + half)
-    f = fg.at(fg.iso_person, t, 'walk', phase=int(_h1(seed, 3) * 8), seed=seed, facing='se' if d > 0 else 'sw')
-    oid = s.sprite(f.grid(), pos, y, 0, anchor=(f.ax, f.ay))
-    sx, sy = s.to_screen(pos, y, 0)
-    return dict(kind='person', x=pos, y=y, oid=oid, box=(int(sx) - f.ax, int(sy) - f.ay, int(sx) - f.ax + f.w, int(sy) - f.ay + f.h))
+    f = person('walk', 'se' if d > 0 else 'sw', seed, t=t, phase=int(_h1(seed, 3) * 8))
+    return _place_person(s, f, pos, y)
 
-def vignette(s, cx, cy, n, seed=0, t=0, radius=(4, 7), poses=('stand', 'idle', 'wave')):
-    """07's social vignette: n people on a circle of radius 4-7 units round (cx, cy), each facing
-    the centre ('se' when the centre is to its right on screen, else 'sw'), with an idle bob or a
-    wave on a hold table at a per-person phase. n = 1 is a lone figure at the centre.
+def vignette(s, cx, cy, n, seed=0, t=0, radius=(4, 7), poses=('stand', 'idle', 'wave'), person=None):
+    """07's social vignette, the layout only: n people on a circle of radius 4-7 units round
+    (cx, cy), each facing the centre ('se' when the centre is to its right on screen, else 'sw'),
+    with a pose from `poses` and a per-person phase for its hold table. n = 1 is a lone figure at
+    the centre. person(pose, facing, seed, t=0, phase=0) draws your own figure (see populate()).
     Returns a list of dicts like populate()."""
-    import figures as fg
+    person = _need(person, 'person', ('vignette', 'people'))
     out = []
     a0 = _h1(seed, 1) * 2 * math.pi
     for i in range(n):
@@ -569,15 +611,8 @@ def vignette(s, cx, cy, n, seed=0, t=0, radius=(4, 7), poses=('stand', 'idle', '
         if n == 1:
             facing = 'se' if _h1(seed, 3) < 0.5 else 'sw'
         pose = poses[int(_h1(seed, 30 + i) * len(poses)) % len(poses)]
-        ps = seed * 13 + i
-        if pose == 'stand':
-            f = fg.iso_person(seed=ps, facing=facing)
-        else:
-            f = fg.at(fg.iso_person, t, pose, phase=int(_h1(seed, 40 + i) * 24), seed=ps, facing=facing)
-        oid = s.sprite(f.grid(), x, y, 0, anchor=(f.ax, f.ay))
-        sx, sy = s.to_screen(x, y, 0)
-        out.append(dict(kind='person', x=x, y=y, oid=oid,
-                        box=(int(sx) - f.ax, int(sy) - f.ay, int(sx) - f.ax + f.w, int(sy) - f.ay + f.h)))
+        f = person(pose, facing, seed * 13 + i, t=t, phase=0 if pose == 'stand' else int(_h1(seed, 40 + i) * 24))
+        out.append(_place_person(s, f, x, y))
     return out
 
 def check_density(objs, frame, road=None, window=120, max_road=0.85, min_edge=2, stride=20):

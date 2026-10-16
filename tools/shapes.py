@@ -109,11 +109,17 @@ def _bbox(H, W, cx, cy, rx, ry):
     return x0, y0, x1, y1
 
 # ---------------------------------------------------------------- flat cloud masses (02)
-def cloud_mask(shape, cx, cy, rx, ry, r=(5, 13), spacing=9, belly=3, seed=0):
+def cloud_mask(shape, cx, cy, rx, ry, r=(5, 13), spacing=9, belly=3, seed=0, vary=1.0):
     """the silhouette of a flat cloud mass: a filled ellipse core plus a disc on every `spacing`
     px of perimeter per 9 px of lobe radius (about 1.7 r apart: distinct bumps), r from
     r=(lo, hi) by hash and `belly` px bigger on the lower half, so the bottom is the heavier
-    scalloped row. Without the core, random discs read as bubbles."""
+    scalloped row. Without the core, random discs read as bubbles.
+    vary (0..1, default 1): how uneven the lobes are, by seed. At 1 about a quarter of the lobes
+    are billows up to 1.6x and a third are small ones down to 0.65x, the lobes on top grow up
+    to 1.45x more (a crown), the gaps run from tight clusters to 2x the even step and the lobes
+    stand proud by up to 0.7 r, so the edge reads as
+    one mass with a few big heads instead of a row of equal bubbles. vary=0 is the older even
+    row, pixel for pixel."""
     H, W = shape
     yy, xx = np.mgrid[0:H, 0:W] + 0.5
     m = ((xx - cx) / (0.92 * rx)) ** 2 + ((yy - cy) / (0.92 * ry)) ** 2 <= 1
@@ -124,19 +130,27 @@ def cloud_mask(shape, cx, cy, rx, ry, r=(5, 13), spacing=9, belly=3, seed=0):
         ang = a0 + a
         px, py = cx + rx * math.cos(ang), cy + ry * math.sin(ang)
         rad = r[0] + (r[1] - r[0]) * _hs(i, 2, seed) ** 0.8 + (belly if math.sin(ang) > 0.15 else 0)
-        proud = 0.05 + 0.45 * _hs(i, 3, seed)             # lobes stand proud of the core, unevenly
+        proud = 0.05 + (0.45 + 0.2 * vary) * _hs(i, 3, seed)     # lobes stand proud of the core, unevenly
+        if vary:
+            rad0 = rad
+            u = _hs(i, 4, seed)
+            rad *= 1 + vary * (0.6 * (u - 0.75) / 0.25 if u > 0.75 else -0.35 * (0.33 - u) / 0.33 if u < 0.33 else 0)
+            rad *= 1 + 0.45 * vary * max(0.0, -math.sin(ang)) ** 2       # a crown: the heads rise on top
+            proud *= min(1.0, rad0 / rad)                                  # a big head sits into the mass
         px += proud * rad * math.cos(ang)
         py += proud * rad * math.sin(ang)
         x0, y0, x1, y1 = _bbox(H, W, px, py, rad, rad)
         if x1 > x0 and y1 > y0:
             sub = (xx[y0:y1, x0:x1] - px) ** 2 + (yy[y0:y1, x0:x1] - py) ** 2 <= (rad + 0.15) ** 2
             m[y0:y1, x0:x1] |= sub
-        a += 2 * math.pi * (spacing / 9.0) * 1.7 * rad * (0.6 + 0.7 * _hs(i, 1, seed)) / per
+        u = _hs(i, 1, seed)
+        step = (0.6 + 0.7 * u) * (1 - vary) + vary * (0.3 + 1.6 * u * u)   # clusters and the odd long gap
+        a += 2 * math.pi * (spacing / 9.0) * 1.7 * rad * step / per
         i += 1
     return m
 
 def cloud_mass(c, cx, cy, rx, ry, slot, r=(5, 13), spacing=9, belly=3, fray=0.012, bite=0.06,
-               back=None, seed=0):
+               back=None, seed=0, vary=1.0):
     """paint one flat Celeste cloud (02): cloud_mask() in a single slot, no outline, no lobe
     shading (the bloom comes later from this mask). Along its edge, `bite` of the edge pixels
     lose a 1-2 px bite (the back material shows) and, when `back` is a slot, `fray` of them
@@ -145,7 +159,7 @@ def cloud_mass(c, cx, cy, rx, ry, slot, r=(5, 13), spacing=9, belly=3, fray=0.01
     Returns the mask actually painted."""
     g = _grid(c)
     H, W = g.shape
-    m = cloud_mask((H, W), cx, cy, rx, ry, r, spacing, belly, seed)
+    m = cloud_mask((H, W), cx, cy, rx, ry, r, spacing, belly, seed, vary)   # vary: see cloud_mask
     m = morph.close(m, 1)                              # no 1 px slits where two lobes meet
     m = _fray_edge(m, teeth=0.0, notches=bite, islands=0.0, depth=2, seed=seed + 11)   # the bites
     g[m] = slot

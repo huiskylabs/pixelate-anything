@@ -31,7 +31,10 @@ Finishing passes (render(outline=True, rim=True)):
   - a dark outline ('ol' slot) where a shape meets the background,
   - a one-step-darker line where a shape stands in front of another (selective outline),
   - a one-step-lighter rim along the lit front edges of top faces.
-These three are what make iso art read as drawn rather than rendered.
+These three are what make iso art read as drawn rather than rendered. render(silhouette=True)
+draws the between line in 'ol' too: the sticker-iso black silhouette for a full-bleed scene.
+Sprites stand upright (sprite(upright=True)): each row takes the depth of the point that far
+above its feet, so a tall figure is not cut by a box behind it.
 """
 import math, pathlib, sys
 import numpy as np
@@ -385,22 +388,30 @@ class Iso:
             if half > 0:
                 self.box(cx - half, cy + yy, Z, 2 * half, 1, h, mat, **faces)
 
-    def sprite(self, grid, x, y, z, anchor=None, lines=False):
+    def sprite(self, grid, x, y, z, anchor=None, lines=False, upright=True):
         """a hand-drawn sprite (artlib.Grid or rows+key) standing at world point x, y, z.
-        anchor: the sprite pixel that sits on that point (default bottom centre)."""
+        anchor: the sprite pixel that sits on that point (default bottom centre).
+        upright=True: the sprite is a standing card, so each row's depth is the depth of the
+        world point that far above the anchor (a tall figure in front of a box keeps its head
+        instead of being cut by the box behind it, and a box in front still hides it).
+        upright=False: one depth for the whole sprite, taken at the anchor (a decal lying flat,
+        or the older behaviour)."""
         self.nobj += 1; oid = self.nobj
         if not lines:
             self.nolines.add(oid)
         ax, ay = anchor if anchor else (grid.w // 2, grid.h - 1)
         sx, sy = self.to_screen(x, y, z)
         d = float(self.view @ np.array([x, y, z], float)) + 0.3
+        zpx = -float(self.A[1, 2])                  # screen px up per unit of z
+        rise = self.view[2] / zpx if upright and zpx > 0 else 0.0
         for j in range(grid.h):
+            dj = d + rise * (ay - j)
             for i in range(grid.w):
                 v = grid.a[j][i]
                 if v is None: continue
                 X, Y = int(round(sx - ax + i)), int(round(sy - ay + j))
-                if 0 <= X < self.W and 0 <= Y < self.H and d >= self.depth[Y, X]:
-                    self.depth[Y, X] = d; self.slot[Y, X] = v; self.obj[Y, X] = oid; self.face[Y, X] = 4
+                if 0 <= X < self.W and 0 <= Y < self.H and dj >= self.depth[Y, X]:
+                    self.depth[Y, X] = dj; self.slot[Y, X] = v; self.obj[Y, X] = oid; self.face[Y, X] = 4
                     self.shadow[Y, X] = False
         return oid
 
@@ -408,7 +419,16 @@ class Iso:
         s2 = shade(slot, step)
         return s2 if self.slots is None or s2 in self.slots else slot
 
-    def render(self, outline=True, rim=True, between=True, ol='ol'):
+    def render(self, outline=True, rim=True, between=True, ol='ol', silhouette=False):
+        """the finished slot grid. outline: an 'ol' line where a shape meets empty background.
+        between: one step darker where a shape stands in front of a different, farther one.
+        rim: one step lighter on the lit front edges of top faces. silhouette=True (or a depth
+        gap, default 1.5): the between line is drawn in 'ol' instead, so a full-bleed scene with
+        no empty background still gets the sticker-iso black silhouette round every object that
+        stands in front of another (the line goes on the nearer object where the object id
+        changes, and on the object's own side where it meets a lines=False object such as the
+        ground, so a box standing on the ground is closed at its foot; lines=False objects and
+        sprites, which carry their own outline, get none)."""
         out = self.slot.copy()
         for yy, xx in zip(*np.nonzero(self.shadow)):
             out[yy, xx] = self._shade(out[yy, xx], getattr(self, 'shadow_step', -1))
@@ -418,14 +438,21 @@ class Iso:
         po, pd = pad(obj, -1), pad(dep, -1e9)
         nl = np.isin(obj, list(self.nolines)) if self.nolines else np.zeros_like(obj, bool)
         filled = obj >= 0
-        if between:
+        sil = np.zeros_like(filled)
+        gap = 1.5 if silhouette is True else float(silhouette or 1.5)
+        pnl = np.pad(nl, 1, constant_values=False)
+        if between or silhouette:
             # in front of a different, farther object (or a different face of a very different depth)
             for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
                 no = po[1 + dy:1 + dy + H, 1 + dx:1 + dx + W]
                 nd = pd[1 + dy:1 + dy + H, 1 + dx:1 + dx + W]
-                m = filled & ~nl & (no >= 0) & (no != obj) & (nd < dep - 1.5)
-                for yy, xx in zip(*np.nonzero(m)):
-                    out[yy, xx] = self._shade(out[yy, xx], -1)
+                if silhouette:                       # farther neighbour, or a line-less one (the ground)
+                    nn = pnl[1 + dy:1 + dy + H, 1 + dx:1 + dx + W]
+                    sil |= filled & ~nl & (no >= 0) & (no != obj) & ((nd < dep - gap) | nn)
+                if between:
+                    m = filled & ~nl & (no >= 0) & (no != obj) & (nd < dep - 1.5) & ~sil
+                    for yy, xx in zip(*np.nonzero(m)):
+                        out[yy, xx] = self._shade(out[yy, xx], -1)
         if rim:
             # top-face pixels right above this object's own side faces: the lit front edges
             below_face = np.pad(face, ((0, 1), (0, 0)))[1:]
@@ -439,6 +466,8 @@ class Iso:
                 m |= po[1 + dy:1 + dy + H, 1 + dx:1 + dx + W] < 0
             m &= filled & ~nl
             out[m] = ol
+        if silhouette:
+            out[sil] = ol
         g = artlib.Grid(W, H)
         g.a = [list(r) for r in out]
         return g

@@ -14,7 +14,7 @@ Outputs:
 
 ## Workflow
 
-1. **Settle the brief.** Ask only what you can't infer.
+1. **Settle the brief.** Ask only what you can't infer, then write the full brief (the eleven sections in `references/craft.md`, at the density of `examples/lantern-isle/BRIEF.md`) and show it before building. Pick a style from `guides/styles.md`.
    - **The subject.**
    - **Phases:** 1 to 6, each with a mood, a palette idea, signature elements and its music.
    - **The canvas:**

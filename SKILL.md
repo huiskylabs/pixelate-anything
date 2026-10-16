@@ -32,7 +32,7 @@ The tools handle the mechanical parts (colour maths, exact loops, exports). The 
 | an animated loop or lofi video cover, as a live page, MP4 or GIF | scene | `guides/scenes.md` + `guides/music.md` |
 | music: a lofi, chiptune or ambient loop, game music, a soundtrack | music | `guides/music.md` |
 
-Before drawing anything in any mode, read `references/craft.md`: it holds the rules that separate hand-made pixel art from generic output.
+Before drawing anything in any mode, read `references/craft.md`: it holds the rules that separate hand-made pixel art from generic output, and the brief every scene starts from. For a look learned from a game style (pastel platformer, contre-jour, neon noir, arcade, tactics iso and others), read `guides/styles.md`.
 
 ## Run things
 

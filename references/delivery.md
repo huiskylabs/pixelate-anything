@@ -40,8 +40,61 @@ strongly from its own ground colour, so even snow or paving texture still counts
 failing line says what to change. The limits sit in `craftcheck.COMPOSITION` per style, measured
 on the showcase finals and drafts and the style references; a style with no failing draft to
 calibrate on has no limit yet. Readability also needs a lightness difference now: an actor that
-differs from its surroundings by hue alone, with under 0.025 L between them, fails. The gate does
-not judge whether there is one clear focal point; the art director does (below).
+differs from its surroundings by hue alone, with under 0.025 L between them, fails.
+
+The focus lines check that there is one hero. They need the hero's place: the brief's section 4 line
+`- Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT` (with `--brief`), or the
+bbox of the `--actor` mask. The bbox is at 1x and inclusive. The frame is read at thumbnail size
+(about 160 cells across, so stars, flecks and dither melt into their ground), and each line says in
+plain words what to change when it fails:
+
+- `focus value`: at least half of the frame's brightest cells (its top 0.5%) sit on the hero.
+- `focus contrast`: the same for the strongest local light-dark contrast.
+- `focus chroma`: no more than 2.5 times as many cells of the hero's own hue, at least as saturated
+  as the hero's top 5%, sit outside it (skipped for an era palette and for a block-in).
+- `focus rival`: no mass outside the hero weighs more than 0.6 of the hero (weight is size times
+  how far it departs from its surroundings), the art director's own cap.
+- `focus size`: with both `--actor` and the Hero line, the drawn hero fills at least 85% of the
+  planned bbox.
+
+When the peak belongs to a light that is not the hero (a sun, a lamp), the brief names it with its
+own bbox in brackets, `peak value: the sun disc (244,6,268,32)`, and that region may hold the peak
+and is never a rival. The limits were measured on the ten showcase stills: the kite (both rounds)
+and the canal (both rounds) fail, as the art director found, while the observatory, the noodle shop,
+the lighthouse round 2 and Lantern Isle pass. The lighthouse round 1, whose boat was a speck inside
+its bbox, also passes: a bbox cannot tell a readable hero from a speck, so the art director still
+judges that.
+
+The `repeat` line looks for the most common procedural tell: rows of near-identical lobes (cloud
+scallops, heather domes, gumdrop waves, cut at the cusps of each colour region's top or underside)
+and rows of near-identical units (the same house or roof stamped along a line). It prints WARN,
+never FAIL, because it does not separate reliably yet: it finds the kite's cloud sea and the canal's
+round-2 row of houses and passes Lantern Isle, but misses some rows the art director flagged and
+flags a few rows in good frames. Read it as a pointer to look. A scene that repeats on purpose
+writes `- Gate override: repeat off (the reason)`, or `repeat <= N (the reason)`; the focus keys take
+overrides the same way (`focus_rival <= 1.2 (reason)`, `focus off (reason)`).
+
+### Block-in
+
+Before drawing, the layout can be judged as a greyscale block-in: flat value masses, one grey per
+plane, the hero's light the brightest, no detail. `pixelate check BLOCKIN.png --blockin [--scale N]
+[--brief brief.md] [--style S]` checks:
+
+- `value bands`: 3 or 4 distinct greys, each over 1% of the frame (greys within 0.05 L are one band).
+- `focal light brightest` and `hero placement`: most of the brightest band, and 80% of its largest
+  patch, sit inside the brief's hero bbox (or the light the Hero line names with a bbox).
+- `hero size`: what stands out from its surroundings inside the hero bbox fills at least 85% of it.
+- `plane shares`: with a brief line `- Planes: ground 45%, sky 20%, buildings 25%`, the planes are
+  matched to the bands by share (largest plane to largest band, the brightest band left out when it
+  is the hero's light), and each must be within 8 points of the brief.
+- `block-in empty` and `empty_low`: on a coarse 16-column grid, a cell is empty when one grey covers
+  97% of it; the bottom third stays under 88% empty, and `--style` adds the style's own `empty` limit.
+- `block-in slab`: one straight inner edge running over half the frame. A block-in is made of
+  rectangles, so the frame limit (a quarter) would always fire; `blocky` is skipped for the same reason.
+- the focus lines, without chroma.
+
+The art director still judges whether the frame has one clear focal point (below); the focus lines
+only catch the cases where the numbers already show it does not.
 
 The music gate does
 the same for sound: write the music yourself in any code, render it, `pixelate check TRACK.wav`

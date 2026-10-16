@@ -33,6 +33,11 @@ native light field read as one colour while palette steps never do):
   cluster_px      median over colours of the mean 4-connected cluster size (bigger = cleaner)
   small_clusters  share of clusters under 3 px (intent and dither pixels left out)
 
+Composition, focus and repeat (what the gate's composition, focus and repeat lines read; see their
+sections below): emptiness, banding, silhouettes (blocky, slab), focus (does the hero own the peak
+value, contrast and chroma, and does any mass outside it outweigh it), repeats (rows of near-identical
+lobes or units), and the block-in helpers value_bands, band_map, blockin_empty.
+
 CRAFT holds the limits per style, {metric: (lo, hi)} like stats budgets, each from the reference
 the style is learned from (its native frame recovered from the screenshot: integer scale, median of
 each cell) with a margin, plus the toolkit's own frames for lofi. Deterministic, numpy only.
@@ -599,6 +604,296 @@ def comp_fmt(key, v):
     if v is None or v != v:
         return '-'
     return '%.2f' % v if key == 'blocky' else '%.2f%%' % (100 * v)
+
+# ---------------------------------------------------------------- focus: one hero, instantly
+# Read at thumbnail size (the frame box-averaged to about FOCUS_THUMB cells across, so stars, dither
+# and flecks melt into their ground the way they do at 320 px). The hero is a bbox at 1x (the brief's
+# `- Hero:` line, or the --actor mask's bbox); `owners` are bboxes of named light sources that may
+# carry the peak instead (`peak value: the sun disc (244,6,268,32)`).
+FOCUS_THUMB = 160   # thumbnail width in cells
+FOCUS_TOP = 0.005   # the frame's peak: its top 0.5% of cells by value and by local contrast
+FOCUS_MASS_DE = 0.12   # a figure cell departs this far (OKLab) from its neighbourhood (1/8 frame wide)
+FOCUS_HUE = 35.0    # chroma rivals: same hue family as the hero's most saturated cell, within this
+# Limits, from the ten showcase stills (art director's hero score: kite 2 and 3, canal 3 and 3 fail;
+# observatory 4 and 4, noodle 4 and 4, lighthouse 3 and 4, Lantern Isle pass). Measured pass / fail:
+#   focus_value     share of the top values in the hero (or a named light): pass .83-1.00, kite r1 .22,
+#                   canal 0 and 0 -> at least 0.50
+#   focus_contrast  the same for local contrast: pass .59-1.00, canal 0 and 0 -> at least 0.50
+#   focus_chroma    same-hue cells outside the hero at least as saturated as the hero's top 5%, as a
+#                   multiple of those: pass .00-.92 (Lantern Isle 1.52 with its tightest cottage bbox),
+#                   canal 11 and 24 -> at most 2.5
+#   focus_rival     the loudest figure mass outside the hero, as a multiple of the hero's own (area x
+#                   departure): pass .04-.22, kite 1.81 and 1.34 (island and blossom), canal 50-80 (the
+#                   whole busy frame is one mass) -> at most 0.6 (the art director's own cap)
+#   focus_size      the drawn hero (--actor bbox) over the brief's planned bbox: at least 0.85
+# The lighthouse round 1 (hero 3: the boat is a speck) passes: a bbox cannot tell a readable hero from
+# a speck inside it; the art director still judges that.
+FOCUS = {'focus_value': (0.50, None), 'focus_contrast': (0.50, None), 'focus_chroma': (None, 2.5),
+         'focus_rival': (None, 0.6), 'focus_size': (0.85, None)}
+
+def _thumb(F, cells=FOCUS_THUMB):
+    c = max(1, int(round(F.W / cells)))
+    h, w = F.H // c, F.W // c
+    return F.lab[:h * c, :w * c].reshape(h, c, w, c, 3).mean((1, 3)), c
+
+def _boxmask(shape, c, boxes):
+    m = np.zeros(shape, bool)
+    for x0, y0, x1, y1 in boxes:
+        m[max(0, y0 // c):max(0, y1 // c + 1), max(0, x0 // c):max(0, x1 // c + 1)] = True
+    return m
+
+def focus(img, hero, value_owners=(), chroma_owners=(), chroma=True):
+    """{key: (value, detail)} for the FOCUS keys but focus_size. hero: (x0, y0, x1, y1) at 1x,
+    inclusive; value_owners / chroma_owners: bboxes of named lights or objects that may hold the value
+    or chroma peak outside the hero. chroma=False skips focus_chroma (an era palette, a greyscale
+    block-in)."""
+    F = _F(img)
+    t, c = _thumb(F)
+    h, w = t.shape[:2]
+    L = t[..., 0]
+    C = np.hypot(t[..., 1], t[..., 2])
+    hue = np.degrees(np.arctan2(t[..., 2], t[..., 1]))
+    hm = _boxmask((h, w), c, [hero])
+    vo = _boxmask((h, w), c, value_owners) & ~hm
+    co = _boxmask((h, w), c, chroma_owners) & ~hm
+    out = {}
+    k = max(3, int(round(FOCUS_TOP * L.size)))
+    def peak(v, own):
+        idx = np.argsort(v.ravel(), kind='stable')[::-1][:k]
+        o = own.ravel()[idx]
+        ys, xs = np.unravel_index(idx[~o], v.shape)
+        where = (int(np.median(xs)) * c, int(np.median(ys)) * c) if len(xs) else None
+        return float(o.mean()), where
+    out['focus_value'] = peak(L, hm | vo)
+    con = np.abs(L - _box(L[..., None], max(2, w // 16))[..., 0])
+    out['focus_contrast'] = peak(con, hm | vo)
+    if chroma:
+        n = max(2, int(round(0.05 * hm.sum())))
+        top = np.sort(C[hm])[::-1][:n]
+        lev = top[-1]
+        hh = hue.ravel()[np.argmax(np.where(hm, C, -1).ravel())]
+        dh = np.abs((hue - hh + 180) % 360 - 180)
+        riv = (C >= lev) & (dh < FOCUS_HUE) & ~hm & ~co & (lev > 0.02)
+        ys, xs = np.nonzero(riv)
+        out['focus_chroma'] = (float(riv.sum() / n), (int(np.median(xs)) * c, int(np.median(ys)) * c) if len(xs) else None)
+    d = np.linalg.norm(t - _box(t, max(2, w // 8)), axis=-1)
+    fg = d > FOCUS_MASS_DE
+    lab, nc = _components(fg, fg[:, 1:] & fg[:, :-1], fg[1:] & fg[:-1])
+    herol = float(d[fg & hm].sum())
+    best = (0.0, None)
+    if nc:
+        ids = lab[fg]
+        size = np.bincount(ids, minlength=nc)
+        inh = np.bincount(ids, weights=hm[fg].astype(float), minlength=nc)
+        inown = np.bincount(ids, weights=(vo | co)[fg].astype(float), minlength=nc)
+        loud = np.bincount(ids, weights=d[fg], minlength=nc)
+        cand = (inh < 0.25 * size) & (inown < 0.5 * size)
+        if cand.any():
+            i = int(np.argmax(np.where(cand, loud, -1)))
+            ys, xs = np.nonzero(lab == i)
+            best = (float(loud[i] / max(herol, 1e-9)) if herol > 0 else float('inf'),
+                    (int(xs.min()) * c, int(ys.min()) * c, int(xs.max() + 1) * c - 1, int(ys.max() + 1) * c - 1))
+    out['focus_rival'] = best
+    return out
+
+def focus_advice(key, v, detail, hero):
+    """the plain-words line for a failing focus key"""
+    x0, y0, x1, y1 = hero
+    if key == 'focus_value':
+        at = ' (most of them near x %d, y %d)' % detail if detail else ''
+        return ('only %.0f%% of the brightest values sit on the hero (x %d-%d, y %d-%d); the peak is elsewhere%s. '
+                'Give the hero the frame\'s top value (a rim, a lit face, a window) and take one step off the '
+                'brightest thing outside it, or name that light in the brief: `peak value: NAME (x0,y0,x1,y1)`'
+                % (100 * v, x0, x1, y0, y1, at))
+    if key == 'focus_contrast':
+        at = ' (most of it near x %d, y %d)' % detail if detail else ''
+        return ('only %.0f%% of the frame\'s strongest light-dark contrast is on the hero%s; put the darkest '
+                'dark against the lightest light at the hero and quiet the edges elsewhere' % (100 * v, at))
+    if key == 'focus_chroma':
+        at = ' near x %d, y %d' % detail if detail else ''
+        return ('the hero\'s own colour is louder elsewhere: %.1fx as many cells of the same hue, at least as '
+                'saturated, sit outside it%s. Drop those one chroma step, or keep the hue for the hero alone'
+                % (v, at))
+    if key == 'focus_rival':
+        if detail is None:
+            return 'a mass outside the hero outweighs it'
+        a, b, c2, d2 = detail
+        return ('a mass at x %d-%d, y %d-%d outweighs the hero %.2fx (size times contrast): the eye goes there '
+                'first. Shrink it, haze it a value step toward its ground, or cut its edges, so nothing outside '
+                'the hero weighs over 0.6x of it' % (a, c2, b, d2, v))
+    if key == 'focus_size':
+        return ('the drawn hero is only %.0f%% of its planned bbox; draw it at the planned size' % (100 * v))
+    return '%s is %.2f' % (key, v)
+
+# ---------------------------------------------------------------- repeat: rows of near-identical units
+# The procedural tell: a row of equal-size lobes (cloud scallops, heather domes, gumdrop waves) or of
+# the same unit stamped along a line (identical houses). Two detectors, at 1x:
+#   lobes  the top and bottom silhouettes of each colour region (the k-means regions of silhouettes(),
+#          so dither and texture melt), cut at their cusps; REPEAT_N lobes in a row whose widths have a
+#          spread (std / mean) under REPEAT_CV, each at least REPEAT_LOBE of the frame wide and
+#          REPEAT_DEPTH of its width deep
+#   units  flat-colour shapes of at least REPEAT_AREA of the frame (walls, roof faces, domes; not
+#          windows or paving), REPEAT_N or more along one constant step, widths and heights within
+#          REPEAT_CV
+# It prints WARN, never FAIL: on the showcase it finds the kite's cloud sea (rounds 1 and 2) and the
+# canal's north row of houses (round 2), passes Lantern Isle and most examples, but misses the canal's
+# round-1 south houses and the lighthouse's scallops, and flags the observatory's cloud sea, an iso
+# city block, Santorini's houses and a title screen. Read the line as a pointer; the art director judges.
+REPEAT_N = 4
+REPEAT_CV = 0.15
+REPEAT_LOBE = 1 / 24
+REPEAT_DEPTH = 0.05
+REPEAT_AREA = 0.003
+
+def _bounds(lab, n, W, H):
+    ys, xs = np.nonzero(lab >= 0); l = lab[ys, xs]
+    x0 = np.full(n, W); x1 = np.zeros(n, int); y0 = np.full(n, H); y1 = np.zeros(n, int)
+    np.minimum.at(x0, l, xs); np.maximum.at(x1, l, xs); np.minimum.at(y0, l, ys); np.maximum.at(y1, l, ys)
+    return np.bincount(l, minlength=n), x0, x1, y0, y1
+
+def _cusps(p, A, k, merge):
+    """the cusps of a silhouette profile p (y down for a top edge): sharp local maxima, A deep on both
+    sides within k; spikes within `merge` px of each other are one stepped cusp"""
+    out = []
+    for i in range(1, len(p) - 1):
+        if p[i] >= p[i - 1] and p[i] >= p[i + 1]:
+            if p[i] - p[max(0, i - k):i + 1].min() >= A and p[i] - p[i:i + k + 1].min() >= A:
+                out.append(i)
+    g = []
+    for i in out:
+        if g and i - g[-1][-1] <= merge:
+            g[-1].append(i)
+        else:
+            g.append([i])
+    return [int(round(np.mean(x))) for x in g]
+
+def _lobe_rows(F, seg):
+    H, W = F.H, F.W
+    lab, n = _components(F.op, seg[:, 1:] == seg[:, :-1], seg[1:] == seg[:-1])
+    if n == 0:
+        return []
+    size, x0, x1, y0, y1 = _bounds(lab, n, W, H)
+    ys = np.arange(H)[:, None]
+    wmin = max(6, W * REPEAT_LOBE)
+    hits = []
+    for i in np.nonzero((x1 - x0 + 1 >= W // 6) & (size >= 0.002 * H * W))[0]:
+        mm = lab[:, x0[i]:x1[i] + 1] == i
+        cols = mm.any(0)
+        top = np.where(mm, ys, H).min(0).astype(float)
+        bot = np.where(mm, ys, -1).max(0).astype(float)
+        for side, p in (('a top edge', top), ('an underside', -bot)):
+            ok = cols & (np.abs(p) > 0) & (np.abs(p) < H - 1)
+            r = np.diff(np.concatenate([[0], ok.astype(int), [0]]))
+            for a, b in zip(np.nonzero(r == 1)[0], np.nonzero(r == -1)[0]):
+                if b - a < W // 6:
+                    continue
+                q = p[a:b]
+                J = _cusps(q, max(2, H // 90), max(4, W // 24), 6)
+                wl = np.diff(J).astype(float)
+                for s in range(len(wl) - REPEAT_N + 1):
+                    ww = wl[s:s + REPEAT_N]
+                    if ww.min() < wmin:
+                        continue
+                    cv = ww.std() / ww.mean()
+                    dep = min(min(q[J[s + j]], q[J[s + j + 1]]) - q[J[s + j]:J[s + j + 1] + 1].min() for j in range(REPEAT_N))
+                    if cv <= REPEAT_CV and dep >= max(2, REPEAT_DEPTH * ww.mean()):
+                        hits.append((float(cv), 'lobes', '%d lobes along %s, %.0f px wide each (spread %.0f%%), x %d-%d, y %d'
+                                     % (REPEAT_N, side, ww.mean(), 100 * cv, x0[i] + a + J[s], x0[i] + a + J[s + REPEAT_N],
+                                        int(np.median(np.abs(q))))))
+                        break
+    return hits
+
+def _unit_rows(F):
+    H, W = F.H, F.W
+    lab, n = _components(F.op, F.dh < TOL, F.dv < TOL)
+    if n == 0:
+        return []
+    size, x0, x1, y0, y1 = _bounds(lab, n, W, H)
+    w = x1 - x0 + 1; h = y1 - y0 + 1
+    keep = ((w >= max(5, W // 24)) & (h >= max(4, H // 45)) & (w <= W // 4) & (size >= 0.3 * w * h)
+            & (w * h >= REPEAT_AREA * H * W) & (x0 > 0) & (x1 < W - 1) & (y0 > 0) & (y1 < H - 1))
+    U = [int(u) for u in np.nonzero(keep)[0]]
+    cx = (x0 + x1) / 2.0; cy = (y0 + y1) / 2.0
+    like = lambda a, b: abs(w[a] - w[b]) <= 0.25 * w[b] and abs(h[a] - h[b]) <= 0.25 * h[b]
+    hits = []
+    for u in U:
+        for v in U:
+            if v == u or cx[v] <= cx[u] or not like(v, u):
+                continue
+            dx, dy = cx[v] - cx[u], cy[v] - cy[u]
+            if dx > 1.6 * w[u] or abs(dy) > 0.8 * dx + 2:
+                continue
+            chain = [u, v]
+            tol = max(2, 0.2 * np.hypot(dx, dy))
+            while len(chain) < 12:
+                ex, ey = cx[chain[-1]] + dx, cy[chain[-1]] + dy
+                nx = [t for t in U if abs(cx[t] - ex) <= tol and abs(cy[t] - ey) <= tol and like(t, u) and t not in chain]
+                if not nx:
+                    break
+                chain.append(nx[0])
+            if len(chain) >= REPEAT_N:
+                ws = w[chain].astype(float); hs = h[chain].astype(float)
+                cv = max(ws.std() / ws.mean(), hs.std() / hs.mean())
+                if cv <= REPEAT_CV:
+                    hits.append((float(cv), 'units', '%d alike shapes of %.0fx%.0f px in a row, x %d-%d, y %d-%d'
+                                 % (len(chain), ws.mean(), hs.mean(), x0[chain].min(), x1[chain].max(), y0[chain].min(), y1[chain].max())))
+    return hits
+
+def repeats(img, seg=None):
+    """[(spread, kind, where)] rows of near-identical lobes or units, most alike first ([] = none)"""
+    F = _F(img)
+    seg = _regions(F) if seg is None else seg
+    hits = _lobe_rows(F, seg) + _unit_rows(F)
+    hits.sort(key=lambda x: x[0])
+    out, seen = [], set()
+    for hh in hits:                      # one line per place
+        key = hh[2].split(', x ')[-1][:9]
+        if key not in seen:
+            seen.add(key); out.append(hh)
+    return out
+
+# ---------------------------------------------------------------- block-in
+# A block-in is a greyscale layout drawn before any detail: one flat value per plane, the hero's
+# light the brightest. BLOCK_* are what `pixelate check BLOCKIN.png --blockin` holds it to.
+BLOCK_BANDS = (3, 4)       # distinct value bands (each at least BLOCK_MIN of the frame)
+BLOCK_MIN = 0.01
+BLOCK_MERGE = 0.05         # values closer than this (L) are one band
+BLOCK_PLANE_TOL = 0.08     # a plane's share may miss the brief's by this much (of the frame)
+BLOCK_HERO_IOU = 0.5       # the brightest band's mass overlaps the brief's hero bbox at least this much
+BLOCK_SLAB = 0.5           # a block-in is made of rectangles: only an inner straight edge over half the frame fails
+
+def value_bands(img):
+    """[(L, share)] the block-in's value bands, darkest first: lightness values merged when within
+    BLOCK_MERGE, bands under BLOCK_MIN of the frame dropped"""
+    F = _F(img)
+    L = np.round(F.L[F.op] / 0.01) * 0.01
+    u, cnt = np.unique(L, return_counts=True)
+    bands = []
+    for v, c in zip(u, cnt):
+        if bands and v - bands[-1][2] <= BLOCK_MERGE:
+            b = bands[-1]; b[0] += v * c; b[1] += c; b[2] = v
+        else:
+            bands.append([v * c, c, v])
+    tot = float(F.op.sum())
+    return [(b[0] / b[1], b[1] / tot) for b in bands if b[1] / tot >= BLOCK_MIN]
+
+def band_map(img, bands):
+    """(H, W) index of the nearest band per pixel"""
+    F = _F(img)
+    v = np.array([b[0] for b in bands])
+    return np.argmin(np.abs(F.L[..., None] - v), -1)
+
+def blockin_empty(img, bands, cols=16):
+    """{'empty', 'empty_low'} on a coarse grid of `cols` columns: a cell is empty when one value band
+    covers 97% of it (a block-in has no texture, so the frame-mode test would call it all empty)"""
+    F = _F(img)
+    m = band_map(F, bands)
+    c = max(2, int(round(F.W / cols)))
+    gh, gw = F.H // c, F.W // c
+    b = m[:gh * c, :gw * c].reshape(gh, c, gw, c).transpose(0, 2, 1, 3).reshape(gh, gw, c * c)
+    top = np.stack([(b == k).mean(-1) for k in range(len(bands))], -1).max(-1)
+    empty = top >= 0.97
+    return {'empty': float(empty.mean()), 'empty_low': float(empty[gh - gh // 3:].mean())}
 
 def report(img_1x, style, intent=None, objects=None, values=None):
     """[(metric, value, lo, hi, 'ok'|'fail')] against CRAFT[style] (a name or {metric: (lo, hi)})"""

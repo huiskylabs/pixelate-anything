@@ -404,12 +404,15 @@ class Iso:
         d = float(self.view @ np.array([x, y, z], float)) + 0.3
         zpx = -float(self.A[1, 2])                  # screen px up per unit of z
         rise = self.view[2] / zpx if upright and zpx > 0 else 0.0
+        # round the origin once (half up), then step whole pixels: rounding each pixel's own
+        # position rounds half to even, so a sprite sitting on .5 skipped or doubled rows and columns
+        ox, oy = math.floor(sx - ax + 0.5), math.floor(sy - ay + 0.5)
         for j in range(grid.h):
             dj = d + rise * (ay - j)
             for i in range(grid.w):
                 v = grid.a[j][i]
                 if v is None: continue
-                X, Y = int(round(sx - ax + i)), int(round(sy - ay + j))
+                X, Y = ox + i, oy + j
                 if 0 <= X < self.W and 0 <= Y < self.H and dj >= self.depth[Y, X]:
                     self.depth[Y, X] = dj; self.slot[Y, X] = v; self.obj[Y, X] = oid; self.face[Y, X] = 4
                     self.shadow[Y, X] = False

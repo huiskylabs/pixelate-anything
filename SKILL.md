@@ -67,6 +67,7 @@ If the agent has no shell but has the MCP server, the same tools exist as MCP to
   - Each material gets 3 to 5 hue-shifted tones: shadows cooler, lights warmer.
   - The same slot names keep the same meaning everywhere.
   - Use no colour outside the palette, and no blur, anti-aliasing or alpha blending.
+- **Build anything missing in code.** If the kit has no function for something, write it as a slot map to the same rules and checks; never paste or trace an image. Tools are shortcuts, not the limit.
 - **Hand-place and keep it asymmetric.** Pick positions yourself; uniform scatter and symmetry read as generated.
 - **Outlines and one light direction.** Every form has a dark outline from its own ramp, a lit side and a shadow side.
 - **Look at every preview at zoom.** The usual failures are mush, noise, stripes, a subject too small, and a recolour sold as a variation. Fix them before adding more.

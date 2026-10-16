@@ -11,7 +11,7 @@ brief, the bar (docs/lantern-isle-winter.png and its brief) and, for a still, th
 nearest-neighbour thumbnail and its greyscale written next to it. Send the printed text to a fresh
 agent, apply the fixes it returns, lint or gate again, repeat until it grades A.
 """
-import argparse, pathlib, re, sys
+import argparse, os, pathlib, re, sys
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 RUBRIC = KIT / 'references' / 'art-director.md'
@@ -64,9 +64,9 @@ def prompt(frame, brief, style='', width=480, out=None, prev=None, block=None):
     text = pathlib.Path(brief).read_text(encoding='utf-8')
     req, sec0, sig, bstyle = brief_parts(text)
     style = style or bstyle
-    bp = pathlib.Path(brief).resolve()
+    bp = pathlib.Path(os.path.abspath(brief))
     if frame:
-        frame = pathlib.Path(frame).resolve()
+        frame = pathlib.Path(os.path.abspath(frame))
         tp, gp, size, tw = thumbnails(frame, width, out)
         L = ['You are the independent art director for one pixel-art still. You did not draw it. Judge it; '
              'do not edit any file. Look at every image below with your image-reading tool before you grade.',
@@ -88,7 +88,7 @@ def prompt(frame, brief, style='', width=480, out=None, prev=None, block=None):
         if block:
             L.append('- The greyscale block-in (flat value shapes at native size, drawn from the brief): %s; judge '
                      'the hero, the plane shares, the masses and the value plan on it as well'
-                     % pathlib.Path(block).resolve())
+                     % os.path.abspath(block))
     if style:
         L.append('- Style preset: `%s` (its rules: `pixelate style %s`)' % (style, style))
     L += ['', '## What the brief promised', '']

@@ -9,11 +9,11 @@ Pixel art that looks hand-made, drawn from scratch in code. Run `pixelate` (`<sk
 
 ## Steps
 
-Copy these 10 steps into your todo list first. A step you skip stays there as `skip: <reason>`. Read only what each step names.
+Copy these 10 steps into your todo list first; a skipped step stays as `skip: <reason>`. Read only what each step names.
 
 1. **Read the intent.** One line on what the user wants but didn't say. Read `references/brief.md#read-the-intent`.
 2. **Route as a hint, in the same call as the brief.** Run `pixelate route "REQUEST" --brief [STYLE] -o brief.md` (`--full` forces all 11 sections). Section 0 shows the style, runners-up and defaults; if your intent read disagrees, rerun with that STYLE. Skip plain `pixelate route` and `pixelate style --list` unless no runner-up fits.
-3. **Expand into a brief.** Fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md` and `examples/lantern-isle/BRIEF.md` (the bar); each TODO names the `references/drawing.md` section and command it needs.
+3. **Expand into a brief.** Fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md`, `examples/lantern-isle/BRIEF.md` (the bar) and, in era mode, `guides/eras.md` (the limits); each TODO names the `references/drawing.md` section and command it needs.
 4. **Block-in, then art director on the brief.** Draw the brief's boxes as a greyscale block-in; pass `pixelate check BLOCKIN.png --blockin --brief brief.md`. Give a separate agent the prompt from `pixelate critique --brief brief.md --block BLOCKIN.png`, apply its changes and lint until it grades A (not for a short brief).
 5. **The user confirms the brief.** Read `references/brief.md#confirm`.
 6. **Draw everything from scratch in code.** Read the mode's guide (below), run `pixelate tools TOPIC` or `MODULE`, and read the `references/drawing.md` section for what you draw.

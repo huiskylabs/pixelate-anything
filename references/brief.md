@@ -127,8 +127,11 @@ the grade, so the template asks for them by name, and the gate reads the first t
 
 - **Hero**: `x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`. A figure stays at
   least 40 px tall at the delivered cell; no other mass over 0.6x its area or within 0.1 L of its peak.
-- **Planes**: `ground 45%, sky 20%, ...`, the share each plane takes; 3/4 top-down gives the ground
-  40% or more and shows roofs as planes seen from above, or it reads as a facade.
+- **Planes**: `street 45% (mid), sky 20% (light), houses 25% (dark), ...`: each object or place and
+  the share it takes, named by what it is, never regrouped by value. A band tag (darkest, dark, mid,
+  light, brightest, or 1-4 from the darkest) says which grey it takes in the block-in, and several
+  planes may share one; only tagged planes are checked. 3/4 top-down gives the ground 40% or more and
+  shows roofs as planes seen from above, or it reads as a facade (lint checks this, not the block-in).
 - **Layout**: what owns each region as boxes, and the calm areas as boxes with what may sit in them.
 - **Masses**: three or four masses of very different size, with sizes, for every field that fills
   a band (cloud sea, roofs, crowd); never an even row of equal lobes.
@@ -147,8 +150,10 @@ change per phase.
 ### 6. Phases
 
 For each: a palette written as named roles ("misty teal sky, sage canopy, blossom pink, warm amber
-windows"), its signature elements (things only it has, not a recolour), and its music if there is
-any. An **Accent ration** line names each accent hue, the only objects that may carry it and its
+windows"), its signature elements (things only it has, not a recolour), and what its music does.
+A **Music** line gives every scene its style's music direction (`pixelate style S`): voices, metre,
+mode, tempo and one sync point to the loop (a bell when the beam breathes); an era piece uses the
+console's chip voices. It is direction only, never `none` unless the request asks for silence. An **Accent ration** line names each accent hue, the only objects that may carry it and its
 share of the frame. See [drawing.md#phases](drawing.md#phases) and [drawing.md#palette](drawing.md#palette).
 For music, give each phase a style (lofi, chiptune, ambient), a tempo, a key and its lead
 instrument; that is all the brief needs. `cycle` is one pass through all
@@ -184,4 +189,5 @@ anything that would make it read as a filter.
 
 Native canvas, scale to the delivered size, fps, loop length in frames, palette size, and the
 checks it must pass (the gate `pixelate check FRAME.png --style S --scale N`, the loop seam, a
-thumbnail test). See [delivery.md#gate](delivery.md#gate).
+thumbnail test). See [delivery.md#gate](delivery.md#gate). An era piece adds its tile budget (unique 8x8 tiles against
+the console's limit) and its sprite limits per scanline and on screen ([guides/eras.md](../guides/eras.md)).

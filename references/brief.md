@@ -1,7 +1,7 @@
 # Brief: from one line to an approved brief
 
-Steps 1 to 4 of every job: read the intent, route as a hint, expand into a brief, self-review it,
-and get the user's OK. Drawing rules are in [drawing.md](drawing.md); the gate, the art director, the still and
+Steps 1 to 5 of every job: read the intent, route as a hint, expand into a brief, self-review it,
+have an independent art director grade it, and get the user's OK. Drawing rules are in [drawing.md](drawing.md); the gate, the art director, the still and
 the animation plan are in [delivery.md](delivery.md).
 
 ## Write the brief first
@@ -55,14 +55,30 @@ in a brief.
 ## Self-review
 
 `pixelate route --lint brief.md` flags TODOs left, thin or missing sections, vague words, a motion
-table without numbers, periods that don't divide the loop, and kit names that don't exist. Read
+table without numbers, periods that don't divide the loop, kit names that don't exist, and a
+scene with no hero, masses or value plan line. Read
 the brief against Lantern Isle's: would it build at least that quality in one pass? Is every
 object specific enough to draw, every imperfection named, every phase more than a recolour? Fix
 what falls short and lint again.
 
+## Art director on the brief
+
+The brief already shows the level the picture will reach, so it is graded before anything is drawn.
+`pixelate critique --brief brief.md` prints a prompt for a separate agent that did not write the
+brief: the 12 points of [art-director.md](art-director.md) read as what the brief makes certain (a
+hero with its size, masses of different size, a value plan, a projection that shows the subject, a
+signature moment), each scored 1 to 5, and ranked changes to the brief text. Apply them, lint again
+and ask again until it grades A. A short brief skips this.
+
+Give it a block-in too: the brief's boxes drawn at native size as flat greys, one grey per value
+group, no detail (a few lines of `canvas.Canvas.rect` and `fill`). It shows in one look whether the
+hero owns the brightest value, the planes have their shares and the masses differ in size. It
+passes `pixelate check BLOCKIN.png --blockin --brief brief.md` and goes to the art director with
+`--block BLOCKIN.png`. Drawing waits for the A.
+
 ## Confirm
 
-Show the user the brief with section 0 on top: "these are the choices I made; say OK, or change
+Show the user only an A brief, with section 0 on top: "these are the choices I made; say OK, or change
 any line". One OK should be enough to build. If they change something, revise the brief and show
 only what changed. Build only from an approved brief.
 
@@ -96,37 +112,57 @@ subject)`; `pixelate route --lint` accepts the op then, and rejects the line wit
 ### 3. Art direction rules
 
 Six to ten rules written for this scene, not generic ones: how objects are authored (slot maps,
-seeded shapes), where anti-aliasing and dither are allowed, which silhouettes must read, where rim
-light falls, which imperfections to build in (a leaning tree, a sagging roof, a missing plank, a
-mismatched shutter). See [drawing.md#drawing-objects](drawing.md#drawing-objects).
+seeded shapes), where anti-aliasing and dither are allowed (name the zones), which silhouettes must
+read, where rim light falls, which imperfections to build in (a leaning tree, a sagging roof, a
+missing plank, a mismatched shutter). Three lines are asked by name: **Silhouette keys** (for each
+must-read object, the 2-3 features that make it that thing and its nearest misread: a kite is a tall
+diamond with spars, not an envelope), **Light direction** and **Wind**, each stated once, so every
+rim, lean and trail follows the same line. See [drawing.md#drawing-objects](drawing.md#drawing-objects).
 
 ### 4. The scene
 
 Camera and projection, what fills how much of the frame, the horizon line, and the full object
-list with counts and rough positions (left third, on the ridge, by the door). Name the subject and
-the calm areas where the eye rests. See [drawing.md#composition](drawing.md#composition).
+list with counts as maximums ("4 houses, no more") and rough positions. These lines decide most of
+the grade, so the template asks for them by name, and the gate reads the first two:
+
+- **Hero**: `x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`. A figure stays at
+  least 40 px tall at the delivered cell; no other mass over 0.6x its area or within 0.1 L of its peak.
+- **Planes**: `ground 45%, sky 20%, ...`, the share each plane takes; 3/4 top-down gives the ground
+  40% or more and shows roofs as planes seen from above, or it reads as a facade.
+- **Layout**: what owns each region as boxes, and the calm areas as boxes with what may sit in them.
+- **Masses**: three or four masses of very different size, with sizes, for every field that fills
+  a band (cloud sea, roofs, crowd); never an even row of equal lobes.
+- **Value plan**: three or four value groups and what falls in each, one of them dark, and the one
+  focal light that alone holds the brightest values.
+
+See [drawing.md#composition](drawing.md#composition).
 
 ### 5. Lived-in details
 
 Five to ten small, specific things that tell a story: a cat on the sill, a mug on the rail,
-firewood by the wall, a patched tile, a worn path. Say which change per phase.
+firewood by the wall, a patched tile, a worn path. Give each its native size (4x3 px or more) and
+its value step against what it sits on: three readable details beat eight invisible ones. Say which
+change per phase.
 
 ### 6. Phases
 
 For each: a palette written as named roles ("misty teal sky, sage canopy, blossom pink, warm amber
 windows"), its signature elements (things only it has, not a recolour), and its music if there is
-any. See [drawing.md#phases](drawing.md#phases) and [drawing.md#palette](drawing.md#palette).
+any. An **Accent ration** line names each accent hue, the only objects that may carry it and its
+share of the frame. See [drawing.md#phases](drawing.md#phases) and [drawing.md#palette](drawing.md#palette).
 For music, give each phase a style (lofi, chiptune, ambient), a tempo, a key and its lead
 instrument; that is all the brief needs. `cycle` is one pass through all
 phases in seconds: each phase's bars at its own tempo plus one transition bar, summed, so phases
 may differ in tempo and length (`pixelate check SCENE` prints the right number). `grand` is how
-many passes make the delivered loop, usually 1, and the picture loop is `TICKS = cycle x grand x 30`. The music itself is written at step 5
+many passes make the delivered loop, usually 1, and the picture loop is `TICKS = cycle x grand x 30`. The music itself is written at step 6
 ([guides/music.md](../guides/music.md)).
 
 ### 7. Light list
 
 Every emitter: what it is, where, its colour, its size or radius, how it moves or flickers, and
-what it lights or what hides it (the near plane, a door frame).
+what it lights or what hides it (the near plane, a door frame). Say whether each occluder is
+opaque, partial (a float opacity) or gapped (slits between curtain panels): a light map's occlusion
+is flat 2D, so a thin strip drawn opaque blocks a whole wedge.
 
 ### 8. Motion table
 

@@ -973,6 +973,16 @@ def lint(text):
                  and not re.search(PLACED, b, re.I)]
         if loose:
             probs.append('The scene: %d object line(s) with no count, size or position: %s' % (len(loose), _quote(loose)))
+    probs += _scene_plan(sc)
+    probs += _one_line(text, 'light direction', True)
+    probs += _one_line(text, 'wind', bool(re.search(r'\b(?:lean|sway|trail|scarf|flag|smoke|steam|drift|gust)', text, re.I)))
+    probs += _hex_check(text)
+    lv0 = find('Lived-in details')
+    if lv0 is not None:
+        tiny = [b for b in _bullets(lv0) if not re.search(r'\d', b) and not b.startswith('TODO')]
+        if tiny:
+            probs.append('Lived-in details: %d line(s) with no size or position: %s (give each its native size, at '
+                         'least 4x3 px, or cut it: three readable beat eight invisible)' % (len(tiny), _quote(tiny)))
     ph = find('Phase')
     if ph is not None and not re.search(r'signature|only in (?:this|that) phase|unique to', ph, re.I):
         if re.search(r'recolou?r|palette swap|same scene|only the palette', ph, re.I) or \
@@ -991,6 +1001,88 @@ def lint(text):
     probs += _asset_calls(text)
     probs += _tool_refs(text)
     return probs
+
+# the scene's plan lines: the hero, its value and chroma owners and the plane shares are parsed by the gate
+# (`pixelate check BLOCKIN.png --blockin --brief brief.md`), so their formats are fixed
+SCENE_PLAN = [
+    ('hero', r'hero', r'\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*\d+.*peak value\s*:\s*\w.*peak chroma\s*:\s*\w',
+     '`- Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`'),
+    ('planes', r'planes', r'^[^:]*:\s*\w[\w ]*?\s\d+\s*%(?:\s*,\s*\w[\w ]*?\s\d+\s*%)+',
+     '`- Planes: ground 45%, sky 20%, buildings 35%`'),
+    ('layout', r'layout', r'\d', 'what owns each region as boxes and the calm areas as boxes with their content'),
+    ('masses', r'masses', r'(?:\d+\D+){2}\d', 'three or four masses of very different size with their sizes '
+     '(`- Masses: one 140 px cloud bank, a 60 px trough, tufts of 20 and 12 px`)'),
+    ('value plan', r'value plan', r'\d.*\b(?:focal|brightest)\b|\b(?:focal|brightest)\b.*\d',
+     'three or four value groups with what falls in each and its L, one dark, and the focal light that alone '
+     'holds the brightest (`- Value plan: rocks L .1; clouds .3; island .5; brightest only at the lamp`)'),
+]
+PLANE_MIN = {'topdown': (('ground', 'street', 'floor', 'road', 'plaza', 'yard', 'field'), 40,
+                         '; 3/4 top-down: the ground is the largest plane, at least 40%, and roofs show as planes '
+                         'seen from above')}
+
+def _proj_key(proj):
+    return 'topdown' if re.search(r'top[\s-]*down|俯视|from above', proj or '', re.I) else ''
+
+def _plan_line(sc, label):
+    return next((b for b in _bullets(sc) if re.match(r'\**%s\b[^:]{0,24}:' % label, b, re.I)), None)
+
+def _scene_plan(sc):
+    """The scene's hero, planes, layout, masses and value plan lines: what the art director grades hardest and
+    every weak first draft lacked (a hero smaller or duller than its scenery, a facade for a top-down request,
+    even rows of equal lobes, no dark group). A top-down projection needs the ground at 40% or more."""
+    if sc is None:
+        return []
+    out = []
+    for name, label, want, fix in SCENE_PLAN:
+        line = _plan_line(sc, label)
+        if line is None:
+            out.append('The scene has no %s line: write %s' % (name, fix))
+        elif 'TODO' not in line and not re.search(want, line, re.I):
+            out.append('The scene: the %s line is not in the form %s' % (name, fix))
+    pl = _plan_line(sc, 'planes')
+    proj = re.search(r'Projection:\s*([^.\n]+)', sc)
+    if pl and proj and _proj_key(proj.group(1)) == 'topdown':
+        words, mn, _ = PLANE_MIN['topdown']
+        got = sum(int(n) for w, n in re.findall(r'(\w+)[\w ]*?\s(\d+)\s*%', pl) if w.lower() in words)
+        if 'TODO' not in pl and got < mn:
+            out.append('The scene: 3/4 top-down gives the ground %d%% of the frame; it is the largest plane, at least '
+                       '%d%% (the street, plaza or yard), or the picture reads as a facade' % (got, mn))
+    return out
+
+ONE_LINE = {'light direction': 'every rim, lit side and shadow', 'wind': 'every lean, trail, smoke and drift'}
+
+def _one_line(text, label, needed):
+    """exactly one `- LABEL:` line; needed says whether a missing one is a problem"""
+    n = len(re.findall(r'^\s*[-*]\s+\**%s\**\s*:' % label, text, re.M | re.I))
+    if n > 1:
+        return ['%d "%s:" lines: state it once; %s follows that one line' % (n, label, ONE_LINE[label])]
+    if not n and needed:
+        return ['no "%s:" line (in Art direction rules): state it once; %s follows it' % (label, ONE_LINE[label])]
+    return []
+
+def _palette_hexes(name):
+    f = pathlib.Path(__file__).resolve().parent.parent / 'palettes' / ('%s.hex' % name)
+    if not name or not f.exists():
+        return []
+    return ['#' + x.strip().lower().lstrip('#') for x in f.read_text().split() if re.fullmatch(r'#?[0-9a-fA-F]{6}', x.strip())]
+
+def _hex_check(text):
+    """every hex in a brief that cites a palette file (palettes/NAME.hex, or an era with a fixed palette) must be
+    in it: an era's shades written from memory are the usual slip"""
+    names = set(re.findall(r'palettes/([\w-]+)\.hex', text))
+    for e in re.findall(r'--era\s+([\w-]+)', text):
+        try:
+            import era as eramod
+            if eramod.ERAS.get(e, {}).get('palette'):
+                names.add(eramod.ERAS[e]['palette'])
+        except ImportError:
+            pass
+    allowed = set(h for n in names for h in _palette_hexes(n))
+    if not allowed:
+        return []
+    bad = sorted(set(h.lower() for h in re.findall(r'#[0-9a-fA-F]{6}\b', text)) - allowed)
+    return ['%d hex(es) not in %s: %s (copy the shades from the file)' % (
+        len(bad), ', '.join('palettes/%s.hex' % n for n in sorted(names)), ', '.join(bad[:6]))] if bad else []
 
 SHORT_SECTIONS = ['Style', ('Palette and size', 'Length and sound'), 'The work', 'Gate', 'Show the user']
 
@@ -1407,6 +1499,10 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     if E:
         L.append('- Ramps: 3-4 steps picked by hand from the %s palette. Palette: at most %d colours%s.' % (
             E.get('palette', era), E['max_colors'], ', shared backdrop' if E.get('shared_backdrop') else ''))
+        hx = _palette_hexes(E.get('palette'))
+        if hx and len(hx) <= 16:
+            L.append('- Palette `palettes/%s.hex`, darkest first as listed: %s (copy these; never from memory).' % (
+                E['palette'], ', '.join(hx)))
     else:
         L.append('- Ramps: `%s`. Palette: %s.' % (', '.join(st['ramp']), st['palette']))
     L.append('- Outline: %s. Dither: %s.' % (st['outline'], (', '.join(st['dither']) + ', ' + st['dither_where']) if st['dither'] else 'none'))
@@ -1419,21 +1515,39 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     L.append('- TODO 3-5 rules for this scene: which silhouettes must read, where rims fall, the built-in imperfections '
              '(a lean, a sag, a missing plank, a mismatched part) (see references/drawing.md#drawing-objects; run '
              '`pixelate style %s` for the style\'s rules).' % st['name'])
+    L.append('- Silhouette keys: TODO for each must-read object, the 2-3 features that make it that thing and its '
+             'nearest misread (a kite: tall diamond, visible spars, no belly band; not an envelope); crowds in 3 or '
+             'more poses, gathered in vignettes.')
+    L.append('- Light direction: TODO where the one key light comes from; every rim, lit side and shadow follows it.')
+    L.append('- Wind: TODO its direction and strength, or none; every lean, trail, smoke and drift follows it.')
     L.append('- Every object is drawn in this scene\'s code from the primitives; anything the kit has no primitive for '
              'is a slot map. references/assets has finished examples to study, never to call.')
     L.append('\n## 4. The scene')
     L.append('- Projection: %s. Canvas %dx%d.' % (proj, w, h))
-    L.append('- TODO the subject and how much of the frame it fills; the horizon; the calm areas '
-             '(see references/drawing.md#composition).')
+    L.append('- Hero: TODO x0,y0,x1,y1 (native px); peak value: TODO the object that alone holds the brightest '
+             'values; peak chroma: TODO the object that alone holds the top chroma. A figure stays at least %d px '
+             'tall at the delivered cell; no other mass over 0.6x the hero\'s area or within 0.1 L of its peak '
+             '(see references/drawing.md#composition).' % MIN_HERO_PX)
+    L.append('- Planes: TODO the share of the frame each plane takes, e.g. ground 45%%, sky 20%%, buildings 35%%%s.' % (
+        PLANE_MIN.get(_proj_key(proj), ('', 0, ''))[2]))
+    L.append('- Layout: TODO what owns each region as boxes (x0-x1, y0-y1), the calm areas as boxes with what may sit '
+             'in them; counts are maximums ("4 houses, no more").')
+    L.append('- Masses: TODO three or four masses of very different size, with sizes (say 50%, 25%, 15% of the '
+             'width), for every field that fills a band (cloud sea, sea, roofs, crowd, canopy); never an even row '
+             'of equal lobes, domes or houses (see references/drawing.md#composition).')
+    L.append('- Value plan: TODO three or four value groups with what falls in each and its L (far, middle, near, '
+             'hero), one of them dark; the brightest group only at the one focal light and its one repeat.')
     L.append('- TODO the full object list with counts and rough positions (left third, on the ridge, by the door) '
              '(see references/brief.md#4-the-scene; run `pixelate tools TOPIC` for each subject).')
     if st.get('stack'):
         L.append('- TODO the depth planes: far (hazed), middle (lit), near (flat dark silhouettes that occlude light) '
                  '(see references/drawing.md#composition).')
     L.append('\n## 5. Lived-in details')
-    L.append('- TODO five to ten small, specific things that tell a story; say which change per phase '
+    L.append('- TODO five to ten small, specific things that tell a story, each with its native size (at least 4x3 '
+             'px) and the value step against what it sits on; three readable beat eight invisible; say which change per phase '
              '(see references/drawing.md#drawing-objects).')
     L.append('\n## 6. Phases')
+    L.append('- Accent ration: TODO each accent hue, the only objects that may carry it, and its share of the frame.')
     L.append('- TODO for each phase: the palette by named roles, its signature elements (not a recolour), music if any '
              '(see references/drawing.md#phases and references/drawing.md#palette).')
     L.append('\n## 7. Light list')
@@ -1442,6 +1556,7 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                  '(see references/drawing.md#light; run `pixelate tools lamp --style %s`).' % st['name'])
     else:
         L.append('- TODO each emitter: what, where, colour, radius or width, flicker or pulse, what it lights, what hides it '
+                 '(each occluder opaque, partial with a float opacity, or gapped with slits) '
                  '(see references/drawing.md#light; run `pixelate tools lamp --style %s`).' % st['name'])
         L.append('- Allowed light ops: %s.' % (', '.join(st['allowed_post']) or 'none'))
     L.append('\n## 8. Motion table' + ('' if st['name'] == 'lofi' or not frames else
@@ -1748,6 +1863,23 @@ LINT_CASES = [
     ('banned', 'Style `pastel-cell`\n- Gate override: allow Post.shaft (the rays through the gap are the subject)\n'
                '- Rays: Post.shaft from the gap', False),
     ('banned', 'Style `pastel-cell`\n- Gate override: allow Post.shaft\n- Rays: Post.shaft from the gap', True),
+    ('plan', '- Projection: side view.\n- Hero: 100,60,220,150 (native px); peak value: the lamp; peak chroma: the kite\n'
+             '- Planes: sky 55%, sea 30%, island 15%\n- Layout: island x 180-250, y 60-110; calm sky x 0-150\n'
+             '- Masses: cloud sea as a 140 px bank, a 60 px trough, tufts of 20 and 12 px\n'
+             '- Value plan: sea L .2, clouds .5, island .6; brightest only at the lamp, 3%', 0),
+    ('plan', '- Projection: side view.\n- Subject: the shop front, x 128 to 512\n- the object list, 3 houses', 5),
+    ('plan', '- Projection: side view.\n- Hero: the kid, about 48x26 px\n- Planes: mostly sky\n- Layout: x 0-100\n'
+             '- Masses: big clouds\n- Value plan: dark sea, bright sun', 4),
+    ('plan', '- Projection: 3/4 top-down.\n- Hero: 128,34,512,262 (native px); peak value: the door wedge; peak '
+             'chroma: the cat\n- Planes: roof 40%, street 27%, back row 10%, walls 23%\n- Layout: shop x 128-512\n'
+             '- Masses: roof 384 px, neighbours 112 and 112 px\n- Value plan: void L .05, walls .15; brightest at '
+             'the door, 2%', 1),
+    ('oneline', '- Light direction: upper right\n- Wind: from the left\n- Light direction: the lamp', 1),
+    ('oneline', '- Light direction: upper right\n- the scarf trails left', 1),
+    ('oneline', '- Light direction: upper right\n- Wind: none', 0),
+    ('hex', 'gate `--era gameboy`; gb2 #8bac0f, gb3 #9bbc0f', 1),
+    ('hex', 'palette `palettes/gameboy.hex`: #0f380f #306230 #678e23 #9bbc0f', 0),
+    ('hex', 'our own palette: #123456 #abcdef', 0),
 ]
 
 def _lint_case(fn, arg):
@@ -1761,6 +1893,12 @@ def _lint_case(fn, arg):
         return bool(_trip_arithmetic(arg, 96))
     if fn == 'banned':
         return bool(_banned_ops(arg, _sections(arg)))
+    if fn == 'plan':
+        return len(_scene_plan(arg + '\n'))
+    if fn == 'oneline':
+        return len(_one_line(arg, 'light direction', True) + _one_line(arg, 'wind', 'trail' in arg))
+    if fn == 'hex':
+        return len(_hex_check(arg))
 
 def selftest(verbose=False):
     """-> number of cases that route wrong or whose brief misses a line (printed)"""

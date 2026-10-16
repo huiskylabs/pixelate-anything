@@ -14,7 +14,7 @@ Outputs:
 
 ## Workflow
 
-1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `examples/lantern-isle/BRIEF.md`) and show it. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief.
+1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `examples/lantern-isle/BRIEF.md`), block it in and have the art director grade it A (`pixelate critique --brief brief.md`, `references/brief.md#art-director-on-the-brief`), and show it. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief.
    - **The subject.**
    - **Phases:** 1 to 6, each with a mood, a palette idea, signature elements and its music.
    - **The canvas:**

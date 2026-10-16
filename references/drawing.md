@@ -26,7 +26,7 @@ to read, never call (`references/assets/README.md`). Anything missing is a slot 
   - The same slot names keep the same meaning everywhere.
   - Use no colour outside the palette, and no blur, anti-aliasing or alpha blending.
 - **Draw it yourself, in code.** Never paste or trace an image, and never call a finished object from `references/assets/`; read it, then draw your own at the scene's size and style.
-- **Hand-place and keep it asymmetric.** Pick positions yourself; uniform scatter and symmetry read as generated.
+- **Hand-place and keep it asymmetric.** Pick positions yourself and spread things unevenly in clusters; uniform scatter, symmetry and accidental alignment read as generated.
 - **Outlines and one light direction.** Every form has a dark outline from its own ramp, a lit side and a shadow side. The style's `outline` (`pixelate style NAME`) overrides this:
   - No outline: `contre-jour`, `native-glow`, `neon-noir` (actors take a 1 px warm rim on the lamp side instead).
   - Actors and one interactive prop only: `pastel-cell` (dark violet, never black); scenery is a rimmed silhouette.
@@ -58,7 +58,9 @@ Whatever the regime, light is code: a pure function of masks, positions, t and a
 painted in an editor. Angles are screen degrees with y down: 0 points right, 90 straight down, 270
 straight up (`Post.shaft`, `shapes.ray`, `light.Light.cone`). A moving occluder in `Post.lightmap`
 (a door leaf, a figure in the doorway) is a new mask each frame and is traced again; keep it to a few
-held drawings so each is traced once per light. Its occlusion is flat 2D with no height: a thin strip blocks a whole wedge unless you pass `occlude_soft=2` (or a float mask), and a lamp painted inside a window needs its own `{'near': px}` or `{'occlude': None}` to reach the street. Mixing regimes in one frame makes it read as a filter. Vignette, grain,
+held drawings so each is traced once per light. Its occlusion is flat 2D with no height: a thin strip blocks a whole wedge unless you pass `occlude_soft=2` (or a float mask), and a lamp painted inside a window needs its own `{'near': px}` or `{'occlude': None}` to reach the street. A glow is a 1-slot ring of even width, its radius at most the source's own size; a smear swallows the
+hero. An actor is left out of the light map only when it is a backlit silhouette or a flat near plane;
+otherwise it is lit like everything else. Mixing regimes in one frame makes it read as a filter. Vignette, grain,
 scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Palette
@@ -66,7 +68,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 - **One strict palette per phase.** Write the palette before drawing: the palette *is* the mood. Roughly 40 to 80 slots for a full scene.
 - **3 to 5 tones per material.** Shift the hue across the ramp: shadows move toward blue or purple and get more saturated, lights move toward yellow or orange and get less saturated. A ramp that only changes brightness looks dead. `palette.ramp(base, steps, style=...)` builds the measured ramp shapes (`lofi`, `rise`, `arch`, `flat`, `living`, `lit`, `plum`, `window`, `toy`, `arcade`).
 - **No pure black or white.** The darkest dark carries the scene's hue (a night sea's black is deep teal). Styles that measure a true black say so in their budget: `neon-noir` (at least 15% exact black), `sticker-iso` (8-30% exact black, and #fff in the palette), `cosy-lightmap` (the #000 void), `native-glow` (black in the void only, at most 4%), and `tactics` draws its outlines in black.
-- **Ration chroma and highlights.** The top chroma belongs to the actor or the one interactive prop; the brightest values sit at the focal point. Check the numbers with `styles.check` (for example, contre-jour keeps L>0.75 under 0.3% of the frame).
+- **Ration chroma and highlights.** The top chroma belongs to the actor or the one interactive prop; the brightest values sit at the focal point. Each accent hue gets a list of the only objects that carry it (a red for the barriers and the barge, not the roofs too); a supporting mass that out-saturates the hero drops a chroma step. Check the numbers with `styles.check` (for example, contre-jour keeps L>0.75 under 0.3% of the frame).
 - **Slots keep their role across phases.** `F2` is "roof, mid tone" in every season, so one roof sprite works everywhere and the phase dissolve stays coherent.
 - **Use dynamic slots for flicker.** In `sceneDynamic`, remap warm slots with `flick()`, held for 3 to 5 steps at 10 fps. The steadiness is what makes flame read as flame.
 
@@ -79,7 +81,10 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Drawing objects
 
-- **Outline and lit side.** Choose one light source and keep it everywhere. Outline with the darkest tone of the material, not with black (`Canvas.outline` modes: own, part, selective, slot). Put lit edges on the side facing the light. Styles differ (see the list under Rules for every mode): scenery in `pastel-cell` has no outline and only the actor does; `contre-jour` figures have none at all; `sticker-iso` and `tactics` outline in black.
+- **Forms are filled planes.** Every mass is a solid fill one value off its neighbour, never an outline loop around the ground colour (a tangle of contours reads as murk). A big form is two or three flat planes (lit, shadow, maybe a top) split along its real structure, not horizontal contour tiers stepping darker and not one value over the whole thing. A roof seen from above has a ridge, a slope with value steps and an eave lip with a shadow row.
+- **Repeated units are mismatched.** Lobes, waves, tufts, slabs, clumps and dashes come 3 to 6 at a time, no two neighbours within 25% of each other's size, with uneven gaps and one long flat run. Waves lean, a steep face toward the light and a long back slope, never symmetric bells. Houses differ in height, roof and window rhythm; a crowd has 3 or more poses and gathers in vignettes, never even confetti.
+- **Silhouette keys.** Give every must-read object the 2-3 features that make it that thing and not its nearest misread (a kite is a tall diamond with spars, not an envelope; a pine is unequal swept masses, not a mast). Test it as a flat black shape at 320 px; if it reads as something else, change its proportions, not its detail.
+- **Outline and lit side.** Choose one light source and keep it everywhere. Outline with the darkest tone of the material, not with black (`Canvas.outline` modes: own, part, selective, slot). Put lit edges on the side facing the light, and stop a rim where the edge turns away. Styles differ (see the list under Rules for every mode): scenery in `pastel-cell` has no outline and only the actor does; `contre-jour` figures have none at all; `sticker-iso` and `tactics` outline in black.
 - **Canopies are clumps.** Draw 6 to 12 overlapping lobes, each with a lit upper rim, a mid body and a dark underside (`texture.clumps`, `veg.lobe_light`, `veg.leafmass`). Leave holes for sky. Never a ball with noise on it.
 - **Roofs are courses of shingles**, offset row by row, with the odd patched tile. Uniform tiles read as a brick wall.
 - **Materials are shaped units, never raw noise:**
@@ -87,7 +92,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
   - Floors as pebbles with a lit cap over a shadow (`texture.pebbles`).
   - Cliff rock as stacked flake dashes over ledged, frayed silhouettes (`texture.flakes`, `shapes.ledges`, `shapes.fray`).
   - Hand-shaped boulders with a highlight and a shadow each, strata seams, roots, the odd stone poking out.
-- **Clouds are flat masses**, an ellipse core with perimeter lobes, a lit top tier and a deeper belly (`shapes.cloud_mass`, `shapes.cloud`). Loose discs read as bubbles.
+- **Clouds are flat masses**, one dominant mass per bank with lobes of very different radius, long flat tops, a lit top tier and a deeper belly (`shapes.cloud_mass`, `shapes.cloud`). Loose discs read as bubbles; a row of equal lobes reads as generated.
 - **Smoke and mist are hand-shaped:**
   - Smoke is a plume sprite with a few frames (`fx.smoke_puff`, `fx.trail`).
   - Mist is long streaks of one or two tones.
@@ -96,7 +101,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 - **Lived-in details carry the scene.**
   - Examples: a cat on a sill, a mug on the rail, laundry, firewood, boots by the door, a worn path, a kite, a rake, pumpkins, a wreath.
   - Three to six small props per phase say more than one big effect.
-- **Asymmetry and hand placement.** Pick coordinates yourself. Spread things unevenly in clusters, and let nothing line up by accident.
+  - Each one reads at 1x: at least 4x3 px and a value step off what it sits on. Three readable details beat eight invisible ones.
 - **No tool for it? Build it in code anyway.** The kit's functions are shortcuts, not the limit. Anything the scene needs (a lobster pot, a kite, a tram, a cat in a pose no function has) is a slot map you write: a silhouette from `canvas.Canvas` shapes or a hand-typed grid, the material's ramp, an outline mode, a lit edge on the light side, then the same checks as everything else (reads at 1x, clean clusters, no orphan pixels). Name it in the brief as "slot map" with its size and parts. If the same object keeps coming back across scenes, that is when it becomes a tool.
 
 ## Characters
@@ -135,7 +140,12 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 ## Composition
 
 - The subject fills about 40 to 60% of the frame width, and the horizon sits about two-thirds of the way down. The subject is the focal area or group, not one figure: a tiny hero in a big world is fine when the composition (lines, light, contrast) leads the eye to them.
-- Leave calm areas (sky, water) for the eye to rest and for the title on a thumbnail.
+- **The hero owns the peak.** The brightest values and the top chroma sit on the hero; every other mass is under 0.6x its area and at least 0.1 L below its peak. A sun, a waterfall or a house wall that outshines it is dimmed, shrunk or cut. A leading line (a beam, a ray, a road) ends on the hero, not off the frame.
+- **Plan values before colour.** Three or four value groups, one of them dark; each depth plane keeps its own range; the brightest group appears only at the focal light and its one repeat. In the greyscale thumbnail, half the frame in one grey means the planes need separating.
+- **Masses big, medium, small.** A field that fills a band (cloud sea, sea, roofs, crowd, hedge) is three or four masses of clearly different size, say 50%, 25%, 15% of its width, overlapping, never an even row.
+- **The projection shows what it promises.** 3/4 top-down sees roofs as sloped planes from above and gives the ground 40% of the frame or more; a front wall filling the top half is a side-view facade.
+- **Block in first.** Draw the brief's boxes as flat greys at native size before any detail; fix the layout there, where it costs nothing.
+- Leave calm areas (sky, water) for the eye to rest and for the title on a thumbnail, and keep them calm: two or three long bands, not fragments.
 - In 2:1 iso, sizes are world units, not screen px: +1 x is 2 px right and 1 down, +1 y is 2 px left and 1 down, +1 z is 1 px up, so a figure H px tall is H units of z (all times `Iso(scale=)`; `iso.py` has the rest).
 - Frame with planes: a dark near plane (a tree, a monolith, a bush band) in front of a lit middle and a hazed far plane gives depth (`compose.proscenium`, `compose.stage`, `palette.haze`).
 - **Test at the delivered size and at thumbnail size.** If the subject reads as a speck at 320x180, crop in or move to a smaller canvas.

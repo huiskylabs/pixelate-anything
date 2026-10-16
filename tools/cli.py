@@ -19,7 +19,7 @@
   pixelate check SCENE [--page]          palettes, timing, loop seam, page
   pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op]   the delivery gate
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
-  pixelate critique FRAME.png --brief brief.md [--style S]   the prompt for an independent art director
+  pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P]   an independent art director: the brief, then the still
   pixelate check TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]   the music gate
   pixelate build SCENE [--release]       one self-contained HTML page
   pixelate audio SCENE out.{wav,ogg,flac,mp3}   one seamless loop of the music     (guides/music.md)

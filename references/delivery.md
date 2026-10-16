@@ -1,6 +1,6 @@
 # Delivery: gate, art director, still, animation plan
 
-Steps 6 to 9 of every job, after the brief is approved ([brief.md](brief.md)) and the frame is
+Steps 7 to 10 of every job, after the brief is approved ([brief.md](brief.md)) and the frame is
 drawn ([drawing.md](drawing.md)). Nothing is shown or delivered before the gate passes.
 
 ## Gate
@@ -49,13 +49,17 @@ until it passes (`guides/music.md`).
 
 ## Art director
 
-The gate passes weak drafts; an outside eye catches what it can't. Run
+The gate passes weak drafts; an outside eye catches what it can't. The brief was graded A before
+drawing ([brief.md](brief.md#art-director-on-the-brief)); now the still is. Run
 `pixelate critique FRAME.png --brief brief.md [--style S]`: it writes a 480 px thumbnail and its
 greyscale next to the frame and prints a ready prompt (the rubric in
-[art-director.md](art-director.md), the brief's section 0 and signature elements, the image paths and
-the bar). Send that prompt to a fresh agent or a second model that did not draw the frame; it
+[art-director.md](art-director.md), the brief's section 0, signature elements, rules, scene and
+lights, the image paths and the bar). Send that prompt to a fresh agent or a second model that did not draw the frame; it
 returns a grade, 12 scores and up to 5 ranked fixes. Apply the fixes, pass the gate again and run a
-new critique, until it grades A. Don't argue with a fix; if the brief causes it, change the brief.
+new critique with `--prev LAST.md`, so the art director first checks each earlier fix as fixed,
+partly or not, until it grades A. Your own report of a fix is not evidence, and passing the gate
+means legal, not good: never grade your own still. Don't argue with a fix; if the brief causes it,
+change the brief.
 
 ## Still
 

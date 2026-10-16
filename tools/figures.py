@@ -1289,17 +1289,17 @@ def slime(hop=None, w=12, h=13, seed=0, facing=1, blink=False, slots=None, light
 # would swallow the ears). Keys: o line, D shade, F fur, L lit back, e eye. Bottom aligned in one
 # 16 x 11 box; the walk's last two rows are its legs, one pair of rows per drawing (CAT_WALK_LEGS).
 CAT_SIT = """
-        ......o..o.
-        .....oLooLo
-        .....oLLLLo
-        .....oFFeFFo
-        ....oLFFFoo.
-        ...oLFFFDo..
-        ..oLFFFFDo..
-        ..oFFFFFDo..
-        .oDFFFFDDo..
-        oDDDDDDDDDo.
-        .ooooooooo.."""
+        ..o...o.....
+        .oLo.oLo....
+        .oLLLLLLo...
+        .oFFFFeFFo..
+        .oFFFFFFo...
+        ..oFFFFo....
+        .oLFFFFFo...
+        oLFFFFFFFo..
+        oFFFFFFLLoo.
+        oDDDDDDDDDDo
+        .oooooooooo."""
 CAT_SLEEP = """
         ...oooo..o..o
         ..oLLLLooLooLo
@@ -1318,9 +1318,9 @@ CAT_WALK = """
         ..oDDDDDDDDDDo...
         .................
         ................."""
-CAT_WALK_LEGS = (("..o..o...o..o..", ".o....o.o....o."),   # stride
+CAT_WALK_LEGS = (("...oo.....oo...", "..o..o....oo..."),   # stride: hind pair spread, fore pair under
                  ("...o.o....o.o..", "...o.o....o.o.."),   # pass
-                 ("...oo.....oo...", "..o..o...o..o.."),   # the other stride
+                 ("...oo.....oo...", "...oo....o..o.."),   # the other stride: fore pair spread
                  ("..o.o.....o.o..", "..o.o.....o.o.."))   # pass
 
 def _cat_edit(rows, edits):
@@ -1352,10 +1352,9 @@ def cat(seed=0, pose='sit', frame=0, facing=1, slots=None, outline='part', ol='o
     if pose == 'sit':
         rows = _rows(CAT_SIT)
         if k == 1:
-            rows = _cat_edit(rows, [(2, 10, 'o'), (2, 11, 'o'), (1, 10, 'D'), (1, 11, 'o'), (0, 10, '.')])
+            rows = _cat_edit(rows, [(3, 10, 'o'), (2, 10, 'D'), (2, 11, 'o')])
         elif k == 2:
-            rows = _cat_edit(rows, [(3, 10, 'o'), (3, 11, 'o'), (2, 10, 'D'), (2, 11, 'o'), (1, 10, 'D'),
-                                    (1, 11, 'o'), (0, 10, '.')])
+            rows = _cat_edit(rows, [(4, 10, 'o'), (3, 10, 'D'), (3, 11, 'o'), (2, 10, 'D'), (2, 11, 'o')])
     elif pose == 'sleep':
         rows = _rows(CAT_SLEEP)
         rows[3] = rows[3].replace('e', 'F')             # asleep: the eye shut

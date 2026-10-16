@@ -244,7 +244,7 @@ class Canvas:
     def bands(self, y0, y1, stops, x0=0, x1=None, dither='bayer4', edge=None, amp=None, seed=0, period=None):
         """vertical gradient of solid slots with seams between them.
         stops: [(slot, y), (slot, y, width), ...] top to bottom; a stop's width is its seam in rows.
-        dither: 'bayer4' (craft.md lofi: 10 to 16 rows, narrower reads as stripes), 'checker' (a
+        dither: 'bayer4' (references/drawing.md, gradients, lofi: 10 to 16 rows, narrower reads as stripes), 'checker' (a
         plain band, a 50% checker strip half the width, the next band: 08, 10) or 'none' (a hard
         edge at y: Celeste, Into the Breach; the width is then ignored).
         edge: the seam's shape across x (see seam()): None (ruler straight), 'wave' (Celeste

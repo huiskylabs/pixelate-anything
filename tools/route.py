@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """Style routing: a plain request in, the style to build it in and a pre-filled scene brief out.
 
-usage: route.py "a cosy rainy village at night"            the top 3 styles, with reasons, and what
-                                                           the request leaves open (with defaults)
-       route.py "..." --brief [STYLE] [-o brief.md]        the 11-section brief, pre-filled for the
-                                                           top style (or STYLE), to finish by hand; a
-                                                           small ask (a palette, one sprite, an icon
-                                                           set, a photo, assets, music) gets a short
-                                                           brief instead
-       route.py "..." --brief --full                       the 11 sections even for a small ask
-       route.py --lint brief.md                            self-critique of a finished brief: what
-                                                           is still vague, missing or thin
-       route.py --catalog                                  regenerate guides/toolkit.md, every tool
-       route.py --selftest [-v]                            route the regression cases (CASES)
+usage:
+  pixelate route "a cosy rainy village at night"   the top 3 styles, with reasons, and what the
+                                                   request leaves open (with defaults)
+  pixelate route "..." --brief [STYLE] [-o FILE]   the 11-section brief, pre-filled for the top style
+                                                   (or STYLE), to finish by hand; a small ask (a
+                                                   palette, one sprite, an icon set, a photo, assets,
+                                                   music) gets a short brief instead
+  pixelate route "..." --brief --full              the 11 sections even for a small ask
+  pixelate route --lint brief.md                   self-critique of a finished brief: what is still
+                                                   vague, missing or thin
+  pixelate route --catalog                         regenerate guides/toolkit.md, the index of the kit
+                                                   (the kit itself: `pixelate tools`)
+  pixelate route --selftest [-v]                   route the regression cases (CASES)
 
     import route
     r = route.route('一个雨夜里温馨的小村庄')
@@ -31,10 +32,12 @@ Its subject hints are techniques (how to draw rain, stone, a boat), each naming 
 that does the work. Finished objects are drawn in the scene's own code; references/assets holds
 examples of them to study, never to call.
 
-The brief it writes is the template from references/craft.md with every section the style decides
+The brief it writes is the template from references/brief.md with every section the style decides
 already filled in. The scene-specific sections (the objects, the lived-in details, the palette by
-role, the light list, the motion table) are left as TODO prompts: write them to the density of
-examples/lantern-isle/BRIEF.md before building anything.
+role, the light list, the motion table) are left as TODO prompts, each naming the section to read
+(references/brief.md, drawing.md, delivery.md) and the command to run (`pixelate style S`,
+`pixelate tools TOPIC`): write them to the density of examples/lantern-isle/BRIEF.md before building
+anything.
 
 A one-line request ("make me a pixel island") is not a brief. gaps() lists what the request leaves
 open (time and weather, phases, figures, purpose and outputs, music, projection, the style itself)
@@ -385,15 +388,15 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         ('screen-res hairline rain (Post.rain)', 'post:rain')]),
     (['snow', 'winter', 'ice', '雪', '冬', '冰'], 'snow and ice', [
         'flakes as single light pixels on dark (texture.speckle)', 'drifts as stippled banks against walls (texture.stipple)',
-        'a flat winter sky in undithered bands (sky.strata)',
+        ('a flat winter sky in undithered bands (sky.strata)', 'nodither'),
         ('snow as baked engine tables (study references/assets/particles.py snow)', 'lofi')]),
     (['fog', 'mist', 'haze', '雾', '霭'], 'fog', [
         'fog as haze per depth plane, each plane pulled toward the fog colour (palette.haze, palette.haze_levels)',
         ('a fog layer over the planes (Post.fog)', 'post:fog'),
-        'drifting banks that wrap seamlessly (canvas.wrap_offset, or canvas.loop_dissolve in lofi only)']),
+        'drifting banks that wrap seamlessly (anim.wrap_offset, or canvas.loop_dissolve in lofi only)']),
     (['sea', 'ocean', 'lake', 'river', 'stream', 'harbour', 'harbor', 'port', 'coast', 'beach', 'waterfall', 'pond',
       'canal', 'boat', 'ship', 'dock', 'pier', '海', '湖', '河', '溪', '港', '海岸', '沙滩', '瀑布', '池塘', '运河', '船',
-      '码头'], 'water', [
+      '码头', 'island', 'islands', 'islet', 'isle', '岛', '小岛', '海岛'], 'water', [
         'sea in hard bands by distance from land (water.depth_bands)',
         'dashed foam rings where things stand in water (water.foam_rings)',
         'reflections of hulls, posts and lights only (water.reflect)', 'still basins and falls (water.pool, water.waterfall)',
@@ -410,7 +413,8 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         ('falling leaves, petals and fireflies as baked engine tables (study references/assets/particles.py)', 'lofi'),
         ('2:1 leaf glyphs, the iso sticker look (veg.leaf_glyphs)', 'iso')]),
     (['sky', 'cloud', 'clouds', 'sunset', 'dusk', 'dawn', '天空', '云', '日落', '黄昏', '清晨'], 'sky', [
-        'flat undithered strata locked by wisps and streaks (sky.strata, sky.wisp, sky.smile, sky.streaks)',
+        ('flat undithered strata locked by wisps and streaks (sky.strata, sky.wisp, sky.smile, sky.streaks)', 'nodither'),
+        ('sky as Bayer-dithered bands between ramp steps, 10-16 rows per transition (canvas.Canvas.bands)', 'bayer'),
         'clouds as masses and masks (shapes.cloud, shapes.cloud_mass, shapes.cloud_mask, shapes.cloud_rgba)']),
     (['cave', 'mine', 'rock', 'cliff', 'mountain', 'rubble', 'stone', 'underground', '洞', '矿', '岩', '悬崖', '山',
       '石', '地下'], 'rock', [
@@ -521,42 +525,30 @@ EXAMPLES = [('props', 'built things: trunks, girders, trusses, rails, stairwells
             ('particles', 'lofi particles baked to engine tables: petals, leaves, snow, drizzle, fireflies')]
 
 def catalog():
-    """guides/toolkit.md: every public function and class in the kit with its first doc line, so an
-    agent knows everything it can reach for before it writes a brief. Regenerate with --catalog."""
-    import importlib, inspect
+    """guides/toolkit.md: a short index of the kit that says how to query it. The kit itself is read
+    from the source on demand by `pixelate tools` (tools/kit.py). Regenerate with --catalog."""
     L = ['# Toolkit', '',
-         'Every function in the kit, with its first doc line. Generated by `python3 tools/route.py --catalog`;',
-         'regenerate it after adding a tool. Read it before writing a brief: the router only suggests the',
-         'techniques its keywords know about, and the best brief uses whatever the scene needs. The last',
-         'sections list the examples in references/assets: read them to see how a finished thing was built,',
-         'never call them.', '']
-    L.append('## By subject\n')
-    for words, label, items in TOPIC_TOOLS:
-        L.append('- %s: %s.' % (label[0].upper() + label[1:],
-                                ', '.join(it if isinstance(it, str) else '%s [%s]' % it for it in items)))
-    L.append('- ' + ALWAYS_TOOLS[0].upper() + ALWAYS_TOOLS[1:] + '.')
-    ex = str(pathlib.Path(__file__).resolve().parent.parent / 'references' / 'assets')
-    if ex not in sys.path:
-        sys.path.append(ex)
-    for mod, what in CATALOG + [(m, w + ' (an example in references/assets: read, never call)') for m, w in EXAMPLES]:
-        try:
-            m = importlib.import_module(mod)
-        except Exception:
-            continue
-        L.append('\n## %s\n\n%s.\n' % (mod, what[0].upper() + what[1:]))
-        for n, o in vars(m).items():
-            if n.startswith('_') or not (inspect.isfunction(o) or inspect.isclass(o)) or getattr(o, '__module__', '') != mod:
-                continue
-            d = ' '.join((inspect.getdoc(o) or '').split('\n\n')[0].split())
-            d = d if len(d) < 160 else d[:157].rsplit(' ', 1)[0] + '...'
-            L.append('- `%s.%s`%s' % (mod, n, (': ' + d) if d else ''))
-            if inspect.isclass(o):
-                for mn, mo in vars(o).items():
-                    if mn.startswith('_') or not callable(getattr(o, mn, None)):
-                        continue
-                    md = ' '.join((inspect.getdoc(getattr(o, mn)) or '').split('\n\n')[0].split())
-                    md = md if len(md) < 140 else md[:137].rsplit(' ', 1)[0] + '...'
-                    L.append('  - `.%s`%s' % (mn, (': ' + md) if md else ''))
+         'An index of the kit. The detail is served from the source on demand, so read only what the',
+         'step needs. Generated by `python3 tools/route.py --catalog`; regenerate it after adding a module.', '',
+         '## How to query', '', '```',
+         'pixelate tools                      every topic and module, one line each',
+         'pixelate tools TOPIC [--style S]    the techniques for a subject: rain, 雨, fog, water, lamp ...',
+         'pixelate tools MODULE               a module\'s functions and classes: signature, first doc line',
+         'pixelate tools MODULE.func          the full signature and docstring (MODULE.Class.method too)',
+         'pixelate style NAME                 one style\'s rules, light, budgets, craft limits, techniques',
+         '```', '',
+         'The same queries exist as MCP tools: `kit_tools(query)` and `style_card(name)`. The router only',
+         'suggests the techniques its keywords know about; the best brief uses whatever the scene needs.', '',
+         '## Topics', '',
+         ', '.join(label for _, label, _ in TOPIC_TOOLS) + '.', '',
+         '## Modules', '']
+    L += ['- `%s`: %s' % (m, w) for m, w in CATALOG]
+    L += ['', 'The other tools/*.py (`sdf` for curved solids, `colorlib`, the pipeline scripts) are listed by '
+          '`pixelate tools` with their docstrings.']
+    L += ['', '## Examples in references/assets', '',
+          'Read them to see how a finished thing was built, never call them.', '']
+    L += ['- `%s`: %s' % (m, w) for m, w in EXAMPLES]
+    L += ['', '## Always', '', ALWAYS_TOOLS[0].upper() + ALWAYS_TOOLS[1:] + '.']
     return '\n'.join(L) + '\n'
 
 def _fits(cond, style, projection):
@@ -569,6 +561,10 @@ def _fits(cond, style, projection):
         return st['res'] != 'none'
     if cond == 'strict':
         return st['res'] == 'none'
+    if cond == 'nodither':
+        return not st['dither']
+    if cond == 'bayer':
+        return 'bayer4' in st['dither']
     if cond.startswith('post:'):
         return styles.allows(style, cond[5:])
     return True
@@ -680,7 +676,8 @@ def gaps_md(g):
     L = ['## 0. Choices to confirm', '',
          'Defaults I picked where the request was open. Say OK to build as written, or change any line.', '',
          '- **intent**: TODO one line on what the user most likely wants but did not say (the feeling, the use, '
-         'the era or game it recalls, what would disappoint them); every choice below follows from it']
+         'the era or game it recalls, what would disappoint them; see references/brief.md#read-the-intent); '
+         'every choice below follows from it']
     for x in g:
         L.append('- **%s**: %s%s' % (x['topic'], x['default'],
                                      '' if not x['stated'] else ' (from the request: %s)' % x['stated']))
@@ -713,7 +710,7 @@ def lint(text):
         if b is None:
             probs.append('missing section: %s' % sec)
             continue
-        n = len(_bullets(b))
+        n = len(re.findall(r'^\s*[-*]\s+\S', b, flags=re.M))   # nested items count too
         if n < MIN_BULLETS.get(sec, 1):
             probs.append('%s is thin: %d items, want %d or more' % (sec, n, MIN_BULLETS.get(sec, 1)))
         probs += _vague(sec, b)
@@ -736,7 +733,7 @@ def lint(text):
                 probs.append('Motion table: %s drawings x %s frames = %d does not divide the %d-frame loop' % (
                     n, k, int(n) * int(k), T))
     if m is not None:
-        slow = [b for b in _bullets(m) if not re.match(r'(todo|checks?|motion|note)\b', b, re.I)
+        slow = [b for b in _bullets(m) if not re.match(r'(todo|checks?|motion|note|keep|at most|only)\b', b, re.I)
                 and not b.endswith(':') and not re.search(RATE, b, re.I)]
         if slow:
             probs.append('Motion table: %d line(s) with no rate or frame count: %s' % (len(slow), _quote(slow)))
@@ -934,7 +931,7 @@ def _fmt_budget(b):
                                 '%s..%s' % (lo, hi)) for k, (lo, hi) in b.items()) or 'none (look at it)'
 
 def brief(style, request='', projection=None, choices=None, era=None):
-    """the craft.md brief as Markdown, with everything the style decides filled in and the
+    """the references/brief.md brief as Markdown, with everything the style decides filled in and the
     scene-specific parts as TODO prompts; choices (from gaps()) adds section 0"""
     st = styles.get(style)
     r = ROUTE[st['name']]
@@ -952,13 +949,15 @@ def brief(style, request='', projection=None, choices=None, era=None):
     L = []
     L.append('# TODO title (scene brief)\n')
     L.append('Request: %s\n' % (request or 'TODO'))
+    L.append('How to fill it: references/brief.md; each open item names the section to read and the command to run.\n')
     if choices:
         L.append(gaps_md(choices))
     L.append('## 1. Purpose and delivery')
-    L.append('- TODO what it is for, where it will be seen (full screen, thumbnail, README), outputs (MP4, GIF/APNG, page, still).')
+    L.append('- TODO what it is for, where it will be seen (full screen, thumbnail, README), outputs (MP4, GIF/APNG, page, still) '
+             '(see references/brief.md#1-purpose-and-delivery).')
     if st['name'] == 'lofi':
         L.append('- Loop: the engine runs on a 30-tick clock (TICKS = cycle * grand * 30); sprites step at 10, 5 '
-                 'or 2 fps; TODO the loop length (the music length for a stream cover).')
+                 'or 2 fps; TODO the loop length (the music length for a stream cover; see references/drawing.md#motion).')
     else:
         L.append('- Loop: %s frames at %d fps.%s' % (frames or 'TODO', fps,
                  ' Delivered prescaled (screen light); excerpts as APNG, since a GIF bands soft light.'
@@ -973,48 +972,60 @@ def brief(style, request='', projection=None, choices=None, era=None):
     else:
         L.append('- Ramps: `%s`. Palette: %s.' % (', '.join(st['ramp']), st['palette']))
     L.append('- Outline: %s. Dither: %s.' % (st['outline'], (', '.join(st['dither']) + ', ' + st['dither_where']) if st['dither'] else 'none'))
-    L.append('- Learn the grammar only: no characters, places, logos or UI layouts from %s. TODO name anything else to avoid.' % st['ref'])
+    L.append('- Learn the grammar only: no characters, places, logos or UI layouts from %s. TODO name anything else to avoid '
+             '(see references/brief.md#2-style-and-light-regime; run `pixelate style %s`).' % (st['ref'], st['name']))
     L.append('\n## 3. Art direction rules')
     for x in r['rules']:
         L.append('- ' + x)
     L.append('- TODO 3-5 rules for this scene: which silhouettes must read, where rims fall, the built-in imperfections '
-             '(a lean, a sag, a missing plank, a mismatched part).')
+             '(a lean, a sag, a missing plank, a mismatched part) (see references/drawing.md#drawing-objects; run '
+             '`pixelate style %s` for the style\'s rules).' % st['name'])
     L.append('- Every object is drawn in this scene\'s code from the primitives; anything the kit has no primitive for '
              'is a slot map. references/assets has finished examples to study, never to call.')
     L.append('\n## 4. The scene')
     L.append('- Projection: %s. Canvas %dx%d.' % (proj, w, h))
-    L.append('- TODO the subject and how much of the frame it fills; the horizon; the calm areas.')
-    L.append('- TODO the full object list with counts and rough positions (left third, on the ridge, by the door).')
+    L.append('- TODO the subject and how much of the frame it fills; the horizon; the calm areas '
+             '(see references/drawing.md#composition).')
+    L.append('- TODO the full object list with counts and rough positions (left third, on the ridge, by the door) '
+             '(see references/brief.md#4-the-scene; run `pixelate tools TOPIC` for each subject).')
     if st.get('stack'):
-        L.append('- TODO the depth planes: far (hazed), middle (lit), near (flat dark silhouettes that occlude light).')
+        L.append('- TODO the depth planes: far (hazed), middle (lit), near (flat dark silhouettes that occlude light) '
+                 '(see references/drawing.md#composition).')
     L.append('\n## 5. Lived-in details')
-    L.append('- TODO five to ten small, specific things that tell a story; say which change per phase.')
+    L.append('- TODO five to ten small, specific things that tell a story; say which change per phase '
+             '(see references/drawing.md#drawing-objects).')
     L.append('\n## 6. Phases')
-    L.append('- TODO for each phase: the palette by named roles, its signature elements (not a recolour), music if any.')
+    L.append('- TODO for each phase: the palette by named roles, its signature elements (not a recolour), music if any '
+             '(see references/drawing.md#phases and references/drawing.md#palette).')
     L.append('\n## 7. Light list')
     if st['res'] == 'none':
-        L.append('- Every light is drawn: TODO each emitter with its warm slots, the pool shape it casts, its flicker table.')
+        L.append('- Every light is drawn: TODO each emitter with its warm slots, the pool shape it casts, its flicker table '
+                 '(see references/drawing.md#light; run `pixelate tools lamp --style %s`).' % st['name'])
     else:
-        L.append('- TODO each emitter: what, where, colour, radius or width, flicker or pulse, what it lights, what hides it.')
+        L.append('- TODO each emitter: what, where, colour, radius or width, flicker or pulse, what it lights, what hides it '
+                 '(see references/drawing.md#light; run `pixelate tools lamp --style %s`).' % st['name'])
         L.append('- Allowed light ops: %s.' % (', '.join(st['allowed_post']) or 'none'))
     L.append('\n## 8. Motion table' + ('' if st['name'] == 'lofi' or not frames else
                                        ' (%d frames at %d fps)' % (frames, fps)))
     L.append('- Motion: %s at about %d fps; every period divides the loop (anim.check_periods).' % (
         'stepped, hold tables' if st['motion'] == 'stepped' else 'actors move in screen pixels', fps))
-    L.append('- TODO every moving thing with its frame count and rate; keep only a few things moving at once.')
+    L.append('- TODO every moving thing with its frame count and rate; keep only a few things moving at once '
+             '(see references/drawing.md#motion).')
     if frames and st['name'] != 'lofi':
         L.append('- Drifting layers (clouds, fog, water) make whole trips per loop: at %d frames a %d px trip moves '
                  '%.0f px/s; if that is faster than the drift should feel (clouds 15 px/s or less), lengthen the '
                  'loop to a multiple of %d.' % (frames, w, w * fps / frames, frames))
     L.append('\n## 9. Particles')
-    L.append('- TODO kinds, sprite variants, densities, depth layers, paths (hashed spawns, whole trips per loop).')
+    L.append('- TODO kinds, sprite variants, densities, depth layers, paths (hashed spawns, whole trips per loop) '
+             '(see references/drawing.md#motion; run `pixelate tools rain` or the topic for the weather).')
     L.append('\n## 10. Never')
     for x in r['never']:
         L.append('- ' + x + '.')
     banned = [b for b in st['banned_post'] if b not in ('vignette', 'grain', 'scanlines', 'aberration')]
     if banned:
         L.append('- Banned light ops: %s.' % ', '.join(banned))
-    L.append('- TODO anything else this scene must not do.')
+    L.append('- TODO anything else this scene must not do (see references/brief.md#10-never; `pixelate style %s` '
+             'lists the bans).' % st['name'])
     L.append('\n## 11. Technical')
     if E:
         L.append('- %s limits: native %dx%d, at most %d colours on screen%s%s%s. No light layer, no dither the '
@@ -1031,13 +1042,15 @@ def brief(style, request='', projection=None, choices=None, era=None):
     L.append('- Figures: %s, drawn as your own slot maps.' % _as_example(st['figures']))
     L.append('- Budget (`styles.check`): %s.' % _fmt_budget(st['budgets']))
     L.append('- Gate: `pixelate check frame.png --style %s --scale %d` passes every line (redraw until it does)%s; '
-             'frame T equals frame 0; reads at 480 px wide.' % (
+             'frame T equals frame 0; reads at 480 px wide (see references/delivery.md#gate).' % (
                  st['name'], st['scale'], '; `pixelate check SCENE` for the engine scene' if st['name'] == 'lofi' else ''))
-    L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table.')
+    L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
+             '(see references/delivery.md#still and references/delivery.md#animation-plan).')
     L.append('\nTechniques for this style: ' + '; '.join(r['tools']) + '.')
     tt = topic_tools(request, st['name'], proj)
     if tt:
-        L.append('Techniques for this subject:')
+        L.append('Techniques for this subject (more: `pixelate tools TOPIC --style %s`; signatures: '
+                 '`pixelate tools MODULE.func`):' % st['name'])
         L += ['- ' + x + '.' for x in tt]
     L.append('Always: ' + ALWAYS_TOOLS + '.')
     if r['example']:
@@ -1092,17 +1105,18 @@ def short_brief(style, request='', kind='sprite', r=None, era=None):
     g = {x['topic']: x for x in gaps(request, r)} if r else {}
     file = {'palette': 'test.png', 'icons': 'icons.png', 'photo': 'out.png', 'assets': 'SHEET.png',
             'sprite': 'sprite.png', 'music': None}[kind]
-    L = ['# TODO title (short brief: %s)\n' % kind, 'Request: %s\n' % (request or 'TODO')]
+    L = ['# TODO title (short brief: %s)\n' % kind, 'Request: %s\n' % (request or 'TODO'),
+         'How to fill it: references/brief.md#short-brief; each open item names the section to read and the command to run.\n']
     L += ['## 0. Choices to confirm', '',
           'Defaults I picked where the request was open. Say OK to build as written, or change any line.', '',
           '- **intent**: TODO one line on what the user most likely wants but did not say (the feeling, the use, '
-          'the game it is for, what would disappoint them)']
+          'the game it is for, what would disappoint them; see references/brief.md#read-the-intent)']
     if 'style' in g:
         L.append('- **style**: %s' % g['style']['default'])
     size = {'palette': 'about %d colours in `%s` ramps, 4-6 steps per role' % (st['colours'], ', '.join(st['ramp'])),
             'icons': '12 icons at 16x16 on one shared palette, lit from the upper left',
             'photo': 'native %dx%d, %dx nearest to %dx%d, about %d colours' % (w, h, N, w * N, h * N, st['colours']),
-            'assets': 'TODO each sprite or tile with its size and frame count, for TODO the engine',
+            'assets': 'TODO each sprite or tile with its size and frame count, for TODO the engine (see guides/assets.md)',
             'sprite': 'one sprite, %s, one pose facing right' % _as_example(st['figures']),
             'music': 'a seamless 60-120 s loop, calm, about 70-80 bpm'}[kind]
     L.append('- **%s**: %s' % ('length and mood' if kind == 'music' else 'size', size))
@@ -1119,7 +1133,7 @@ def short_brief(style, request='', kind='sprite', r=None, era=None):
     L.append('- Learn the grammar only: no characters, logos or UI from %s.' % st['ref'])
     if kind == 'music':
         L.append('\n## 2. Length and sound')
-        L.append('- TODO the loop length in seconds, the tempo, the instruments, the motif.')
+        L.append('- TODO the loop length in seconds, the tempo, the instruments, the motif (see guides/music.md).')
     else:
         L.append('\n## 2. Palette and size')
         if E:
@@ -1129,38 +1143,44 @@ def short_brief(style, request='', kind='sprite', r=None, era=None):
             L.append('- Ramps `%s` (palette.ramp(style="%s")): %s.' % (', '.join(st['ramp']), st['ramp'][0], st['palette']))
         L.append('- Size: %s.' % size.replace('TODO ', 'TODO: '))
     L.append('\n## 3. The work')
-    L += {'palette': ['- TODO the roles (outline, shadow, mid, light, highlight per material, one accent) and the steps per role.',
+    L += {'palette': ['- TODO the roles (outline, shadow, mid, light, highlight per material, one accent) and the steps per role '
+                      '(see references/drawing.md#palette; run `pixelate style %s`).' % S,
                       '- A palette is judged on a sprite, not as chips: draw one small test sprite with it '
                       '(canvas.Canvas, palette.swatch for the chips).'],
-          'icons': ['- TODO the icon list, one line each: the object and the one shape that tells it apart at 16 px.',
+          'icons': ['- TODO the icon list, one line each: the object and the one shape that tells it apart at 16 px '
+                    '(see references/drawing.md#drawing-objects).',
                     '- One ramp set, one outline rule and one light direction across the set.',
                     '- Each icon is a slot map in code; for a small readable mark, study references/assets/glyphs.py stamp.'],
-          'photo': ['- TODO what the photo shows and what must survive: the subject, the light, the one detail people look for.',
+          'photo': ['- TODO what the photo shows and what must survive: the subject, the light, the one detail people look for '
+                    '(see guides/pixelate.md).',
                     '- First pass `pixelate image IMG -o out.png` (guides/pixelate.md), then fix by hand what it gets '
                     'wrong: the subject\'s edges, orphan pixels, outlines.',
-                    '- A rebuilt, moving scene is a full brief: `route.py "..." --brief --full` with guides/rebuild.md.'],
-          'assets': ['- TODO the list: each sprite or tile, its size, its frames (walk 4-8, idle 2-4).',
+                    '- A rebuilt, moving scene is a full brief: `pixelate route "..." --brief --full` with guides/rebuild.md.'],
+          'assets': ['- TODO the list: each sprite or tile, its size, its frames (walk 4-8, idle 2-4) (see guides/assets.md; '
+                     'run `pixelate tools figures --style %s`).' % S,
                      '- Each sprite is a slot map in code; for a similar finished thing, study references/assets/ '
                      'and draw your own at this size.',
                      '- Tiles seam on every edge pair (canvas.Canvas.tile); export with `pixelate assets PACK` (guides/assets.md).'],
-          'sprite': ['- TODO the subject, its silhouette and the one feature that must read at 1x.',
+          'sprite': ['- TODO the subject, its silhouette and the one feature that must read at 1x '
+                     '(see references/drawing.md#characters; run `pixelate tools figures --style %s`).' % S,
                      '- Drawn as a slot map in code (canvas.Canvas, sprite.spec_edges, sprite.drop_shadow); for a '
                      'similar finished thing, study references/assets/ and draw your own.'],
           'music': ['- Start from `pixelate new music DIR` (guides/music.md).',
-                    '- TODO what changes over the loop, and where the loop seam falls.']}[kind]
+                    '- TODO what changes over the loop, and where the loop seam falls (see guides/music.md).']}[kind]
     tt = topic_tools(request, S)
     if tt and kind != 'music':
-        L.append('- Techniques for this subject:')
+        L.append('- Techniques for this subject (more: `pixelate tools TOPIC --style %s`):' % S)
         L += ['  - ' + x + '.' for x in tt]
     L.append('\n## 4. Gate')
     if kind == 'music':
         L.append('- `pixelate check DIR`, then `pixelate audio DIR loop.wav`: the seam holds below -60 dB.')
     else:
-        L.append('- `pixelate check %s --style %s --scale %d`%s; redraw until every line passes.' % (
+        L.append('- `pixelate check %s --style %s --scale %d`%s; redraw until every line passes '
+                 '(see references/delivery.md#gate).' % (
             file, S, N, ' --pal PALETTE' if kind == 'palette' else ''))
         if E:
             L.append('- `pixelate era %s --era %s`.' % (file, era))
-    L.append('\n## 5. Show the user')
+    L.append('\n## 5. Show the user (see references/delivery.md#still)')
     L.append('- ' + {'palette': 'The chips and the test sprite side by side at 1x and %dx, for go/no-go.' % N,
                      'icons': 'The sheet at 1x and %dx, and one row at the size it will be used, for go/no-go.' % N,
                      'photo': 'The photo and the result side by side at the same size, for go/no-go.',
@@ -1283,7 +1303,7 @@ def main(a):
             print(text)
         return 0
     print('request: %s' % req)
-    print('mode: %s (read %s)%s' % (r['mode'], r['guide'], '' if r['mode'] == 'scene' else ', then a style for the finish'))
+    print('mode: %s (%s is for drawing, step 5)%s' % (r['mode'], r['guide'], '' if r['mode'] == 'scene' else ', then a style for the finish'))
     for i, p in enumerate(r['picks']):
         st = styles.get(p['style'])
         print('\n%d. %s  (score %d, %s, light %s, %dx %dx%d)' % (i + 1, p['style'], p['score'], p['projection'],
@@ -1303,8 +1323,8 @@ def main(a):
     kind = small_kind(req, r)
     if kind:
         print('\na small ask (%s): --brief writes the short brief; add --full for all 11 sections' % kind)
-    print('\nnext: route.py "%s" --brief %s -o brief.md, fill every TODO with the defaults,' % (req, r['picks'][0]['style']))
-    print('      route.py --lint brief.md, then show the user the brief and section 0')
+    print('\nnext: pixelate route "%s" --brief %s -o brief.md, fill every TODO with the defaults,' % (req, r['picks'][0]['style']))
+    print('      pixelate route --lint brief.md, then show the user the brief and section 0')
     return 0
 
 if __name__ == '__main__':

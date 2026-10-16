@@ -14,7 +14,7 @@ Outputs:
 
 ## Workflow
 
-1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/craft.md`, at the density of `examples/lantern-isle/BRIEF.md`) and show it. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief.
+1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `examples/lantern-isle/BRIEF.md`) and show it. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief.
    - **The subject.**
    - **Phases:** 1 to 6, each with a mood, a palette idea, signature elements and its music.
    - **The canvas:**
@@ -26,10 +26,10 @@ Outputs:
 
 2. **Start:** `pixelate new scene my-scene` gives a 2-phase, 240x135 starter that passes every check. Read `references/scene-contract.md` once: files, `SCENE` fields, hooks, engine API.
 
-3. **Palettes** (`palettes.js`): one per phase, with the same slot names. See `guides/palettes.md` and `references/craft.md`.
+3. **Palettes** (`palettes.js`): one per phase, with the same slot names. See `guides/palettes.md` and `references/drawing.md#palette`.
 
 4. **Sprites** (`sprites.js`, `def(name, key, rows)`): draw every object from scratch and hand-place every pixel.
-   - For organic or repeated shapes (terrain, canopies, snow overlays), write Python in `my-scene/art/*.py` with the primitives in `tools/` (`guides/toolkit.md`) and run `pixelate sprites my-scene`.
+   - For organic or repeated shapes (terrain, canopies, snow overlays), write Python in `my-scene/art/*.py` with the primitives in `tools/` (`pixelate tools TOPIC`, `pixelate tools MODULE`) and run `pixelate sprites my-scene`.
    - Finished objects in `references/assets/` (boats, cats, props, particle sprites) are examples to read, never call. Anything the kit lacks is a slot map you write.
 
 5. **Compose one still** (`scene.js` hooks), with nothing moving yet:
@@ -87,7 +87,7 @@ Outputs:
 - **Drifting things make whole trips per loop.** Clouds, mist and swells move by `floor(k2 * span * trips / (TICKS / 2)) mod span`, with the span wider than the frame.
 - **`cycle` must match the phases' natural length** (bars at each tempo plus one transition bar each). `check` prints the right number.
 
-## Summary of the craft (details in references/craft.md)
+## Summary of the craft (details in references/drawing.md)
 
 - **Strict palettes, no blending.** Light is palette swaps, dithered pools and rim pixels.
 - **Hand-placed and asymmetric**, with deliberate imperfections such as a patched tile or a crooked post.

@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """pixelate: one command for everything in pixelate-anything.
 
-  pixelate route "REQUEST" [--brief [STYLE] -o brief.md]   pick a style, expand to a brief  (references/craft.md)
+  pixelate route "REQUEST" [--brief [STYLE] -o brief.md]   pick a style, expand to a brief  (references/brief.md)
   pixelate route --lint brief.md         self-critique a brief before showing it
+  pixelate style --list                  every style, one line each
+  pixelate style NAME                    one style's card: rules, light, budgets, craft limits, techniques, check
+  pixelate tools                         every topic and module of the kit, one line each
+  pixelate tools TOPIC [--style S]       techniques for a subject (rain, 雨, fog, water, small lights)
+  pixelate tools MODULE[.func]           a module's functions with signatures, or one function's docstring
   pixelate image IMG -o OUT [...]        photo or art -> clean pixel art          (guides/pixelate.md)
   pixelate palette extract|ramps|show|js|list ...   palettes                      (guides/palettes.md)
   pixelate assets PACK                   export sprites, sheets, GIFs, tilemaps   (guides/assets.md)
@@ -21,6 +26,9 @@
   pixelate doctor                        check node, ffmpeg, python packages, Chromium
   pixelate mcp                           run the MCP server (stdio) for any MCP client
   pixelate setup [--yes] [--only claude,cursor,codex,gemini]   register MCP + skill with your agents
+
+What each mode needs: image, palette and assets modes need Python with pillow and numpy only;
+scenes add node; video and GIF add ffmpeg; music and the page check add Playwright Chromium.
 """
 import os, pathlib, runpy, shutil, subprocess, sys
 
@@ -28,7 +36,7 @@ TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
 SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
-           'route': 'route.py'}
+           'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py'}
 TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
 
 def run(script, args):

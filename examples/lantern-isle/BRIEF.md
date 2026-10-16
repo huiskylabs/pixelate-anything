@@ -2,7 +2,7 @@
 
 The prompt that produced this scene and its soundtrack almost in one pass. It is the bar for the
 density of a scene brief: every rule, object, detail, palette, motion rate and technical number is
-written down before anything is drawn. See `references/craft.md`, "Write the brief first".
+written down before anything is drawn. See `references/brief.md`, "Write the brief first".
 
 ---
 

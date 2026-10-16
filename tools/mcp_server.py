@@ -22,26 +22,27 @@ except ImportError:                     # mcp 1.x
     from mcp.server.fastmcp import FastMCP as Server, Image
 
 GUIDES = {p.stem: p for p in sorted((KIT / 'guides').glob('*.md'))}
-GUIDES.update({'craft': KIT / 'references' / 'craft.md', 'scene-contract': KIT / 'references' / 'scene-contract.md',
-               'skill': KIT / 'SKILL.md'})
+GUIDES.update({'brief': KIT / 'references' / 'brief.md', 'drawing': KIT / 'references' / 'drawing.md',
+               'delivery': KIT / 'references' / 'delivery.md', 'craft': KIT / 'references' / 'craft.md',
+               'scene-contract': KIT / 'references' / 'scene-contract.md', 'skill': KIT / 'SKILL.md'})
 
-INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents.
-For a photo of a place or a thing, REBUILD it rather than convert it (guide('rebuild')): keep its
-composition, redraw it in a pixel-art projection (side, 3/4 top-down, 2:1 isometric) with
-tools/iso.py inside an asset pack's art/*.py (write_file), and export_assets to see it.
-Modes: rebuild (write_file + export_assets), classic-genre screens under console-era limits
-(guide('eras'), era to check), convert an image (pixelate_image), palettes (palette), sprites/characters/items/tilesets
-(new_project kind=assets, write .px files, export_assets), scenes and animated loops with a
-generative soundtrack (new_project kind=scene, preview_scene, check_scene, build_page,
-render_audio, render_video, render_gif), and music on its own (new_project kind=music, render_audio). Every track goes through check_music
-until it passes, whatever code made it.
-For a new picture or scene, follow the flow: read the user's unstated intent, route_request (a hint,
-not the decision), write_brief and fill it, lint_brief, show the user the brief and its section 0 and
-wait for OK; then draw everything yourself in code, check_frame and redraw until it passes, show one
-still for go/no-go, and only then animate. Small asks (a palette, one sprite) need no full brief.
-Start every task by reading guide(name) for its mode ('pixelate', 'palettes', 'assets', 'scenes',
-'music') and guide('craft') before drawing. Look at every preview image you get back and fix what
-looks wrong before going on: the art is only as good as that loop. Paths are relative to the workspace."""
+INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read only what each step needs.
+1. Read the intent: one line on what the user wants but did not say (guide('brief')).
+2. route_request: ranks styles and names the mode; a hint, not the decision. Read the mode's guide:
+   scenes (+ music), rebuild, eras, assets, music; a quick conversion is pixelate, a palette is palettes.
+3. write_brief (a short brief for a small ask), fill every TODO (each names its section and command),
+   lint_brief until it says ready. style_card(name) prints one style's rules, light, budgets and limits.
+4. Show the user the brief with section 0 and wait for OK.
+5. Draw everything yourself in code (guide('drawing')). kit_tools() lists topics and modules,
+   kit_tools('rain') the techniques for a subject, kit_tools('post.Post.lightmap') one signature.
+   references/assets holds examples to read, never to call.
+6. check_frame and redraw until every line passes (guide('delivery')).
+7. Show one still for go/no-go.
+8. Confirm the animation plan (loop length, what moves, rates), then animate.
+Hard rules: pixel-art projections only (side, 3/4 top-down, 2:1 iso, oblique, military); originals
+only, no existing IP; rebuild a photo rather than convert it; every effect is done in code. Every
+track goes through check_music until it passes. Look at every preview image you get back and fix what
+looks wrong before going on. Paths are relative to the workspace."""
 
 server = Server('pixelate-anything', instructions=INSTRUCTIONS)
 
@@ -117,11 +118,34 @@ def check_music(track: str, style: str = 'any', use: str = 'loop', bpm: float = 
     code, text = cli(*args)
     return [('PASS\n' if code == 0 else 'FAIL\n') + text] + ([thumb(sheet)] if sheet.exists() else [])
 
+@server.tool()
+def style_card(name: str = '') -> str:
+    """One style's card: what it is, when to pick it, the light regime, palette and ramps, outline and
+    dither, canvas and figure sizes, the value budget, the craftcheck limits, its rules, techniques and
+    bans, and the gate command. An empty name lists every style with one line each."""
+    import styles
+    if not name:
+        return styles.listing()
+    try:
+        return styles.card(name)
+    except KeyError as e:
+        return e.args[0]
+
+@server.tool()
+def kit_tools(query: str = '', style: str = '') -> str:
+    """The kit on demand, read from the source. '' lists every topic and module; a topic word (rain,
+    雨, fog, water, lamp: the keywords routing uses) gives its techniques, filtered to `style` if given;
+    a module ('post') gives its functions with signatures and first doc lines; 'post.Post.lightmap'
+    gives one full signature and docstring."""
+    import kit
+    return kit.query(query, style or None)
+
 # ---------------------------------------------------------------- guides and files
 @server.tool()
 def guide(name: str) -> str:
-    """Read a guide. names: rebuild, eras, pixelate, palettes, assets, scenes, music, craft, scene-contract, skill.
-    Read the guide for the task's mode first, and 'craft' before drawing anything."""
+    """Read a guide. names: rebuild, eras, pixelate, palettes, assets, scenes, music, styles, toolkit, brief,
+    drawing, delivery, craft (an index of the last three), scene-contract, skill. Read the guide for the
+    task's mode first, 'brief' to write the brief, 'drawing' before drawing, 'delivery' for the gate."""
     if name not in GUIDES:
         return 'guides: ' + ', '.join(GUIDES)
     return GUIDES[name].read_text()

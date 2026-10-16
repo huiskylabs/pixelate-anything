@@ -8,6 +8,7 @@ usage: route.py "a cosy rainy village at night"            the top 3 styles, wit
        route.py --lint brief.md                            self-critique of a finished brief: what
                                                            is still vague, missing or thin
        route.py --catalog                                  regenerate guides/toolkit.md, every tool
+       route.py --selftest [-v]                            route the regression cases (CASES)
 
     import route
     r = route.route('一个雨夜里温馨的小村庄')
@@ -65,10 +66,11 @@ ROUTE = {
                 'weather; soft glow but still whole pixels',
         projection='side', example='examples/indie/art/rose_squall.py', frames=(120, 30),
         signals=[(6, ['celeste', 'rose squall', '蔚蓝']),
-                 (3, ['pastel', 'pink', 'rose', 'dreamy', 'platformer', 'climb', 'climbing', 'mountain',
-                      '粉', '玫瑰', '梦幻', '平台跳跃', '攀爬', '登山', '山顶']),
-                 (2, ['dusk', 'sunset', 'storm', 'squall', 'wind', 'cliff', 'scarf', 'jump', 'dash', 'cute',
-                      '黄昏', '晚霞', '暴风', '风暴', '悬崖', '围巾', '冲刺', '可爱'])],
+                 (3, ['pastel', 'pink', 'rose', 'dreamy', 'platformer', 'kite', 'glide', 'gliding', 'sea of clouds',
+                      '粉', '玫瑰', '梦幻', '平台跳跃', '风筝', '滑翔', '云海']),
+                 (2, ['dusk', 'sunset', 'sunrise', 'storm', 'squall', 'wind', 'cliff', 'scarf', 'jump', 'dash', 'cute',
+                      'climb', 'climbing', 'mountain', 'summit',
+                      '黄昏', '晚霞', '日出', '朝霞', '暴风', '风暴', '悬崖', '围巾', '冲刺', '可爱', '攀爬', '登山', '山顶'])],
         rules=['All hues inside one window (about 245-350); the floor is lifted, no scenery below L .37.',
                'Sky in flat undithered strata locked by tapered wisps; boundaries walk in flat runs.',
                'Rock is a ledged, frayed silhouette with a lit rim and stacked flake dashes, no outline.',
@@ -161,6 +163,7 @@ ROUTE = {
         projection='side', example=None, frames=(96, 12),
         signals=[(6, ['owlboy']),
                  (3, ['floating island', 'sky island', 'monument', 'carved', 'statue', 'painterly', 'illustration',
+                      'viaduct', 'aqueduct', 'gorge', 'canyon', 'stone arch', '高架桥', '渡槽', '峡谷', '石拱',
                       '浮空岛', '天空岛', '纪念碑', '雕刻', '雕像', '插画']),
                  (2, ['sky', 'clouds', 'detailed', 'ornate', 'stone', 'vines', 'roots', 'flying',
                       '天空', '细致', '华丽', '石头', '藤', '根', '飞', 'dragon', 'giant', 'colossus', 'castle', 'airship',
@@ -210,6 +213,7 @@ ROUTE = {
         projection='side', example=None, frames=(192, 12),
         signals=[(6, ['sworcery', 'superbrothers']),
                  (3, ['silhouette', 'backlit', 'contre-jour', 'fog', 'mist', 'cinematic', 'pillar of light', 'ritual',
+                      'observatory', 'light pours', 'beam of light', 'midnight', 'vigil', '天文台', '午夜', '守夜',
                       'procession', 'pilgrim', 'shrine', '剪影', '逆光', '雾', '电影感', '光柱', '仪式', '朝圣', '神社']),
                  (2, ['mysterious', 'forest', 'moon', 'moonlight', 'night', 'standing stone', 'eerie', 'solemn',
                       '神秘', '森林', '月', '夜', '立石', '肃穆'])],
@@ -226,12 +230,12 @@ MODES = [
     ('rebuild', 3, ['photo', 'picture of', 'my photo', 'aerial', 'rebuild', 'this image', 'from this',
                     '照片', '这张图', '航拍', '重建']),
     ('era', 3, ['nes', 'game boy', 'gameboy', '8-bit', '8 bit', '16-bit', '16 bit', 'snes', 'genesis', 'mega drive',
-                'gba', 'pico-8', 'pico8', '红白机', '8位', '16位']),
+                'gba', 'pico-8', 'pico8', '红白机', '8位', '16位', '掌机', '四色绿', '超任', 'famicom']),
     ('assets', 2, ['sprite sheet', 'spritesheet', 'tileset', 'character sheet', 'icons', 'items', 'walk cycle',
                    '精灵表', '图块', '图标', '道具', '行走']),
     ('music', 3, ['soundtrack only', 'just music', 'music loop', 'chiptune', '只要音乐', '配乐']),
 ]
-ERA_WORDS = [('gameboy', ['game boy', 'gameboy', 'gb style', 'dmg']),
+ERA_WORDS = [('gameboy', ['game boy', 'gameboy', 'gb style', 'dmg', '掌机', '四色绿', 'four shades of green']),
              ('pico-8', ['pico-8', 'pico8']),
              ('nes', ['nes', 'famicom', '8-bit', '8 bit', '红白机', '8位', 'fc']),
              ('genesis', ['genesis', 'mega drive', 'megadrive', '世嘉']),
@@ -284,7 +288,7 @@ def route(request, n=3):
     for name in scores:
         if dark and name in DARK_STYLES:
             scores[name][0] += 1
-        if dark and name in BRIGHT_STYLES and name != 'pastel-cell':
+        if dark and name in BRIGHT_STYLES:
             scores[name][0] -= 2
         if bright and name in DARK_STYLES:
             scores[name][0] -= 2
@@ -818,9 +822,80 @@ def brief(style, request='', projection=None, choices=None, era=None):
         L.append('Closest example in the repo: %s.' % r['example'])
     return '\n'.join(L) + '\n'
 
+# ---------------------------------------------------------------- regression cases
+# (request, mode, acceptable top styles or None). The showcase video's prompts are here so the video
+# can be reproduced from its one-liners; add a case whenever a request routes wrong.
+CASES = [
+    ('Rebuild this photo of an old stone viaduct over a misty gorge as pixel art. Keep the angle, and let a little '
+     'red train cross it.', 'rebuild', {'illustrated'}),
+    ('把这张雾中山谷石拱高架桥的照片重建成像素画，保持角度，让一列小红火车开过去。', 'rebuild', {'illustrated'}),
+    ('A kid on a paper kite glides over a pink sea of clouds at sunrise, past little floating islands.', 'scene',
+     {'pastel-cell'}),
+    ('日出时分，一个小孩抓着纸风筝滑过一片粉色云海，经过几座漂浮的小岛。', 'scene', {'pastel-cell'}),
+    ('Midnight on a mountain top. Light pours up out of a cracked-open observatory, and pilgrims with paper lanterns '
+     'climb the steps.', 'scene', {'contre-jour'}),
+    ('午夜山顶，一座裂开的天文台里涌出一道光柱，提着纸灯的朝圣者正沿石阶往上走。', 'scene', {'contre-jour'}),
+    ('A busy canal market at noon in isometric. A swing bridge turns to let a tiny tram through, and there are people '
+     'everywhere.', 'scene', {'sticker-iso'}),
+    ('正午热闹的运河集市，等距视角。一座旋转桥转开让一辆小电车通过，到处都是小人。', 'scene', {'sticker-iso'}),
+    ('A tiny noodle shop on a snowy night, seen from above. Warm lamps, steam rising, a cat by the window.', 'scene',
+     {'cosy-lightmap'}),
+    ('下雪的夜里，一家小面馆，从上往下看。暖黄的灯，热气往上冒，窗边趴着一只猫。', 'scene', {'cosy-lightmap'}),
+    ('A Game Boy style lighthouse on a stormy night. Four shades of green, the beam sweeping over the waves.', 'era',
+     None),
+    ('掌机四色绿风格，暴风雨夜里的一座灯塔，光束扫过海浪。', 'era', None),
+    ('A neon city at night, rain, a lone samurai under a ramen stall sign.', 'scene', {'neon-noir'}),
+    ('Ancient ruins at dusk. A lone wanderer walks past, and glowing sigils wake up one by one.', 'scene',
+     {'native-glow'}),
+    ('把这张照片转成像素画', 'rebuild', None), ('turn my photo of the beach into pixel art', 'rebuild', None),
+    ('make it look like a game boy game', 'era', None), ('SNES style castle', 'era', None),
+    ('红白机风格的森林关卡', 'era', None), ('pico-8 style beach', 'era', None),
+    ('a sprite sheet for a knight walk cycle', 'assets', None), ('a tileset for a forest', 'assets', None),
+    ('游戏道具图标', 'assets', None), ('a chiptune music loop', 'music', None), ('只要音乐', 'music', None),
+    ('make a pixel island', 'scene', {'lofi'}), ('做一个像素小岛', 'scene', {'lofi'}),
+    ('lofi study music video with a cat at a window', 'scene', {'lofi'}),
+    ('a windy mountain summit, celeste vibes', 'scene', {'pastel-cell'}),
+    ('a lone wanderer in glowing ancient ruins', 'scene', {'native-glow'}),
+    ('a sunny jrpg harbour town', 'scene', {'hd-overworld'}),
+    ('metal slug style tank battle', 'scene', {'arcade'}), ('soldiers and explosions', 'scene', {'arcade'}),
+    ('mechs fighting on a grid, into the breach', 'scene', {'tactics'}),
+    ('a turn-based battle map', 'scene', {'tactics'}), ('an isometric castle siege', 'scene', {'tactics'}),
+    ('an isometric city block with tiny people', 'scene', {'sticker-iso'}),
+    ('a busy japanese street market', 'scene', {'sticker-iso'}),
+    ('一个热闹的中国古镇夜市', 'scene', {'sticker-iso'}),
+    ('a giant stone monument with an airship', 'scene', {'illustrated'}),
+    ('owlboy style floating island', 'scene', {'illustrated'}),
+    ('a samurai in a neon alley in the rain', 'scene', {'neon-noir'}), ('赛博朋克霓虹雨夜', 'scene', {'neon-noir'}),
+    ('一个赛博朋克雨夜的小巷，有个武士', 'scene', {'neon-noir'}),
+    ('a cosy farm at night', 'scene', {'cosy-lightmap'}), ('矿洞里的油灯', 'scene', {'cosy-lightmap'}),
+    ('a cosy mine with lanterns and a slime', 'scene', {'cosy-lightmap'}),
+    ('雨夜里温馨的小村庄', 'scene', {'cosy-lightmap'}),
+    ('a backlit forest ritual in fog', 'scene', {'contre-jour'}),
+    ('sword and sworcery style mountain', 'scene', {'contre-jour'}), ('雾中的森林剪影', 'scene', {'contre-jour'}),
+    ('一个夜晚的山顶天文台, 有雾和光柱', 'scene', {'contre-jour'}),
+    ('a lighthouse in a storm', 'scene', {'lofi', 'pastel-cell', 'contre-jour'}),
+    ('a cosy coffee shop interior in the morning', 'scene', {'lofi', 'cosy-lightmap'}),
+    ('a sunny harbour town with boats and gulls', 'scene', {'hd-overworld', 'sticker-iso'}),
+]
+
+def selftest(verbose=False):
+    """-> number of cases that route wrong (printed)"""
+    bad = 0
+    for q, mode, ok in CASES:
+        r = route(q)
+        top = r['picks'][0]['style']
+        wrong = r['mode'] != mode or (ok is not None and top not in ok)
+        bad += wrong
+        if wrong or verbose:
+            print('%s %-7s %-14s %s' % ('XX' if wrong else '  ', r['mode'], top, q[:70]))
+    print('%d/%d cases route as expected' % (len(CASES) - bad, len(CASES)))
+    return bad
+
 def main(a):
     if not a or a[0] in ('-h', '--help'):
         print(__doc__); return 1
+    if a[0] == '--selftest':
+        return 1 if selftest('-v' in a) else 0
     if a[0] == '--catalog':
         dest = pathlib.Path(__file__).resolve().parent.parent / 'guides' / 'toolkit.md'
         dest.write_text(catalog()); print('wrote', dest)

@@ -139,6 +139,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
   - Examples: a cat on a sill, a mug on the rail, laundry, firewood, boots by the door, a worn path, a kite, a rake, pumpkins, a wreath.
   - Three to six small props per phase say more than one big effect.
 - **Asymmetry and hand placement.** Pick coordinates yourself. Spread things unevenly in clusters, and let nothing line up by accident.
+- **No tool for it? Build it in code anyway.** The kit's functions are shortcuts, not the limit. Anything the scene needs (a lobster pot, a kite, a tram, a cat in a pose no function has) is a slot map you write: a silhouette from `canvas.Canvas` shapes or a hand-typed grid, the material's ramp, an outline mode, a lit edge on the light side, then the same checks as everything else (reads at 1x, clean clusters, no orphan pixels). Name it in the brief as "slot map" with its size and parts. If the same object keeps coming back across scenes, that is when it becomes a tool.
 
 ## Characters
 

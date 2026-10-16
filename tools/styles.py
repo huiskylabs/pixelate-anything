@@ -218,7 +218,7 @@ STYLES = {
         # L>0.8 .001-.009, median_L .22-.31, median_C .032-.085. The key (L<0.3, median_L) is left out: lofi
         # covers day scenes too; the rules kept are the style's own (no pure black, rare highlights, low chroma)
         motion='stepped', fps=10, scale=6, size=(320, 180), colours=60,
-        figures='sprite-sheet characters'),
+        figures='10-14 px characters, drawn as your own slot maps (study references/assets/figures.py lofi)'),
 }
 ALIASES = {'01': 'contre-jour', '02': 'pastel-cell', '03': 'native-glow', '04': 'hd-overworld', '05': 'arcade',
            '06': 'tactics', '07': 'sticker-iso', '08': 'illustrated', '09': 'neon-noir', '10': 'cosy-lightmap',

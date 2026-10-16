@@ -111,9 +111,10 @@ For each: a palette written as named roles ("misty teal sky, sage canopy, blosso
 windows"), its signature elements (things only it has, not a recolour), and its music if there is
 any. See [drawing.md#phases](drawing.md#phases) and [drawing.md#palette](drawing.md#palette).
 For music, give each phase a style (lofi, chiptune, ambient), a tempo, a key and its lead
-instrument; that is all the brief needs. A phase lasts `cycle` seconds (bars at its tempo plus one
-transition bar), one pass through all phases is `cycle x phases`, and `grand` repeats that pass;
-the picture loop is `TICKS = cycle x grand x 30`. The music itself is written at step 5
+instrument; that is all the brief needs. `cycle` is one pass through all
+phases in seconds: each phase's bars at its own tempo plus one transition bar, summed, so phases
+may differ in tempo and length (`pixelate check SCENE` prints the right number). `grand` is how
+many passes make the delivered loop, usually 1, and the picture loop is `TICKS = cycle x grand x 30`. The music itself is written at step 5
 ([guides/music.md](../guides/music.md)).
 
 ### 7. Light list

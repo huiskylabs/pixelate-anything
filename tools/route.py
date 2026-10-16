@@ -396,7 +396,7 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         'drifting banks that wrap seamlessly (anim.wrap_offset, or canvas.loop_dissolve in lofi only)']),
     (['sea', 'ocean', 'lake', 'river', 'stream', 'harbour', 'harbor', 'port', 'coast', 'beach', 'waterfall', 'pond',
       'canal', 'boat', 'ship', 'dock', 'pier', '海', '湖', '河', '溪', '港', '海岸', '沙滩', '瀑布', '池塘', '运河', '船',
-      '码头'], 'water', [
+      '码头', 'island', 'islands', 'islet', 'isle', '岛', '小岛', '海岛'], 'water', [
         'sea in hard bands by distance from land (water.depth_bands)',
         'dashed foam rings where things stand in water (water.foam_rings)',
         'reflections of hulls, posts and lights only (water.reflect)', 'still basins and falls (water.pool, water.waterfall)',

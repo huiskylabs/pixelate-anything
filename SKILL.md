@@ -9,13 +9,13 @@ Pixel art that looks hand-made, drawn from scratch in code. Run `pixelate` (`<sk
 
 ## Steps
 
-Read only what each step names.
+Copy these 8 steps into your todo list first. A step you skip stays there as `skip: <reason>`. Read only what each step names.
 
 1. **Read the intent.** One line on what the user wants but didn't say. Read `references/brief.md#read-the-intent`.
-2. **Route as a hint.** Run `pixelate route "REQUEST"`. The mode's guide (table below) is for step 5; the brief doesn't need it.
-3. **Expand into a brief** (a short brief for a small ask; `--full` forces all 11 sections). Run `pixelate route "REQUEST" --brief [STYLE] -o brief.md` (STYLE defaults to the top pick), fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md` and `examples/lantern-isle/BRIEF.md` (the bar); each TODO names the `references/drawing.md` section and command it needs, read just those. The brief lists techniques for the subjects the request names; run `pixelate tools TOPIC` only for a subject it lacks.
+2. **Route as a hint, in the same call as the brief.** Run `pixelate route "REQUEST" --brief [STYLE] -o brief.md` (a short brief for a small ask; `--full` forces all 11 sections). Section 0 shows the picked style, the runners-up and the defaults; if your intent read disagrees, rerun with that STYLE. Plain `pixelate route "REQUEST"` only when you want to compare styles first.
+3. **Expand into a brief.** Fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md` and `examples/lantern-isle/BRIEF.md` (the bar); each TODO names the `references/drawing.md` section and command it needs, read just those. The brief lists techniques for the subjects the request names; run `pixelate tools TOPIC` only for a subject it lacks.
 4. **The user confirms the brief.** Read `references/brief.md#confirm`.
-5. **Draw everything from scratch in code.** Run `pixelate tools TOPIC` or `pixelate tools MODULE`. Read the `references/drawing.md` section for what you draw.
+5. **Draw everything from scratch in code.** Read the mode's guide (table below), run `pixelate tools TOPIC` or `pixelate tools MODULE`, and read the `references/drawing.md` section for what you draw.
 6. **Pass the gate.** Run `pixelate check FRAME.png --style S --scale N`; redraw until every line passes. Read `references/delivery.md#gate`.
 7. **One still to the user** for go/no-go. Read `references/delivery.md#still`.
 8. **Confirm the animation plan, then animate.** Read `references/delivery.md#animation-plan`.
@@ -24,13 +24,13 @@ Read only what each step names.
 
 ## Modes
 
-| mode | the person wants | guide |
-|---|---|---|
-| scene | a still or an animated loop, a lofi cover | `guides/scenes.md` (+ `guides/music.md`) |
-| rebuild | a photo or place as pixel art, an iso city | `guides/rebuild.md` |
-| era | an 8-bit, Game Boy or 16-bit screen | `guides/eras.md` |
-| assets | sprites, a character, items, icons, tiles | `guides/assets.md` |
-| music | a lofi, chiptune or ambient loop | `guides/music.md` |
+| mode | the person wants | not this when | guide |
+|---|---|---|---|
+| scene | a still or an animated loop, a lofi cover, a place with no photo | they give a photo or name a real place to rebuild | `guides/scenes.md` (+ `guides/music.md`) |
+| rebuild | a photo or a real place as pixel art, an iso city | it's an invented place (scene) | `guides/rebuild.md` |
+| era | a screen that obeys a console's limits (8-bit, Game Boy, 16-bit) | the era is only a look, no hard limits (scene with a style) | `guides/eras.md` |
+| assets | sprites, a character, items, icons, tiles to reuse | the figure is part of one scene (scene) | `guides/assets.md` |
+| music | a lofi, chiptune or ambient loop alone | it scores a scene (scene + `guides/music.md`) | `guides/music.md` |
 
 A quick image conversion: `guides/pixelate.md`. A palette: `guides/palettes.md`.
 

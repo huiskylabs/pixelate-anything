@@ -94,7 +94,7 @@ async def main(scene, out):
         tmp.unlink()
     print('wrote', out, '(%d s)' % loop)
     if db > -60:
-        print('WARNING: the loop is not seamless; see references/music.md (continuous sources must fit the loop)')
+        print('WARNING: the loop is not seamless; see guides/music.md (continuous sources must fit the loop)')
         sys.exit(2)
 
 if __name__ == '__main__':

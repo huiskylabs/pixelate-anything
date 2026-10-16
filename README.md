@@ -78,12 +78,15 @@ pixelate new assets my-pack && pixelate assets my-pack
 pixelate new scene my-scene && pixelate shot my-scene 10 40 --grid && pixelate check my-scene --page
 pixelate audio my-scene loop.wav && pixelate video my-scene out.mp4 --audio loop.wav
 pixelate new music theme && pixelate audio theme theme.ogg
+pixelate style --list && pixelate style lofi        # every style, then one style's card
+pixelate tools rain && pixelate tools post.Post.lightmap   # the kit on demand: a topic, a signature
 ```
 
 ## MCP tools
 
 The server's tools:
 - **Guides and projects:** `guide`, `new_project`.
+- **Styles and the kit on demand:** `style_card`, `kit_tools` (the same as `pixelate style NAME` and `pixelate tools [QUERY]`).
 - **Files:** `write_file`, `read_file`, `list_files`. Writes stay inside the workspace.
 - **Image, palette, assets:** `pixelate_image`, `palette`, `export_assets`, `generate_sprites`.
 - **Scenes and output:** `preview_scene`, `check_scene`, `build_page`, `render_audio`, `render_video`, `render_gif`.
@@ -94,9 +97,9 @@ Tools that make pictures return them as images, so the agent can judge its own w
 
 | path | what |
 |---|---|
-| `SKILL.md` | entry point: picks the mode, points to its guide |
+| `SKILL.md` | lean entry point: the eight steps, each naming one command and one file to read |
 | `guides/` | one guide per mode: rebuild, eras, pixelate, palettes, assets, scenes, music |
-| `references/` | craft rules for a hand-made look; the scene engine API |
+| `references/` | `brief.md` (intent to approved brief), `drawing.md` (how to draw), `delivery.md` (gate, still, animation plan); the scene engine API |
 | `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: projections and boxes; `sdf.py`: curved solids) |
 | `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
 | `templates/` | `scene`, `music` and `assets` starting points |

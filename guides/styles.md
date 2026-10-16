@@ -6,9 +6,14 @@ how outlines work, what the numbers of a finished frame look like. Each preset i
 style instead of re-deciding all of it. The presets describe techniques and numbers only. The
 art you make with them is your own.
 
+This guide holds the concepts and how to choose. Each style's own detail (its rules, light regime,
+ramps, outline, value budget, craft limits, techniques, figure sizes and gate command) is printed
+by one command:
+
 ```
-python3 tools/styles.py                      list the presets
-python3 tools/styles.py neon-noir            one preset in full
+pixelate style --list                        every preset, one line each
+pixelate style neon-noir                     one preset's card
+python3 tools/styles.py describe neon-noir   the raw preset data
 pixelate check out@5x.png --style neon-noir --scale 5      the gate on a delivered frame
 python3 tools/stats.py frame.png --style neon-noir         the numbers behind the check
 python3 tools/palette.py styles -o ramps     every ramp style as a swatch sheet
@@ -45,7 +50,7 @@ signal (subject, mood and key, time and weather, what it is for, a named referen
 example), adjusts for dark or bright words and a stated projection, and returns the top three
 with reasons. It also names the mode, so a photo goes to the rebuild guide and "NES" to the era
 guide first. With `--brief` it writes the pre-filled brief; with `--lint` it critiques a finished
-one. The full loop is in `references/craft.md`, "From one line to a brief".
+one. The full loop is in [references/brief.md](../references/brief.md).
 
 | Request sounds like | Style | Light | Projection | Closest example |
 |---|---|---|---|---|
@@ -66,8 +71,8 @@ one. The full loop is in `references/craft.md`, "From one line to a brief".
 
 When nothing scores, the router picks `lofi`, the toolkit's own look. The router matches
 keywords, so treat it as a proposal: weigh it against what the user most likely means, answer
-the questions below, and say which style you chose and why. For the tools a subject needs, see
-`guides/toolkit.md`.
+the questions below, and say which style you chose and why. For the tools a subject needs, run
+`pixelate tools TOPIC --style S` ([toolkit.md](toolkit.md) says how to query the kit).
 
 ## Picking a style
 
@@ -92,24 +97,10 @@ the questions below, and say which style you chose and why. For the tools a subj
 
 ## The presets
 
-Columns:
-- **res**: where the light lives (see the two-layer rule).
-- **ramp**: the `palette.ramp(style=...)` to build materials with.
-- **outline**: the outline mode (modes are listed after the table).
-
-| preset | reference | res, blend | ramp | dither | outline | scale, size |
-|---|---|---|---|---|---|---|
-| `contre-jour` | 01 Sword & Sworcery | screen, screen between depth planes | `ramp_between` (navy to rose through grey), `haze_levels` | none | none, 1 px rims | 3x 640x360 |
-| `pastel-cell` | 02 Celeste | native, screen (bloom from cloud masks only) | `window` + `grade(hue_window, floor_L)` | none | actors only, dark violet | 6x 320x180 |
-| `native-glow` | 03 Hyper Light Drifter | native, add | `families` + `drift` | none | none | 4x 480x270 |
-| `hd-overworld` | 04 Sea of Stars | native, lerp (clouds at an altitude) | `rise` | checker inside clouds only | per class, tinted near-blacks | 3x 640x360 |
-| `arcade` | 05 Metal Slug 3 | none (palette steps) | `arcade` for actors, flat cold `lofi` for the world | checker on HUD gauges only | own darkest step | 4x 304x224 |
-| `tactics` | 06 Into the Breach | none | `arch` + `neutral_ramp` | none | black, white spec strokes | 2x 640x360 |
-| `sticker-iso` | 07 Freitas iso | none, no shadows | `flat` + neutral ladder | none | full black silhouette | 4x 600x600 |
-| `illustrated` | 08 Owlboy | none (water is a palette glaze) | `living` + `haze` | checker wear on stone | selective | 2x 640x360 |
-| `neon-noir` | 09 Katana ZERO | native, multiply wall wash + add outer glow | `lit` | checker inside paintings only | none, warm lamp rim | 5x 384x216 |
-| `cosy-lightmap` | 10 Stardew mine | screen, multiply lamp map | `plum` + `toy` | checker on wall crowns | per part, shared plum | 4x 480x270 |
-| `lofi` | this repo's lantern-isle | none | `lofi` (the default `ramp`) | bayer4 gradients | own | 6x 320x180 |
+There are eleven: `contre-jour`, `pastel-cell`, `native-glow`, `hd-overworld`, `arcade`, `tactics`,
+`sticker-iso`, `illustrated`, `neon-noir`, `cosy-lightmap` and `lofi`. `pixelate style NAME` prints
+one preset's card: reference, res and blend, ramps, dither, outline, scale and size, budget and
+craft limits.
 
 Outline modes:
 - `none`: no outline.
@@ -121,7 +112,7 @@ Outline modes:
 
 Most scenery in most styles is not outlined: rims and seams separate the forms.
 
-Every preset also lists:
+Every preset also lists (all on its card):
 - `allowed_post` and `banned_post`: the `post.Post` ops the style may and may not use.
 - `motion`: `stepped` (hold tables, 2-12 fps) for every style except `cosy-lightmap`, whose actors move in screen pixels.
 - `fps`, a rough authored colour count, figure sizes.
@@ -172,20 +163,7 @@ More tools:
 
 ## Budgets
 
-The references keep their numbers tight, and the numbers are easy to break. `stats.budget(frame_1x, style)` returns the rules a frame breaks:
-
-| style | rules (fractions of the frame) |
-|---|---|
-| `contre-jour` | at least 55% of pixels below L .25; at most 2% above L .6 and 0.3% above L .75; at most 2% above C .08 |
-| `pastel-cell` | at least 97% of coloured pixels in hue 240-360; nothing below L .35; median L at least .6 |
-| `native-glow` | at least half the pixels in L .2-.4; at most 5% at L .7 or above; black only in the void |
-| `hd-overworld` | median C .025-.06; at most 10% above L .8 |
-| `arcade` | at least 45% below L .25; at most 7% above L .75. With masks: the actor's median C at least .06, the world's at most .03, actor detail at least 1.8x the world's |
-| `tactics` | at most 2.5% above C .08; at least 70% below L .3 |
-| `sticker-iso` | 8-30% exact black; at least 15% above L .7 |
-| `illustrated` | at most 1% below L .25 and 1.5% above L .85. With masks: the environment stays in L .30-.78 |
-| `neon-noir` | at most 1.5% above C .10; at least 15% exact black |
-| `cosy-lightmap` | 35-65% below L .1; at most 0.6% above L .8 |
+The references keep their numbers tight, and the numbers are easy to break. `stats.budget(frame_1x, style)` returns the rules a frame breaks. Each style's rules, in numbers and in words, are on its card (`pixelate style NAME`, "Value budget"), next to its craft limits (`craftcheck.CRAFT`).
 
 Each reference passes its own budget when measured on its native frame.
 
@@ -206,7 +184,7 @@ pixelate check FRAME.png --style S --scale N [--pal palette.json] [--pre preligh
                [--actor actor_mask.png] [--used op,op] [--intent mask.png]
 ```
 
-1. **Budget.** Every rule of the style's numeric budget (the table above).
+1. **Budget.** Every rule of the style's numeric budget (on its card).
 2. **Native cells** (`none` and `native` styles). Every N x N cell is flat (`stats.native_cells`).
 3. **Post ops.** Each op in `--used` is one the style allows. Screen styles take their light only from the `post.py` calls the scene lists.
 4. **The pixel layer.** `--pre` is the frame before any light (the frame itself for pixel-only styles); with `--pal` it must have no off-palette pixels (`stats.palette_subset`).
@@ -226,8 +204,5 @@ Pixel-only and native styles export as before.
 
 ## Eras
 
-`tools/era.py` holds console limits. `neogeo` checks one layer at a time:
-- `--layer sprite`: every 16x16 tile uses at most 15 colours plus transparent.
-- `--layer fix` (the HUD): 8x8 tiles.
-
-Use it with `arcade`: render the actor and FX layers separately and check each one.
+`tools/era.py` holds console limits (`guides/eras.md`). `arcade` pairs with the `neogeo` era, checked
+one layer at a time; its card has the details.

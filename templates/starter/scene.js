@@ -1,6 +1,6 @@
 /* ==========================================================================
    Hilltop Cabin: composition and the engine hooks.
-   Rules that keep it looping and hand-made (see references/craft.md):
+   Rules that keep it looping and hand-made (see references/drawing.md):
    - everything is a function of the tick k (30 Hz); no Math.random, no state
    - every animation period divides the picture loop (TICKS = 3600 here):
      k-periods like 30, 45, 60, 90, 120...; particle periods (15 Hz) divide 1800

@@ -869,7 +869,7 @@ def stipple(c, mask, ramp, base=2, density=0.35, seed=5, light=(-1, -1), depth=N
         stipple_field(c, m & np.asarray(depth, bool), -1, 0.5, seed + 2, steps=steps)
 
 def clumps(c, cx, cy, r, ramp, lobes=9, seed=4, steps=7, light=(-1, -1), squash=0.8, holes=None):
-    """a canopy of overlapping lobes (craft.md): each lobe has a lit upper rim, a mid body and a
+    """a canopy of overlapping lobes (references/drawing.md): each lobe has a lit upper rim, a mid body and a
     dark underside; lobes further back are a step darker. Returns the canopy mask."""
     H, W = c.H, c.W
     yy, xx = np.mgrid[0:H, 0:W] + 0.5

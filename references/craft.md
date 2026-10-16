@@ -182,6 +182,9 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Failure checklist (look at shots at zoom 3-4 for each)
 
+The gate measures most of these: `pixelate check FRAME.png --style S --scale N` (add `--pal`, `--pre`, `--actor`, `--used`) must print ALL PASS before a frame is final; engine scenes also run `pixelate check SCENE`. The rest is judged by eye.
+
+
 - [ ] Any colour outside the palette, or blur in the pixel layer? There should be none: light belongs in the light layer, and only in styles that have one.
 - [ ] Sky or sea reads as stripes: widen the dither transitions, or walk the strata boundaries.
 - [ ] A canopy reads as a ball, a roof as a brick wall, rock as noise: redraw with clumps, offset courses, shaped cells.
@@ -190,6 +193,6 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 - [ ] Too busy: cut particles and motion.
 - [ ] Subject too small, or empty half-frame: recompose.
 - [ ] A phase only looks like a recolour: add signature elements.
-- [ ] The frame breaks its style's budget: `python3 tools/styles.py STYLE frame.png --scale S`.
+- [ ] The frame breaks its style's budget or craft limits (orphans, jaggies, stripes, doubled outlines, pillow shading, clusters): `pixelate check frame.png --style STYLE --scale S`.
 - [ ] The seam jumps at loop end: `pixelate check` flags it in engine scenes; in Python scenes compare `frame(T)` with `frame(0)`.
 - [ ] The brief has a section you skipped: go back and write it.

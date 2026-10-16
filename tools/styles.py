@@ -188,7 +188,11 @@ STYLES = {
         palette='40-80 slots over several moods (palettes.js)',
         allowed_post=(),
         banned_post=_SOFT + _FILTERS,
-        budgets={},
+        budgets={'L<0.1': (None, 0.01), 'black': (None, 0.001), 'L>=0.7': (None, 0.04),
+                 'L>0.8': (None, 0.02), 'median_C': (0.02, 0.1)},
+        # Lantern Isle, 13 frames over the four seasons: L<0.1 0, black 0, L<0.3 .45-.76, L>=0.7 .003-.020,
+        # L>0.8 .001-.009, median_L .22-.31, median_C .032-.085. The key (L<0.3, median_L) is left out: lofi
+        # covers day scenes too; the rules kept are the style's own (no pure black, rare highlights, low chroma)
         motion='stepped', fps=10, scale=6, size=(320, 180), colours=60,
         figures='sprite-sheet characters'),
 }

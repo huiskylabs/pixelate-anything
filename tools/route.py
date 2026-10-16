@@ -338,12 +338,12 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (n
     # conditions: 'lofi' the JS-engine style, 'iso' / 'topdown' / 'side' projection, 'post:OP' the style allows that light op,
     # 'soft' the style has a light layer (alpha is fine), 'strict' it has none (opaque slots only)
     (['rain', 'storm', 'wet', 'puddle', '雨', '暴风', '湿', '水坑'], 'rain and wet', [
-        'fx.rain_cells (opaque streaks in palette slots)', 'fx.rain_splashes (crowns where those streaks land)', 'fx.splash_field', 'fx.ripple / fx.ripples (puddle rings)', 'fx.drip', 'texture.wet_streaks (speculars on up-facing edges)', ('particles.drizzle (lofi engine tables)', 'lofi'),
+        'fx.rain_cells (opaque streaks in palette slots)', 'fx.rain_splashes (crowns where those streaks land)', 'fx.splash_field', 'fx.ripple / fx.ripples (puddle rings)', 'fx.drip', 'texture.wet_streaks (speculars on up-facing edges)', ('draw it yourself; example: references/assets/particles.py drizzle (lofi engine tables)', 'lofi'),
         'water.reflect (puddles)', ('fx.light_streaks (alpha streaks with a stepped tail)', 'soft'),
         ('Post.rain (screen-res hairlines)', 'post:rain')]),
     (['snow', 'winter', 'ice', '雪', '冬', '冰'], 'snow and ice', [
         'texture.speckle (flakes on dark)', 'texture.stipple (drifts)', 'sky.strata (a flat winter sky)',
-        ('particles.snow (lofi engine tables)', 'lofi')]),
+        ('draw it yourself; example: references/assets/particles.py snow (lofi engine tables)', 'lofi')]),
     (['fog', 'mist', 'haze', '雾', '霭'], 'fog', [
         'palette.haze and haze_levels per depth plane', ('Post.fog', 'post:fog'),
         'canvas.wrap_offset for drifting banks (canvas.loop_dissolve in lofi only)']),
@@ -352,14 +352,14 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (n
       '码头'], 'water', [
         'water.depth_bands (sea by distance from land)', 'water.foam_rings (where things stand in water)',
         'water.reflect', 'water.pool (still basins)', 'water.waterfall', ('post.over (a translucent glaze)', 'post:over'),
-        'props.boat (dory, sail, fishing; side or 3/4)', 'props.dock (jetty with piles, gaps, broken planks)',
-        'props.barrel', 'props.crate']),
+        'draw it yourself; example: references/assets/props.py boat (dory, sail, fishing; side or 3/4)', 'draw it yourself; example: references/assets/props.py dock (jetty with piles, gaps, broken planks)',
+        'draw it yourself; example: references/assets/props.py barrel', 'draw it yourself; example: references/assets/props.py crate']),
     (['forest', 'tree', 'trees', 'garden', 'jungle', 'park', 'leaf', 'leaves', 'grass', 'bush', '森林', '树', '花园',
       '丛林', '公园', '叶', '草', '灌木'], 'foliage', [
-        'texture.clumps (grass and bush clumps)', 'veg.fern', 'veg.vine', 'props.trunk',
+        'texture.clumps (grass and bush clumps)', 'veg.fern', 'veg.vine', 'draw it yourself; example: references/assets/props.py trunk',
         'veg.leaf_scales (round shingled canopies)', 'veg.leafmass (a leaf mass lining a frame)',
         'texture.leaflight (flecks in dark foliage)', 'shapes.lobes_along (far tree lines)',
-        ('particles.leaves / particles.petals / particles.fireflies (lofi engine tables)', 'lofi'),
+        ('draw it yourself; example: references/assets/particles.py leaves / particles.petals / particles.fireflies (lofi engine tables)', 'lofi'),
         ('veg.leaf_glyphs (2:1 leaf glyphs, the iso sticker look)', 'iso')]),
     (['sky', 'cloud', 'clouds', 'sunset', 'dusk', 'dawn', '天空', '云', '日落', '黄昏', '清晨'], 'sky', [
         'sky.strata (flat undithered bands)', 'sky.wisp', 'sky.smile', 'sky.streaks',
@@ -367,26 +367,26 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (n
     (['cave', 'mine', 'rock', 'cliff', 'mountain', 'rubble', 'stone', 'underground', '洞', '矿', '岩', '悬崖', '山',
       '石', '地下'], 'rock', [
         'texture.stones (rubble, cave walls)', 'texture.flakes (layered rock)', 'texture.pebbles', 'shapes.ledges',
-        'shapes.noisy_edge', 'shapes.void_edge', 'props.rails, props.ladder and props.stairwell underground',
-        'props.mine_cart / props.cart_on_rails', 'props.ore_node', 'props.crate', 'props.barrel']),
+        'shapes.noisy_edge', 'shapes.void_edge', 'draw it yourself; example: references/assets/props.py rails, draw it yourself; example: references/assets/props.py ladder and props.stairwell underground',
+        'draw it yourself; example: references/assets/props.py mine_cart / props.cart_on_rails', 'draw it yourself; example: references/assets/props.py ore_node', 'draw it yourself; example: references/assets/props.py crate', 'draw it yourself; example: references/assets/props.py barrel']),
     (['city', 'town', 'street', 'building', 'house', 'houses', 'village', 'alley', 'castle', 'wall', 'brick', 'roof',
       '城', '镇', '街', '楼', '房', '村', '巷', '城堡', '墙', '砖', '屋顶'], 'buildings', [
         'layout.ashlar + texture.shade_cells (stone)', 'texture.bricks', 'texture.panels', 'texture.mottle',
-        'texture.inset_frame (trim)', 'props.lantern (wall and paper lamps)', 'canvas.Canvas.catenary (cables, lines)',
+        'texture.inset_frame (trim)', 'draw it yourself; example: references/assets/props.py lantern (wall and paper lamps)', 'canvas.Canvas.catenary (cables, lines)',
         ("iso.Iso(camera='topdown') boxes and gables, with cast_shadows", 'topdown'),
-        ('iso.Iso boxes, props.glass_streak for glass faces', 'iso'),
+        ('iso.Iso boxes, draw it yourself; example: references/assets/props.py glass_streak for glass faces', 'iso'),
         'texture.shingles (tiles, slate, shakes; slipped and missing tiles, moss)', 'texture.thatch',
-        'texture.planks (walls, floors, decks, board-and-batten)', 'props.pipe and props.drain', 'props.barrel']),
+        'texture.planks (walls, floors, decks, board-and-batten)', 'draw it yourself; example: references/assets/props.py pipe and props.drain', 'draw it yourself; example: references/assets/props.py barrel']),
     (['industrial', 'factory', 'crane', 'construction', 'tower', '工厂', '吊车', '工地', '塔'], 'structure', [
-        'props.girders', 'props.truss', 'texture.grille', 'texture.pits (concrete)']),
+        'draw it yourself; example: references/assets/props.py girders', 'draw it yourself; example: references/assets/props.py truss', 'texture.grille', 'texture.pits (concrete)']),
     (['tech', 'sci-fi', 'scifi', 'robot', 'mech', 'machine', 'computer', 'neon', 'space', 'cyberpunk', '科技', '科幻',
       '机器', '机甲', '电脑', '霓虹', '太空', '赛博'], 'tech', [
         'texture.circuit', 'texture.emitter_grid (lamp panels)', 'fx.indicator', 'texture.grille',
         'fx.emissive (screens, tubes)', 'fx.neon_sign (tube letters with buzzing broken letters; returns the '
-        'emitter mask for a glow)', 'props.pipe', 'props.drain']),
+        'emitter mask for a glow)', 'draw it yourself; example: references/assets/props.py pipe', 'draw it yourself; example: references/assets/props.py drain']),
     (['ruin', 'ruins', 'temple', 'rune', 'magic', 'spell', 'shrine', '遗迹', '神殿', '符文', '魔法', '法术', '神社'],
      'magic and ruins', [
-        'glyphs.rune and glyphs.stamp', 'anim.cascade (runes lighting in turn)', 'fx.pixel_motes',
+        'draw it yourself; example: references/assets/glyphs.py rune and glyphs.stamp', 'anim.cascade (runes lighting in turn)', 'fx.pixel_motes',
         'texture.tapestry', 'texture.circuit']),
     (['fire', 'explosion', 'battle', 'fight', 'gun', 'shoot', 'war', 'boss', 'sword', 'samurai', 'ninja', '火', '爆炸',
       '战斗', '打', '枪', '射击', '战争', '剑', '武士', '忍者'], 'action', [
@@ -394,33 +394,34 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (n
         'fx.hit_flash', 'fx.crescent (swing trails)', 'fx.trail', 'fx.tumble', 'anim.recoil', 'anim.arc']),
     (['level', 'stage', 'platformer', 'game', 'gameplay', 'hud', '关卡', '平台', '游戏', '玩法'], 'game level', [
         'anim.arc (jumps)', 'anim.hop', 'fx.burst (landing dust)', 'canvas.parallax (layer scroll)',
-        'canvas.Canvas.tile (tiles)', 'pixfont.draw (HUD text)', 'glyphs.stamp (pickups, icons)']),
+        'canvas.Canvas.tile (tiles)', 'pixfont.draw (HUD text)', 'draw it yourself; example: references/assets/glyphs.py stamp (pickups, icons)']),
     (['lamp', 'lantern', 'candle', 'torch', 'window', 'fireplace', 'neon sign', '灯', '灯笼', '蜡烛', '火把', '窗',
       '壁炉'], 'small lights', [
-        'props.lantern', 'light.flicker (held steps; pass t % T so the seam holds)', 'light.rim',
+        'draw it yourself; example: references/assets/props.py lantern', 'light.flicker (held steps; pass t % T so the seam holds)', 'light.rim',
         'anim.chase (marquee and signal lights)', ('Post.lightmap (multiplied pools)', 'post:lightmap'),
         ('Post.light (shaped pools)', 'post:light'), ('Post.glow (from an emitter mask)', 'post:glow'),
         ('light.Light.point / apply (pools drawn in palette steps)', 'strict'),
         ('Post.lightmap occlude= (walls block light) and per-light flicker in the light tuple', 'post:lightmap')]),
     (['crowd', 'people', 'busy', 'traffic', 'market', 'festival', 'car', 'cars', '人群', '热闹', '车', '集市', '夜市',
       '庙会'], 'crowds', [
-        ('compose.populate (traffic and crowds)', 'iso'), ('props.car', 'iso'), ('figures.iso_person', 'iso'),
+        ('compose.populate (traffic and crowds)', 'iso'), ('draw it yourself; example: references/assets/props.py car', 'iso'), ('draw it yourself; example: references/assets/figures.py iso_person', 'iso'),
         'compose.check_density']),
     (['cat', 'dog', 'deer', 'horse', 'animal', 'bird', 'birds', 'gull', 'gulls', 'seagull', 'crow', 'fish', '猫',
       '狗', '鹿', '马', '动物', '鸟', '海鸥', '乌鸦', '鱼'], 'animals', [
-        'figures.cat (sit, sleep, walk, tail flicks)', 'figures.gull (perch, fly, far)',
-        'figures.quadruped_slim (a slim deer)',
+        'draw it yourself; example: references/assets/figures.py cat (sit, sleep, walk, tail flicks)', 'draw it yourself; example: references/assets/figures.py gull (perch, fly, far)',
+        'draw it yourself; example: references/assets/figures.py quadruped_slim (a slim deer)',
         'anim.orbit (birds circling, fish)', 'anim.lag (tails)', 'sprite.drop_shadow']),
     (['slime', 'blob', '史莱姆', '黏液'], 'slimes', [
-        'anim.hop (squash-and-hop sizes per frame)', 'figures.slime (draws the dome from the hop)', 'sprite.drop_shadow']),
+        'anim.hop (squash-and-hop sizes per frame)', 'draw it yourself; example: references/assets/figures.py slime (draws the dome from the hop)', 'sprite.drop_shadow']),
     (['person', 'people', 'character', 'hero', 'girl', 'boy', 'man', 'woman', 'kid', 'knight', 'samurai', 'walk',
       '人', '角色', '主角', '女孩', '男孩', '骑士', '武士', '走'], 'figures', [
-        'the style\'s figure (see section 11)', ('figures.lofi (10-14 px diorama people: idle, walk, sit)', 'lofi'),
-        'figures.chibi size= and pose=\'sit\'', 'figures.thin hat= and sword=', 'anim.lag (hair, capes, scarves)', 'sprite.chain (ropes, scarves)',
+        'the style\'s figure (see section 11)', ('draw it yourself; example: references/assets/figures.py lofi (10-14 px diorama people: idle, walk, sit)', 'lofi'),
+        'draw it yourself; example: references/assets/figures.py chibi size= and pose=\'sit\'', 'draw it yourself; example: references/assets/figures.py thin hat= and sword=', 'anim.lag (hair, capes, scarves)', 'sprite.chain (ropes, scarves)',
         'sprite.drop_shadow', 'sprite.spec_edges', 'anim.hold / anim.Timeline for poses']),
 ]
-ALWAYS_TOOLS = ('checks: stats.budget_report (the style budget), anim.check_periods (every period divides the loop), '
-                'compose.check_density for busy scenes, styles.check on a delivered frame')
+ALWAYS_TOOLS = ('checks: the gate `pixelate check FRAME --style S --scale N` on every delivered frame (budget, '
+                'native cells, palette, readability, craftcheck), `pixelate check SCENE` for engine scenes, '
+                'anim.check_periods (every period divides the loop), compose.check_density for busy scenes')
 
 CATALOG = [('post', 'the light layer: Post (none/native/screen), Stack (depth planes), light, glow, shaft, flare, streak, lightmap, fog, rain, motes'),
            ('light', 'light drawn in palette steps: point lights, rims, flicker, void fades'),
@@ -442,6 +443,7 @@ CATALOG = [('post', 'the light layer: Post (none/native/screen), Stack (depth pl
            ('morph', 'mask operations: dilate, erode, distance, normals, regions, relief'),
            ('iso', '2:1 isometric boxes and scenes'),
            ('stats', 'measuring a frame against a style budget'),
+           ('craftcheck', 'pixel craft by numbers: orphans, jaggies, stripes, doubled outlines, pillow shading, clusters, limits per style'),
            ('styles', 'the 11 style presets, their budgets and checks'),
            ('artlib', 'slot-map sprites for the lofi JS engine: Grid, stamping, orphan checks, export to sprites.js'),
            ('era', 'console-era limits (NES, Game Boy, SNES, Genesis, GBA, PICO-8, Neo Geo): check and force'),
@@ -810,7 +812,7 @@ def brief(style, request='', projection=None, choices=None, era=None):
             'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
     L.append('- Figures: %s.' % st['figures'])
     L.append('- Budget (`styles.check`): %s.' % _fmt_budget(st['budgets']))
-    L.append('- Checks: frame T equals frame 0; `python3 tools/styles.py %s frame.png --scale %d`; reads at 480 px wide.' % (
+    L.append('- Checks: frame T equals frame 0; `pixelate check frame.png --style %s --scale %d` passes; reads at 480 px wide.' % (
         st['name'], st['scale']))
     L.append('\nTools for this style: ' + '; '.join(r['tools']) + '.')
     tt = topic_tools(request, st['name'], proj)

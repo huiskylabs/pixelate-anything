@@ -71,6 +71,7 @@ If the agent has no shell but has the MCP server, the same tools exist as MCP to
 - **Hand-place and keep it asymmetric.** Pick positions yourself; uniform scatter and symmetry read as generated.
 - **Outlines and one light direction.** Every form has a dark outline from its own ramp, a lit side and a shadow side.
 - **Look at every preview at zoom.** The usual failures are mush, noise, stripes, a subject too small, and a recolour sold as a variation. Fix them before adding more.
+- **Pass the gate before anything is final.** No frame is delivered or shown as final until `pixelate check FRAME --style S --scale N` passes (budget, square pixels, palette, readability, pixel craft); engine scenes also run `pixelate check SCENE`. Taste beyond the numbers is the still-for-go/no-go step.
 - **Export at whole-number scales** with nearest neighbour, so pixels stay square. For video, use even scales, which keep colours exact.
 
 ## Layout

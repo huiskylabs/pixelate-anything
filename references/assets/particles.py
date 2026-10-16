@@ -29,6 +29,7 @@ import math, pathlib, sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(1, str(pathlib.Path(__file__).resolve().parents[2] / 'tools'))
 import anim
 from artlib import Grid
 from sprite import paste as _paste

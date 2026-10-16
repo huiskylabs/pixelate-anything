@@ -1,8 +1,0 @@
-{
-  "name": "Dragonfire Keep",
-  "about": "an original 16-bit boss fight: a knight braces behind a shield as Ashmaw the ember wyrm breathes fire across a hall of lava and gold",
-  "palette": "palette.json",
-  "scale": 6,
-  "scene_scale": 4,
-  "preview_bg": "#0e0a12"
-}

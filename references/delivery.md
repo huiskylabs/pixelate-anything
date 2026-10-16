@@ -11,7 +11,7 @@ post ops you ran) and `--intent mask.png` (flecks placed on purpose) when they a
 also run `pixelate check SCENE`. Redraw until every line passes.
 
 The frame gate checks budget, square pixels, palette (`--pal`, `--pre`), readability (`--actor`),
-allowed post ops (`--used`) and pixel craft (`--intent` marks deliberate flecks). `pixelate style S`
+allowed post ops (`--used`), pixel craft (`--intent` marks deliberate flecks) and composition. `pixelate style S`
 prints the style's value budget and craft limits the gate holds the frame to.
 
 When the scene and the budget disagree, there are three sanctioned ways out, and the report shows each:
@@ -24,10 +24,24 @@ When the scene and the budget disagree, there are three sanctioned ways out, and
   `--style` still sets the craft limits. Era briefs write this gate line.
 - A brief can move one bound with a reason, one line each in its Technical section:
   `- Gate override: L>0.75 <= 0.02 (the beam is the subject)`. The bound is `<= V`, `>= V`,
-  `LO..HI` or `off`, for a budget rule or a craft limit. `--brief brief.md` applies them;
-  `--budget 'RULE BOUND (reason)'` adds one on the command line. An override without a reason is
-  rejected, and the report still prints how far the frame sits from the style's own bound, so a
-  reviewer sees the cost.
+  `LO..HI` or `off`, for a budget rule, a craft limit or a composition limit. `--brief brief.md`
+  applies them; `--budget 'RULE BOUND (reason)'` adds one on the command line. An override without
+  a reason is rejected, and the report still prints how far the frame sits from the style's own
+  bound, so a reviewer sees the cost. A `- Gate override: allow Post.OP (reason)` line is an
+  allowed-effect override for route lint; the gate notes it and moves no bound.
+
+The composition lines catch what a first draft gets wrong and the numbers above miss. `empty_low`:
+most of the bottom third has nothing in it (a half-empty street); `empty` (sticker-iso): too much
+of the frame is bare ground; `blocky` (pastel-cell, contre-jour): a mass reads as a brick, its
+outline mostly long straight runs; `slab` (pastel-cell, contre-jour): one straight edge runs a
+quarter of the frame or more, a flat-slab mountain; `banding` (the screen-light styles): smooth light
+quantised into concentric rings. A cell "has something in it" when a few of its pixels depart
+strongly from its own ground colour, so even snow or paving texture still counts as empty. Each
+failing line says what to change. The limits sit in `craftcheck.COMPOSITION` per style, measured
+on the showcase finals and drafts and the style references; a style with no failing draft to
+calibrate on has no limit yet. Readability also needs a lightness difference now: an actor that
+differs from its surroundings by hue alone, with under 0.025 L between them, fails. The gate does
+not judge whether there is one clear focal point; look at the frame for that.
 
 The music gate does
 the same for sound: write the music yourself in any code, render it, `pixelate check TRACK.wav`

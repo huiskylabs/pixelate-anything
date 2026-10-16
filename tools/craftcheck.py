@@ -395,6 +395,211 @@ CRAFT = {
     'lofi':          _lim(0.051, 0.398, 0.01, 0.266, 0.01, 1.91, 0.773),   # Lantern Isle: .027 .298 .001 .124 0 3.8 .693
 }
 
+# ---------------------------------------------------------------- composition
+# What an art director sees at thumbnail size, as numbers: a frame with nothing in half of it, a
+# mass drawn as a brick or a slab, light quantised into rings. Each metric is measured on the
+# native 1x frame and held to COMPOSITION limits per style; None means the style has no limit yet
+# (no failing draft to calibrate it on). See COMPOSITION below for the numbers they came from.
+CELLS = 32          # composition grid: the frame cut into CELLS columns of square cells
+DEPART = 0.12       # a cell has something in it when DEPART_SHARE of its pixels sit this far (OKLab)
+DEPART_SHARE = 0.03 # from the cell's own median colour (texture on flat ground stays under it)
+BAND_DE = (0.006, 0.035)   # one light step of a quantised light layer (a palette step is larger)
+SEG_K = 5           # colour regions for the silhouette metrics
+
+def _cells(F):
+    c = max(2, int(round(F.W / CELLS)))
+    gh, gw = F.H // c, F.W // c
+    lab = F.lab[:gh * c, :gw * c].reshape(gh, c, gw, c, 3).transpose(0, 2, 1, 3, 4).reshape(gh, gw, c * c, 3)
+    far = np.linalg.norm(lab - np.median(lab, axis=2, keepdims=True), axis=-1) > DEPART
+    return far.mean(-1) >= DEPART_SHARE, c
+
+def emptiness(img):
+    """{'empty': share of the frame's cells with nothing in them, 'empty_low': the same share in the
+    bottom third}. A cell has something in it when a few of its pixels depart strongly from its own
+    ground colour: a figure, a prop, a lit edge. Even texture (snow, paving, planks) does not count."""
+    F = _F(img)
+    busy, _ = _cells(F)
+    gh = busy.shape[0]
+    return {'empty': float(1 - busy.mean()), 'empty_low': float(1 - busy[gh - gh // 3:].mean())}
+
+def banding(img):
+    """(share, ratio): the share of the frame on curved light-step contours (two flat plateaus a
+    small lightness step apart, the contour turning both ways), and their share of all small steps
+    (a smooth light gradient is made of steps under BAND_DE[0], a quantised one is not)"""
+    F = _F(img)
+    lo, hi = BAND_DE
+    H, W = F.H, F.W
+    sh = np.zeros((H, W), bool); sv = np.zeros((H, W), bool)
+    for ax in (0, 1):
+        L = F.lab if ax == 0 else F.lab.transpose(1, 0, 2)
+        d = np.linalg.norm(L[1:] - L[:-1], axis=-1)
+        st = (d > lo) & (d < hi) & (np.abs(L[1:, :, 0] - L[:-1, :, 0]) > 0.6 * d)
+        fa = np.zeros_like(st); fb = np.zeros_like(st)
+        fa[1:] = d[:-1] < 0.003; fb[:-1] = d[1:] < 0.003
+        m = np.zeros(L.shape[:2], bool); m[1:] = st & fa & fb
+        if ax == 0:
+            sv |= m
+        else:
+            sh |= m.T
+    step = sh | sv
+    lab, n = _components(step, step[:, 1:] & step[:, :-1], step[1:] & step[:-1])
+    if n == 0:
+        return 0.0, 0.0
+    l = lab[step]
+    size = np.bincount(l, minlength=n)
+    nh = np.bincount(lab[sh], minlength=n); nv = np.bincount(lab[sv], minlength=n)
+    ys, xs = np.nonzero(step)
+    y0 = np.full(n, H); y1 = np.zeros(n, int); x0 = np.full(n, W); x1 = np.zeros(n, int)
+    np.minimum.at(y0, l, ys); np.maximum.at(y1, l, ys); np.minimum.at(x0, l, xs); np.maximum.at(x1, l, xs)
+    curved = ((np.minimum(nh, nv) >= 0.3 * np.maximum(nh, nv)) & (y1 - y0 >= 5) & (x1 - x0 >= 5) & (size >= 12))
+    cpx = int(size[curved].sum())
+    tiny = sum(int(((d > 1e-6) & (d < lo)).sum()) for d in (F.dh[np.isfinite(F.dh)], F.dv[np.isfinite(F.dv)]))
+    return float(cpx / (H * W)), float(cpx / max(1, cpx + tiny / 2))
+
+def _box(a, r):
+    k = 2 * r + 1
+    p = np.pad(a, ((r, r), (r, r), (0, 0)), mode='edge')
+    c = np.cumsum(np.cumsum(np.pad(p, ((1, 0), (1, 0), (0, 0))), 0), 1)
+    return (c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]) / (k * k)
+
+def _regions(F):
+    """the frame as SEG_K colour regions (k-means on a lightly blurred OKLab frame): masses, sky, ground"""
+    sm = _box(F.lab, max(1, F.W // 160)).reshape(-1, 3)
+    C = cl.kmeans(sm, SEG_K, seed=3)
+    return cl.nearest(sm, C).reshape(F.H, F.W)
+
+def _runs(b):
+    p = np.pad(b, ((0, 0), (1, 1)))
+    d = np.diff(p.astype(np.int8), axis=1)
+    r, s = np.nonzero(d == 1)
+    _, t = np.nonzero(d == -1)
+    return r, s, t - s
+
+def silhouettes(img, seg=None):
+    """{'blocky': (score, (x, y, w, h)), 'slab': (share, where)}.
+    blocky: for each colour region of at least 0.8% of the frame that floats free of the frame edge,
+    holes filled, (area / bounding box) x (share of its outline on straight runs of 20%+ of its side);
+    the worst one. A brick-shaped island scores near 0.2, a tapering rock under 0.05.
+    slab: the longest straight horizontal or vertical boundary between two colour regions that does
+    not run off the frame (a horizon does), as a share of the frame width or height."""
+    F = _F(img)
+    seg = _regions(F) if seg is None else seg
+    H, W = F.H, F.W
+    best = (0.0, None)
+    for j in range(int(seg.max()) + 1):
+        m0 = seg == j
+        lab, n = _components(m0, m0[:, 1:] & m0[:, :-1], m0[1:] & m0[:-1])
+        if n == 0:
+            continue
+        size = np.bincount(lab[lab >= 0], minlength=n)
+        for i in np.nonzero(size >= 0.008 * H * W)[0]:
+            ys, xs = np.nonzero(lab == i)
+            y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
+            if y0 == 0 or x0 == 0 or y1 == H - 1 or x1 == W - 1:
+                continue
+            m = lab[y0:y1 + 1, x0:x1 + 1] == i
+            hl, hn = _components(~m, (~m)[:, 1:] & (~m)[:, :-1], (~m)[1:] & (~m)[:-1])
+            if hn:
+                rim = np.unique(np.concatenate([hl[0], hl[-1], hl[:, 0], hl[:, -1]]))
+                m = m | ((hl >= 0) & ~np.isin(hl, rim))
+            bw, bh = x1 - x0 + 1, y1 - y0 + 1
+            p = np.pad(m, 1)
+            mid = p[1:-1, 1:-1]
+            hr = np.concatenate([_runs(mid & ~p[:-2, 1:-1])[2], _runs(mid & ~p[2:, 1:-1])[2]])
+            vr = np.concatenate([_runs((mid & ~p[1:-1, :-2]).T)[2], _runs((mid & ~p[1:-1, 2:]).T)[2]])
+            straight = (hr[hr >= max(6, 0.2 * bw)].sum() + vr[vr >= max(6, 0.2 * bh)].sum()) / max(1, hr.sum() + vr.sum())
+            score = float(m.sum() / (bw * bh) * straight)
+            if score > best[0]:
+                best = (score, (int(x0), int(y0), int(bw), int(bh)))
+    slab = (0.0, None)
+    for horiz in (True, False):
+        b = (seg[1:] != seg[:-1]) if horiz else (seg[:, 1:] != seg[:, :-1]).T
+        span = W if horiz else H
+        r, s, L = _runs(b)
+        inner = (s > 0) & (s + L < span)
+        if inner.any():
+            k = np.argmax(np.where(inner, L, 0))
+            if L[k] / span > slab[0]:
+                slab = (float(L[k] / span), ('row %d, x %d..%d' if horiz else 'column %d, y %d..%d') % (r[k] + 1, s[k], s[k] + L[k] - 1))
+    return {'blocky': best, 'slab': slab}
+
+COMP_METRICS = ('empty', 'empty_low', 'blocky', 'slab', 'banding')
+
+def _comp(empty=None, empty_low=0.88, blocky=None, slab=None, banding=None):
+    return {'empty': (None, empty), 'empty_low': (None, empty_low), 'blocky': (None, blocky),
+            'slab': (None, slab), 'banding': (None, banding)}
+
+# Limits per style, from the five showcase stills (finals graded B to B+ pass; drafts with a half-empty
+# street, bare paving, a brick island, a slab mountain or ringed light fail), Lantern Isle, Rose Squall
+# and the nine reference natives of the style study. Measured (final / draft / worst reference):
+#   empty_low  (bottom third with nothing in it) worst final 0.80 (observatory), ref 0.82 (contre-jour),
+#              half-empty street draft 0.93 -> 0.88 for every style
+#   empty      sticker-iso: canal final 0.18, ref 0.10, bare-paving draft 0.41 -> 0.30
+#   blocky     pastel-cell: kite 0.03, Rose Squall 0.05, ref 0.03, brick island 0.18 -> 0.12;
+#              contre-jour: observatory 0.04, ref 0.14 -> 0.20 (architecture styles stay off: a
+#              shop front or a UI panel is a rectangle on purpose)
+#   slab       contre-jour: observatory 0.14, ref 0.12, slab mountain 0.43 -> 0.25; pastel-cell:
+#              kite 0.11, Rose Squall 0.14, ref 0.17 -> 0.25 (lofi is off: Lantern Isle's quay is 0.33)
+#   banding    the screen-light styles only (contre-jour, cosy-lightmap): stepped contours over 0.20%
+#              of the frame AND over 20% of the small light steps; noodle shop final 0.34% / 2%,
+#              levels=24 draft 0.63% / 53% -> 0.0020 (a native light layer is stepped by design)
+COMPOSITION = {
+    'contre-jour':   _comp(blocky=0.20, slab=0.25, banding=0.002),
+    'pastel-cell':   _comp(blocky=0.12, slab=0.25),
+    'native-glow':   _comp(),
+    'hd-overworld':  _comp(),
+    'arcade':        _comp(),
+    'tactics':       _comp(),
+    'sticker-iso':   _comp(empty=0.30),
+    'illustrated':   _comp(),
+    'neon-noir':     _comp(),
+    'cosy-lightmap': _comp(banding=0.002),
+    'lofi':          _comp(),
+}
+BAND_RATIO = 0.20   # banding counts only when stepped contours are this share of the small light steps
+
+def composition(img_1x, rules):
+    """{metric: (value, detail)} for the metrics `rules` bounds (unbounded ones are not measured)"""
+    F = _F(img_1x)
+    live = {k for k, (lo, hi) in rules.items() if lo is not None or hi is not None}
+    out = {}
+    if live & {'empty', 'empty_low'}:
+        e = emptiness(F)
+        out['empty'] = (e['empty'], None); out['empty_low'] = (e['empty_low'], None)
+    if live & {'blocky', 'slab'}:
+        s = silhouettes(F)
+        out['blocky'] = s['blocky']; out['slab'] = s['slab']
+    if 'banding' in live:
+        share, ratio = banding(F)
+        out['banding'] = (share if ratio >= BAND_RATIO else 0.0, (share, ratio))
+    return out
+
+def comp_advice(key, v, detail, hi):
+    """the plain-words line for a failing composition metric: what is wrong and what to do"""
+    if key == 'empty':
+        return ('%.0f%% of the frame has nothing in it (bare ground, water or sky with no object); fill it '
+                'with the scene\'s props and people, move the subject into it, or crop' % (100 * v))
+    if key == 'empty_low':
+        return ('%.0f%% of the bottom third has nothing in it; bring the subject or a foreground down into '
+                'it, or crop the bottom' % (100 * v))
+    if key == 'blocky':
+        x, y, w, h = detail
+        return ('the mass at x %d, y %d (%dx%d px at 1x) reads as a brick: its outline is mostly long '
+                'straight runs; break it with ledges, overhangs and a tapering underside' % (x, y, w, h))
+    if key == 'slab':
+        return ('a straight edge runs %.0f%% across the frame (%s): the mass reads as a flat slab; '
+                'break the line with peaks, ledges or steps' % (100 * v, detail))
+    if key == 'banding':
+        share, ratio = detail
+        return ('%.2f%% of the frame sits on stepped light rings (%.0f%% of the light steps are bands, not '
+                'gradient); give the light more levels or none (levels=None)' % (100 * share, 100 * ratio))
+    return '%s is %s, the limit is %s' % (key, comp_fmt(key, v), comp_fmt(key, hi))
+
+def comp_fmt(key, v):
+    if v is None or v != v:
+        return '-'
+    return '%.2f' % v if key == 'blocky' else '%.2f%%' % (100 * v)
+
 def report(img_1x, style, intent=None, objects=None, values=None):
     """[(metric, value, lo, hi, 'ok'|'fail')] against CRAFT[style] (a name or {metric: (lo, hi)})"""
     if isinstance(style, str):

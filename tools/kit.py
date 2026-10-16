@@ -41,8 +41,14 @@ def _first(doc, n=200):
     d = ' '.join((doc or '').strip().split('\n\n')[0].split())
     return d if len(d) <= n else d[:n - 3].rsplit(' ', 1)[0] + '...'
 
-def _args(fn, drop_self=False):
-    a = ast.unparse(fn.args)
+def _args(fn, drop_self=False, short=False):
+    if short:                                   # names only: the listing stays small, NAME gives defaults
+        x = fn.args
+        a = ', '.join([v.arg for v in x.posonlyargs + x.args] + (['*' + x.vararg.arg] if x.vararg else
+                      (['*'] if x.kwonlyargs else [])) + [v.arg for v in x.kwonlyargs] +
+                      (['**' + x.kwarg.arg] if x.kwarg else []))
+    else:
+        a = ast.unparse(fn.args)
     if drop_self:
         parts = [x.strip() for x in a.split(',')] if a else []
         if parts and parts[0] in ('self', 'cls'):
@@ -55,11 +61,11 @@ def _public(tree):
 def _methods(cls):
     return [n for n in cls.body if isinstance(n, ast.FunctionDef) and not n.name.startswith('_')]
 
-def _sig(node, owner=None):
+def _sig(node, owner=None, short=False):
     if isinstance(node, ast.ClassDef):
         init = next((n for n in node.body if isinstance(n, ast.FunctionDef) and n.name == '__init__'), None)
-        return node.name + (_args(init, True) if init else '()')
-    return node.name + _args(node, owner is not None)
+        return node.name + (_args(init, True, short) if init else '()')
+    return node.name + _args(node, owner is not None, short)
 
 def modules():
     """-> [(name, line, is_example)]: the catalogued modules with their summaries, the other tools/*.py
@@ -136,13 +142,13 @@ def module(mod):
     if head:
         L += [head, '']
     for n in _public(tree):
-        d = _first(ast.get_docstring(n))
-        L.append('- %s%s' % (_sig(n), (': ' + d) if d else ''))
+        d = _first(ast.get_docstring(n), 110)
+        L.append('- %s%s' % (_sig(n, short=True), (': ' + d) if d else ''))
         if isinstance(n, ast.ClassDef):
             for f in _methods(n):
-                fd = _first(ast.get_docstring(f), 160)
-                L.append('  - .%s%s' % (_sig(f, n), (': ' + fd) if fd else ''))
-    L += ['', 'Full docstring: `pixelate tools %s.NAME`.' % mod]
+                fd = _first(ast.get_docstring(f), 90)
+                L.append('  - .%s%s' % (_sig(f, n, short=True), (': ' + fd) if fd else ''))
+    L += ['', 'Defaults and the full docstring: `pixelate tools %s.NAME`.' % mod]
     return '\n'.join(L) + '\n'
 
 def member(ref):

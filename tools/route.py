@@ -749,7 +749,8 @@ def lint(text):
     hides_flagged = False
     if re.search(r'res\W*(native|screen)|light layer\W*(native|screen)', text.lower()) and li is not None \
             and not re.search(r'hide|hidden|occlud|block|behind', li.lower()):
-        probs.append('Light list never says what hides a light (the near plane, a wall, a door frame)')
+        probs.append('Light list never says what hides a light: write "hidden by", "blocked by" or "behind" and '
+                     'the near plane, a wall or a door frame')
         hides_flagged = True
     if li is not None and _has_light_layer(text):
         lights = [b for b in _bullets(li) if not re.match(NOT_A_LIGHT, b.lstrip('*'), re.I)
@@ -758,7 +759,10 @@ def lint(text):
                 () if hides_flagged else (('nothing that hides it', HIDES),)):
             miss = [b for b in lights if not re.search(pat, b, re.I)]
             if miss:
-                probs.append('Light list: %d light(s) with %s: %s' % (len(miss), what, _quote(miss)))
+                probs.append('Light list: %d light(s) with %s: %s (%s)' % (len(miss), what, _quote(miss), FIX[what]))
+                if not any('not a light' in x for x in probs):
+                    probs[-1] += '; a line that is not a light starts with "ambient", "no " or "per-light", ' \
+                                 'or says "not a light"'
     sc = find('The scene')
     if sc is not None and not re.search(r'\d', sc):
         probs.append('The scene has no counts, sizes or positions')
@@ -828,6 +832,9 @@ COLOUR = (r'#[0-9a-f]{3,6}|\b(?:amber|orange|red|yellow|gold|golden|lemon|cream|
 RADIUS = r'radius|sigma|falloff|\br\s*=?\s*\d|\d+\s*px|\d+\s*x\s*\d+|width|wide|reach|within \d|\d+\s*(?:cells?|pixels?)'
 HIDES = (r'hid|occlud|block|behind|mask|cut (?:by|off)|shield|cover|stops? at|never (?:reaches|lights)|swallow'
          r'|stays? (?:black|dark)|do(?:es)? not reach|doesn\'t reach')
+FIX = {'no colour': 'name a colour word, a slot or a #hex',
+       'no radius or size': 'give "radius N", "N px" or "sigma N"',
+       'nothing that hides it': 'say "hidden by", "blocked by" or "behind" what'}
 NOT_A_LIGHT = r'(todo|allowed|banned|everything|every light|no |ambient|per-light|reflections?|puddle reflections|void edges?|check)\b'
 PLACED = (r'\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a pair|a single|dozen|left|right|'
           r'centre|center|middle|top|bottom|behind|front|foreground|background|above|below|under|over|beside|along|'

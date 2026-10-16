@@ -44,12 +44,13 @@ section to read and the command to run. Fill every TODO yourself with a concrete
 objects with counts and positions, five to ten lived-in details, the palette by named roles, every
 light, every motion rate. Invent the specifics the user didn't give; never leave them to the user.
 
-Know the whole kit: `pixelate tools` lists every topic and module, `pixelate tools TOPIC` (rain,
-fog, water, 雨) gives the techniques for a subject, `pixelate tools MODULE` the functions with
-their signatures. The brief names the primitives each object is built from (wet cobbles from
-`texture.wet_streaks`, a scarf on `sprite.chain`) and calls everything else a slot map with its
-size and parts. Finished objects in `references/assets/` are examples to read, never calls in a
-brief.
+Each TODO names the command it needs; run those, not a tour of the kit. `pixelate tools TOPIC`
+(rain, fog, water, 雨) gives the techniques for a subject the brief lacks, `pixelate tools MODULE`
+one line per function, `pixelate tools MODULE.NAME` one function in full; `pixelate tools` alone
+is the index, for when no topic fits. The brief names the primitives each object is built from (wet
+cobbles from `texture.wet_streaks`, a scarf on `sprite.chain`) and calls everything else a slot map
+with its size and parts. Finished objects in `references/assets/` are examples to read, never calls
+in a brief.
 
 ## Self-review
 

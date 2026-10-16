@@ -12,7 +12,7 @@ Pixel art that looks hand-made, drawn from scratch in code. Run `pixelate` (`<sk
 Copy these 8 steps into your todo list first. A step you skip stays there as `skip: <reason>`. Read only what each step names.
 
 1. **Read the intent.** One line on what the user wants but didn't say. Read `references/brief.md#read-the-intent`.
-2. **Route as a hint, in the same call as the brief.** Run `pixelate route "REQUEST" --brief [STYLE] -o brief.md` (a short brief for a small ask; `--full` forces all 11 sections). Section 0 shows the picked style, the runners-up and the defaults; if your intent read disagrees, rerun with that STYLE. Plain `pixelate route "REQUEST"` only when you want to compare styles first.
+2. **Route as a hint, in the same call as the brief.** Run `pixelate route "REQUEST" --brief [STYLE] -o brief.md` (a short brief for a small ask; `--full` forces all 11 sections). Section 0 shows the picked style, the runners-up and the defaults; if your intent read disagrees, rerun with that STYLE. Section 0 already lists the runners-up, so skip plain `pixelate route` and `pixelate style --list` unless none of them fits.
 3. **Expand into a brief.** Fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md` and `examples/lantern-isle/BRIEF.md` (the bar); each TODO names the `references/drawing.md` section and command it needs, read just those. The brief lists techniques for the subjects the request names; run `pixelate tools TOPIC` only for a subject it lacks.
 4. **The user confirms the brief.** Read `references/brief.md#confirm`.
 5. **Draw everything from scratch in code.** Read the mode's guide (table below), run `pixelate tools TOPIC` or `pixelate tools MODULE`, and read the `references/drawing.md` section for what you draw.

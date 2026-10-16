@@ -549,7 +549,12 @@ class Post:
         hold (a sputtering wick: (432, 72, 16, (1, .8, .42), 0.7, 0.25, 2); steady: 0).
         occlude: a 1x blocker mask (walls, crates); a light does not pass through it (see
         visibility(); hard 1x shadow edges at res='native', softened inside the art pixel at
-        res='screen'). occlude_cell: test every n-th pixel (coarse, soft). Cached per light."""
+        res='screen'). occlude_cell: test every n-th pixel (coarse, soft). Visibility is cached
+        per (occluder mask, light): a static occluder is traced once per light for the whole
+        loop, but a moving one (a door leaf, a walker in the doorway) is a new mask every frame
+        and is traced again. Keep a moving occluder to a few held drawings so each one is traced
+        once (the cache keeps 64 traces, 16 at working resolution: lights x drawings should fit),
+        and use occlude_cell 2-3 for wide lights."""
         keep = _either(keep, behind)
         L = self._field3(ambient)
         g = None if geo is None else self.up(np.asarray(geo, float))         # crisp: art edges
@@ -691,14 +696,16 @@ class Post:
               floor=0.38, flat=0.6, soft=1.0, striate=0.03, freqs=(1.7, 2.9, 4.3), cycles=(1, 2, 3),
               t=None, T=None, shimmer=0.0, head=6, tail=None, seed=0, behind=None, mask=None,
               blend='screen', profile='plateau'):
-        """a light pillar from (x, y) toward `angle` degrees (90 = straight down), brightest at
+        """a light pillar from (x, y) toward `angle` degrees, brightest at
         its source: intensity 1 - (1 - floor) * progress, so `floor` is what is left at `length`
         (01: 38% at the performer), then it fades out over `tail`. width: (w0, w1) from start
         to end, or a table [(along, w), ...] (01: [(0, 33), (60, 23), (115, 26)]), w being the
         full width at half strength. Across: flat for u < flat (u = |across| / half-width),
         cosine shoulders over `soft` (profile='smooth': the older smoothstep edge, soft = its
         share of the half-width). striate adds faint lengthwise striations (01: 2-3%) that drift
-        with integer cycles per loop; shimmer breathes the whole shaft once per loop."""
+        with integer cycles per loop; shimmer breathes the whole shaft once per loop.
+        Angles are screen degrees with y down, as in light.Light.cone and shapes.ray: 0 points
+        right, 90 straight down, 180 left, 270 straight up; 105-115 leans down and to the left."""
         a = math.radians(angle)
         ux, uy = math.cos(a), math.sin(a)
         if np.ndim(width) == 1 and len(width) == 2 and np.isscalar(width[0]):

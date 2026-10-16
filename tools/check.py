@@ -4,6 +4,8 @@
 usage: check.py SCENE_DIR [--page]
        check.py FRAME.png --style S --scale N [--pal palette.json] [--pre prelight.png]
                 [--actor actor_mask.png] [--used op,op] [--intent mask.png]
+       check.py TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]
+                (the music gate: see musiccheck.py)
 
 Scene mode (an engine scene directory):
   1. sprites and palettes: unknown sprite keys, slots missing a colour
@@ -199,4 +201,7 @@ if __name__ == '__main__':
         print(__doc__); sys.exit(1)
     if sys.argv[1].lower().endswith(IMAGE_EXT) and pathlib.Path(sys.argv[1]).is_file():
         sys.exit(0 if frame_main(sys.argv[1:]) else 1)
+    import musiccheck
+    if sys.argv[1].lower().endswith(musiccheck.AUDIO_EXT) and pathlib.Path(sys.argv[1]).is_file():
+        sys.exit(musiccheck.main(sys.argv[1:]))
     sys.exit(0 if main(sys.argv[1], '--page' in sys.argv) else 1)

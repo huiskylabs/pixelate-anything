@@ -51,7 +51,8 @@ ROUTE = {
                  (3, ['cover', 'loop for', 'hours', 'seasons', 'four seasons', 'chill', 'relax', 'cozy cottage',
                       '封面', '循环', '四季', '季节', '放松', '治愈', '小木屋']),
                  (2, ['cottage', 'cabin', 'window', 'diorama', 'island', 'calm', 'peaceful', 'quiet', 'lighthouse',
-                      '小屋', '窗', '小岛', '岛', '安静', '宁静', '灯塔'])],
+                      '小屋', '窗', '小岛', '岛', '安静', '宁静', '灯塔', 'cafe', 'coffee', 'bedroom', 'desk', 'rooftop',
+                      '咖啡', '卧室', '书桌', '屋顶'])],
         rules=['Every object is a hand-authored slot map (sprites.js or artlib), never a primitive shape.',
                'Gradients are bands with 10-16 row Bayer transitions; no other dither.',
                'Light is warm palette slots: window glow, lantern pools and rims, a few highlight pixels.'],
@@ -84,7 +85,8 @@ ROUTE = {
                  (3, ['ruin', 'ruins', 'temple', 'ancient', 'rune', 'runes', 'relic', 'sanctum', 'monolith',
                       '遗迹', '废墟', '神殿', '古代', '符文', '遗物', '圣所']),
                  (2, ['magenta', 'cyan', 'glowing', 'mysterious', 'dungeon', 'tech', 'drone',
-                      '品红', '青色', '发光', '神秘', '地牢', '科技'])],
+                      '品红', '青色', '发光', '神秘', '地牢', '科技', 'underwater', 'reef', 'deep sea', 'abyss', 'jellyfish',
+                      '海底', '水下', '珊瑚', '深海', '水母'])],
         rules=['Role families of colour (frame, heart, warm, hot, spark, void); the frame hue drifts across x.',
                'Emitters get exponential halos computed per art pixel; no outlines.',
                'A vertical light band or spine organises the frame; the void stays drawn, not filtered.'],
@@ -139,7 +141,7 @@ ROUTE = {
         projection='2:1 iso', example='examples/san-francisco (iso diorama)', frames=(96, 12),
         signals=[(6, ['freitas', 'eboy']),
                  (3, ['isometric city', 'iso city', 'street', 'market', 'crowd', 'busy', 'town square', 'traffic',
-                      '等距城市', '街道', '集市', '人群', '热闹', '广场', '车流']),
+                      '等距城市', '街道', '集市', '人群', '热闹', '广场', '车流', '夜市', '古镇', '庙会', 'festival', 'fair']),
                  (2, ['isometric', 'iso', 'city', 'town', 'noon', 'shops', 'tram', 'canal',
                       '等距', '城市', '小镇', '中午', '商店', '电车', '运河'])],
         rules=['Paint at the gamut edge, black silhouettes, no light and no shadows.',
@@ -156,7 +158,8 @@ ROUTE = {
                  (3, ['floating island', 'sky island', 'monument', 'carved', 'statue', 'painterly', 'illustration',
                       '浮空岛', '天空岛', '纪念碑', '雕刻', '雕像', '插画']),
                  (2, ['sky', 'clouds', 'detailed', 'ornate', 'stone', 'vines', 'roots', 'flying',
-                      '天空', '细致', '华丽', '石头', '藤', '根', '飞'])],
+                      '天空', '细致', '华丽', '石头', '藤', '根', '飞', 'dragon', 'giant', 'colossus', 'castle', 'airship',
+                      '龙', '巨人', '城堡', '飞艇'])],
         rules=['The environment stays in L .30-.78 at low chroma; the extremes are for actors, effects and HUD.',
                'Stone is carved: cells with a lit rim, checker wear, selective outlines.',
                'Depth comes from palette haze per plane, never from blur; a frame of foliage is drawn into the art.'],
@@ -170,7 +173,8 @@ ROUTE = {
                  (3, ['neon', 'noir', 'cyberpunk', 'club', 'bar', 'crime', 'detective', 'nightclub', 'synthwave',
                       '霓虹', '黑色电影', '赛博', '夜店', '酒吧', '犯罪', '侦探']),
                  (2, ['night city', 'alley', 'motel', 'hotel', 'apartment', 'rain city', 'magenta',
-                      '夜城', '小巷', '旅馆', '公寓', '城市夜'])],
+                      '夜城', '小巷', '旅馆', '公寓', '城市夜', 'space station', 'spaceship', 'sci-fi', 'scifi', 'android',
+                      '太空站', '飞船', '科幻', '太空', '机器人'])],
         rules=['A lit room slab floating in exact black; a multiplied wall-wash light per art pixel.',
                'One teal exit and one magenta hero carry the colour; everything else is wood, stone and black.',
                'Actors have no outline, only a 1 px warm rim on the lamp side.'],
@@ -295,7 +299,71 @@ def route(request, n=3):
             lofi = dict(style='lofi', score=0, why=['no strong signal: the default for a calm scene'],
                         projection=proj or r['projection'], pick_if=r['pick_if'], example=r['example'])
         picks = [lofi] + [p for p in picks if p['style'] != 'lofi'][:n - 1]
+    if mode != 'scene' and picks[0]['score'] <= 0:
+        picks[0]['why'] = ['no style signal: follow %s first; pick the finish style from the %s' % (
+            GUIDE[mode], {'rebuild': "photo's light and subject", 'era': "console's limits",
+                          'assets': 'game the assets are for', 'music': 'scene the music goes with'}[mode])]
     return dict(request=request, picks=picks, mode=mode, guide=GUIDE[mode], projection=proj)
+
+# ---------------------------------------------------------------- tools by subject, whatever the style
+# The style decides how things are shaded; the subject decides what gets drawn. Each entry: the words
+# that bring it in and the kit calls that draw it.
+TOPIC_TOOLS = [
+    (['rain', 'storm', 'wet', 'puddle', '雨', '暴风', '湿', '水坑'],
+     'rain and wet: fx.rain_cells (opaque streaks), fx.light_streaks, texture.wet_streaks (speculars on up-facing edges), '
+     'water.reflect for puddles, Post rain:hair at screen res where the style allows it'),
+    (['snow', 'winter', 'ice', '雪', '冬', '冰'],
+     'snow and ice: texture.speckle for flakes on dark, texture.stipple for drifts, sky.strata for a flat winter sky'),
+    (['fog', 'mist', 'haze', '雾', '霭'],
+     'fog: palette.haze and haze_levels per depth plane, Post fog where allowed, canvas.loop_dissolve for drifting banks'),
+    (['sea', 'ocean', 'lake', 'river', 'stream', 'harbour', 'harbor', 'coast', 'beach', 'waterfall', 'pond', 'canal',
+      '海', '湖', '河', '溪', '港', '海岸', '沙滩', '瀑布', '池塘', '运河'],
+     'water: water.depth_bands, water.foam_rings, water.pool, water.waterfall, water.reflect'),
+    (['forest', 'tree', 'trees', 'garden', 'jungle', 'park', 'leaf', 'leaves', '森林', '树', '花园', '丛林', '公园', '叶'],
+     'foliage: veg.leaf_scales (round canopies), veg.leaf_glyphs, veg.leafmass, texture.leaflight (flecks in dark '
+     'foliage), props.trunk, shapes.lobes_along for far tree lines'),
+    (['sky', 'cloud', 'clouds', 'sunset', 'dusk', 'dawn', '天空', '云', '日落', '黄昏', '清晨'],
+     'sky: sky.strata, sky.wisp, sky.smile, sky.streaks, shapes.cloud / cloud_mass / cloud_mask'),
+    (['cave', 'mine', 'rock', 'cliff', 'mountain', 'rubble', 'stone', '洞', '矿', '岩', '悬崖', '山', '石'],
+     'rock: texture.stones (rubble, cave walls), texture.flakes (layered rock), texture.pebbles, shapes.ledges, '
+     'shapes.noisy_edge, shapes.void_edge, props.rails and props.stairwell underground'),
+    (['city', 'town', 'street', 'building', 'house', 'houses', 'village', 'alley', 'castle', 'wall', 'brick',
+      '城', '镇', '街', '楼', '房', '村', '巷', '城堡', '墙', '砖'],
+     'buildings: layout.ashlar and texture.shade_cells for stone, texture.bricks, texture.panels, texture.mottle, '
+     'texture.inset_frame for trim, props.glass_streak for windows, iso.Iso boxes in iso'),
+    (['industrial', 'factory', 'crane', 'construction', 'bridge', 'tower', 'harbour crane', '工厂', '吊车', '工地', '塔'],
+     'structure: props.girders, props.truss, texture.grille, texture.pits for concrete'),
+    (['tech', 'sci-fi', 'scifi', 'robot', 'mech', 'machine', 'computer', 'neon', 'space', '科技', '科幻', '机器', '机甲',
+      '电脑', '霓虹', '太空'],
+     'tech: texture.circuit, texture.emitter_grid (lamp panels), fx.indicator, texture.grille, fx.emissive for screens'),
+    (['ruin', 'ruins', 'temple', 'rune', 'magic', 'spell', 'shrine', '遗迹', '神殿', '符文', '魔法', '法术', '神社'],
+     'magic and ruins: glyphs.rune and glyphs.stamp, anim.cascade (runes lighting in turn), fx.pixel_motes, '
+     'texture.tapestry, texture.circuit'),
+    (['fire', 'explosion', 'battle', 'fight', 'gun', 'shoot', 'war', 'boss', 'sword', '火', '爆炸', '战斗', '打', '枪',
+      '射击', '战争', '剑'],
+     'action: fx.fireball, fx.puff, fx.burst, fx.shot, fx.muzzle_light, fx.hit_flash, fx.crescent (swing trails), '
+     'fx.tumble, anim.recoil, anim.arc'),
+    (['lamp', 'lantern', 'candle', 'torch', 'window', 'fireplace', 'neon sign', '灯', '灯笼', '蜡烛', '火把', '窗',
+      '壁炉'],
+     'small lights: light.flicker (held steps), light.rim, anim.chase (marquee and signal lights), '
+     'Post lightmap / light / glow per the style'),
+    (['crowd', 'people', 'busy', 'traffic', 'market', 'festival', 'car', 'cars', '人群', '热闹', '车', '集市', '夜市',
+      '庙会'],
+     'crowds: compose.populate (traffic and crowds in iso), props.car, figures.iso_person, compose.check_density'),
+    (['cat', 'dog', 'deer', 'horse', 'animal', 'bird', 'birds', 'fish', 'slime', '猫', '狗', '鹿', '马', '动物', '鸟',
+      '鱼'],
+     'animals: figures.quadruped_slim, anim.hop (squash and hop), anim.orbit (birds, fish), anim.lag for tails'),
+    (['person', 'people', 'character', 'hero', 'girl', 'boy', 'man', 'woman', 'kid', 'knight', 'samurai', 'walk',
+      '人', '角色', '主角', '女孩', '男孩', '骑士', '武士', '走'],
+     'figures: figures.chibi / slim / thin / iso_person per the style, anim.lag for hair, capes and scarves, '
+     'sprite.chain for ropes and scarves, sprite.drop_shadow, sprite.spec_edges'),
+]
+ALWAYS_TOOLS = ('checks: stats.budget_report (the style budget), anim.check_periods (every period divides the loop), '
+                'compose.check_density for busy scenes, styles.check on a delivered frame')
+
+def topic_tools(request):
+    t = ' ' + request.lower() + ' '
+    return [line for words, line in TOPIC_TOOLS if _hits(t, words)]
 
 # ---------------------------------------------------------------- what the request leaves open
 WORDS = dict(
@@ -512,6 +580,11 @@ def brief(style, request='', projection=None, choices=None):
     L.append('- Checks: frame T equals frame 0; `python3 tools/styles.py %s frame.png --scale %d`; reads at 480 px wide.' % (
         st['name'], st['scale']))
     L.append('\nTools for this style: ' + '; '.join(r['tools']) + '.')
+    tt = topic_tools(request)
+    if tt:
+        L.append('Tools for this subject:')
+        L += ['- ' + x + '.' for x in tt]
+    L.append('Always: ' + ALWAYS_TOOLS + '.')
     if r['example']:
         L.append('Closest example in the repo: %s.' % r['example'])
     return '\n'.join(L) + '\n'
@@ -554,6 +627,11 @@ def main(a):
         print('   pick it for: ' + p['pick_if'])
         if p['example']:
             print('   example: ' + p['example'])
+    tt = topic_tools(req)
+    if tt:
+        print('\ntools for the subject:')
+        for x in tt:
+            print('   ' + x)
     print('\nleft open by the request (default for %s):' % r['picks'][0]['style'])
     for x in gaps(req, r):
         print('   %s: %s' % (x['topic'], ('stated (%s)' % x['stated']) if x['stated'] else x['default']))

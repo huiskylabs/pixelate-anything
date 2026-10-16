@@ -30,6 +30,9 @@ Each preset is measured from one reference game (study/NN, guides/styles.md) and
   motion       'stepped' (hold tables, 2-12 fps) or 'subpixel' (actors move in screen pixels)
   scale, size  integer delivery scale and native canvas size; fps
   colours      rough count of authored colours on screen
+  paint_C      the chroma floor of the style's paints, when it has one: the hero's accent goes above it
+  music        a direction, not a preset: voices, feel (metre, mode, tempo), one sync point to the loop and
+               the `pixelate check TRACK.wav --style` mix to judge it with (route.music_line adapts it)
 The two-layer rule: the pixel layer is always strict (slots, integer grid, no anti-aliasing,
 nearest-neighbour integer scale). The light layer is optional, generated in code from the scene's
 own masks, and declared here (res, blend). Nothing is hand-painted and nothing is AI-generated.
@@ -44,6 +47,7 @@ _FILTERS = ('vignette', 'grain', 'scanlines', 'aberration')
 
 STYLES = {
     'contre-jour': dict(
+        music=dict(voices='a low drone, choir-like pads and one hand bell', feel='free time or a slow 4/4, minor or modal, very slow (50-60 bpm)', sync='the bell rings each time the beam or the backlight breathes', check='ambient'),
         ramp_how='`ramp_between` (navy to rose through grey), `haze_levels`', budget_note='at least 55% of pixels below L .25; at most 2% above L .6 and 0.3% above L .75; at most 2% above C .08',
         key='mostly dark (65% below L .25)',
         notes="Screen light: frames from `Post.image()` are already at delivery size; export with 'prescaled': True.",
@@ -70,6 +74,7 @@ STYLES = {
         motion='stepped', fps=12, scale=3, size=(640, 360), colours=22,
         figures='20-30 px, 1 px legs, no outline'),
     'pastel-cell': dict(
+        music=dict(voices='music box, soft pads and a light harp arpeggio', feel='3/4, major, unhurried (80-90 bpm)', sync='a high chime when the light ray widens on the hero', check='ambient'),
         ramp_how='`window` + `grade(hue_window, floor_L)`', budget_note='at least 97% of coloured pixels in hue 240-360; nothing below L .35; median L at least .6',
         key='high-key (median L .78)',
         ref='02 Celeste', what='high-key one-hue mood: undithered sky strata, flat cloud masses, native bloom from cloud masks',
@@ -85,6 +90,7 @@ STYLES = {
         motion='stepped', fps=30, scale=6, size=(320, 180), colours=50,
         figures='11x18 with a hair trail, the frame\'s darkest pixels are its outline'),
     'native-glow': dict(
+        music=dict(voices='a warm analogue pad, a slow pulsing bass and glassy bell arpeggios', feel='4/4, dorian minor, slow and lonely (70-80 bpm)', sync='a low swell each time the sigils pulse', check='synthwave'),
         ramp_how='`families` + `drift`', budget_note='at least half the pixels in L .2-.4; at most 5% at L .7 or above; black only in the void',
         key='low',
         ref='03 Hyper Light Drifter', what='low-key ruins on a vertical light spine; continuous light per art pixel, '
@@ -100,6 +106,7 @@ STYLES = {
         motion='stepped', fps=12, scale=4, size=(480, 270), colours=50,
         figures='12x27, 7 flat colours, no outline'),
     'hd-overworld': dict(
+        music=dict(voices='a flute or ocarina lead over nylon guitar or harp and soft strings', feel='6/8 or 4/4, major, a gentle walking tempo (90-100 bpm)', sync='a phrase ends each time the main mover arrives or the clouds wrap', check='orchestral'),
         ramp_how='`rise`', budget_note='median C .025-.06; at most 10% above L .8',
         key='low',
         ref='04 Sea of Stars', what='3/4 top-down coast: long low-key ramps whose chroma rises to the light, '
@@ -115,6 +122,7 @@ STYLES = {
         motion='stepped', fps=12, scale=3, size=(640, 360), colours=120,
         figures='chibi 13x26 (figures.chibi)'),
     'arcade': dict(
+        music=dict(voices='a punchy brass-like synth lead, slap bass and tight drums', feel='4/4, minor, driving (140-160 bpm)', sync='a drum fill on each explosion or impact', check='chiptune'),
         ramp_how='`arcade` for actors, flat cold `lofi` for the world', budget_note="at least 45% below L .25; at most 7% above L .75. With masks: the actor's median C at least .06, the world's at most .03, actor detail at least 1.8x the world's",
         notes='Use it with the `neogeo` era (`tools/era.py`): render the actor and FX layers separately and check each one. `--layer sprite`: every 16x16 tile uses at most 15 colours plus transparent; `--layer fix` (the HUD): 8x8 tiles.',
         ref='05 Metal Slug 3', what='Neo Geo density: warm hand-modelled actors on a cold dark world; FX are '
@@ -132,6 +140,7 @@ STYLES = {
         motion='stepped', fps=30, scale=4, size=(304, 224), colours=110,
         figures='heroes 32-40 px (3.6 heads), a boss 80-95 px cut by the frame edge'),
     'tactics': dict(
+        music=dict(voices='a dark synth bass, sparse pulse arpeggios and low drum hits', feel='4/4, minor, tense and steady (100-110 bpm)', sync='a low hit on each impact or turn', check='synthwave'),
         ramp_how='`arch` + `neutral_ramp`', budget_note='at most 2.5% above C .08; at least 70% below L .3',
         key='mostly dark (84% below L .30)',
         ref='06 Into the Breach', what='a 2:1 iso diorama floating in the dark, five greys, rationed colour, '
@@ -147,6 +156,7 @@ STYLES = {
         motion='stepped', fps=12, scale=2, size=(640, 360), colours=30,
         figures='units 24-34 px, black outline'),
     'sticker-iso': dict(
+        music=dict(voices='an accordion-like lead over a plucked bass and brushed drums', feel='4/4 with a swing feel, major, bright and busy (110-120 bpm)', sync='a bell as the main mover (a tram, a ferry) crosses', check='any'),
         ramp_how='`flat` + neutral ladder', budget_note='8-30% exact black; at least 15% above L .7',
         ref='07 Peterson Freitas', what='full-bleed noon iso: gamut-edge paint, black silhouettes, no light, '
                                         'no shadow, density is the subject',
@@ -155,6 +165,7 @@ STYLES = {
         outline='black',
         ramp=('flat', 'neutral'),
         palette='60-75 slots (176 exact): 8-12 paints at C >= .18, neutral grey ladder, #000 and #fff',
+        paint_C=0.18,
         allowed_post=(),
         banned_post=_SOFT + _FILTERS + ('cast_shadows',),
         budgets={'black': (0.08, 0.3), 'L<=0.3': (0.3, None), 'L>0.7': (0.15, None), 'C>0.04': (0.2, 0.55)},
@@ -162,6 +173,7 @@ STYLES = {
         motion='stepped', fps=12, scale=4, size=(600, 600), colours=70,
         figures='33-37 px iso people, 3.3 heads'),
     'illustrated': dict(
+        music=dict(voices='strings, woodwinds, a harp and a soft horn', feel='3/4 or 4/4, major, broad and warm (70-90 bpm)', sync='a swell as the light opens or a flock passes', check='orchestral'),
         ramp_how='`living` + `haze`', budget_note='at most 1% below L .25 and 1.5% above L .85. With masks: the environment stays in L .30-.78',
         key='mid (environment L .30-.78)',
         ref='08 Owlboy', what='illustration-grade carved stone, a frame drawn into the art, depth by palette haze; '
@@ -179,6 +191,7 @@ STYLES = {
         motion='stepped', fps=12, scale=2, size=(640, 360), colours=95,
         figures='actors carry the frame\'s extremes (outline L < .25, cores L > .85)'),
     'neon-noir': dict(
+        music=dict(voices='a dark synth bass, gated drums, a detuned lead and rain on glass', feel='4/4, minor, a steady night drive (90-110 bpm)', sync='a stab when a sign flickers', check='synthwave'),
         ramp_how='`lit`', budget_note='at most 1.5% above C .10; at least 15% exact black',
         key='mostly dark (26% exact black)',
         ref='09 Katana ZERO', what='a lit room slab floating in exact black; multiplied wall-wash light per art '
@@ -194,6 +207,7 @@ STYLES = {
         motion='stepped', fps=12, scale=5, size=(384, 216), colours=50,
         figures='38-42 px (figures.thin, h=38 by default), thin limbs, no outline, brightest values in the frame'),
     'cosy-lightmap': dict(
+        music=dict(voices='warm electric piano, soft drums and vinyl crackle', feel='4/4 swung, major sevenths, slow (70-80 bpm)', sync='a soft chime as a lamp flickers or a door opens', check='lofi'),
         ramp_how='`plum` + `toy`', budget_note='35-65% below L .1; at most 0.6% above L .8',
         key='mostly dark (52% below L .1)',
         notes='The only style whose actors move in screen pixels (motion subpixel).',
@@ -217,6 +231,7 @@ STYLES = {
         motion='subpixel', fps=12, scale=4, size=(480, 270), colours=45,
         figures='chibi 13x26 (figures.chibi), outlines per part, camera-following'),
     'lofi': dict(
+        music=dict(voices='electric piano or guitar, soft drums and vinyl crackle, one motif per phase', feel='4/4 swung, slow (70-85 bpm)', sync="a phase change brings its own motif; the loop is the music's length", check='lofi'),
         ramp_how='`lofi`, the default ramp', budget_note='at most 1% below L .1 and 0.1% exact black; at most 4% at L .7 or above and 2% above L .8; median C .02-.1',
         ref='lantern-isle (this repo)', what='the toolkit\'s original look: 16-bit-ish palette-step light, '
                                              'Bayer gradients, own-material outlines',
@@ -371,6 +386,9 @@ def card(name):
     L += ['', '## Palette and ramps', '- palette: %s.' % st['palette'],
           '- ramps: %s (palette.ramp(style="%s"))%s.' % (st.get('ramp_how', j(st['ramp'])), st['ramp'][0],
                                                        ('; ramp_kw %s' % st['ramp_kw']) if st.get('ramp_kw') else '')]
+    if st.get('paint_C'):
+        L.append('- peak chroma: the paints already sit at C >= %.2f, so the hero\'s accent must exceed that floor '
+                 '(about C %.2f or more) to hold the frame\'s top chroma alone.' % (st['paint_C'], st['paint_C'] + 0.04))
     for k in ('grade', 'haze'):
         if st.get(k):
             L.append('- %s: %s.' % (k, st[k]))
@@ -409,6 +427,11 @@ def card(name):
     for title, key in (('Rules', 'rules'), ('Techniques', 'tools'), ('Never', 'never')):
         if r.get(key):
             L += ['', '## ' + title] + ['- %s%s' % (x, '' if x.endswith('.') else '.') for x in r[key]]
+    if st.get('music'):
+        m = st['music']
+        L += ['', '## Music', '- %s; %s; sync point: %s.' % (m['voices'], m['feel'], m['sync']),
+              '- direction only: write the track in code (guides/music.md) and judge it with '
+              '`pixelate check TRACK.wav --style %s`; an era piece uses the console\'s own chip voices.' % m['check']]
     if st.get('notes'):
         L += ['', '## Notes', '- ' + st['notes']]
     L += ['', '## Check',
@@ -418,9 +441,11 @@ def card(name):
     return '\n'.join(L) + '\n'
 
 def listing():
-    """one line per style"""
+    """one line per style, then one line on eras"""
     return '\n'.join('%-14s %-24s res %-6s %dx %dx%d  %s' % (k, ref_label(k), v['res'], v['scale'], v['size'][0],
-                                                            v['size'][1], v['what'][:80]) for k, v in STYLES.items())
+                                                            v['size'][1], v['what'][:80]) for k, v in STYLES.items()) + (
+        '\neras: a screen that obeys a console\'s limits (Game Boy, NES, SNES, Mega Drive, GBA, PICO-8, Neo Geo) is '
+        'a style plus `--era ERA`; read guides/eras.md (`pixelate era --list`)')
 
 USAGE = """usage: pixelate style --list | NAME | NAME IMAGE [--scale N]
        (styles.py describe NAME prints the raw preset)"""

@@ -84,9 +84,12 @@ plane, the hero's light the brightest, no detail. `pixelate check BLOCKIN.png --
 - `focal light brightest` and `hero placement`: most of the brightest band, and 80% of its largest
   patch, sit inside the brief's hero bbox (or the light the Hero line names with a bbox).
 - `hero size`: what stands out from its surroundings inside the hero bbox fills at least 85% of it.
-- `plane shares`: with a brief line `- Planes: ground 45%, sky 20%, buildings 25%`, the planes are
-  matched to the bands by share (largest plane to largest band, the brightest band left out when it
-  is the hero's light), and each must be within 8 points of the brief.
+- `plane shares`: with a brief line `- Planes: street 45% (mid), canal 10% (mid), sky 20% (light),
+  houses 25% (dark)`, the shares of the planes tagged to a band are summed, and each band must be
+  within 8 points of that sum. Brightest is the top band (the hero's light), darkest the bottom one,
+  dark, mid and light spread over the bands below the top, and 1-4 count from the darkest. Untagged
+  planes are listed, not matched: never sink a house into a dark band or rename planes as value
+  groups to pass.
 - `block-in empty` and `empty_low`: on a coarse 16-column grid, a cell is empty when one grey covers
   97% of it; the bottom third stays under 88% empty, and `--style` adds the style's own `empty` limit.
 - `block-in slab`: one straight inner edge running over half the frame. A block-in is made of

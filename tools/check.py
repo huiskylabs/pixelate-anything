@@ -40,8 +40,9 @@ Frame mode (FRAME is an image: any scene, Python or engine, at its delivered N x
   9. repeat (WARN, never FAIL): rows of near-identical lobes or units, e.g. equal cloud scallops or the
      same house stamped along a street (craftcheck.repeats)
   --blockin: the frame is a greyscale block-in (flat value masses, no detail): 3-4 value bands with the
-     hero's light the brightest, the hero placed and sized as the brief's bbox, the brief's
-     `- Planes: ground 45%, sky 20%` shares, empty cells on a coarse grid, a long inner slab edge, focus
+     hero's light the brightest, the hero placed and sized as the brief's bbox, the shares of the
+     brief's `- Planes: street 45% (mid), sky 20% (light)` summed per tagged band, empty cells on a
+     coarse grid, a long inner slab edge, focus
   --scene NAME: the style's scene variant budget (`pixelate style S` lists them), e.g. cosy-lightmap
      exterior, contre-jour beam
   --era ERA: the console era's own checks (size, colour count, fixed palette or bit depth, colours per
@@ -209,7 +210,9 @@ def brief_overrides(path):
 #   - Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT
 # The bbox is inclusive, at 1x. An OBJECT that is not the hero (a sun, a lamp) gives its own bbox in
 # brackets, `peak value: the sun disc (244,6,268,32)`, so the peak may sit there instead.
-# The plane line, read by --blockin:   - Planes: ground 45%, sky 20%, buildings 25%
+# The plane line, read by --blockin:   - Planes: street 45% (mid), sky 20% (light), houses 25% (dark)
+# Planes name objects or places. A plane may carry a band tag in brackets: darkest, dark, mid, light,
+# brightest, or a band number 1-4 counted from the darkest; other text on the line (reasons) is ignored.
 _BOX = r'(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)'
 HERO_LINE = re.compile(r'^\s*[-*]\s*\**Hero\**:\s*\**\s*' + _BOX + r'(.*)$', re.M | re.I)
 PLANES_LINE = re.compile(r'^\s*[-*]\s*\**Planes\**:\s*(.+?)\s*$', re.M | re.I)
@@ -234,13 +237,41 @@ def brief_hero(path):
     c, cb = _owner(m.group(5), 'peak chroma')
     return {'bbox': (x0, y0, x1, y1), 'value': v, 'value_box': vb, 'chroma': c, 'chroma_box': cb}
 
+BAND_WORDS = ('darkest', 'dark', 'mid', 'light', 'brightest')
+
+def _band_tag(text):
+    """the band a bracket names: 'mid' -> 'mid', '3' or 'band 3' -> 3, a reason alone -> None"""
+    m = re.match(r'\s*(?:band\s*)?([1-4])(?![\d.%])', text, re.I)
+    if m:
+        return int(m.group(1))
+    m = re.match(r'\s*(darkest|brightest|dark|mid|light)\b', text, re.I)
+    return m.group(1).lower() if m else None
+
+def parse_planes(text):
+    """the text after `Planes:` -> [(name, share, tag)]: each `NAME NN%` pair, with the band tag of the
+    bracket right after it (None when untagged). Other text (reasons, notes in brackets) is ignored."""
+    text = re.sub(r'(?:\(|\[)([^)\]]*)(?:\)|\])', lambda m: ' \x00%s\x00 ' % (_band_tag(m.group(1)) or ''), text)
+    out = []
+    for n, v, tag in re.findall(r'([^,;:%\x00\d~][^,;:%\x00]*?)\s+~?(\d+(?:\.\d+)?)\s*%\s*(?:\x00([^\x00]*)\x00)?', text):
+        out.append((n.strip(), float(v) / 100, (int(tag) if tag.isdigit() else tag) or None))
+    return out
+
 def brief_planes(path):
-    """the brief's `- Planes: ground 45%, sky 20%` line -> [(name, share)], or None"""
+    """the brief's `- Planes: street 45% (mid), sky 20%` line -> [(name, share, tag)], or None"""
     m = PLANES_LINE.search(pathlib.Path(path).read_text())
-    if not m:
-        return None
-    out = [(n.strip(), float(v) / 100) for n, v in re.findall(r'([^,;:]+?)\s+(\d+(?:\.\d+)?)\s*%', m.group(1))]
-    return out or None
+    return (parse_planes(m.group(1)) or None) if m else None
+
+def band_index(tag, n):
+    """a plane's band tag -> the band's index (0 darkest) among n bands, or None when there is no such band.
+    brightest is the top band (the hero's light); dark, mid and light spread over the bands below it."""
+    if isinstance(tag, int):
+        return tag - 1 if tag <= n else None
+    if tag == 'darkest':
+        return 0
+    if tag == 'brightest':
+        return n - 1
+    r = max(1, n - 1)
+    return {'dark': 0, 'mid': r // 2, 'light': r - 1}[tag]
 
 FOCUS_KEYS = ('focus_value', 'focus_contrast', 'focus_chroma', 'focus_rival', 'focus_size')
 
@@ -594,26 +625,37 @@ def blockin(path, scale=1, brief=None, style=None, overrides=()):
             line('FAIL', 'hero size', '0%', 'nothing in the hero bbox stands out from its surroundings')
     else:
         line('SKIP', 'hero placement', '', 'needs a brief with a `- Hero: x0,y0,x1,y1` line')
-    if planes and bands:
-        rest = sorted(bands[:-1] if len(bands) > len(planes) else bands, key=lambda b: -b[1])
-        want = sorted(planes, key=lambda p: -p[1])
-        bad = []
-        for (name, share), b in zip(want, rest):
-            if abs(share - b[1]) > craftcheck.BLOCK_PLANE_TOL:
-                bad.append((name, share, b))
-        state = 'FAIL' if bad or len(rest) < len(want) else 'PASS'
-        line(state, 'plane shares', '%d planes' % len(want), 'each within %.0f points of the brief (largest plane '
-             'to largest band)' % (100 * craftcheck.BLOCK_PLANE_TOL))
-        note('brief: ' + ', '.join('%s %.0f%%' % (p[0], 100 * p[1]) for p in want) + '; block-in: ' +
-             ', '.join('L %.2f %.0f%%' % (b[0], 100 * b[1]) for b in rest))
-        for name, share, b in bad:
-            note('%s should be %.0f%% of the frame; the matching band (L %.2f) is %.0f%%: %s it' % (
-                name, 100 * share, b[0], 100 * b[1], 'grow' if b[1] < share else 'shrink'))
-        if len(rest) < len(want):
-            note('the brief names %d planes and the block-in has %d bands besides the focal light: give each '
-                 'plane its own grey' % (len(want), len(rest)))
+    tagged = [p for p in planes or () if p[2] is not None]
+    if planes and not tagged:
+        line('SKIP', 'plane shares', '', 'no plane carries a band tag')
+        note('planes: ' + ', '.join('%s %.0f%%' % (p[0], 100 * p[1]) for p in planes) + '. Untagged planes are not '
+             'matched to bands; to check them, tag each with its grey: `street 45% (mid), houses 25% (dark)`')
+    elif tagged and bands:
+        TOL = craftcheck.BLOCK_PLANE_TOL
+        want, bad = {}, []
+        for name, share, tag in tagged:
+            i = band_index(tag, len(bands))
+            if i is None:
+                bad.append('%s is tagged band %s; the block-in has %d bands' % (name, tag, len(bands)))
+            else:
+                want.setdefault(i, []).append((name, share))
+        for i in sorted(want):
+            got, need = bands[i][1], sum(s for _, s in want[i])
+            if abs(need - got) > TOL:
+                bad.append('band %d (L %.2f) is %.0f%% of the frame; its planes (%s) add to %.0f%%: %s that grey, or retag a plane' % (
+                    i + 1, bands[i][0], 100 * got, ', '.join(n for n, _ in want[i]), 100 * need,
+                    'grow' if got < need else 'shrink'))
+        line('FAIL' if bad else 'PASS', 'plane shares', '%d bands' % len(want), 'each band within %.0f points of '
+             'the planes tagged to it' % (100 * TOL))
+        note('brief by band: ' + '; '.join('%d (L %.2f, %.0f%%): %s' % (i + 1, bands[i][0], 100 * bands[i][1], ', '.join(
+            '%s %.0f%%' % (n, 100 * s) for n, s in want[i])) for i in sorted(want)))
+        for b in bad:
+            note(b)
+        loose = [p for p in planes if p[2] is None]
+        if loose:
+            note('untagged, not matched: ' + ', '.join('%s %.0f%%' % (p[0], 100 * p[1]) for p in loose))
     else:
-        line('SKIP', 'plane shares', '', 'needs a brief with a `- Planes: ground 45%, sky 20%` line')
+        line('SKIP', 'plane shares', '', 'needs a brief with a `- Planes: street 45% (mid), sky 20% (light)` line')
     if bands:
         e = craftcheck.blockin_empty(F, bands)
         lim = {'empty': craftcheck.COMPOSITION[style]['empty'][1] if style else None, 'empty_low': 0.88}

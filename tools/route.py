@@ -278,12 +278,16 @@ MODES = [
     ('rebuild', 3, ['photo', 'picture of', 'my photo', 'aerial', 'rebuild', 'this image', 'from this',
                     '照片', '这张图', '航拍', '重建']),
     ('era', 3, ['nes', 'game boy', 'gameboy', '8-bit', '8 bit', '16-bit', '16 bit', 'snes', 'genesis', 'mega drive',
-                'gba', 'pico-8', 'pico8', '红白机', '8位', '16位', '掌机', '四色绿', '超任', 'famicom']),
+                'gba', 'pico-8', 'pico8', '红白机', '8位', '16位', '掌机', '四色绿', '超任', 'famicom',
+                'four-shade green', '4-shade green', 'four-colour green', '4-colour green', 'four-color green',
+                '4-color green', 'handheld game', 'handheld screen', 'dot-matrix', 'dot matrix', '四色', '绿屏']),
     ('assets', 2, ['sprite sheet', 'spritesheet', 'tileset', 'character sheet', 'icons', 'items', 'walk cycle',
                    '精灵表', '图块', '图标', '道具', '行走']),
     ('music', 3, ['soundtrack only', 'just music', 'music loop', 'chiptune', '只要音乐', '配乐']),
 ]
-ERA_WORDS = [('gameboy', ['game boy', 'gameboy', 'gb style', 'dmg', '掌机', '四色绿', 'four shades of green']),
+ERA_WORDS = [('gameboy', ['game boy', 'gameboy', 'gb style', 'dmg', '掌机', '四色绿', 'four shades of green',
+                         'four-shade green', '4-shade green', 'four-colour green', '4-colour green',
+                         'four-color green', '4-color green', 'handheld game', 'handheld screen', 'dot-matrix', 'dot matrix', '四色', '绿屏']),
              ('pico-8', ['pico-8', 'pico8']),
              ('nes', ['nes', 'famicom', '8-bit', '8 bit', '红白机', '8位', 'fc']),
              ('genesis', ['genesis', 'mega drive', 'megadrive', '世嘉']),
@@ -762,13 +766,21 @@ BUCKET_LIGHT = {'night': "the scene's own lights (windows, lamps, the subject) a
 
 UNDERGROUND = ['mine', 'cave', 'underground', 'dungeon', 'tunnel', 'sewer', 'crypt', '矿', '洞', '地下', '地牢',
                '隧道', '下水道']
-INDOOR = ['interior', 'inside', 'indoor', 'indoors', 'room', 'bedroom', 'kitchen', 'living room',
-          '室内', '屋内', '房间', '卧室', '厨房', '里面']
+INTERIOR = ['interior', 'inside', 'indoor', 'indoors', '室内', '屋内', '里面']   # always indoors
+ROOMS = ['bedroom', 'kitchen', 'living room', 'classroom', 'attic', '房间', '卧室', '厨房']
+# a bare 'room' only with an owner or a room adjective: 'clear room around it' and 'the lantern room' stay outside
+ROOM = re.compile(r'\b(?:a|the|my|his|her|their|our|cosy|cozy|small|tiny|little|empty|quiet|dark|messy|study|'
+                  r'reading|dining|throne|music|hotel)\s+room\b')
 PLACES = ['cafe', 'coffee shop', 'shop', 'library', 'tavern', 'inn', 'restaurant', 'bakery', 'studio',
           '咖啡', '店', '馆', '图书馆', '酒馆', '客栈']   # a building: inside unless the request is outdoors
 OUTDOOR = ['outdoor', 'outdoors', 'outside', 'exterior', 'street', 'road', 'square', 'plaza', 'garden', 'yard',
            'rooftop', 'from above', 'seen from above', 'lane', 'alley', 'harbour', 'harbor', 'market',
-           '室外', '户外', '屋外', '街', '路', '广场', '院子', '屋顶', '从上往下']
+           '室外', '户外', '屋外', '街', '路', '广场', '院子', '屋顶', '从上往下', 'sky']
+# an outdoor subject: outside even when a room word shows up (the lighthouse's lantern room)
+OUTDOOR_SUBJECTS = ['canal', 'market', 'harbour', 'harbor', 'lighthouse', 'street', 'sea', 'ocean', 'island',
+                    'bridge', 'beach', 'coast', 'shore', 'headland', 'cliff', 'river', 'lake', 'mountain', 'forest',
+                    'field', 'meadow', 'pier', 'dock', 'port', '运河', '市场', '集市', '港', '灯塔', '大海', '海边',
+                    '海上', '岛', '桥', '河', '湖', '山', '森林']
 
 def _strip(t, words):
     """t with every whole-word (English) or substring (Chinese) hit of words blanked out"""
@@ -805,9 +817,10 @@ def time_weather(request, style):
         time, bucket = (when[0], when[1]) if when else (d_time, d_bucket)
         weather = sky[0] if sky else ('' if d_weather.split(':')[0] in ASKED_ONLY else d_weather)
         light = d_light if bucket == d_bucket else BUCKET_LIGHT[bucket]
-    inside = _hits(t, INDOOR)
+    subject = _hits(t, OUTDOOR_SUBJECTS)
+    inside = _hits(t, INTERIOR) or ([] if subject else _hits(t, ROOMS) + ROOM.findall(t))
     place = _hits(t, PLACES)
-    outdoors = _hits(t, OUTDOOR) or (sky and sky[0].split(':')[0] in PRECIP)
+    outdoors = subject or _hits(t, OUTDOOR) or (sky and sky[0].split(':')[0] in PRECIP)
     if inside or (place and not outdoors):
         return ('indoors%s: the room lit by its own lamps and one window showing %s outside' % (
             (' at ' + time if time in ('night', 'midnight', 'dusk', 'dawn', 'noon') else ', ' + time) if when else '',
@@ -818,6 +831,44 @@ def time_weather(request, style):
         text += "; seen from outside, the building's windows and door spill light onto the ground"
     return text, '/'.join(stated + (outdoors[:1] if place and isinstance(outdoors, list) else []))
 
+SILENT = ['silent', 'no music', 'no sound', 'without music', 'without sound', 'mute', 'muted', 'no audio',
+          '无声', '静音', '不要音乐', '没有音乐', '不要声音']
+# an era piece plays on the console's own sound chip
+ERA_VOICES = {'gameboy': 'two pulse voices, one wave and one noise (the handheld\'s four channels)',
+              'nes': 'two pulse voices, a triangle bass and one noise',
+              'snes': 'up to eight sampled voices with the chip\'s echo',
+              'genesis': 'six FM voices with three square voices and one noise',
+              'gba': 'two pulses, a wave and a noise plus two sample channels',
+              'pico-8': 'four channels from its eight built-in waveforms',
+              'neogeo': 'FM voices, three square voices and sampled drums'}
+SOUND_BEDS = [(['storm', 'thunder', 'lightning', '暴风', '风暴', '雷'], 'rain and thunder'),
+              (['rain', 'drizzle', '雨'], 'rain'), (['snow', 'snowy', '雪'], 'a snowy hush'),
+              (['sea', 'ocean', 'wave', 'waves', 'harbour', 'harbor', '海', '浪'], 'the sea'),
+              (['wind', 'windy', '风'], 'wind')]
+
+def music_line(request, style, era=None):
+    """the Music line for a scene brief: the style's direction (styles.STYLES[..]['music']), the console's
+    chip voices for an era piece, a sound bed from the request's weather; 'none' only when the request asks
+    for silence. Direction only: the agent writes the track, `pixelate check TRACK.wav` judges it."""
+    t = _no_era(' ' + (request or '').lower() + ' ')
+    hush = _hits(' ' + (request or '').lower() + ' ', SILENT)
+    if hush:
+        return 'none: the request asks for %s' % hush[0]
+    m = styles.get(style)['music']
+    bed = next((b for ws, b in SOUND_BEDS if _hits(t, ws)), None)
+    if era:
+        import era as eramod
+        voices = 'chiptune on the %s chip only: %s' % (eramod.ERAS[era]['name'], ERA_VOICES[era])
+        feel, sync, check = ('a short tune in the console\'s idiom, simple triads, its metre, mode and tempo '
+                             'from the scene\'s mood', 'an arpeggio or a noise hit on the loop\'s main event '
+                             '(a beam sweeping past, a wave breaking)', 'chiptune')
+        bed = bed and '%s on the noise channel' % bed
+    else:
+        voices, feel, sync, check = m['voices'], m['feel'], m['sync'], m['check']
+    return ('%s; %s%s; sync point: %s. Direction only: write the track in code (guides/music.md); '
+            '`pixelate check TRACK.wav --style %s` judges it' % (
+                voices, feel, ('; under a bed of %s' % bed) if bed else '', sync, check))
+
 def loop_default(style):
     """the loop line for a non-lofi style: the length comes from the story beats, the style's default
     only when nothing in the scene needs longer"""
@@ -827,7 +878,7 @@ def loop_default(style):
             'of the procession, a door opening and closing) rounded up to a length every period divides%s' % (
                 st['fps'], (' (%d frames when nothing needs longer)' % frames) if frames else ''))
 
-def gaps(request, r=None, delivered=None):
+def gaps(request, r=None, delivered=None, native_h=None):
     """-> [{topic, stated, default}]: each open choice in the request and the default it takes for the
     top style. Fill the brief with the defaults, then list them for the user to confirm or change."""
     r = r or route(request)
@@ -852,7 +903,7 @@ def gaps(request, r=None, delivered=None):
     named = _hits(t, WORDS['figures'] + ['slime', 'robot', 'samurai', '史莱姆', '武士', '机器人'])
     add('figures', WORDS['figures'],
         'only the actors the request names, nobody added' if named else
-        'one or two small figures doing a quiet, specific task (%s)' % _as_example(st['figures']))
+        'one or two small figures doing a quiet, specific task (%s)' % _as_example(figure_size(st, native_h)[0]))
     loop = ('the engine\'s 30-tick clock, sprites at 10, 5 or 2 fps; the loop is the music\'s length'
             if st['name'] == 'lofi' else loop_default(st['name']))
     excerpt = 'a GIF excerpt' if st['res'] == 'none' else 'an APNG excerpt (a GIF bands soft light)'
@@ -868,8 +919,7 @@ def gaps(request, r=None, delivered=None):
                             (', palette %s' % e['palette']) if e.get('palette') else '',
                             (', %d colours per %dx%d block' % (e['block_colors'], e['block'], e['block']))
                             if e.get('block') else '', r['era'])))
-    add('music', WORDS['music'],
-        'a lofi track with one motif per phase (guides/music.md)' if st['name'] == 'lofi' else 'none')
+    add('music', WORDS['music'] + SILENT, music_line(request, st['name'], r.get('era')))
     return out
 
 def gaps_md(g):
@@ -937,6 +987,7 @@ def lint(text):
                 and not b.endswith(':') and not re.search(RATE, b, re.I)]
         if slow:
             probs.append('Motion table: %d line(s) with no rate or frame count: %s' % (len(slow), _quote(slow)))
+    probs += _music(text)
     li = find('Light list')
     soft = _has_light_layer(text)
     if li is not None and not re.search(r'\d', li) and (soft or not re.search(PALETTE_STEP, li, re.I)):
@@ -1007,8 +1058,8 @@ def lint(text):
 SCENE_PLAN = [
     ('hero', r'hero', r'\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*\d+.*peak value\s*:\s*\w.*peak chroma\s*:\s*\w',
      '`- Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`'),
-    ('planes', r'planes', r'^[^:]*:\s*\w[\w ]*?\s\d+\s*%(?:\s*,\s*\w[\w ]*?\s\d+\s*%)+',
-     '`- Planes: ground 45%, sky 20%, buildings 35%`'),
+    ('planes', r'planes', None, '`- Planes: street 45% (mid), sky 20% (light), houses 35% (dark)`, two or more '
+     '`NAME NN%` pairs, each band tag optional'),
     ('layout', r'layout', r'\d', 'what owns each region as boxes and the calm areas as boxes with their content'),
     ('masses', r'masses', r'(?:\d+\D+){2}\d', 'three or four masses of very different size with their sizes '
      '(`- Masses: one 140 px cloud bank, a 60 px trough, tufts of 20 and 12 px`)'),
@@ -1022,6 +1073,11 @@ PLANE_MIN = {'topdown': (('ground', 'street', 'floor', 'road', 'plaza', 'yard', 
 
 def _proj_key(proj):
     return 'topdown' if re.search(r'top[\s-]*down|俯视|from above', proj or '', re.I) else ''
+
+def _planes(line):
+    """the `NAME NN%` pairs of a Planes line (check.parse_planes): [(name, share, band tag or None)]"""
+    import check
+    return check.parse_planes(line.split(':', 1)[1] if ':' in line else line)
 
 def _plan_line(sc, label):
     return next((b for b in _bullets(sc) if re.match(r'\**%s\b[^:]{0,24}:' % label, b, re.I)), None)
@@ -1037,17 +1093,29 @@ def _scene_plan(sc):
         line = _plan_line(sc, label)
         if line is None:
             out.append('The scene has no %s line: write %s' % (name, fix))
-        elif 'TODO' not in line and not re.search(want, line, re.I):
+        elif 'TODO' not in line and not (len(_planes(line)) >= 2 if want is None else re.search(want, line, re.I)):
             out.append('The scene: the %s line is not in the form %s' % (name, fix))
     pl = _plan_line(sc, 'planes')
     proj = re.search(r'Projection:\s*([^.\n]+)', sc)
     if pl and proj and _proj_key(proj.group(1)) == 'topdown':
         words, mn, _ = PLANE_MIN['topdown']
-        got = sum(int(n) for w, n in re.findall(r'(\w+)[\w ]*?\s(\d+)\s*%', pl) if w.lower() in words)
+        got = sum(100 * v for n, v, _ in _planes(pl) if set(n.lower().split()) & set(words))
         if 'TODO' not in pl and got < mn:
             out.append('The scene: 3/4 top-down gives the ground %d%% of the frame; it is the largest plane, at least '
                        '%d%% (the street, plaza or yard), or the picture reads as a facade' % (got, mn))
     return out
+
+def _music(text):
+    """a scene brief has a `- Music:` line from the style's direction; `none` only when the request asks for silence"""
+    ml = re.findall(r'^\s*[-*]\s+\**Music\**\s*:\s*(.*)$', text, re.M | re.I)
+    if not ml:
+        return ['no "Music:" line (in Phases): write the music direction for this style (`pixelate style S` has '
+                'it), or none when the request asks for silence']
+    req = re.search(r'^Request:\s*(.*)$', text, re.M)
+    if re.match(r'\**none\b', ml[0].strip(), re.I) and not _hits(' ' + (req.group(1) if req else '').lower() + ' ', SILENT):
+        return ['Music is none but the request does not ask for silence: write the style\'s music direction '
+                '(`pixelate style S`)']
+    return []
 
 ONE_LINE = {'light direction': 'every rim, lit side and shadow', 'wind': 'every lean, trail, smoke and drift'}
 
@@ -1418,23 +1486,35 @@ def delivery(style, size=None, scale=None, era=None):
     s = min(ks, key=lambda k: (round(abs(math.log(H / k / h0)), 6), abs(math.log(k / st['scale']))))
     return W // s, H // s, s, W, H
 
+FIG_SIZE = re.compile(r'(\d+)x(\d+)|(\d+)(?:-(\d+))? px')
+
+def figure_size(st, h):
+    """the style's figure line with its size scaled to a canvas h rows high (the style's size is for its own
+    canvas height): -> (text, factor, tall rows at this canvas or None)"""
+    m = FIG_SIZE.search(st['figures'])
+    if not m:
+        return st['figures'], 1.0, None
+    f = h / st['size'][1] if h else 1.0
+    tall = int(m.group(2) or m.group(4) or m.group(3))
+    if abs(f - 1) <= 0.05:
+        return st['figures'], f, tall
+    size = ('%dx%d' % (round(int(m.group(1)) * f), round(tall * f)) if m.group(1) else
+            '%d-%d px' % (round(int(m.group(3)) * f), round(tall * f)) if m.group(4) else '%d px' % round(tall * f))
+    return st['figures'][:m.start()] + size + st['figures'][m.end():], f, round(tall * f)
+
 def _figure_lines(st, h, scale, framed=None):
     """the figure size for this canvas: the style's size is for its own canvas height, scaled by native
     height, plus how tall the hero is on screen"""
-    L = ['- Figures: %s, drawn as your own slot maps.' % _as_example(st['figures'])]
-    m = re.search(r'(\d+)x(\d+)|(\d+)(?:-(\d+))? px', st['figures'])
-    if not m:
+    text, f, tall = figure_size(st, h)
+    L = ['- Figures: %s, drawn as your own slot maps.' % _as_example(text)]
+    if tall is None:
         return L
-    f = h / st['size'][1]
-    tall = int(m.group(2) or m.group(4) or m.group(3))
     if abs(f - 1) > 0.05:
-        size = ('%dx%d' % (round(int(m.group(1)) * f), round(tall * f)) if m.group(1) else
-                '%d-%d px' % (round(int(m.group(3)) * f), round(tall * f)) if m.group(4) else '%d px' % round(tall * f))
-        L.append('- That size is for the style\'s %dx%d canvas; on this %d-row canvas draw them about %s (x%.2f by '
-                 'native height).' % (st['size'][0], st['size'][1], h, size, f))
+        L.append('- That size is already scaled from the style\'s %dx%d canvas to this %d-row one (x%.2f by native '
+                 'height).' % (st['size'][0], st['size'][1], h, f))
     L.append('- On screen the hero is about %d px tall (%d native rows x %d); in a collage cell or a small embed it '
              'stays at least %d px tall at the delivered cell size (see references/drawing.md#characters).' % (
-                 round(tall * f) * scale, round(tall * f), scale, MIN_HERO_PX))
+                 tall * scale, tall, scale, MIN_HERO_PX))
     return L
 
 def scene_of(style, request):
@@ -1450,6 +1530,18 @@ def gate_cmd(st, scale, file='frame.png', era=None, scene=None):
                                                             (' --scene %s' % scene) if scene else '', scale)
 
 # ---------------------------------------------------------------- the pre-filled brief
+def _top_budget_note(b):
+    """the hero-band note for a tight highlight bound: L > .8 at 2% or less means a big lit shape (a door
+    wedge, a beam) is brightest only at its source and a step darker beyond it"""
+    top = [(float(k[2:]), hi) for k, (lo, hi) in b.items() if k.startswith('L>') and not k.startswith('L>=')
+           and hi is not None and hi <= 0.03]
+    if not top:
+        return ''
+    t, hi = max(top)
+    return ('; the budget keeps L > %s to %s%% of the frame, so a big lit shape (a door wedge, a beam) is brightest '
+            'only at its source (near the door, at the lamp) and a step darker beyond it' % (
+                ('%.2f' % t).rstrip('0').lstrip('0'), ('%.1f' % (100 * hi)).rstrip('0').rstrip('.')))
+
 def _fmt_budget(b):
     return '; '.join('%s %s' % (k, ('>= %s' % lo) if hi is None else ('<= %s' % hi) if lo is None else
                                 '%s..%s' % (lo, hi)) for k, (lo, hi) in b.items()) or 'none (look at it)'
@@ -1525,10 +1617,14 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     L.append('\n## 4. The scene')
     L.append('- Projection: %s. Canvas %dx%d.' % (proj, w, h))
     L.append('- Hero: TODO x0,y0,x1,y1 (native px); peak value: TODO the object that alone holds the brightest '
-             'values; peak chroma: TODO the object that alone holds the top chroma. A figure stays at least %d px '
+             'values; peak chroma: TODO the object that alone holds the top chroma%s. A figure stays at least %d px '
              'tall at the delivered cell; no other mass over 0.6x the hero\'s area or within 0.1 L of its peak '
-             '(see references/drawing.md#composition).' % MIN_HERO_PX)
-    L.append('- Planes: TODO the share of the frame each plane takes, e.g. ground 45%%, sky 20%%, buildings 35%%%s.' % (
+             '(see references/drawing.md#composition).' % (
+                 (' (the style\'s paints sit at C >= %.2f, so the hero\'s accent goes above that floor)' % st['paint_C'])
+                 if st.get('paint_C') and not E else '', MIN_HERO_PX))
+    L.append('- Planes: TODO each object or place and its share of the frame, with the grey band it takes in the '
+             'block-in when you want it checked (darkest, dark, mid, light, brightest or 1-4; planes may share a band), '
+             'e.g. street 45%% (mid), sky 20%% (light), houses 25%% (dark), door wedge 10%% (brightest)%s.' % (
         PLANE_MIN.get(_proj_key(proj), ('', 0, ''))[2]))
     L.append('- Layout: TODO what owns each region as boxes (x0-x1, y0-y1), the calm areas as boxes with what may sit '
              'in them; counts are maximums ("4 houses, no more").')
@@ -1536,7 +1632,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'width), for every field that fills a band (cloud sea, sea, roofs, crowd, canopy); never an even row '
              'of equal lobes, domes or houses (see references/drawing.md#composition).')
     L.append('- Value plan: TODO three or four value groups with what falls in each and its L (far, middle, near, '
-             'hero), one of them dark; the brightest group only at the one focal light and its one repeat.')
+             'hero), one of them dark; the brightest group only at the one focal light and its one repeat%s.' % (
+                 _top_budget_note(styles.budgets(st['name'], scene)) if not E else ''))
     L.append('- TODO the full object list with counts and rough positions (left third, on the ridge, by the door) '
              '(see references/brief.md#4-the-scene; run `pixelate tools TOPIC` for each subject).')
     if st.get('stack'):
@@ -1548,8 +1645,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              '(see references/drawing.md#drawing-objects).')
     L.append('\n## 6. Phases')
     L.append('- Accent ration: TODO each accent hue, the only objects that may carry it, and its share of the frame.')
-    L.append('- TODO for each phase: the palette by named roles, its signature elements (not a recolour), music if any '
-             '(see references/drawing.md#phases and references/drawing.md#palette).')
+    L.append('- TODO for each phase: the palette by named roles, its signature elements (not a recolour), what the '
+             'music does in it (see references/drawing.md#phases and references/drawing.md#palette).')
+    L.append('- Music: %s.' % music_line(request, st['name'], era))
     L.append('\n## 7. Light list')
     if st['res'] == 'none':
         L.append('- Every light is drawn: TODO each emitter with its warm slots, the pool shape it casts, its flicker table '
@@ -1589,6 +1687,15 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                      (', %d-colour sprites' % E['sprite_colors']) if E.get('sprite_colors') else ''))
         L.append('- Check: `pixelate era frame.png --era %s` (and `--force` to snap a draft); ramps picked from the '
                  'era palette, not palette.ramp.' % era)
+        lim = [x for x in (
+            ('at most %d per scanline' % E['sprite_line']) if E.get('sprite_line') else '',
+            ('%d on screen' % E['sprite_total']) if E.get('sprite_total') else '',
+            ('each up to %dx%d' % E['sprite_size']) if E.get('sprite_size') else '') if x]
+        L.append('- Tile budget: TODO the unique %dx%d background tiles this screen needs%s (count them with '
+                 '`pixelate era bg.png --era %s --tiles` on the background-only render); sprites: TODO each actor '
+                 'as hardware sprites, %s (era.check_sprites).' % (
+                     E['tile'], E['tile'], (' against the limit of %d' % E['bg_tiles']) if E.get('bg_tiles') else '',
+                     era, ', '.join(lim) or 'no hardware sprite limit'))
     else:
         L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
             w, h, N, DW, DH,
@@ -1826,8 +1933,9 @@ BRIEF_CASES = [
      ['Canvas 320x180', '4x nearest to 1280x720', 'shapes.ray']),
     ('A Game Boy style lighthouse on a stormy night. Four shades of green, the beam sweeping over the waves.',
      (1920, 1080), None, ['--style lofi --era gameboy --scale 7', 'replace the style\'s value budget', 'shapes.ray']),
-    ('A busy canal market at noon in isometric.', (1920, 1080), 3, ['Canvas 640x360', 'about 20-22 px']),
+    ('A busy canal market at noon in isometric.', (1920, 1080), 3, ['Canvas 640x360', 'Figures: 20-22 px iso people', 'x0.60 by native height']),
     ('A busy canal market at noon in isometric.', (1280, 720), None, ['Canvas 640x360', '2x nearest to 1280x720']),
+    ('A busy canal market at noon in isometric.', None, None, ['- Music: an accordion-like lead', 'TRACK.wav']),
 ]
 
 # (request, gaps topic, text its default must hold, text it must not hold, stated must be empty): defaults
@@ -1843,6 +1951,15 @@ GAP_CASES = [
     ('a misty midnight forest ritual', 'time and weather', ['midnight', 'fog'], [], False),
     ('a cosy coffee shop interior in the morning', 'time and weather', ['indoors', 'morning'], [], False),
     ('a cosy farm at noon', 'time and weather', ['noon'], ['rain', 'night'], False),
+    ('An old four-shade green handheld game screen: a lighthouse on a rocky headland on a stormy night. The beam '
+     'sweeps out from the lantern room and ends on a small fishing boat.', 'time and weather', ['night', 'storm'],
+     ['indoors', 'room'], False),
+    ('A busy canal market at noon, in isometric. A lemon-yellow tram rolls across a swing bridge, with clear room '
+     'around it on the rails.', 'time and weather', ['noon'], ['indoors', 'room'], False),
+    ('An old four-shade green handheld game screen: a lighthouse on a stormy night.', 'music', ['Game Boy'],
+     ['lofi'], False),
+    ('A busy canal market at noon in isometric.', 'music', ['accordion', 'pixelate check TRACK.wav'], ['none'], False),
+    ('A silent canal market at noon in isometric, no music.', 'music', ['none'], ['accordion'], False),
     ('A Game Boy style lighthouse on a stormy night.', 'figures', ['one or two small figures'], [], True),
     ('A busy canal market at noon in isometric.', 'purpose and outputs', ['story beats', 'every period divides'],
      [], False),
@@ -1874,9 +1991,18 @@ LINT_CASES = [
              'chroma: the cat\n- Planes: roof 40%, street 27%, back row 10%, walls 23%\n- Layout: shop x 128-512\n'
              '- Masses: roof 384 px, neighbours 112 and 112 px\n- Value plan: void L .05, walls .15; brightest at '
              'the door, 2%', 1),
+    ('plan', '- Projection: 3/4 top-down.\n- Hero: 128,34,512,262 (native px); peak value: the door wedge; peak '
+             'chroma: the cat\n- Planes: street 40% (mid, the canal bank), canal 15% (mid), sky 10% [light] because '
+             'it is open, houses 25% (dark), wedge 10% (brightest)\n- Layout: shop x 128-512\n'
+             '- Masses: roof 384 px, neighbours 112 and 112 px\n- Value plan: void L .05, walls .15; brightest at '
+             'the door, 2%', 0),
     ('oneline', '- Light direction: upper right\n- Wind: from the left\n- Light direction: the lamp', 1),
     ('oneline', '- Light direction: upper right\n- the scarf trails left', 1),
     ('oneline', '- Light direction: upper right\n- Wind: none', 0),
+    ('music', 'Request: a canal market at noon\n## 6. Phases\n- one phase\n', 1),
+    ('music', 'Request: a canal market at noon\n## 6. Phases\n- Music: none\n', 1),
+    ('music', 'Request: a silent canal market at noon\n## 6. Phases\n- Music: none (silent)\n', 0),
+    ('music', 'Request: a canal market\n## 6. Phases\n- Music: an accordion lead, 4/4 swing\n', 0),
     ('hex', 'gate `--era gameboy`; gb2 #8bac0f, gb3 #9bbc0f', 1),
     ('hex', 'palette `palettes/gameboy.hex`: #0f380f #306230 #678e23 #9bbc0f', 0),
     ('hex', 'our own palette: #123456 #abcdef', 0),
@@ -1895,6 +2021,8 @@ def _lint_case(fn, arg):
         return bool(_banned_ops(arg, _sections(arg)))
     if fn == 'plan':
         return len(_scene_plan(arg + '\n'))
+    if fn == 'music':
+        return len(_music(arg))
     if fn == 'oneline':
         return len(_one_line(arg, 'light direction', True) + _one_line(arg, 'wind', 'trail' in arg))
     if fn == 'hex':
@@ -1994,11 +2122,11 @@ def main(a):
                 pick_if=rt['pick_if'], example=rt['example'])
             r['picks'] = [pick] + [q for q in r['picks'] if q['style'] != style][:2]
         kind = None if full else small_kind(req, r)
-        DW, DH = delivery(style, size, scale, r.get('era'))[3:]
+        _, NH, _, DW, DH = delivery(style, size, scale, r.get('era'))
         if kind:
             text = short_brief(style, req, kind, r, era=r.get('era'), size=size, scale=scale)
         else:
-            text = brief(style, req, choices=gaps(req, r, (DW, DH) if size or scale else None), era=r.get('era'),
+            text = brief(style, req, choices=gaps(req, r, (DW, DH) if size or scale else None, NH), era=r.get('era'),
                          size=size, scale=scale)
         if out:
             pathlib.Path(out).write_text(text); print('wrote', out)
@@ -2006,7 +2134,8 @@ def main(a):
             print(text)
         return 0
     print('request: %s' % req)
-    print('mode: %s (%s is for drawing, step 5)%s' % (r['mode'], r['guide'], '' if r['mode'] == 'scene' else ', then a style for the finish'))
+    when = 'read it now for the limits the brief needs' if r['mode'] == 'era' else 'it is for drawing, step 6'
+    print('mode: %s (%s: %s)%s' % (r['mode'], r['guide'], when, '' if r['mode'] == 'scene' else ', then a style for the finish'))
     for i, p in enumerate(r['picks']):
         st = styles.get(p['style'])
         print('\n%d. %s  (score %d, %s, light %s, %dx %dx%d)' % (i + 1, p['style'], p['score'], p['projection'],
@@ -2031,4 +2160,7 @@ def main(a):
     return 0
 
 if __name__ == '__main__':
+    import signal
+    if hasattr(signal, 'SIGPIPE'):
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)   # quiet when piped to head
     sys.exit(main(sys.argv[1:]))

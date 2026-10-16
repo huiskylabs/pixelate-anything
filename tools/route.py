@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Style routing: a plain request in, the style to build it in and a pre-filled scene brief out.
 
-usage: route.py "a cosy rainy village at night"            the top 3 styles, with reasons, and what
-                                                           the request leaves open (with defaults)
-       route.py "..." --brief [STYLE] [-o brief.md]        the 11-section brief, pre-filled for the
-                                                           top style (or STYLE), to finish by hand; a
-                                                           small ask (a palette, one sprite, an icon
-                                                           set, a photo, assets, music) gets a short
-                                                           brief instead
-       route.py "..." --brief --full                       the 11 sections even for a small ask
-       route.py --lint brief.md                            self-critique of a finished brief: what
-                                                           is still vague, missing or thin
-       route.py --catalog                                  regenerate guides/toolkit.md, the index of
-                                                           the kit (the kit itself: `pixelate tools`)
-       route.py --selftest [-v]                            route the regression cases (CASES)
+usage:
+  pixelate route "a cosy rainy village at night"   the top 3 styles, with reasons, and what the
+                                                   request leaves open (with defaults)
+  pixelate route "..." --brief [STYLE] [-o FILE]   the 11-section brief, pre-filled for the top style
+                                                   (or STYLE), to finish by hand; a small ask (a
+                                                   palette, one sprite, an icon set, a photo, assets,
+                                                   music) gets a short brief instead
+  pixelate route "..." --brief --full              the 11 sections even for a small ask
+  pixelate route --lint brief.md                   self-critique of a finished brief: what is still
+                                                   vague, missing or thin
+  pixelate route --catalog                         regenerate guides/toolkit.md, the index of the kit
+                                                   (the kit itself: `pixelate tools`)
+  pixelate route --selftest [-v]                   route the regression cases (CASES)
 
     import route
     r = route.route('一个雨夜里温馨的小村庄')
@@ -388,12 +388,12 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         ('screen-res hairline rain (Post.rain)', 'post:rain')]),
     (['snow', 'winter', 'ice', '雪', '冬', '冰'], 'snow and ice', [
         'flakes as single light pixels on dark (texture.speckle)', 'drifts as stippled banks against walls (texture.stipple)',
-        'a flat winter sky in undithered bands (sky.strata)',
+        ('a flat winter sky in undithered bands (sky.strata)', 'nodither'),
         ('snow as baked engine tables (study references/assets/particles.py snow)', 'lofi')]),
     (['fog', 'mist', 'haze', '雾', '霭'], 'fog', [
         'fog as haze per depth plane, each plane pulled toward the fog colour (palette.haze, palette.haze_levels)',
         ('a fog layer over the planes (Post.fog)', 'post:fog'),
-        'drifting banks that wrap seamlessly (canvas.wrap_offset, or canvas.loop_dissolve in lofi only)']),
+        'drifting banks that wrap seamlessly (anim.wrap_offset, or canvas.loop_dissolve in lofi only)']),
     (['sea', 'ocean', 'lake', 'river', 'stream', 'harbour', 'harbor', 'port', 'coast', 'beach', 'waterfall', 'pond',
       'canal', 'boat', 'ship', 'dock', 'pier', '海', '湖', '河', '溪', '港', '海岸', '沙滩', '瀑布', '池塘', '运河', '船',
       '码头'], 'water', [
@@ -413,7 +413,8 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         ('falling leaves, petals and fireflies as baked engine tables (study references/assets/particles.py)', 'lofi'),
         ('2:1 leaf glyphs, the iso sticker look (veg.leaf_glyphs)', 'iso')]),
     (['sky', 'cloud', 'clouds', 'sunset', 'dusk', 'dawn', '天空', '云', '日落', '黄昏', '清晨'], 'sky', [
-        'flat undithered strata locked by wisps and streaks (sky.strata, sky.wisp, sky.smile, sky.streaks)',
+        ('flat undithered strata locked by wisps and streaks (sky.strata, sky.wisp, sky.smile, sky.streaks)', 'nodither'),
+        ('sky as Bayer-dithered bands between ramp steps, 10-16 rows per transition (canvas.Canvas.bands)', 'bayer'),
         'clouds as masses and masks (shapes.cloud, shapes.cloud_mass, shapes.cloud_mask, shapes.cloud_rgba)']),
     (['cave', 'mine', 'rock', 'cliff', 'mountain', 'rubble', 'stone', 'underground', '洞', '矿', '岩', '悬崖', '山',
       '石', '地下'], 'rock', [
@@ -560,6 +561,10 @@ def _fits(cond, style, projection):
         return st['res'] != 'none'
     if cond == 'strict':
         return st['res'] == 'none'
+    if cond == 'nodither':
+        return not st['dither']
+    if cond == 'bayer':
+        return 'bayer4' in st['dither']
     if cond.startswith('post:'):
         return styles.allows(style, cond[5:])
     return True
@@ -705,7 +710,7 @@ def lint(text):
         if b is None:
             probs.append('missing section: %s' % sec)
             continue
-        n = len(_bullets(b))
+        n = len(re.findall(r'^\s*[-*]\s+\S', b, flags=re.M))   # nested items count too
         if n < MIN_BULLETS.get(sec, 1):
             probs.append('%s is thin: %d items, want %d or more' % (sec, n, MIN_BULLETS.get(sec, 1)))
         probs += _vague(sec, b)
@@ -1150,7 +1155,7 @@ def short_brief(style, request='', kind='sprite', r=None, era=None):
                     '(see guides/pixelate.md).',
                     '- First pass `pixelate image IMG -o out.png` (guides/pixelate.md), then fix by hand what it gets '
                     'wrong: the subject\'s edges, orphan pixels, outlines.',
-                    '- A rebuilt, moving scene is a full brief: `route.py "..." --brief --full` with guides/rebuild.md.'],
+                    '- A rebuilt, moving scene is a full brief: `pixelate route "..." --brief --full` with guides/rebuild.md.'],
           'assets': ['- TODO the list: each sprite or tile, its size, its frames (walk 4-8, idle 2-4) (see guides/assets.md; '
                      'run `pixelate tools figures --style %s`).' % S,
                      '- Each sprite is a slot map in code; for a similar finished thing, study references/assets/ '
@@ -1318,8 +1323,8 @@ def main(a):
     kind = small_kind(req, r)
     if kind:
         print('\na small ask (%s): --brief writes the short brief; add --full for all 11 sections' % kind)
-    print('\nnext: route.py "%s" --brief %s -o brief.md, fill every TODO with the defaults,' % (req, r['picks'][0]['style']))
-    print('      route.py --lint brief.md, then show the user the brief and section 0')
+    print('\nnext: pixelate route "%s" --brief %s -o brief.md, fill every TODO with the defaults,' % (req, r['picks'][0]['style']))
+    print('      pixelate route --lint brief.md, then show the user the brief and section 0')
     return 0
 
 if __name__ == '__main__':

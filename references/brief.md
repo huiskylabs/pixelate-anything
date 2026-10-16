@@ -29,9 +29,10 @@ diorama with seasons; the same words from a game developer are a top-down overwo
 
 `pixelate route "the request"` ranks the styles with reasons, names the mode (scene, rebuild, era,
 assets, music), suggests kit calls for the subject, and lists what the request leaves open with
-defaults. It matches keywords, so it is a hint, not the decision: choose with the questions in
-"Picking a style" ([guides/styles.md](../guides/styles.md#picking-a-style)) and your read of the
-intent, and say why in section 0. `pixelate style NAME` prints everything one style fixes.
+defaults. It matches keywords, so it is a hint, not the decision: choose from its top picks and your read of the
+intent, and say why in section 0. `pixelate style NAME` prints everything one style fixes;
+`pixelate style --list` gives one line per style. Only when none of the picks fits, read
+"Picking a style" ([guides/styles.md](../guides/styles.md#picking-a-style)).
 
 ## Expand into a brief
 
@@ -109,6 +110,11 @@ firewood by the wall, a patched tile, a worn path. Say which change per phase.
 For each: a palette written as named roles ("misty teal sky, sage canopy, blossom pink, warm amber
 windows"), its signature elements (things only it has, not a recolour), and its music if there is
 any. See [drawing.md#phases](drawing.md#phases) and [drawing.md#palette](drawing.md#palette).
+For music, give each phase a style (lofi, chiptune, ambient), a tempo, a key and its lead
+instrument; that is all the brief needs. A phase lasts `cycle` seconds (bars at its tempo plus one
+transition bar), one pass through all phases is `cycle x phases`, and `grand` repeats that pass;
+the picture loop is `TICKS = cycle x grand x 30`. The music itself is written at step 5
+([guides/music.md](../guides/music.md)).
 
 ### 7. Light list
 

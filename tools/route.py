@@ -39,7 +39,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import styles
 
 # ---------------------------------------------------------------- what each style is for
-# signals: (weight, words). Words match as lowercase substrings, English and Chinese.
+# signals: (weight, words). English words match whole words (plurals with -s too), Chinese as substrings.
 # A named reference game or a repo example is the strongest signal (6); subject and mood 2-3.
 ROUTE = {
     'lofi': dict(
@@ -50,8 +50,8 @@ ROUTE = {
                  (4, ['lofi', 'lo-fi', 'music video', 'study music', '音乐视频', '学习音乐', '助眠']),
                  (3, ['cover', 'loop for', 'hours', 'seasons', 'four seasons', 'chill', 'relax', 'cozy cottage',
                       '封面', '循环', '四季', '季节', '放松', '治愈', '小木屋']),
-                 (2, ['cottage', 'cabin', 'window', 'diorama', 'island', 'calm', 'peaceful', 'quiet',
-                      '小屋', '窗', '小岛', '安静', '宁静'])],
+                 (2, ['cottage', 'cabin', 'window', 'diorama', 'island', 'calm', 'peaceful', 'quiet', 'lighthouse',
+                      '小屋', '窗', '小岛', '岛', '安静', '宁静', '灯塔'])],
         rules=['Every object is a hand-authored slot map (sprites.js or artlib), never a primitive shape.',
                'Gradients are bands with 10-16 row Bayer transitions; no other dither.',
                'Light is warm palette slots: window glow, lantern pools and rims, a few highlight pixels.'],
@@ -126,7 +126,7 @@ ROUTE = {
         pick_if='a calm, readable strategy board: a 2:1 iso diorama floating in the dark, rationed colour, UI',
         projection='2:1 iso', example='examples/projections', frames=(96, 12),
         signals=[(6, ['into the breach', 'itb']),
-                 (3, ['tactics', 'tactical', 'strategy', 'turn-based', 'turn based', 'board', 'grid', 'squad',
+                 (3, ['tactics', 'tactical', 'strategy', 'siege', 'battle', 'army', 'war', 'turn-based', 'turn based', 'board', 'grid', 'squad',
                       '战术', '策略', '回合', '棋盘', '网格']),
                  (2, ['ui', 'hud', 'minimal', 'mechs', 'units', 'map', '界面', '极简', '单位'])],
         rules=['Five near-neutral greys cover most of the frame; colour is rationed to units and threats.',
@@ -188,9 +188,12 @@ ROUTE = {
                       '温暖', '夜', '村', '丰收', '火把', '地下', '家'])],
         rules=['Albedo palette of 4-6 tones per material sharing one plum dark; outlines per part in that plum.',
                'One smooth lamp map multiplied at screen resolution; the void stays #000 inside the halo.',
-               'Floors are pebble pairs (lit cap over shadow); walls are pillow blocks with plum seams.'],
+               'Ground reads as paired cells, a lit cap over its shadow (pebbles, cobbles, tilled rows, planks); '
+               'built walls are pillow blocks with plum seams.',
+               'Many small warm sources (windows, lamps, a hearth) each pool their own light; between the pools the '
+               'world sinks to the plum dark, never to grey.'],
         tools=['palette.ramp(style="plum") / ramp(style="toy")', 'post.Post(res="screen").lightmap',
-               'texture.pebbles / layout + shade_cells(pillow)', 'shapes.void_edge', 'figures.chibi', 'compose.room'],
+               'texture.pebbles / layout + texture.shade_cells(pillow)', 'shapes.void_edge', 'figures.chibi', 'compose.room'],
         never=['screen-blend light', 'filters', 'a lifted void']),
     'contre-jour': dict(
         pick_if='a cinematic, mysterious night: silhouettes against fog and glowing air, a ritual, a forest, a '
@@ -231,8 +234,14 @@ BRIGHT = ['day', 'noon', 'sunny', 'morning', 'bright', '白天', '中午', '晴'
 DARK_STYLES = ('contre-jour', 'neon-noir', 'cosy-lightmap', 'tactics', 'native-glow')
 BRIGHT_STYLES = ('sticker-iso', 'hd-overworld', 'illustrated', 'pastel-cell')
 
+def _hit(text, w):
+    if w.isascii() and w[:1].isalnum():          # English: whole words, so 'nes' is not in 'japanese'
+        return re.search(r'(?<![a-z0-9])' + re.escape(w.strip()) + (r'(?:e?s)?(?![a-z0-9])' if w[-1:].isalnum() else ''),
+                         text) is not None
+    return w in text                              # Chinese: substrings
+
 def _hits(text, words):
-    return [w for w in words if w in text]
+    return [w for w in words if _hit(text, w)]
 
 def route(request, n=3):
     """-> {'picks': [{style, score, why, projection, pick_if, example}], 'mode', 'guide', 'projection'}"""
@@ -268,12 +277,16 @@ def route(request, n=3):
         h = _hits(t, words)
         if h and w * len(h) > best:
             mode, best = m, w * len(h)
+    if mode == 'era':                                # console limits: no light layer on top
+        for name in scores:
+            if styles.get(name)['res'] != 'none':
+                scores[name][0] -= 3
     order = sorted(scores, key=lambda k: (-scores[k][0], list(ROUTE).index(k)))
     picks = []
     for name in order[:n]:
         s, why = scores[name]
         r = ROUTE[name]
-        picks.append(dict(style=name, score=s, why=why or ['no strong signal: the default for a calm scene'],
+        picks.append(dict(style=name, score=s, why=why or ['no signal in the request'],
                           projection=proj or r['projection'], pick_if=r['pick_if'], example=r['example']))
     if picks[0]['score'] <= 0:                       # nothing matched: the toolkit's own look first
         lofi = next((p for p in picks if p['style'] == 'lofi'), None)
@@ -298,6 +311,20 @@ WORDS = dict(
     music=['music', 'soundtrack', 'lofi', 'lo-fi', 'chiptune', 'song', 'audio', '音乐', '配乐', '歌'],
 )
 
+TIME_DEFAULT = {
+    'lofi': 'late evening, lit windows and a lantern, the sky a calm gradient',
+    'pastel-cell': 'bright windy day, high clouds, one hue window',
+    'native-glow': 'dusk, low cold sun, glowing sigils and water',
+    'hd-overworld': 'late morning sun, clear water, soft cloud shadows',
+    'arcade': 'overcast day, smoke and fire as the warm accents',
+    'tactics': 'night storm, the board lit by fire and impacts',
+    'sticker-iso': 'midday, flat bright light, no cast shadows',
+    'illustrated': 'golden hour, big clouds, a long view',
+    'neon-noir': 'midnight rain, neon signs as the only colour',
+    'cosy-lightmap': 'rainy night, many warm windows and lamps pooling light in the dark',
+    'contre-jour': 'night fog, one strong backlight behind the subject, sparse rain',
+}
+
 def gaps(request, r=None):
     """-> [{topic, stated, default}]: each open choice in the request and the default it takes for the
     top style. Fill the brief with the defaults, then list them for the user to confirm or change."""
@@ -317,8 +344,8 @@ def gaps(request, r=None):
                     default='`%s` (%s); the runners-up are %s' % (
                         st['name'], st['what'], ', '.join('`%s`' % q['style'] for q in r['picks'][1:]))))
     out.append(dict(topic='projection', stated=r['projection'] or '', default=p['projection']))
-    add('time and weather', WORDS['time'],
-        'night with one warm light source and light rain' if dark else 'late afternoon, clear, low warm sun')
+    add('time and weather', WORDS['time'], TIME_DEFAULT.get(st['name'],
+        'night, one main light source, light rain' if dark else 'late afternoon, clear, low warm sun'))
     add('phases', WORDS['phases'],
         'four seasons, each with its own signature elements (as Lantern Isle)' if st['name'] == 'lofi'
         else 'one phase, no cycle')
@@ -390,7 +417,27 @@ def lint(text):
     lv = find('Lived-in details')
     if lv is not None and re.search(r'imperfect|lean|sag|missing|broken|patched|worn', text.lower()) is None:
         probs.append('no built-in imperfections anywhere (a lean, a sag, a missing plank, a patch)')
+    probs += _tool_refs(text)
     return probs
+
+KIT_MODULES = ('post', 'light', 'palette', 'texture', 'layout', 'shapes', 'figures', 'props', 'compose', 'anim',
+               'sprite', 'fx', 'glyphs', 'sky', 'veg', 'water', 'canvas', 'morph', 'stats', 'styles', 'assets')
+
+def _tool_refs(text):
+    """every `module.name` (or `module.Class.name`) in backticks must exist in the kit"""
+    import importlib
+    bad = []
+    for ref in sorted(set(re.findall(r'`([a-z_]+(?:\.[A-Za-z_]+)+)', text))):
+        mod, *path = ref.split('.')
+        if mod not in KIT_MODULES:
+            continue
+        try:
+            obj = importlib.import_module(mod)
+            for k in path:
+                obj = getattr(obj, k)
+        except Exception:
+            bad.append('`%s` is not in the kit: use a real function or name the tool gap' % ref)
+    return bad
 
 # ---------------------------------------------------------------- the pre-filled brief
 def _fmt_budget(b):

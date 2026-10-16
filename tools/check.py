@@ -23,17 +23,22 @@ Frame mode (FRAME is an image: any scene, Python or engine, at its delivered N x
   4. palette: the pre-light frame (--pre, 1x or N x; the frame itself for pixel-only styles)
      has no colour outside --pal (stats.palette_subset)
   5. readability: the actor (--actor, white or opaque = actor) differs from the 8 px ring
-     around it by READ_DL in rim or fill L, or READ_HUE degrees (stats.readability)
+     around it by READ_DL in rim or fill L, or by READ_HUE degrees with at least READ_LUM L
+     (never hue alone) (stats.readability)
   6. craft: orphans, jaggies, stripes, doubled outlines, pillow shading and clusters inside
      the style's craftcheck.CRAFT limits (--intent marks sparkles and flecks placed on purpose)
+  7. composition: a near-empty bottom third, a bare frame, a brick-shaped mass, a flat-slab edge and
+     light banded into rings, inside the style's craftcheck.COMPOSITION limits; each failing line
+     says what to change
   --scene NAME: the style's scene variant budget (`pixelate style S` lists them), e.g. cosy-lightmap
      exterior, contre-jour beam
   --era ERA: the console era's own checks (size, colour count, fixed palette or bit depth, colours per
      block, unique tiles; tools/era.py) replace the value budget; --style still sets the craft limits
   --brief brief.md: apply its `- Gate override: RULE BOUND (reason)` lines; --budget adds one from the
      command line in the same form, e.g. --budget 'L>0.75 <= 0.02 (the beam is the subject)'. BOUND is
-     `<= V`, `>= V`, `LO..HI` or `off`, for a budget rule or a craft limit; an override without a reason
-     is rejected, and the report still says how far the frame is from the style's own bound
+     `<= V`, `>= V`, `LO..HI` or `off`, for a budget rule, a craft limit or a composition limit; an
+     override without a reason is rejected, and the report still says how far the frame is from the
+     style's own bound. `- Gate override: allow Post.OP (reason)` is for route lint: noted, no bound moves
 Each check prints PASS, FAIL or SKIP with the measured value and the limit.
 Exit status 1 if anything fails.
 """
@@ -119,6 +124,8 @@ async def page_check(scene):
 # ---------------------------------------------------------------- frame mode (the delivery gate)
 IMAGE_EXT = ('.png', '.gif', '.jpg', '.jpeg', '.webp', '.bmp')
 READ_DL, READ_HUE = 0.10, 40.0          # an actor reads when its rim or fill is this far from its ring
+READ_LUM = 0.025    # ... or by hue, but never with less lightness difference than this: the showcase
+                    # observatory's lantern pilgrims (fill -0.031, hue 160) are the lowest that read
 
 def _load_mask(path, shape, scale):
     """a mask image (opaque, or white on black) at 1x or at the delivered scale -> 1x bool array"""
@@ -149,9 +156,16 @@ def _canon(key):
     """'L > .8' -> 'L>0.8', so a brief's key matches the style's"""
     return re.sub(r'(?<![0-9])\.(\d)', r'0.\1', re.sub(r'\s+', '', key))
 
+_ALLOW = re.compile(r'^allow\s+(?P<op>\S+)\s*\((?P<reason>[^()]*[A-Za-z一-鿿][^()]*)\)\s*\.?$', re.I)
+
 def parse_override(text):
     """'L>0.75 <= 0.02 (the beam is the subject)' -> (key, op, lo, hi, reason); op is '<=', '>=', '..'
-    or 'off'. An override without a reason in brackets is rejected (SystemExit)."""
+    or 'off'. 'allow Post.shaft (reason)' -> ('Post.shaft', 'allow', None, None, reason): an allowed-effect
+    override, which route lint checks; the gate notes it and moves no bound. An override without a
+    reason in brackets is rejected (SystemExit)."""
+    a = _ALLOW.match(text.strip())
+    if a:
+        return a.group('op'), 'allow', None, None, a.group('reason').strip()
     m = _OVR.match(text.strip())
     if not m:
         raise SystemExit('gate override %r has no reason: write it as RULE BOUND (reason), e.g. '
@@ -225,9 +239,16 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
     img = stats.to_native(big, scale) if scale > 1 else big
     print('%s: %s%s%s, %dx%d at 1x (x%d)' % (path, ('%s style' % st['name']) if st else 'no style',
           (', scene %s' % scene) if scene else '', (', era %s' % era) if era else '', img.size[0], img.size[1], scale))
+    for key, op, lo, hi, reason in overrides:
+        if op == 'allow':
+            note('override allow %s (%s): an allowed-effect override, checked by route lint; the gate '
+                 'moves no bound for it' % (key, reason))
+    overrides = [o for o in overrides if o[1] != 'allow']
     crafts = set(next(iter(craftcheck.CRAFT.values())))
-    b_ovr = [o for o in overrides if o[0] not in crafts]
+    comps = set(craftcheck.COMP_METRICS)
+    b_ovr = [o for o in overrides if o[0] not in crafts and o[0] not in comps]
     c_ovr = [o for o in overrides if o[0] in crafts]
+    k_ovr = [o for o in overrides if o[0] in comps]
     for key, op, lo, hi, reason in overrides:
         print('override %s %s (%s)' % (key, {'<=': '<= %s' % hi, '>=': '>= %s' % lo, '..': '%s..%s' % (lo, hi),
                                              'off': 'off'}[op], reason))
@@ -304,11 +325,16 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
     if actor:
         m = _load_mask(actor, (img.size[1], img.size[0]), scale)
         r = stats.readability(img, m)
-        good = (abs(r['edge_dL']) >= READ_DL or abs(r['fill_dL']) >= READ_DL or
-                (r['dhue'] == r['dhue'] and r['dhue'] >= READ_HUE))
+        dl = max(abs(r['edge_dL']), abs(r['fill_dL']))
+        hue = r['dhue'] == r['dhue'] and r['dhue'] >= READ_HUE
+        good = dl >= READ_DL or (hue and dl >= READ_LUM)
         line('PASS' if good else 'FAIL', 'readability (actor)',
              'rim %+.2f fill %+.2f hue %s' % (r['edge_dL'], r['fill_dL'], '-' if r['dhue'] != r['dhue'] else '%.0f' % r['dhue']),
-             '|rim| or |fill| >= %.2f L, or hue >= %.0f' % (READ_DL, READ_HUE))
+             '|rim| or |fill| >= %.2f L, or hue >= %.0f with >= %.3f L' % (READ_DL, READ_HUE, READ_LUM))
+        if not good:
+            note('the actor is only %.3f lighter or darker than what is around it%s; make it darker or lighter '
+                 'than its background, or give it a rim' % (dl, ' and reads by hue alone, which a thumbnail '
+                 'or a colour-blind viewer loses' if hue else ''))
     if st:
         imask = _load_mask(intent, (img.size[1], img.size[0]), scale) if intent else None
         rules, notes = _apply(craftcheck.CRAFT[st['name']], c_ovr)
@@ -328,6 +354,28 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
                 line('SKIP', 'craft ' + key, f(vals[key]), 'off by override (%s); style limit [%s .. %s]: %s' % (
                     reason, f(bnd[0]) if bnd[0] is not None else '', f(bnd[1]) if bnd[1] is not None else '',
                     _away(vals[key], *bnd, f)))
+        base = craftcheck.COMPOSITION[st['name']]
+        rules, notes = _apply(base, k_ovr)
+        cv = craftcheck.composition(img, {**rules, **{k: b for k, (b, _) in notes.items()}})
+        f = craftcheck.comp_fmt
+        for key in craftcheck.COMP_METRICS:
+            lo, hi = rules.get(key, (None, None))
+            if key not in rules or (lo is None and hi is None):
+                if key in notes:
+                    (blo, bhi), reason = notes[key]
+                    v = cv.get(key, (None, None))[0]
+                    line('SKIP', 'composition ' + key, f(key, v), 'off by override (%s); style limit [ .. %s]: %s' % (
+                        reason, f(key, bhi), _away(v, blo, bhi, lambda x, k=key: f(k, x))))
+                continue
+            v, detail = cv[key]
+            bad = (lo is not None and v < lo) or (hi is not None and v > hi)
+            line('FAIL' if bad else 'PASS', 'composition ' + key, f(key, v),
+                 '[ .. %s]' % f(key, hi) + (' override' if key in notes else ''))
+            if bad:
+                note(craftcheck.comp_advice(key, v, detail, hi))
+            if key in notes:
+                (blo, bhi), reason = notes[key]
+                note('style limit [ .. %s]: %s (override: %s)' % (f(key, bhi), _away(v, blo, bhi, lambda x, k=key: f(k, x)), reason))
     else:
         line('SKIP', 'craft', '', 'no --style: no craft limits')
     ok = 'FAIL' not in rows
@@ -351,7 +399,7 @@ def frame_main(a):
     return frame(a[0], style, int(opt('--scale', '1')), opt('--pal'), opt('--pre'), opt('--actor'),
                  [o for o in (opt('--used') or '').split(',') if o], opt('--intent'), opt('--scene'), era, ovr)
 
-if __name__ == '__main__':
+def _run():
     if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
         print(__doc__); sys.exit(0 if len(sys.argv) > 1 else 1)
     if sys.argv[1].lower().endswith(IMAGE_EXT) and pathlib.Path(sys.argv[1]).is_file():
@@ -360,3 +408,11 @@ if __name__ == '__main__':
     if sys.argv[1].lower().endswith(musiccheck.AUDIO_EXT) and pathlib.Path(sys.argv[1]).is_file():
         sys.exit(musiccheck.main(sys.argv[1:]))
     sys.exit(0 if main(sys.argv[1], '--page' in sys.argv) else 1)
+
+if __name__ == '__main__':
+    try:
+        _run()
+    except BrokenPipeError:              # piped into head: the reader left, stop quietly
+        import os
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(1)

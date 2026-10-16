@@ -4,7 +4,11 @@
 usage: route.py "a cosy rainy village at night"            the top 3 styles, with reasons, and what
                                                            the request leaves open (with defaults)
        route.py "..." --brief [STYLE] [-o brief.md]        the 11-section brief, pre-filled for the
-                                                           top style (or STYLE), to finish by hand
+                                                           top style (or STYLE), to finish by hand; a
+                                                           small ask (a palette, one sprite, an icon
+                                                           set, a photo, assets, music) gets a short
+                                                           brief instead
+       route.py "..." --brief --full                       the 11 sections even for a small ask
        route.py --lint brief.md                            self-critique of a finished brief: what
                                                            is still vague, missing or thin
        route.py --catalog                                  regenerate guides/toolkit.md, every tool
@@ -22,6 +26,10 @@ and the numbers a finished frame must hit (tools/styles.py, guides/styles.md). T
 request for five kinds of signal (subject, mood and key, time and weather, what it is for, a named
 reference game or example) and scores every preset. It is a starting point: read the reasons,
 override it when the request means something else, and say which style you chose and why.
+
+Its subject hints are techniques (how to draw rain, stone, a boat), each naming the primitive in tools/
+that does the work. Finished objects are drawn in the scene's own code; references/assets holds
+examples of them to study, never to call.
 
 The brief it writes is the template from references/craft.md with every section the style decides
 already filled in. The scene-specific sections (the objects, the lived-in details, the palette by
@@ -58,8 +66,10 @@ ROUTE = {
         rules=['Every object is a hand-authored slot map (sprites.js or artlib), never a primitive shape.',
                'Gradients are bands with 10-16 row Bayer transitions; no other dither.',
                'Light is warm palette slots: window glow, lantern pools and rims, a few highlight pixels.'],
-        tools=['palette.ramp (lofi)', 'engine bands() and blit', 'artlib Grid sprites', 'sceneDynamic flick()',
-               'pixelate check'],
+        tools=['ramps per material (palette.ramp(style="lofi"))',
+               'skies and gradients as bands with 10-16 row Bayer transitions (engine bands() and blit)',
+               'every object a hand-authored slot map (artlib.Grid, exported to sprites.js)',
+               'lamp and window flicker on hold tables (sceneDynamic flick())'],
         never=['glow blur, bloom, lens effects, soft shadows', 'narrow gradient bands that read as stripes']),
     'pastel-cell': dict(
         pick_if='a high-key, one-hue mood (pink, violet, dusk), a tiny expressive hero in a big vertical world, '
@@ -76,9 +86,12 @@ ROUTE = {
                'Rock is a ledged, frayed silhouette with a lit rim and stacked flake dashes, no outline.',
                'Only the actor and one interactive prop are outlined (dark violet); they carry the top chroma.',
                'Bloom only from cloud and emitter masks, computed per art pixel.'],
-        tools=['palette.ramp(style="window") + palette.grade(hue_window, floor_L)', 'sky.strata / sky.wisp / sky.smile',
-               'shapes.cloud_mass, shapes.ledges, shapes.fray', 'texture.flakes', 'sprite.chain (scarf, hair)',
-               'post.Post(res="native").glow(mask) / band / tint_field', 'post rain style "cell"', 'fx.burst'],
+        tools=['ramps inside one hue window with a lifted floor (palette.ramp(style="window"), palette.grade(hue_window, floor_L))',
+               'flat sky strata locked by tapered wisps (sky.strata, sky.wisp, sky.smile)',
+               'cloud banks and ledged, frayed rock silhouettes (shapes.cloud_mass, shapes.ledges, shapes.fray)',
+               'stacked flake dashes on rock faces (texture.flakes)', 'scarf and hair that trail the hero (sprite.chain)',
+               'bloom only from cloud and emitter masks (post.Post(res="native").glow(mask), band, tint_field)',
+               'rain as opaque cell columns (Post rain style "cell")', 'landing and dash puffs (fx.burst)'],
         never=['dither', 'vignette, grain, scanlines', 'hairline rain', 'dark scenery']),
     'native-glow': dict(
         pick_if='low-key ancient ruins or tech temples, magenta and cyan, glowing runes and a spine of light; '
@@ -93,8 +106,10 @@ ROUTE = {
         rules=['Role families of colour (frame, heart, warm, hot, spark, void); the frame hue drifts across x.',
                'Emitters get exponential halos computed per art pixel; no outlines.',
                'A vertical light band or spine organises the frame; the void stays drawn, not filtered.'],
-        tools=['palette.families / drift / drift_index', 'post.Post(res="native").glow(kernel="exp") / band / fade',
-               'texture.tapestry, glyphs.rune', 'fx.pixel_motes'],
+        tools=['colour in role families, the frame hue drifting across x (palette.families, palette.drift, palette.drift_index)',
+               'exponential halos per art pixel from emitter masks, a light band, a fade (post.Post(res="native").glow(kernel="exp"), band, fade)',
+               'woven walls (texture.tapestry)', 'runes as your own slot maps (study references/assets/glyphs.py rune)',
+               'drifting motes (fx.pixel_motes)'],
         never=['screen-resolution softness', 'grain, scanlines, aberration']),
     'hd-overworld': dict(
         pick_if='a bright adventure world seen from 3/4 above: coasts, villages, cliffs, day into night; long '
@@ -112,9 +127,11 @@ ROUTE = {
                'Ramps of 5-9 steps at about 0.05 L, chroma rising toward the light (ramp style rise).',
                'Outlines per class in tinted near-blacks (terrain plum, characters navy, foliage green).',
                'Clouds are a translucent layer at an altitude, thinning as terrain rises into them.'],
-        tools=['palette.ramp(style="rise")', 'layout.ashlar / texture.shade_cells (slab, pillow)',
-               'veg.leaf_scales', 'water.depth_bands / foam_rings / waterfall', 'shapes.cloud', 'post.over',
-               'figures.chibi'],
+        tools=['ramps with chroma rising toward the light (palette.ramp(style="rise"))',
+               'coursed slabs and pillow blocks (layout.ashlar, texture.shade_cells)', 'round shingled canopies (veg.leaf_scales)',
+               'sea bands, foam rings and falls (water.depth_bands, water.foam_rings, water.waterfall)',
+               'translucent clouds at an altitude (shapes.cloud, post.over)',
+               'chibi figures as your own slot maps (study references/assets/figures.py chibi)'],
         never=['screen light shafts or flares', 'hairline rain', 'filters']),
     'arcade': dict(
         pick_if='loud action: soldiers, machines, explosions, a boss; hand-modelled warm actors on a cold world, '
@@ -128,8 +145,11 @@ ROUTE = {
         rules=['Actors carry the chroma and the detail (at least 1.8x the world); the world stays cold and dark.',
                'Effects are opaque palette sprites: fireballs, smoke, muzzle flashes, debris; no light layer.',
                'Outlines in each material\'s own darkest step; animation on hold tables at 30 fps.'],
-        tools=['palette.ramp(style="arcade")', 'fx.fireball / smoke_puff / trail / muzzle / casing / debris',
-               'anim.Timeline / shake / timewarp', 'texture.pocks / segments / panels', 'era neogeo check'],
+        tools=['hand-modelled warm ramps (palette.ramp(style="arcade"))',
+               'effects as opaque palette sprites (fx.fireball, fx.smoke_puff, fx.trail, fx.muzzle, fx.casing, fx.debris)',
+               'hold tables at 30 fps, shake and timewarp (anim.Timeline, anim.shake, anim.timewarp)',
+               'machine surfaces (texture.pocks, texture.segments, texture.panels)',
+               'console limits (pixelate era IMG --era neogeo)'],
         never=['any soft light layer', 'filters']),
     'tactics': dict(
         pick_if='a calm, readable strategy board: a 2:1 iso diorama floating in the dark, rationed colour, UI',
@@ -141,7 +161,9 @@ ROUTE = {
         rules=['Five near-neutral greys cover most of the frame; colour is rationed to units and threats.',
                'Black outlines with 1 px white spec strokes on upper-left edges; hard cast shadows.',
                'UI sits on the screen grid at 1x/2x/3x, crisp, never scaled softly.'],
-        tools=['iso.Iso render', 'palette.ramp(style="arch") + neutral_ramp', 'compose.stage', 'pixfont'],
+        tools=['the board from 2:1 iso boxes (iso.Iso.render)',
+               'architecture ramps and a near-neutral grey ladder (palette.ramp(style="arch"), palette.neutral_ramp)',
+               'the diorama floating in the dark (compose.stage)', 'crisp UI text on the screen grid (pixfont.draw)'],
         never=['soft light', 'filters', 'saturated scenery']),
     'sticker-iso': dict(
         pick_if='a dense, sunny isometric town where the crowd and the little stories are the subject',
@@ -154,8 +176,10 @@ ROUTE = {
         rules=['Paint at the gamut edge, black silhouettes, no light and no shadows.',
                'Density is the subject: a readable little story in every 100 px window.',
                'Trees are leaf-glyph canopies on black; people are 3.3-head iso figures.'],
-        tools=['iso.Iso', 'palette.ramp(style="flat")', 'veg.leaf_glyphs', 'figures.iso_person', 'props.car / pole / tyre',
-               'compose.populate / strips', 'anim.lane_offset'],
+        tools=['iso boxes (iso.Iso)', 'flat paints at the gamut edge (palette.ramp(style="flat"))',
+               'leaf-glyph canopies on black (veg.leaf_glyphs)',
+               'people and cars as your own slot maps (study references/assets/figures.py iso_person and props.py car, pole, tyre)',
+               'crowds and traffic on lanes (compose.populate, compose.strips, anim.lane_offset)'],
         never=['light of any kind', 'cast shadows', 'empty areas']),
     'illustrated': dict(
         pick_if='an illustration-grade sky world: floating islands, carved stone, a monument, painterly depth '
@@ -171,8 +195,10 @@ ROUTE = {
         rules=['The environment stays in L .30-.78 at low chroma; the extremes are for actors, effects and HUD.',
                'Stone is carved: cells with a lit rim, checker wear, selective outlines.',
                'Depth comes from palette haze per plane, never from blur; a frame of foliage is drawn into the art.'],
-        tools=['palette.ramp(style="living") + palette.haze', 'layout.ashlar / polar_blocks + texture.shade_cells',
-               'veg.leafmass / vine / fern', 'water.reflect (glaze)', 'compose.frame_mask'],
+        tools=['living ramps hazed per plane (palette.ramp(style="living"), palette.haze)',
+               'carved stone cells with a lit rim (layout.ashlar, layout.polar_blocks, texture.shade_cells)',
+               'leaf masses, vines and ferns (veg.leafmass, veg.vine, veg.fern)', 'glazed water (water.reflect)',
+               'a frame of foliage drawn into the art (compose.frame_mask)'],
         never=['soft light layers', 'filters', 'dark scenery']),
     'neon-noir': dict(
         pick_if='a neon-lit night interior or city: noir, crime, a bar, a club, rain on neon; one lit room in black',
@@ -186,8 +212,12 @@ ROUTE = {
         rules=['A lit room slab floating in exact black; a multiplied wall-wash light per art pixel.',
                'One teal exit and one magenta hero carry the colour; everything else is wood, stone and black.',
                'Actors have no outline, only a 1 px warm rim on the lamp side.'],
-        tools=['palette.ramp(style="lit")', 'post.Post(res="native").lightmap / band / glow(kernel="outer") / fade',
-               'light.void_fade', 'figures.thin', 'texture.panels / slats'],
+        tools=['lit wood and stone ramps (palette.ramp(style="lit"))',
+               'one multiplied wall-wash per art pixel, a band, an outer glow, a fade '
+               '(post.Post(res="native").lightmap, band, glow(kernel="outer"), fade)',
+               'the room slab fading into exact black (light.void_fade)',
+               'slim 38-42 px actors as your own slot maps (study references/assets/figures.py thin)',
+               'wood panels and slats (texture.panels, texture.slats)'],
         never=['screen-blend light', 'hairline rain', 'grain, scanlines, aberration']),
     'cosy-lightmap': dict(
         pick_if='a warm, cosy 16-bit place at night or underground: a farm, a cave, a cabin interior, lamps in '
@@ -204,8 +234,11 @@ ROUTE = {
                'built walls are pillow blocks with plum seams.',
                'Many small warm sources (windows, lamps, a hearth) each pool their own light; between the pools the '
                'world sinks to the plum dark, never to grey.'],
-        tools=['palette.ramp(style="plum") / ramp(style="toy")', 'post.Post(res="screen").lightmap',
-               'texture.pebbles / layout + texture.shade_cells(pillow)', 'shapes.void_edge', 'figures.chibi', 'compose.room'],
+        tools=['albedo ramps sharing one plum dark (palette.ramp(style="plum"), palette.ramp(style="toy"))',
+               'one smooth multiplied lamp map at screen resolution (post.Post(res="screen").lightmap)',
+               'ground as paired cells (texture.pebbles)', 'built walls as pillow blocks (layout.ashlar, texture.shade_cells)',
+               'the edge into the void (shapes.void_edge)',
+               'chibi figures as your own slot maps (study references/assets/figures.py chibi)', 'rooms (compose.room)'],
         never=['screen-blend light', 'filters', 'a lifted void']),
     'contre-jour': dict(
         pick_if='a cinematic, mysterious night: silhouettes against fog and glowing air, a ritual, a forest, a '
@@ -221,8 +254,11 @@ ROUTE = {
                'Near planes are flat near-black silhouettes with leafy broken edges; they never take light.',
                'All softness is a screen-resolution light layer composited between depth planes (post.Stack).',
                'Figures are slim, 20-30 px, 1 px legs, no outline; leaf-light flecks take their nearest light\'s colour.'],
-        tools=['palette.ramp_between + palette.haze_levels', 'post.Stack + Post(res="screen").light / shaft / flare',
-               'post rain style "hair"', 'texture.leaflight', 'figures.slim', 'compose.proscenium'],
+        tools=['a bridge ramp between two hues, hazed per plane (palette.ramp_between, palette.haze_levels)',
+               'soft light between depth planes at screen resolution (post.Stack, Post(res="screen").light, shaft, flare)',
+               'hairline rain (Post rain style "hair")', 'leaf-light flecks in dark foliage (texture.leaflight)',
+               'slim 20-30 px figures as your own slot maps (study references/assets/figures.py slim)',
+               'a proscenium of near silhouettes (compose.proscenium)'],
         never=['outlines', 'dither', 'light on the near plane', 'filters']),
 }
 
@@ -331,93 +367,125 @@ def route(request, n=3):
     return dict(request=request, picks=picks, mode=mode, guide=GUIDE[mode], projection=proj,
                 era=era_of(request) if mode == 'era' else None)
 
-# ---------------------------------------------------------------- tools by subject, whatever the style
+# ---------------------------------------------------------------- techniques by subject, whatever the style
 # The style decides how things are shaded; the subject decides what gets drawn. Each entry: the words
-# that bring it in and the kit calls that draw it.
-TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (note)', condition)
+# that bring it in and the techniques that draw it, each naming the primitive that does the work. Finished
+# objects (boats, cats, lanterns, runes) are drawn in the scene's own code; references/assets has
+# examples of each to study, never to call.
+TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or ('technique (primitive)', condition)
     # conditions: 'lofi' the JS-engine style, 'iso' / 'topdown' / 'side' projection, 'post:OP' the style allows that light op,
     # 'soft' the style has a light layer (alpha is fine), 'strict' it has none (opaque slots only)
     (['rain', 'storm', 'wet', 'puddle', '雨', '暴风', '湿', '水坑'], 'rain and wet', [
-        'fx.rain_cells (opaque streaks in palette slots)', 'fx.rain_splashes (crowns where those streaks land)', 'fx.splash_field', 'fx.ripple / fx.ripples (puddle rings)', 'fx.drip', 'texture.wet_streaks (speculars on up-facing edges)', ('draw it yourself; example: references/assets/particles.py drizzle (lofi engine tables)', 'lofi'),
-        'water.reflect (puddles)', ('fx.light_streaks (alpha streaks with a stepped tail)', 'soft'),
-        ('Post.rain (screen-res hairlines)', 'post:rain')]),
+        'rain as opaque streaks in palette slots, crowns where they land (fx.rain_cells, fx.rain_splashes, fx.splash_field)',
+        'puddle rings and drips off the eaves (fx.ripple, fx.ripples, fx.drip)',
+        'wet cobbles: speculars on up-facing edges (texture.wet_streaks)',
+        'puddles mirror what stands over them (water.reflect)',
+        ('drizzle as baked engine tables (study references/assets/particles.py drizzle)', 'lofi'),
+        ('rain lit inside a lamp radius: alpha streaks with a stepped tail (fx.light_streaks)', 'soft'),
+        ('screen-res hairline rain (Post.rain)', 'post:rain')]),
     (['snow', 'winter', 'ice', '雪', '冬', '冰'], 'snow and ice', [
-        'texture.speckle (flakes on dark)', 'texture.stipple (drifts)', 'sky.strata (a flat winter sky)',
-        ('draw it yourself; example: references/assets/particles.py snow (lofi engine tables)', 'lofi')]),
+        'flakes as single light pixels on dark (texture.speckle)', 'drifts as stippled banks against walls (texture.stipple)',
+        'a flat winter sky in undithered bands (sky.strata)',
+        ('snow as baked engine tables (study references/assets/particles.py snow)', 'lofi')]),
     (['fog', 'mist', 'haze', '雾', '霭'], 'fog', [
-        'palette.haze and haze_levels per depth plane', ('Post.fog', 'post:fog'),
-        'canvas.wrap_offset for drifting banks (canvas.loop_dissolve in lofi only)']),
+        'fog as haze per depth plane, each plane pulled toward the fog colour (palette.haze, palette.haze_levels)',
+        ('a fog layer over the planes (Post.fog)', 'post:fog'),
+        'drifting banks that wrap seamlessly (canvas.wrap_offset, or canvas.loop_dissolve in lofi only)']),
     (['sea', 'ocean', 'lake', 'river', 'stream', 'harbour', 'harbor', 'port', 'coast', 'beach', 'waterfall', 'pond',
       'canal', 'boat', 'ship', 'dock', 'pier', '海', '湖', '河', '溪', '港', '海岸', '沙滩', '瀑布', '池塘', '运河', '船',
       '码头'], 'water', [
-        'water.depth_bands (sea by distance from land)', 'water.foam_rings (where things stand in water)',
-        'water.reflect', 'water.pool (still basins)', 'water.waterfall', ('post.over (a translucent glaze)', 'post:over'),
-        'draw it yourself; example: references/assets/props.py boat (dory, sail, fishing; side or 3/4)', 'draw it yourself; example: references/assets/props.py dock (jetty with piles, gaps, broken planks)',
-        'draw it yourself; example: references/assets/props.py barrel', 'draw it yourself; example: references/assets/props.py crate']),
+        'sea in hard bands by distance from land (water.depth_bands)',
+        'dashed foam rings where things stand in water (water.foam_rings)',
+        'reflections of hulls, posts and lights only (water.reflect)', 'still basins and falls (water.pool, water.waterfall)',
+        ('a translucent glaze over the shallows (post.over)', 'post:over'),
+        'boats, docks, barrels and crates as your own slot maps: the plan as a polygon, outlined per part, planks as '
+        'seam rows (canvas.Canvas.poly, canvas.Canvas.outline, texture.planks) (study references/assets/props.py '
+        'boat, dock, barrel, crate)']),
     (['forest', 'tree', 'trees', 'garden', 'jungle', 'park', 'leaf', 'leaves', 'grass', 'bush', '森林', '树', '花园',
       '丛林', '公园', '叶', '草', '灌木'], 'foliage', [
-        'texture.clumps (grass and bush clumps)', 'veg.fern', 'veg.vine', 'draw it yourself; example: references/assets/props.py trunk',
-        'veg.leaf_scales (round shingled canopies)', 'veg.leafmass (a leaf mass lining a frame)',
-        'texture.leaflight (flecks in dark foliage)', 'shapes.lobes_along (far tree lines)',
-        ('draw it yourself; example: references/assets/particles.py leaves / particles.petals / particles.fireflies (lofi engine tables)', 'lofi'),
-        ('veg.leaf_glyphs (2:1 leaf glyphs, the iso sticker look)', 'iso')]),
+        'grass and bush clumps (texture.clumps), ferns and vines (veg.fern, veg.vine)',
+        'round shingled canopies (veg.leaf_scales), a leaf mass lining the frame (veg.leafmass)',
+        'flecks of light in dark foliage (texture.leaflight)', 'far tree lines as lobed silhouettes (shapes.lobes_along)',
+        'trunks as a bark ramp on a tapered slot map (study references/assets/props.py trunk)',
+        ('falling leaves, petals and fireflies as baked engine tables (study references/assets/particles.py)', 'lofi'),
+        ('2:1 leaf glyphs, the iso sticker look (veg.leaf_glyphs)', 'iso')]),
     (['sky', 'cloud', 'clouds', 'sunset', 'dusk', 'dawn', '天空', '云', '日落', '黄昏', '清晨'], 'sky', [
-        'sky.strata (flat undithered bands)', 'sky.wisp', 'sky.smile', 'sky.streaks',
-        'shapes.cloud / cloud_mass / cloud_mask / cloud_rgba']),
+        'flat undithered strata locked by wisps and streaks (sky.strata, sky.wisp, sky.smile, sky.streaks)',
+        'clouds as masses and masks (shapes.cloud, shapes.cloud_mass, shapes.cloud_mask, shapes.cloud_rgba)']),
     (['cave', 'mine', 'rock', 'cliff', 'mountain', 'rubble', 'stone', 'underground', '洞', '矿', '岩', '悬崖', '山',
       '石', '地下'], 'rock', [
-        'texture.stones (rubble, cave walls)', 'texture.flakes (layered rock)', 'texture.pebbles', 'shapes.ledges',
-        'shapes.noisy_edge', 'shapes.void_edge', 'draw it yourself; example: references/assets/props.py rails, draw it yourself; example: references/assets/props.py ladder and props.stairwell underground',
-        'draw it yourself; example: references/assets/props.py mine_cart / props.cart_on_rails', 'draw it yourself; example: references/assets/props.py ore_node', 'draw it yourself; example: references/assets/props.py crate', 'draw it yourself; example: references/assets/props.py barrel']),
+        'rubble and cave walls (texture.stones), layered rock (texture.flakes), gravel (texture.pebbles)',
+        'ledged and noisy silhouettes (shapes.ledges, shapes.noisy_edge), the edge into the void (shapes.void_edge)',
+        'rails, ladders, stairwells, carts, ore and crates as your own slot maps on the canvas (canvas.Canvas.line, '
+        'canvas.Canvas.rect, canvas.Canvas.outline) (study references/assets/props.py rails, ladder, stairwell, '
+        'mine_cart, ore_node, crate, barrel)']),
     (['city', 'town', 'street', 'building', 'house', 'houses', 'village', 'alley', 'castle', 'wall', 'brick', 'roof',
       '城', '镇', '街', '楼', '房', '村', '巷', '城堡', '墙', '砖', '屋顶'], 'buildings', [
-        'layout.ashlar + texture.shade_cells (stone)', 'texture.bricks', 'texture.panels', 'texture.mottle',
-        'texture.inset_frame (trim)', 'draw it yourself; example: references/assets/props.py lantern (wall and paper lamps)', 'canvas.Canvas.catenary (cables, lines)',
-        ("iso.Iso(camera='topdown') boxes and gables, with cast_shadows", 'topdown'),
-        ('iso.Iso boxes, draw it yourself; example: references/assets/props.py glass_streak for glass faces', 'iso'),
-        'texture.shingles (tiles, slate, shakes; slipped and missing tiles, moss)', 'texture.thatch',
-        'texture.planks (walls, floors, decks, board-and-batten)', 'draw it yourself; example: references/assets/props.py pipe and props.drain', 'draw it yourself; example: references/assets/props.py barrel']),
+        'coursed stone: cells laid out, then carved (layout.ashlar, texture.shade_cells)',
+        'bricks, panels, mottled plaster and trim (texture.bricks, texture.panels, texture.mottle, texture.inset_frame)',
+        'roofs and walls: tiles with slipped and missing ones and moss, thatch, boards (texture.shingles, '
+        'texture.thatch, texture.planks)',
+        'cables and washing lines that sag (canvas.Canvas.catenary)',
+        ("boxes and gables seen from above with hard cast shadows (iso.Iso(camera='topdown'), iso.Iso.cast_shadows)",
+         'topdown'),
+        ('iso boxes (iso.Iso.box)', 'iso'),
+        ('glass faces as diagonal streaks (study references/assets/props.py glass_streak)', 'iso'),
+        'lanterns, pipes, drains and barrels as slot maps with a lit edge (study references/assets/props.py lantern, '
+        'pipe, drain, barrel)']),
     (['industrial', 'factory', 'crane', 'construction', 'tower', '工厂', '吊车', '工地', '塔'], 'structure', [
-        'draw it yourself; example: references/assets/props.py girders', 'draw it yourself; example: references/assets/props.py truss', 'texture.grille', 'texture.pits (concrete)']),
+        'girders and trusses as lines and lattices on the canvas (canvas.Canvas.line, texture.grille)',
+        'how a girder or truss was built (study references/assets/props.py girders, truss)', 'pitted concrete (texture.pits)']),
     (['tech', 'sci-fi', 'scifi', 'robot', 'mech', 'machine', 'computer', 'neon', 'space', 'cyberpunk', '科技', '科幻',
       '机器', '机甲', '电脑', '霓虹', '太空', '赛博'], 'tech', [
-        'texture.circuit', 'texture.emitter_grid (lamp panels)', 'fx.indicator', 'texture.grille',
-        'fx.emissive (screens, tubes)', 'fx.neon_sign (tube letters with buzzing broken letters; returns the '
-        'emitter mask for a glow)', 'draw it yourself; example: references/assets/props.py pipe', 'draw it yourself; example: references/assets/props.py drain']),
+        'circuits, lamp panels and grilles (texture.circuit, texture.emitter_grid, texture.grille)',
+        'status lights, screens and tubes (fx.indicator, fx.emissive)',
+        'neon tube letters with buzzing broken letters, returning the emitter mask for a glow (fx.neon_sign)',
+        'pipes and drains as banded slot maps (study references/assets/props.py pipe, drain)']),
     (['ruin', 'ruins', 'temple', 'rune', 'magic', 'spell', 'shrine', '遗迹', '神殿', '符文', '魔法', '法术', '神社'],
      'magic and ruins', [
-        'draw it yourself; example: references/assets/glyphs.py rune and glyphs.stamp', 'anim.cascade (runes lighting in turn)', 'fx.pixel_motes',
-        'texture.tapestry', 'texture.circuit']),
+        'runes as your own glyphs, slot maps from strokes (study references/assets/glyphs.py rune, stamp)',
+        'runes lighting in turn (anim.cascade), drifting motes (fx.pixel_motes)',
+        'woven and carved surfaces (texture.tapestry, texture.circuit)']),
     (['fire', 'explosion', 'battle', 'fight', 'gun', 'shoot', 'war', 'boss', 'sword', 'samurai', 'ninja', '火', '爆炸',
       '战斗', '打', '枪', '射击', '战争', '剑', '武士', '忍者'], 'action', [
-        'fx.fireball', 'fx.puff / fx.smoke_puff', 'fx.burst', 'fx.sparks', 'fx.shot', 'fx.muzzle_light',
-        'fx.hit_flash', 'fx.crescent (swing trails)', 'fx.trail', 'fx.tumble', 'anim.recoil', 'anim.arc']),
+        'fireballs, puffs, bursts and sparks as opaque sprites (fx.fireball, fx.puff, fx.smoke_puff, fx.burst, fx.sparks)',
+        'shots, muzzle light and hit flashes (fx.shot, fx.muzzle_light, fx.hit_flash)',
+        'swing trails, motion trails and tumbling debris (fx.crescent, fx.trail, fx.tumble)',
+        'recoil and arcs on hold tables (anim.recoil, anim.arc)']),
     (['level', 'stage', 'platformer', 'game', 'gameplay', 'hud', '关卡', '平台', '游戏', '玩法'], 'game level', [
-        'anim.arc (jumps)', 'anim.hop', 'fx.burst (landing dust)', 'canvas.parallax (layer scroll)',
-        'canvas.Canvas.tile (tiles)', 'pixfont.draw (HUD text)', 'draw it yourself; example: references/assets/glyphs.py stamp (pickups, icons)']),
+        'jumps and hops (anim.arc, anim.hop), landing dust (fx.burst)', 'layer scroll and tiles (canvas.parallax, '
+        'canvas.Canvas.tile)', 'HUD text (pixfont.draw)',
+        'pickups and icons as small slot maps (study references/assets/glyphs.py stamp)']),
     (['lamp', 'lantern', 'candle', 'torch', 'window', 'fireplace', 'neon sign', '灯', '灯笼', '蜡烛', '火把', '窗',
       '壁炉'], 'small lights', [
-        'draw it yourself; example: references/assets/props.py lantern', 'light.flicker (held steps; pass t % T so the seam holds)', 'light.rim',
-        'anim.chase (marquee and signal lights)', ('Post.lightmap (multiplied pools)', 'post:lightmap'),
-        ('Post.light (shaped pools)', 'post:light'), ('Post.glow (from an emitter mask)', 'post:glow'),
-        ('light.Light.point / apply (pools drawn in palette steps)', 'strict'),
-        ('Post.lightmap occlude= (walls block light) and per-light flicker in the light tuple', 'post:lightmap')]),
+        'lamps and lanterns as slot maps in warm slots (study references/assets/props.py lantern)',
+        'flicker on held steps, passing t % T so the seam holds (light.flicker), and lamp-side rims (light.rim)',
+        'marquee and signal lights (anim.chase)',
+        ('multiplied pools, walls blocking light with occlude= and per-light flicker in the light tuple (Post.lightmap)',
+         'post:lightmap'),
+        ('shaped pools (Post.light)', 'post:light'), ('glow from an emitter mask (Post.glow)', 'post:glow'),
+        ('pools drawn in palette steps (light.Light.point, light.Light.apply)', 'strict')]),
     (['crowd', 'people', 'busy', 'traffic', 'market', 'festival', 'car', 'cars', '人群', '热闹', '车', '集市', '夜市',
       '庙会'], 'crowds', [
-        ('compose.populate (traffic and crowds)', 'iso'), ('draw it yourself; example: references/assets/props.py car', 'iso'), ('draw it yourself; example: references/assets/figures.py iso_person', 'iso'),
-        'compose.check_density']),
+        ('traffic and crowds placed on lanes (compose.populate)', 'iso'),
+        ('iso people and cars as your own slot maps (study references/assets/figures.py iso_person and props.py car)',
+         'iso'),
+        'density per window (compose.check_density)']),
     (['cat', 'dog', 'deer', 'horse', 'animal', 'bird', 'birds', 'gull', 'gulls', 'seagull', 'crow', 'fish', '猫',
       '狗', '鹿', '马', '动物', '鸟', '海鸥', '乌鸦', '鱼'], 'animals', [
-        'draw it yourself; example: references/assets/figures.py cat (sit, sleep, walk, tail flicks)', 'draw it yourself; example: references/assets/figures.py gull (perch, fly, far)',
-        'draw it yourself; example: references/assets/figures.py quadruped_slim (a slim deer)',
-        'anim.orbit (birds circling, fish)', 'anim.lag (tails)', 'sprite.drop_shadow']),
+        'each animal as your own slot map at the scene\'s size and pose: sit, sleep, walk, fly (study '
+        'references/assets/figures.py cat, gull, quadruped_slim for the silhouette and the frame changes)',
+        'birds circling and fish (anim.orbit), tails that lag (anim.lag), shadows on the slot grid (sprite.drop_shadow)']),
     (['slime', 'blob', '史莱姆', '黏液'], 'slimes', [
-        'anim.hop (squash-and-hop sizes per frame)', 'draw it yourself; example: references/assets/figures.py slime (draws the dome from the hop)', 'sprite.drop_shadow']),
+        'squash-and-hop sizes per frame (anim.hop), a shadow under it (sprite.drop_shadow)',
+        'the dome drawn from the hop size (study references/assets/figures.py slime)']),
     (['person', 'people', 'character', 'hero', 'girl', 'boy', 'man', 'woman', 'kid', 'knight', 'samurai', 'walk',
       '人', '角色', '主角', '女孩', '男孩', '骑士', '武士', '走'], 'figures', [
-        'the style\'s figure (see section 11)', ('draw it yourself; example: references/assets/figures.py lofi (10-14 px diorama people: idle, walk, sit)', 'lofi'),
-        'draw it yourself; example: references/assets/figures.py chibi size= and pose=\'sit\'', 'draw it yourself; example: references/assets/figures.py thin hat= and sword=', 'anim.lag (hair, capes, scarves)', 'sprite.chain (ropes, scarves)',
-        'sprite.drop_shadow', 'sprite.spec_edges', 'anim.hold / anim.Timeline for poses']),
+        'the style\'s figure size and outline (section 11), drawn as your own slot maps per pose',
+        ('10-14 px diorama people (idle, walk, sit) (study references/assets/figures.py lofi)', 'lofi'),
+        'proportions and poses: study references/assets/figures.py chibi, thin, slim',
+        'hair, capes and scarves that trail (anim.lag, sprite.chain)',
+        'shadows and lit edges (sprite.drop_shadow, sprite.spec_edges)', 'poses on hold tables (anim.hold, anim.Timeline)']),
 ]
 ALWAYS_TOOLS = ('checks: the gate `pixelate check FRAME --style S --scale N` on every delivered frame (budget, '
                 'native cells, palette, readability, craftcheck), `pixelate check SCENE` for engine scenes, '
@@ -432,12 +500,10 @@ CATALOG = [('post', 'the light layer: Post (none/native/screen), Stack (depth pl
            ('sky', 'skies: strata, wisps, streaks, crescents'),
            ('water', 'water: depth bands, foam rings, pools, waterfalls, reflections'),
            ('veg', 'foliage: leaf scales, leaf glyphs, leaf masses, framed fields'),
-           ('props', 'built things: trunks, girders, trusses, rails, stairwells, cars, glass'),
-           ('figures', 'characters per style: chibi, slim, thin, iso people, quadrupeds'),
+
            ('sprite', 'sprite helpers: chains (ropes, scarves), drop shadows, specular edges'),
            ('anim', 'motion: timelines, hold tables, hops, lag, recoil, arcs, orbits, chases, cascades, period checks'),
            ('fx', 'effects as pixels: rain cells, fireballs, puffs, bursts, shots, flashes, trails, motes, indicators'),
-           ('glyphs', 'original runes and stamps'),
            ('compose', 'composition: frames, prosceniums, stages, rooms, plans, crowds, density checks'),
            ('canvas', 'the canvas: slots, thresholds, parallax, seamless loop dissolves'),
            ('morph', 'mask operations: dilate, erode, distance, normals, regions, relief'),
@@ -448,8 +514,11 @@ CATALOG = [('post', 'the light layer: Post (none/native/screen), Stack (depth pl
            ('artlib', 'slot-map sprites for the lofi JS engine: Grid, stamping, orphan checks, export to sprites.js'),
            ('era', 'console-era limits (NES, Game Boy, SNES, Genesis, GBA, PICO-8, Neo Geo): check and force'),
            ('pixfont', 'the pixel font for HUD and captions'),
-           ('particles', 'lofi particles baked to engine tables: petals, leaves, snow, drizzle, fireflies'),
            ('cjkfont', 'a CJK pixel font for Chinese and Japanese text')]
+EXAMPLES = [('props', 'built things: trunks, girders, trusses, rails, stairwells, cars, glass, boats, docks, crates'),
+            ('figures', 'characters per style: chibi, slim, thin, iso people, quadrupeds, cats, gulls, slimes'),
+            ('glyphs', 'original runes and stamps'),
+            ('particles', 'lofi particles baked to engine tables: petals, leaves, snow, drizzle, fireflies')]
 
 def catalog():
     """guides/toolkit.md: every public function and class in the kit with its first doc line, so an
@@ -458,13 +527,18 @@ def catalog():
     L = ['# Toolkit', '',
          'Every function in the kit, with its first doc line. Generated by `python3 tools/route.py --catalog`;',
          'regenerate it after adding a tool. Read it before writing a brief: the router only suggests the',
-         'tools its keywords know about, and the best brief uses whatever the scene needs.', '']
+         'techniques its keywords know about, and the best brief uses whatever the scene needs. The last',
+         'sections list the examples in references/assets: read them to see how a finished thing was built,',
+         'never call them.', '']
     L.append('## By subject\n')
     for words, label, items in TOPIC_TOOLS:
         L.append('- %s: %s.' % (label[0].upper() + label[1:],
                                 ', '.join(it if isinstance(it, str) else '%s [%s]' % it for it in items)))
     L.append('- ' + ALWAYS_TOOLS[0].upper() + ALWAYS_TOOLS[1:] + '.')
-    for mod, what in CATALOG:
+    ex = str(pathlib.Path(__file__).resolve().parent.parent / 'references' / 'assets')
+    if ex not in sys.path:
+        sys.path.append(ex)
+    for mod, what in CATALOG + [(m, w + ' (an example in references/assets: read, never call)') for m, w in EXAMPLES]:
         try:
             m = importlib.import_module(mod)
         except Exception:
@@ -514,7 +588,7 @@ def topic_tools(request, style=None, projection=None):
                     keep.append(it[0])
             else:
                 keep.append(it)
-        out.append('%s: %s' % (label, ', '.join(keep)))
+        out.append('%s: %s' % (label, '; '.join(keep)))
     return out
 
 # ---------------------------------------------------------------- what the request leaves open
@@ -583,7 +657,7 @@ def gaps(request, r=None):
     named = _hits(t, WORDS['figures'] + ['slime', 'robot', 'samurai', '史莱姆', '武士', '机器人'])
     add('figures', WORDS['figures'],
         'only the actors the request names, nobody added' if named else
-        'one or two small figures doing a quiet, specific task (%s)' % st['figures'])
+        'one or two small figures doing a quiet, specific task (%s)' % _as_example(st['figures']))
     loop = ('the engine\'s 30-tick clock, sprites at 10, 5 or 2 fps; the loop is the music\'s length'
             if st['name'] == 'lofi' else 'a seamless %s-frame loop at %d fps' % (frames or 'TODO', st['fps']))
     excerpt = 'a GIF excerpt' if st['res'] == 'none' else 'an APNG excerpt (a GIF bands soft light)'
@@ -622,29 +696,27 @@ VAGUE = ['nice', 'beautiful', 'cool', 'some ', 'various', 'etc', 'stuff', 'thing
 
 def lint(text):
     """-> a list of problems in a brief: TODOs left, missing or thin sections, vague words, a motion
-    table without numbers, periods that don't divide the loop. Empty means it is ready to show."""
+    table without numbers, periods that don't divide the loop, and the quality checks (section 0 intent,
+    scene objects placed and counted, lights with colour, radius and what hides them, motion with rates,
+    phases with signature elements, an imperfection, examples studied rather than called, the gate in
+    Technical). A short brief gets the matching light lint. Empty means it is ready to show."""
+    if _is_short(text):
+        return lint_short(text)
     probs = []
     left = text.count('TODO')
     if left:
         probs.append('%d TODO left: fill each with a concrete choice (or a default listed in section 0)' % left)
-    parts = re.split(r'^##\s+(?:\d+\.\s*)?', text, flags=re.M)
-    body = {}
-    for part in parts[1:]:
-        head, _, rest = part.partition('\n')
-        body[head.strip()] = rest
-    def find(name):
-        return next((v for k, v in body.items() if k.lower().startswith(name.lower())), None)
+    find = _sections(text)
+    probs += _intent(find)
     for sec in SECTIONS:
         b = find(sec)
         if b is None:
             probs.append('missing section: %s' % sec)
             continue
-        n = len(re.findall(r'^\s*[-*]\s+\S', b, flags=re.M))
+        n = len(_bullets(b))
         if n < MIN_BULLETS.get(sec, 1):
             probs.append('%s is thin: %d items, want %d or more' % (sec, n, MIN_BULLETS.get(sec, 1)))
-        for w in VAGUE:
-            if re.search(r'\b' + re.escape(w.strip()) + r'\b', b.lower()):
-                probs.append('%s says "%s": name the thing, the count or the colour instead' % (sec, w.strip()))
+        probs += _vague(sec, b)
     m = find('Motion table')
     if m is not None and not re.search(r'\d+\s*(frames?|fps|drawings?|ticks?)', m):
         probs.append('Motion table has no frame counts or rates')
@@ -663,6 +735,11 @@ def lint(text):
             if int(n) * int(k) and T % (int(n) * int(k)):
                 probs.append('Motion table: %s drawings x %s frames = %d does not divide the %d-frame loop' % (
                     n, k, int(n) * int(k), T))
+    if m is not None:
+        slow = [b for b in _bullets(m) if not re.match(r'(todo|checks?|motion|note)\b', b, re.I)
+                and not b.endswith(':') and not re.search(RATE, b, re.I)]
+        if slow:
+            probs.append('Motion table: %d line(s) with no rate or frame count: %s' % (len(slow), _quote(slow)))
     li = find('Light list')
     if li is not None and not re.search(r'\d', li):
         probs.append('Light list has no sizes or radii: give every emitter a colour, a radius and what hides it')
@@ -672,17 +749,152 @@ def lint(text):
             probs.append('Style and light regime does not name the light layer (none, native or screen)')
         if not re.search(r'budget|L\s*[<>]|below L|above L', text):
             probs.append('no value budget anywhere (how much of the frame is dark, how rare the highlights are)')
+    hides_flagged = False
     if re.search(r'res\W*(native|screen)|light layer\W*(native|screen)', text.lower()) and li is not None \
             and not re.search(r'hide|hidden|occlud|block|behind', li.lower()):
         probs.append('Light list never says what hides a light (the near plane, a wall, a door frame)')
+        hides_flagged = True
+    if li is not None and _has_light_layer(text):
+        lights = [b for b in _bullets(li) if not re.match(NOT_A_LIGHT, b.lstrip('*'), re.I)
+                  and not re.search(r'\bunlit\b|no light of its own|not a light|no pool', b, re.I)]
+        for what, pat in (('no colour', COLOUR), ('no radius or size', RADIUS)) + (
+                () if hides_flagged else (('nothing that hides it', HIDES),)):
+            miss = [b for b in lights if not re.search(pat, b, re.I)]
+            if miss:
+                probs.append('Light list: %d light(s) with %s: %s' % (len(miss), what, _quote(miss)))
     sc = find('The scene')
     if sc is not None and not re.search(r'\d', sc):
         probs.append('The scene has no counts, sizes or positions')
+    elif sc is not None:
+        loose = [b for b in _bullets(sc) if not b.startswith('TODO') and not b.endswith(':')
+                 and not re.search(PLACED, b, re.I)]
+        if loose:
+            probs.append('The scene: %d object line(s) with no count, size or position: %s' % (len(loose), _quote(loose)))
+    ph = find('Phase')
+    if ph is not None and not re.search(r'signature|only in (?:this|that) phase|unique to', ph, re.I):
+        if re.search(r'recolou?r|palette swap|same scene|only the palette', ph, re.I) or \
+                not re.search(r'\b(?:one|single) phase|no cycle', ph, re.I):
+            probs.append('Phases name no signature element (something drawn only in that phase); a recolour is not a phase')
     lv = find('Lived-in details')
-    if lv is not None and re.search(r'imperfect|lean|sag|missing|broken|patched|worn', text.lower()) is None:
+    if lv is not None and re.search(IMPERFECT, text.lower()) is None:
         probs.append('no built-in imperfections anywhere (a lean, a sag, a missing plank, a patch)')
+    te = find('Technical')
+    if te is not None and 'pixelate check' not in te:
+        probs.append('Technical has no gate command: add `pixelate check FRAME.png --style S --scale N` '
+                     '(and `pixelate check SCENE` for engine scenes)')
+    probs += _asset_calls(text)
     probs += _tool_refs(text)
     return probs
+
+SHORT_SECTIONS = ['Style', ('Palette and size', 'Length and sound'), 'The work', 'Gate', 'Show the user']
+
+def _is_short(text):
+    first = text.lstrip().split('\n', 1)[0]
+    return 'short brief' in first.lower() or (re.search(r'^##\s+(?:\d+\.\s*)?Gate\b', text, re.M) is not None
+                                              and 'Motion table' not in text)
+
+def lint_short(text):
+    """the light lint for a short brief: TODOs, its six sections, section 0 intent, vague words, a size,
+    the gate command, what the user sees, examples studied rather than called, real kit names"""
+    probs = []
+    left = text.count('TODO')
+    if left:
+        probs.append('%d TODO left: fill each with a concrete choice (or a default listed in section 0)' % left)
+    find = _sections(text)
+    probs += _intent(find)
+    for sec in SHORT_SECTIONS:
+        names = sec if isinstance(sec, tuple) else (sec,)
+        b = next((find(n) for n in names if find(n) is not None), None)
+        if b is None:
+            probs.append('missing section: %s' % names[0])
+            continue
+        if not _bullets(b):
+            probs.append('%s is empty' % names[0])
+        probs += _vague(names[0], b)
+    music = find('Palette and size') is None and find('Length and sound') is not None
+    ps = find('Length and sound') if music else find('Palette and size')
+    if ps is not None and 'TODO' not in ps and not re.search(r'\d', ps):
+        probs.append('Length and sound has no numbers: the loop length, the tempo' if music else
+                     'Palette and size has no numbers: the colour count, the sprite or canvas size')
+    g = find('Gate')
+    if g is not None and 'pixelate' not in g:
+        probs.append('Gate has no command: add `pixelate check FILE.png --style S --scale N`')
+    probs += _asset_calls(text)
+    probs += _tool_refs(text)
+    return probs
+
+RATE = (r'\d+\s*(?:frames?|fps|ticks?|drawings?|px|cycles?|s\b|seconds?|beats?|bpm)|every\s+\d+|hold\s*=?\s*\d+'
+        r'|\bx\s*\d+|\d+\s*x\b|per (?:loop|frame|tick|second)|\bstill\b|static|\bnone\b|frame\s+\d+|\d+\s*/\s*s')
+COLOUR = (r'#[0-9a-f]{3,6}|\b(?:amber|orange|red|yellow|gold|golden|lemon|cream|white|warm|cool|cold|teal|cyan|blue|'
+          r'navy|green|magenta|pink|rose|violet|purple|plum|honey|ochre|copper|brass|tint|hue|colou?r|lilac|peach|'
+          r'apricot|coral|umber|grey|gray|silver|turquoise|candle|hearth|fire|moon|sun|slots?|ramp)\w*')
+RADIUS = r'radius|sigma|falloff|\br\s*=?\s*\d|\d+\s*px|\d+\s*x\s*\d+|width|wide|reach|within \d|\d+\s*(?:cells?|pixels?)'
+HIDES = (r'hid|occlud|block|behind|mask|cut (?:by|off)|shield|cover|stops? at|never (?:reaches|lights)|swallow'
+         r'|stays? (?:black|dark)|do(?:es)? not reach|doesn\'t reach')
+NOT_A_LIGHT = r'(todo|allowed|banned|everything|every light|no |ambient|per-light|reflections?|puddle reflections|void edges?|check)\b'
+PLACED = (r'\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a pair|a single|dozen|left|right|'
+          r'centre|center|middle|top|bottom|behind|front|foreground|background|above|below|under|over|beside|along|'
+          r'edge|corner|third|half|quarter|near|far|between|across|horizon|on the|by the|at the|in the)\b')
+IMPERFECT = r'imperfect|lean|sag|missing|broken|patched|worn|chipped|crooked|cracked|mismatch|faded|tilt|dent|peel'
+
+def _sections(text):
+    parts = re.split(r'^##\s+(?:\d+\.\s*)?', text, flags=re.M)
+    body = {}
+    for part in parts[1:]:
+        head, _, rest = part.partition('\n')
+        body[head.strip()] = rest
+    return lambda name: next((v for k, v in body.items() if k.lower().startswith(name.lower())), None)
+
+def _bullets(b):
+    return [x.strip() for x in re.findall(r'^[-*]\s+(\S.*)$', b, flags=re.M)]
+
+def _quote(items, n=3):
+    q = ['"%s"' % (x if len(x) <= 48 else x[:45].rsplit(' ', 1)[0] + '...') for x in items[:n]]
+    return ', '.join(q) + (' and %d more' % (len(items) - n) if len(items) > n else '')
+
+def _vague(sec, b):
+    return ['%s says "%s": name the thing, the count or the colour instead' % (sec, w.strip())
+            for w in VAGUE if re.search(r'\b' + re.escape(w.strip()) + r'\b', b.lower())]
+
+def _intent(find):
+    z = find('Choices to confirm')
+    if z is None:
+        return ['missing section 0 (Choices to confirm): the intent and the defaults the user confirms']
+    m = re.search(r'^\s*[-*]\s+\*{0,2}intent\*{0,2}\s*:(.*)$', z, flags=re.M | re.I)
+    if m is None:
+        return ['section 0 has no intent line: what the user most likely wants but did not say']
+    if 'TODO' in m.group(1) or len(m.group(1).split()) < 3:
+        return ['section 0 intent is still TODO: write what the user most likely wants but did not say']
+    return []
+
+def _has_light_layer(text):
+    m = re.search(r'[Ss]tyle\W{0,3}`([a-z0-9-]+)`', text)
+    if m:
+        try:
+            return styles.get(m.group(1))['res'] != 'none'
+        except Exception:
+            pass
+    return re.search(r'res\W*(native|screen)|light layer\W*(native|screen)', text.lower()) is not None
+
+EXAMPLE_MODULES = ('props', 'figures', 'glyphs', 'particles')
+EXAMPLE_WORDS = ('example', 'study', 'studied', 'references/assets', 'modelled on', 'modeled on', 'for reference',
+                 'see how', 'read ')
+
+def _asset_calls(text):
+    """a references/assets module (props., figures., glyphs., particles.) named as a call, not an example"""
+    bad = []
+    for line in text.splitlines():
+        for clause in re.split(r';|\.\s', line):
+            low = clause.lower()
+            if any(w in low for w in EXAMPLE_WORDS):
+                continue
+            for ref in re.findall(r'(?<![\w./])((?:%s)\.[A-Za-z_]\w*)' % '|'.join(EXAMPLE_MODULES), clause):
+                if ref.split('.')[1] not in ('py', 'md') and ref not in bad:
+                    bad.append(ref)
+    if not bad:
+        return []
+    return ['%s written as something to call: references/assets holds examples to study, never to call; draw it in '
+            'the scene\'s own code and say which example you studied' % ', '.join('`%s`' % b for b in bad)]
 
 KIT_MODULES = ('post', 'light', 'palette', 'texture', 'layout', 'shapes', 'figures', 'props', 'compose', 'anim',
                'sprite', 'fx', 'glyphs', 'sky', 'veg', 'water', 'canvas', 'morph', 'stats', 'styles', 'assets',
@@ -691,6 +903,9 @@ KIT_MODULES = ('post', 'light', 'palette', 'texture', 'layout', 'shapes', 'figur
 def _tool_refs(text):
     """every `module.name` (or `module.Class.name`) in backticks must exist in the kit"""
     import importlib
+    ex = str(pathlib.Path(__file__).resolve().parent.parent / 'references' / 'assets')
+    if ex not in sys.path:                          # the examples resolve the same way whatever was imported first
+        sys.path.append(ex)
     bad = []
     for ref in sorted(set(re.findall(r'(?<![\w./])([a-z_]+(?:\.[A-Za-z_]+)+)(?=[\s`(),;:.]|$)', text))):
         mod, *path = ref.split('.')
@@ -709,7 +924,8 @@ def _tool_refs(text):
                     hint = ' (did you mean `%s.%s.%s`?)' % (mod, cls[0], path[-1])
             except Exception:
                 pass
-            bad.append('`%s` is not in the kit%s: use a real function or name the tool gap' % (ref, hint))
+            bad.append(('`%s` is not in references/assets either%s' if mod in EXAMPLE_MODULES else
+                        '`%s` is not in the kit%s: use a real function or name the tool gap') % (ref, hint))
     return bad
 
 # ---------------------------------------------------------------- the pre-filled brief
@@ -763,6 +979,8 @@ def brief(style, request='', projection=None, choices=None, era=None):
         L.append('- ' + x)
     L.append('- TODO 3-5 rules for this scene: which silhouettes must read, where rims fall, the built-in imperfections '
              '(a lean, a sag, a missing plank, a mismatched part).')
+    L.append('- Every object is drawn in this scene\'s code from the primitives; anything the kit has no primitive for '
+             'is a slot map. references/assets has finished examples to study, never to call.')
     L.append('\n## 4. The scene')
     L.append('- Projection: %s. Canvas %dx%d.' % (proj, w, h))
     L.append('- TODO the subject and how much of the frame it fills; the horizon; the calm areas.')
@@ -810,18 +1028,147 @@ def brief(style, request='', projection=None, choices=None, era=None):
         L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
             w, h, st['scale'], w * st['scale'], h * st['scale'],
             'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
-    L.append('- Figures: %s.' % st['figures'])
+    L.append('- Figures: %s, drawn as your own slot maps.' % _as_example(st['figures']))
     L.append('- Budget (`styles.check`): %s.' % _fmt_budget(st['budgets']))
-    L.append('- Checks: frame T equals frame 0; `pixelate check frame.png --style %s --scale %d` passes; reads at 480 px wide.' % (
-        st['name'], st['scale']))
-    L.append('\nTools for this style: ' + '; '.join(r['tools']) + '.')
+    L.append('- Gate: `pixelate check frame.png --style %s --scale %d` passes every line (redraw until it does)%s; '
+             'frame T equals frame 0; reads at 480 px wide.' % (
+                 st['name'], st['scale'], '; `pixelate check SCENE` for the engine scene' if st['name'] == 'lofi' else ''))
+    L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table.')
+    L.append('\nTechniques for this style: ' + '; '.join(r['tools']) + '.')
     tt = topic_tools(request, st['name'], proj)
     if tt:
-        L.append('Tools for this subject:')
+        L.append('Techniques for this subject:')
         L += ['- ' + x + '.' for x in tt]
     L.append('Always: ' + ALWAYS_TOOLS + '.')
     if r['example']:
         L.append('Closest example in the repo: %s.' % r['example'])
+    return '\n'.join(L) + '\n'
+
+# ---------------------------------------------------------------- the short brief, for small asks
+# A palette, one sprite, an icon set, a pixelated photo, an asset sheet or a music loop does not need
+# eleven sections. It gets a short brief: the intent, the style, the palette and size, the work, the gate
+# command and what the user sees for go/no-go. --full forces the long brief anyway.
+SMALL_WORDS = [
+    ('palette', ['a palette', 'palette for', 'palette of', 'colour palette', 'color palette', 'just a palette',
+                 'palette only', '调色板', '配色方案', '一套配色']),
+    ('icons', ['icon', 'icon set', '图标']),
+    ('photo', ['pixelate my', 'pixelate this', 'pixelate a', 'into pixel art', 'to pixel art', 'pixelated version',
+               'convert', '转成像素', '变成像素', '像素化']),
+]
+SPRITE_WORDS = ['a sprite', 'one sprite', 'single sprite', 'sprite of', 'character sprite', 'avatar',
+                'a pixel portrait', '一个精灵', '头像', '立绘']
+
+def small_kind(request, r=None):
+    """-> 'palette', 'icons', 'photo', 'assets', 'sprite', 'music' for a small ask (a short brief), else None"""
+    r = r or route(request)
+    t = ' ' + request.lower() + ' '
+    if r['mode'] == 'music':
+        return 'music'
+    for kind, words in SMALL_WORDS:
+        if _hits(t, words) and (kind != 'photo' or r['mode'] == 'rebuild'):
+            return kind
+    if r['mode'] == 'assets':
+        return 'assets'
+    if _hits(t, SPRITE_WORDS):
+        return 'sprite'
+    return None
+
+def _as_example(s):
+    """'chibi 13x26 (figures.chibi)' -> '... (study references/assets/figures.py chibi)': examples, not calls"""
+    return re.sub(r'(?<![\w/.])(%s)\.(?!py\b|md\b)([A-Za-z_]\w*)' % '|'.join(EXAMPLE_MODULES),
+                  r'study references/assets/\1.py \2', s)
+
+def short_brief(style, request='', kind='sprite', r=None, era=None):
+    """the short brief for a small ask: section 0 (intent and defaults), style, palette and size, the
+    work, the gate command, what to show the user"""
+    st = styles.get(style)
+    w, h = st['size']
+    S, N = st['name'], st['scale']
+    E = None
+    if era:
+        import era as eramod
+        E = eramod.ERAS[era]
+        w, h = E['size']
+    g = {x['topic']: x for x in gaps(request, r)} if r else {}
+    file = {'palette': 'test.png', 'icons': 'icons.png', 'photo': 'out.png', 'assets': 'SHEET.png',
+            'sprite': 'sprite.png', 'music': None}[kind]
+    L = ['# TODO title (short brief: %s)\n' % kind, 'Request: %s\n' % (request or 'TODO')]
+    L += ['## 0. Choices to confirm', '',
+          'Defaults I picked where the request was open. Say OK to build as written, or change any line.', '',
+          '- **intent**: TODO one line on what the user most likely wants but did not say (the feeling, the use, '
+          'the game it is for, what would disappoint them)']
+    if 'style' in g:
+        L.append('- **style**: %s' % g['style']['default'])
+    size = {'palette': 'about %d colours in `%s` ramps, 4-6 steps per role' % (st['colours'], ', '.join(st['ramp'])),
+            'icons': '12 icons at 16x16 on one shared palette, lit from the upper left',
+            'photo': 'native %dx%d, %dx nearest to %dx%d, about %d colours' % (w, h, N, w * N, h * N, st['colours']),
+            'assets': 'TODO each sprite or tile with its size and frame count, for TODO the engine',
+            'sprite': 'one sprite, %s, one pose facing right' % _as_example(st['figures']),
+            'music': 'a seamless 60-120 s loop, calm, about 70-80 bpm'}[kind]
+    L.append('- **%s**: %s' % ('length and mood' if kind == 'music' else 'size', size))
+    if kind in ('sprite', 'assets', 'icons'):
+        L.append('- **animation**: none until the still is accepted; then the frames and rates are confirmed first')
+    if E:
+        L.append('- **era limits**: %s: at most %d colours%s; check with `pixelate era IMG --era %s`' % (
+            E['name'], E['max_colors'], (', palette %s' % E['palette']) if E.get('palette') else '', era))
+    L.append('\n## 1. Style')
+    L.append('- `%s` (learned from %s): %s.' % (S, st['ref'], st['what']))
+    if kind != 'music':
+        L.append('- Outline: %s. Dither: %s.' % (st['outline'], (', '.join(st['dither']) + ', ' + st['dither_where'])
+                                                 if st['dither'] else 'none'))
+    L.append('- Learn the grammar only: no characters, logos or UI from %s.' % st['ref'])
+    if kind == 'music':
+        L.append('\n## 2. Length and sound')
+        L.append('- TODO the loop length in seconds, the tempo, the instruments, the motif.')
+    else:
+        L.append('\n## 2. Palette and size')
+        if E:
+            L.append('- %s: at most %d colours%s; ramps picked by hand from the era palette.' % (
+                E['name'], E['max_colors'], (', palette `%s`' % E['palette']) if E.get('palette') else ''))
+        else:
+            L.append('- Ramps `%s` (palette.ramp(style="%s")): %s.' % (', '.join(st['ramp']), st['ramp'][0], st['palette']))
+        L.append('- Size: %s.' % size.replace('TODO ', 'TODO: '))
+    L.append('\n## 3. The work')
+    L += {'palette': ['- TODO the roles (outline, shadow, mid, light, highlight per material, one accent) and the steps per role.',
+                      '- A palette is judged on a sprite, not as chips: draw one small test sprite with it '
+                      '(canvas.Canvas, palette.swatch for the chips).'],
+          'icons': ['- TODO the icon list, one line each: the object and the one shape that tells it apart at 16 px.',
+                    '- One ramp set, one outline rule and one light direction across the set.',
+                    '- Each icon is a slot map in code; for a small readable mark, study references/assets/glyphs.py stamp.'],
+          'photo': ['- TODO what the photo shows and what must survive: the subject, the light, the one detail people look for.',
+                    '- First pass `pixelate image IMG -o out.png` (guides/pixelate.md), then fix by hand what it gets '
+                    'wrong: the subject\'s edges, orphan pixels, outlines.',
+                    '- A rebuilt, moving scene is a full brief: `route.py "..." --brief --full` with guides/rebuild.md.'],
+          'assets': ['- TODO the list: each sprite or tile, its size, its frames (walk 4-8, idle 2-4).',
+                     '- Each sprite is a slot map in code; for a similar finished thing, study references/assets/ '
+                     'and draw your own at this size.',
+                     '- Tiles seam on every edge pair (canvas.Canvas.tile); export with `pixelate assets PACK` (guides/assets.md).'],
+          'sprite': ['- TODO the subject, its silhouette and the one feature that must read at 1x.',
+                     '- Drawn as a slot map in code (canvas.Canvas, sprite.spec_edges, sprite.drop_shadow); for a '
+                     'similar finished thing, study references/assets/ and draw your own.'],
+          'music': ['- Start from `pixelate new music DIR` (guides/music.md).',
+                    '- TODO what changes over the loop, and where the loop seam falls.']}[kind]
+    tt = topic_tools(request, S)
+    if tt and kind != 'music':
+        L.append('- Techniques for this subject:')
+        L += ['  - ' + x + '.' for x in tt]
+    L.append('\n## 4. Gate')
+    if kind == 'music':
+        L.append('- `pixelate check DIR`, then `pixelate audio DIR loop.wav`: the seam holds below -60 dB.')
+    else:
+        L.append('- `pixelate check %s --style %s --scale %d`%s; redraw until every line passes.' % (
+            file, S, N, ' --pal PALETTE' if kind == 'palette' else ''))
+        if E:
+            L.append('- `pixelate era %s --era %s`.' % (file, era))
+    L.append('\n## 5. Show the user')
+    L.append('- ' + {'palette': 'The chips and the test sprite side by side at 1x and %dx, for go/no-go.' % N,
+                     'icons': 'The sheet at 1x and %dx, and one row at the size it will be used, for go/no-go.' % N,
+                     'photo': 'The photo and the result side by side at the same size, for go/no-go.',
+                     'assets': 'One finished sprite (or a 3x3 tile patch) as a still for go/no-go; then the frame '
+                               'and rate plan for a go before animating.',
+                     'sprite': 'The sprite at 1x and %dx on the style\'s background, for go/no-go; frames only '
+                               'after that, with the plan confirmed.' % N,
+                     'music': 'A 20-30 s excerpt for go/no-go before the full loop.'}[kind])
     return '\n'.join(L) + '\n'
 
 # ---------------------------------------------------------------- regression cases
@@ -911,6 +1258,9 @@ def main(a):
     out = None
     if '-o' in a:
         i = a.index('-o'); out = a[i + 1]; del a[i:i + 2]
+    full = '--full' in a
+    if full:
+        a.remove('--full')
     want = None
     if '--brief' in a:
         i = a.index('--brief')
@@ -921,7 +1271,12 @@ def main(a):
     req = ' '.join(a)
     r = route(req)
     if want:
-        text = brief(r['picks'][0]['style'] if want is True else want, req, choices=gaps(req, r), era=r.get('era'))
+        style = r['picks'][0]['style'] if want is True else want
+        kind = None if full else small_kind(req, r)
+        if kind:
+            text = short_brief(style, req, kind, r, era=r.get('era'))
+        else:
+            text = brief(style, req, choices=gaps(req, r), era=r.get('era'))
         if out:
             pathlib.Path(out).write_text(text); print('wrote', out)
         else:
@@ -939,12 +1294,15 @@ def main(a):
             print('   example: ' + p['example'])
     tt = topic_tools(req, r['picks'][0]['style'], r['picks'][0]['projection'])
     if tt:
-        print('\ntools for the subject:')
+        print('\ntechniques for the subject:')
         for x in tt:
             print('   ' + x)
     print('\nleft open by the request (default for %s):' % r['picks'][0]['style'])
     for x in gaps(req, r):
         print('   %s: %s' % (x['topic'], ('stated (%s)' % x['stated']) if x['stated'] else x['default']))
+    kind = small_kind(req, r)
+    if kind:
+        print('\na small ask (%s): --brief writes the short brief; add --full for all 11 sections' % kind)
     print('\nnext: route.py "%s" --brief %s -o brief.md, fill every TODO with the defaults,' % (req, r['picks'][0]['style']))
     print('      route.py --lint brief.md, then show the user the brief and section 0')
     return 0

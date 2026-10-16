@@ -22,32 +22,38 @@ the ceiling: it predates the light layer, so a brief today also decides the ligh
 emitter, the allowed post ops, the value budget and the depth planes, which Lantern Isle never had
 to. Do it in this order, before drawing anything:
 
-1. **Read the intent, then route.** Before any tool, write one line on what the user most
-   likely wants but didn't say: the feeling (calm, epic, eerie, cute), the use (a stream cover, a
-   game mock, a wallpaper), the era or game it recalls, and what would disappoint them. "A pixel
-   island" from someone making lofi videos is a calm diorama with seasons; the same words from a
-   game developer are a top-down overworld tile. Then run `python3 tools/route.py "the request"`.
-   It ranks the styles with reasons, names the mode (scene, rebuild, era, assets, music), suggests
-   the kit calls for the subject, and lists what the request leaves open with defaults. It matches
-   keywords, so it is a hint, not the decision: choose with the questions in "Picking a style"
-   (`guides/styles.md`) and your read of the intent, and say why in section 0.
-   Know the whole kit, not only what the router names: `guides/toolkit.md` lists every function
-   with one line on what it does, by subject and by module. The best brief reaches for whatever
-   the scene needs (a scarf on `sprite.chain`, wet cobbles from `texture.wet_streaks`, a crowd from
-   `compose.populate`) and names each by its real function.
-2. **Expand.** `python3 tools/route.py "the request" --brief -o brief.md` writes the 11 sections
+1. **Read the intent.** Before any tool, write one line on what the user most likely wants but
+   didn't say: the feeling (calm, epic, eerie, cute), the use (a stream cover, a game mock, a
+   wallpaper), the era or game it recalls, and what would disappoint them. "A pixel island" from
+   someone making lofi videos is a calm diorama with seasons; the same words from a game developer
+   are a top-down overworld tile.
+2. **Route as a hint.** `python3 tools/route.py "the request"` ranks the styles with reasons, names
+   the mode (scene, rebuild, era, assets, music), suggests kit calls for the subject, and lists what
+   the request leaves open with defaults. It matches keywords, so it is a hint, not the decision:
+   choose with the questions in "Picking a style" (`guides/styles.md`) and your read of the intent,
+   and say why in section 0.
+3. **Expand.** `python3 tools/route.py "the request" --brief -o brief.md` writes the 11 sections
    with everything the style decides already filled in, plus section 0, the choices to confirm.
    Fill every TODO yourself with a concrete choice: the objects with counts and positions, five to
    ten lived-in details, the palette by named roles, every light, every motion rate. Invent the
    specifics the user didn't give; never leave them to the user.
-3. **Self-critique.** `python3 tools/route.py --lint brief.md` flags TODOs left, thin or missing
+   Know the whole kit: `guides/toolkit.md` lists every drawing primitive by subject and by module.
+   The brief names the primitives each object is built from (wet cobbles from `texture.wet_streaks`,
+   a scarf on `sprite.chain`) and calls everything else a slot map with its size and parts. Finished
+   objects in `references/assets/` are examples to read, never calls in a brief.
+   Then self-critique: `python3 tools/route.py --lint brief.md` flags TODOs left, thin or missing
    sections, vague words, a motion table without numbers and periods that don't divide the loop.
-   Then read the brief against Lantern Isle's: would it build at least that quality in one pass? Is
+   Read the brief against Lantern Isle's: would it build at least that quality in one pass? Is
    every object specific enough to draw, every imperfection named, every phase more than a
    recolour? Fix what falls short and lint again.
 4. **Confirm.** Show the user the brief with section 0 on top: "these are the choices I made; say
    OK, or change any line". One OK should be enough to build. If they change something, revise
    the brief and show only what changed. Build only from an approved brief.
+
+**Small asks get a short brief.** A palette, one sprite, an icon set or a pixelated photo does not
+need 11 sections. Write section 0 (the choices to confirm) and only what the ask decides: the use
+and size, the style, the palette by named roles, the parts of each sprite or icon, the frames if it
+moves, and the checks. Confirm it the same way.
 
 The brief has these sections. Each one is concrete: names, counts, positions, colours, rates.
 
@@ -81,9 +87,21 @@ The brief has these sections. Each one is concrete: names, counts, positions, co
 10. **Never.** What this scene must not do: the effects its style bans, symmetry, clutter, text,
     people (if so), anything that would make it read as a filter.
 11. **Technical.** Native canvas, scale to the delivered size, fps, loop length in frames, palette
-    size, and the checks it must pass (`styles.check`, the loop seam, a thumbnail test).
+    size, and the checks it must pass (the gate `pixelate check FRAME.png --style S --scale N`, the loop seam, a thumbnail test).
 
-Then build in the order of the brief, and look at every step at zoom.
+### After the brief: gate, still, animation plan
+
+5. **Draw from scratch in code** with the primitives, in the order of the brief.
+6. **Pass the gate.** `pixelate check FRAME.png --style S --scale N` on the delivered frame, plus
+   `--pal palette.json`, `--pre prelight.png` (the frame before its light layer), `--actor mask.png`,
+   `--used op,op` (the post ops you ran) and `--intent mask.png` (flecks placed on purpose) when
+   they apply. Engine scenes also run `pixelate check SCENE`. Redraw until every line passes.
+7. **Show one still for go/no-go.** One frame, at the delivered scale, gate passed. The user
+   accepts it or says what to change; change it, gate it again and show it again.
+8. **Confirm the animation plan, then animate.** Before any motion, show the plan: the loop length
+   in seconds and frames, what moves, and each rate and frame count (the motion table, with every
+   period dividing the loop). Animate only after the user says OK. Every animated frame passes the
+   gate like the still did.
 
 ## Light: palette steps or a code light layer
 
@@ -143,7 +161,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Characters
 
-- **Readable at native size first.** A 13x18 chibi, a 20-px slim figure with 1 px legs or a 3.3-head iso person must read before any light is added (`figures.chibi`, `figures.slim`, `figures.iso_person`). Look at it at 1x.
+- **Readable at native size first.** A 13x18 chibi, a 20-px slim figure with 1 px legs or a 3.3-head iso person must read before any light is added. `references/assets/figures.py` (`chibi`, `slim`, `iso_person`) shows how each is built; read it, then draw your own. Look at it at 1x.
 - **The actor carries the frame's top chroma** and, in styles that outline, the only dark outline in the frame.
 - **Trailing parts are chains.** Scarves, hair and tails are a rope of nodes a fixed distance apart, pulled toward where the anchor was a few frames ago plus the wind (`sprite.chain`). A chain that stretches with speed reads as a stick.
 - **State shows in colour.** A dash spent, a power charged: a ramp swap on the hair or scarf, one white frame at the change, never more.
@@ -182,10 +200,12 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Failure checklist (look at shots at zoom 3-4 for each)
 
-The gate measures most of these: `pixelate check FRAME.png --style S --scale N` (add `--pal`, `--pre`, `--actor`, `--used`) must print ALL PASS before a frame is final; engine scenes also run `pixelate check SCENE`. The rest is judged by eye.
+Run the gate first: `pixelate check FRAME.png --style S --scale N` (with `--pal`, `--pre`,
+`--actor`, `--used`, `--intent` as they apply) must pass every line before a frame is shown or
+final; engine scenes also run `pixelate check SCENE`. It measures palette, budget, square pixels,
+readability, post ops and pixel craft. The rest of this list is judged by eye.
 
-
-- [ ] Any colour outside the palette, or blur in the pixel layer? There should be none: light belongs in the light layer, and only in styles that have one.
+- [ ] Any colour outside the palette, or blur in the pixel layer? The gate's palette line catches it (`--pal`, `--pre`): light belongs in the light layer, and only in styles that have one.
 - [ ] Sky or sea reads as stripes: widen the dither transitions, or walk the strata boundaries.
 - [ ] A canopy reads as a ball, a roof as a brick wall, rock as noise: redraw with clumps, offset courses, shaped cells.
 - [ ] Smoke, mist or light reads as dots or squares: hand-shape it.
@@ -193,6 +213,7 @@ The gate measures most of these: `pixelate check FRAME.png --style S --scale N` 
 - [ ] Too busy: cut particles and motion.
 - [ ] Subject too small, or empty half-frame: recompose.
 - [ ] A phase only looks like a recolour: add signature elements.
-- [ ] The frame breaks its style's budget or craft limits (orphans, jaggies, stripes, doubled outlines, pillow shading, clusters): `pixelate check frame.png --style STYLE --scale S`.
+- [ ] The gate fails a budget or craft line (orphans, jaggies, stripes, doubled outlines, pillow shading, clusters): redraw, then run it again.
 - [ ] The seam jumps at loop end: `pixelate check` flags it in engine scenes; in Python scenes compare `frame(T)` with `frame(0)`.
 - [ ] The brief has a section you skipped: go back and write it.
+- [ ] Animating before the still got a go and the animation plan an OK: stop and show them.

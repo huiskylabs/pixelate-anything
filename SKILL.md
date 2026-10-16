@@ -84,6 +84,5 @@ If the agent has no shell but has the MCP server, the same tools exist as MCP to
   - `retro`: original classic-genre screens under console-era limits (8-bit platformer, Game Boy-style RPG, title screen).
   - `lantern-isle`: a 4-season loop, the quality bar for scenes.
   - `meadow-kit`: a hero, items, an autotile set and a map.
-  - `dragon`: Dragonfire Keep, an original 16-bit boss fight with light from fire, torches and lava.
   - `gallery`: what the `demo/` scripts make through the CLI and the MCP server.
 - `palettes/`: presets (`pixelate palette list`)

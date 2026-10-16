@@ -27,6 +27,6 @@ These are rebuilt rather than converted. The photos themselves are not in the re
 
 ## Original work
 
-`examples/retro` (Rooftop Run, Island Village, Pixel Harbor) and `examples/dragon` (Dragonfire Keep)
-are all original: characters, places, titles and text. Console names in the era presets describe
+`examples/retro` (Rooftop Run, Island Village, Pixel Harbor) and `examples/lantern-isle` are all
+original: characters, places, titles and text. Console names in the era presets describe
 hardware limits only.

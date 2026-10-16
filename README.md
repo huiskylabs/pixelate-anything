@@ -2,9 +2,9 @@
 
 **Hand-crafted pixel art for AI agents.**
 
-![Dragonfire Keep: an original 16-bit boss fight](docs/dragonfire.gif)
+![Lantern Isle in winter: a cottage on a snowy island under the northern lights](docs/lantern-isle-winter.png)
 
-*Dragonfire Keep: a knight braces behind a shield as Ashmaw the ember wyrm breathes fire across a hall of lava and gold. Every frame is drawn in code by the kit, lit in palette steps.*
+*Lantern Isle in winter, one season of a seamless four-season loop with its own lofi soundtrack. Every pixel, the aurora, the snowfall and the lamplight on the water are drawn in code by the kit.*
 
 It ships three ways:
 - **An agent skill** (`SKILL.md`), which carries the craft.
@@ -63,7 +63,6 @@ It shows its plan, asks before changing anything, and backs up every file it edi
 
 Then ask your agent for anything pixel art:
 - *"rebuild this aerial photo of my city as an isometric pixel-art scene, day to night"*
-- *"a 16-bit boss fight: a knight against a fire-breathing dragon in a hall of lava and gold"*
 - *"make a 16x16 knight with idle and walk animations and a dungeon tileset"*
 - *"a 4K pixel-art lofi loop of a lighthouse through a storm into dawn"*
 - *"a chiptune overworld theme that loops for my game"*
@@ -101,7 +100,7 @@ Tools that make pictures return them as images, so the agent can judge its own w
 | `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: projections and boxes; `sdf.py`: curved solids) |
 | `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
 | `templates/` | `scene`, `music` and `assets` starting points |
-| `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `retro` (original 8-bit and Game Boy-style screens), `dragon` (Dragonfire Keep, a 16-bit boss fight), `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (what the demos make) |
+| `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `retro` (original 8-bit and Game Boy-style screens), `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (what the demos make) |
 | `demo/` | `cli_demo.sh` and `mcp_demo.py`: the gallery, made through each interface |
 | `palettes/` | presets |
 | `fonts/` | Ark Pixel 12px for Chinese and Japanese text |

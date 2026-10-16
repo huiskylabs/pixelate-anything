@@ -59,6 +59,12 @@ STYLES = {
         banned_post=_FILTERS,
         budgets={'L<0.25': (0.55, None), 'L>0.6': (None, 0.02), 'L>0.75': (None, 0.003), 'C>0.08': (None, 0.02),
                  'median_C': (None, 0.035)},
+        # provisional, not measured: one big beam (a shaft, a searchlight) is several % of the frame above
+        # L .75 on its own; the rest of the frame keeps the navy key, a little lifted around the beam
+        scenes={'beam': dict(what='one big light beam or shaft is the subject',
+                             words=['beam', 'ray', 'rays', 'shaft', 'light shaft', 'pillar of light', 'searchlight',
+                                    'spotlight', 'god rays', '光柱', '光束', '光线', '探照灯'],
+                             budgets={'L<0.25': (0.45, None), 'L>0.6': (None, 0.06), 'L>0.75': (None, 0.02)})},
         motion='stepped', fps=12, scale=3, size=(640, 360), colours=22,
         figures='20-30 px, 1 px legs, no outline'),
     'pastel-cell': dict(
@@ -199,6 +205,13 @@ STYLES = {
         allowed_post=('lightmap', 'motes', 'sprite', 'from_world'),
         banned_post=_FILTERS + ('light:screen',),
         budgets={'L<0.1': (0.35, 0.65), 'L>0.8': (None, 0.006), 'C>0.1': (None, 0.015)},
+        # provisional, not measured: the 35-65% dark share comes from a mine; a night exterior has lit snow
+        # or paving between the pools, so less of it is near black, more glints off snow and the warm light
+        # on blue snow carries more chroma
+        scenes={'exterior': dict(what='a night exterior: snow, a street, outdoors',
+                                 words=['snow', 'snowy', 'street', 'outdoor', 'outdoors', 'outside', 'exterior',
+                                        '雪', '街', '室外', '户外', '屋外'],
+                                 budgets={'L<0.1': (0.1, 0.45), 'L>0.8': (None, 0.02), 'C>0.1': (None, 0.03)})},
         motion='subpixel', fps=12, scale=4, size=(480, 270), colours=45,
         figures='chibi 13x26 (figures.chibi), outlines per part, camera-following'),
     'lofi': dict(
@@ -235,6 +248,16 @@ def get(name):
     if key not in STYLES:
         raise KeyError('no style %r: one of %s' % (name, ', '.join(STYLES)))
     return copy.deepcopy(STYLES[key])
+
+def budgets(name, scene=None):
+    """the style's value budget, with a scene variant's rules laid over it (st['scenes'], `--scene`)"""
+    st = get(name)
+    b = dict(st['budgets'])
+    if scene:
+        if scene not in st.get('scenes', {}):
+            raise KeyError('%s has no scene %r: %s' % (st['name'], scene, ', '.join(st.get('scenes', {})) or 'none'))
+        b.update(st['scenes'][scene]['budgets'])
+    return b
 
 def allows(name, op):
     """is post op `op` ('glow', 'rain:hair', 'vignette') allowed in this style?"""
@@ -367,6 +390,10 @@ def card(name):
     if st.get('budget_note'):
         L.append('- %s.' % st['budget_note'])
     L.append('- rules: %s.' % _budget(st['budgets']))
+    for k, v in st.get('scenes', {}).items():
+        L.append('- scene `%s` (`--scene %s`, provisional): %s: %s.' % (k, k, v['what'], _budget(v['budgets'])))
+    L.append('- a brief can move one bound with a reason (`- Gate override: RULE <= V (why)`); an era piece is '
+             'checked with `--era ERA` instead (references/delivery.md#gate).')
     if craft:
         L += ['', '## Craft limits (craftcheck.CRAFT)', '- ' + _budget(craft) + '.',
               '- orphans, jaggies, stripes, doubled outlines and pillow shading are shares of pixels (at most); '
@@ -377,8 +404,8 @@ def card(name):
     if st.get('notes'):
         L += ['', '## Notes', '- ' + st['notes']]
     L += ['', '## Check',
-          '- `pixelate check FRAME.png --style %s --scale %d` (add --pal, --pre, --actor, --used, --intent as they '
-          'apply); see references/delivery.md#gate.' % (n, st['scale']),
+          '- `pixelate check FRAME.png --style %s --scale %d` (add --pal, --pre, --actor, --used, --intent, --scene, '
+          '--brief as they apply); see references/delivery.md#gate.' % (n, st['scale']),
           '- techniques for a subject in this style: `pixelate tools TOPIC --style %s`.' % n]
     return '\n'.join(L) + '\n'
 

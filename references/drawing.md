@@ -58,7 +58,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 - **One strict palette per phase.** Write the palette before drawing: the palette *is* the mood. Roughly 40 to 80 slots for a full scene.
 - **3 to 5 tones per material.** Shift the hue across the ramp: shadows move toward blue or purple and get more saturated, lights move toward yellow or orange and get less saturated. A ramp that only changes brightness looks dead. `palette.ramp(base, steps, style=...)` builds the measured ramp shapes (`lofi`, `rise`, `arch`, `flat`, `living`, `lit`, `plum`, `window`, `toy`, `arcade`).
 - **No pure black or white.** The darkest dark carries the scene's hue (a night sea's black is deep teal). Styles that measure a true black (`neon-noir`) say so.
-- **Ration chroma and highlights.** The top chroma belongs to the actor or the one interactive prop; the brightest values sit at the focal point. Check the numbers with `styles.check` (for example, contre-jour keeps L>0.75 under 0.1% of the frame).
+- **Ration chroma and highlights.** The top chroma belongs to the actor or the one interactive prop; the brightest values sit at the focal point. Check the numbers with `styles.check` (for example, contre-jour keeps L>0.75 under 0.3% of the frame).
 - **Slots keep their role across phases.** `F2` is "roof, mid tone" in every season, so one roof sprite works everywhere and the phase dissolve stays coherent.
 - **Use dynamic slots for flicker.** In `sceneDynamic`, remap warm slots with `flick()`, held for 3 to 5 steps at 10 fps. The steadiness is what makes flame read as flame.
 
@@ -94,6 +94,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 ## Characters
 
 - **Readable at native size first.** A 13x18 chibi, a 20-px slim figure with 1 px legs or a 3.3-head iso person must read before any light is added. `references/assets/figures.py` (`chibi`, `slim`, `iso_person`) shows how each is built; read it, then draw your own. Look at it at 1x.
+- **Figure size follows the canvas.** A style's figure size is for its default canvas; on another canvas scale it with the native height (`pixelate route --brief --size WxH` does the sum). A hero in a collage or a small cell must still read at the delivered cell size: at least 40 px tall on screen. If it is smaller, give the cell a bigger share, crop in, or draw the hero bigger.
 - **The actor carries the frame's top chroma** and, in styles that outline, the only dark outline in the frame.
 - **Trailing parts are chains.** Scarves, hair and tails are a rope of nodes a fixed distance apart, pulled toward where the anchor was a few frames ago plus the wind (`sprite.chain`). A chain that stretches with speed reads as a stick.
 - **State shows in colour.** A dash spent, a power charged: a ramp swap on the hair or scarf, one white frame at the change, never more.
@@ -125,7 +126,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Composition
 
-- The subject fills about 40 to 60% of the frame width, and the horizon sits about two-thirds of the way down.
+- The subject fills about 40 to 60% of the frame width, and the horizon sits about two-thirds of the way down. The subject is the focal area or group, not one figure: a tiny hero in a big world is fine when the composition (lines, light, contrast) leads the eye to them.
 - Leave calm areas (sky, water) for the eye to rest and for the title on a thumbnail.
 - Frame with planes: a dark near plane (a tree, a monolith, a bush band) in front of a lit middle and a hazed far plane gives depth (`compose.proscenium`, `compose.stage`, `palette.haze`).
 - **Test at the delivered size and at thumbnail size.** If the subject reads as a speck at 320x180, crop in or move to a smaller canvas.

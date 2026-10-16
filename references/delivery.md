@@ -12,7 +12,24 @@ also run `pixelate check SCENE`. Redraw until every line passes.
 
 The frame gate checks budget, square pixels, palette (`--pal`, `--pre`), readability (`--actor`),
 allowed post ops (`--used`) and pixel craft (`--intent` marks deliberate flecks). `pixelate style S`
-prints the style's value budget and craft limits the gate holds the frame to. The music gate does
+prints the style's value budget and craft limits the gate holds the frame to.
+
+When the scene and the budget disagree, there are three sanctioned ways out, and the report shows each:
+
+- `--scene NAME` picks a style's scene variant, for budgets measured on one kind of scene:
+  `cosy-lightmap --scene exterior` (snow or a street at night) and `contre-jour --scene beam` (one
+  big beam). `pixelate style S` lists them; the router writes the flag when the request matches.
+- `--era gameboy|nes|snes|genesis|gba|pico-8|neogeo` replaces the value budget with the era's own
+  checks: screen size, colour count, fixed palette or bit depth, colours per block, unique tiles.
+  `--style` still sets the craft limits. Era briefs write this gate line.
+- A brief can move one bound with a reason, one line each in its Technical section:
+  `- Gate override: L>0.75 <= 0.02 (the beam is the subject)`. The bound is `<= V`, `>= V`,
+  `LO..HI` or `off`, for a budget rule or a craft limit. `--brief brief.md` applies them;
+  `--budget 'RULE BOUND (reason)'` adds one on the command line. An override without a reason is
+  rejected, and the report still prints how far the frame sits from the style's own bound, so a
+  reviewer sees the cost.
+
+The music gate does
 the same for sound: write the music yourself in any code, render it, `pixelate check TRACK.wav`
 until it passes (`guides/music.md`).
 

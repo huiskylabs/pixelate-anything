@@ -103,7 +103,11 @@ ROUTE = {
                       '大地图', '世界地图', '冒险', '海岸', '小队', '角色扮演']),
                  (2, ['day', 'sunny', 'bright', 'clouds', 'village', 'tide', 'bridge', 'waterfall',
                       '白天', '晴', '明亮', '云', '村', '潮', '桥', '瀑布'])],
-        rules=['Ramps of 5-9 steps at about 0.05 L, chroma rising toward the light (ramp style rise).',
+        rules=['Sun and shade are palette steps, not a light layer: light.Light.mask / apply for pools, '
+               "iso.Iso(camera='topdown').cast_shadows for hard cast shadows; post.over only for translucent clouds.",
+               'A sunny read comes from contrast inside the low-key budget: a few bright lit faces and sparkle on '
+               'the water against deep shade, not from lifting everything.',
+               'Ramps of 5-9 steps at about 0.05 L, chroma rising toward the light (ramp style rise).',
                'Outlines per class in tinted near-blacks (terrain plum, characters navy, foliage green).',
                'Clouds are a translucent layer at an altitude, thinning as terrain rises into them.'],
         tools=['palette.ramp(style="rise")', 'layout.ashlar / texture.shade_cells (slab, pillow)',
@@ -171,8 +175,8 @@ ROUTE = {
         pick_if='a neon-lit night interior or city: noir, crime, a bar, a club, rain on neon; one lit room in black',
         projection='side', example=None, frames=(120, 12),
         signals=[(6, ['katana zero', 'katana']),
-                 (3, ['neon', 'noir', 'cyberpunk', 'club', 'bar', 'crime', 'detective', 'nightclub', 'synthwave',
-                      '霓虹', '黑色电影', '赛博', '夜店', '酒吧', '犯罪', '侦探']),
+                 (3, ['neon', 'noir', 'cyberpunk', 'samurai', 'ninja', 'club', 'bar', 'crime', 'detective', 'nightclub', 'synthwave',
+                      '霓虹', '黑色电影', '赛博', '武士', '忍者', '夜店', '酒吧', '犯罪', '侦探']),
                  (2, ['night city', 'alley', 'motel', 'hotel', 'apartment', 'rain city', 'magenta',
                       '夜城', '小巷', '旅馆', '公寓', '城市夜', 'space station', 'spaceship', 'sci-fi', 'scifi', 'android',
                       '太空站', '飞船', '科幻', '太空', '机器人'])],
@@ -227,6 +231,22 @@ MODES = [
                    '精灵表', '图块', '图标', '道具', '行走']),
     ('music', 3, ['soundtrack only', 'just music', 'music loop', 'chiptune', '只要音乐', '配乐']),
 ]
+ERA_WORDS = [('gameboy', ['game boy', 'gameboy', 'gb style', 'dmg']),
+             ('pico-8', ['pico-8', 'pico8']),
+             ('nes', ['nes', 'famicom', '8-bit', '8 bit', '红白机', '8位', 'fc']),
+             ('genesis', ['genesis', 'mega drive', 'megadrive', '世嘉']),
+             ('gba', ['gba', 'game boy advance']),
+             ('neogeo', ['neo geo', 'neogeo']),
+             ('snes', ['snes', 'super nintendo', 'super famicom', '16-bit', '16 bit', '16位', '超任'])]
+
+def era_of(request):
+    """the console era a request names (a key of era.ERAS), or None"""
+    t = ' ' + request.lower() + ' '
+    for key, words in ERA_WORDS:
+        if _hits(t, words):
+            return key
+    return None
+
 GUIDE = {'scene': 'guides/scenes.md', 'rebuild': 'guides/rebuild.md', 'era': 'guides/eras.md',
          'assets': 'guides/assets.md', 'music': 'guides/music.md'}
 
@@ -304,60 +324,89 @@ def route(request, n=3):
         picks[0]['why'] = ['no style signal: follow %s first; pick the finish style from the %s' % (
             GUIDE[mode], {'rebuild': "photo's light and subject", 'era': "console's limits",
                           'assets': 'game the assets are for', 'music': 'scene the music goes with'}[mode])]
-    return dict(request=request, picks=picks, mode=mode, guide=GUIDE[mode], projection=proj)
+    return dict(request=request, picks=picks, mode=mode, guide=GUIDE[mode], projection=proj,
+                era=era_of(request) if mode == 'era' else None)
 
 # ---------------------------------------------------------------- tools by subject, whatever the style
 # The style decides how things are shaded; the subject decides what gets drawn. Each entry: the words
 # that bring it in and the kit calls that draw it.
-TOPIC_TOOLS = [
-    (['rain', 'storm', 'wet', 'puddle', '雨', '暴风', '湿', '水坑'],
-     'rain and wet: fx.rain_cells (opaque streaks), fx.light_streaks, texture.wet_streaks (speculars on up-facing edges), '
-     'water.reflect for puddles, Post rain:hair at screen res where the style allows it'),
-    (['snow', 'winter', 'ice', '雪', '冬', '冰'],
-     'snow and ice: texture.speckle for flakes on dark, texture.stipple for drifts, sky.strata for a flat winter sky'),
-    (['fog', 'mist', 'haze', '雾', '霭'],
-     'fog: palette.haze and haze_levels per depth plane, Post fog where allowed, canvas.loop_dissolve for drifting banks'),
-    (['sea', 'ocean', 'lake', 'river', 'stream', 'harbour', 'harbor', 'coast', 'beach', 'waterfall', 'pond', 'canal',
-      '海', '湖', '河', '溪', '港', '海岸', '沙滩', '瀑布', '池塘', '运河'],
-     'water: water.depth_bands, water.foam_rings, water.pool, water.waterfall, water.reflect'),
-    (['forest', 'tree', 'trees', 'garden', 'jungle', 'park', 'leaf', 'leaves', '森林', '树', '花园', '丛林', '公园', '叶'],
-     'foliage: veg.leaf_scales (round canopies), veg.leaf_glyphs, veg.leafmass, texture.leaflight (flecks in dark '
-     'foliage), props.trunk, shapes.lobes_along for far tree lines'),
-    (['sky', 'cloud', 'clouds', 'sunset', 'dusk', 'dawn', '天空', '云', '日落', '黄昏', '清晨'],
-     'sky: sky.strata, sky.wisp, sky.smile, sky.streaks, shapes.cloud / cloud_mass / cloud_mask'),
-    (['cave', 'mine', 'rock', 'cliff', 'mountain', 'rubble', 'stone', '洞', '矿', '岩', '悬崖', '山', '石'],
-     'rock: texture.stones (rubble, cave walls), texture.flakes (layered rock), texture.pebbles, shapes.ledges, '
-     'shapes.noisy_edge, shapes.void_edge, props.rails and props.stairwell underground'),
-    (['city', 'town', 'street', 'building', 'house', 'houses', 'village', 'alley', 'castle', 'wall', 'brick',
-      '城', '镇', '街', '楼', '房', '村', '巷', '城堡', '墙', '砖'],
-     'buildings: layout.ashlar and texture.shade_cells for stone, texture.bricks, texture.panels, texture.mottle, '
-     'texture.inset_frame for trim, props.glass_streak for windows, iso.Iso boxes in iso'),
-    (['industrial', 'factory', 'crane', 'construction', 'bridge', 'tower', 'harbour crane', '工厂', '吊车', '工地', '塔'],
-     'structure: props.girders, props.truss, texture.grille, texture.pits for concrete'),
-    (['tech', 'sci-fi', 'scifi', 'robot', 'mech', 'machine', 'computer', 'neon', 'space', '科技', '科幻', '机器', '机甲',
-      '电脑', '霓虹', '太空'],
-     'tech: texture.circuit, texture.emitter_grid (lamp panels), fx.indicator, texture.grille, fx.emissive for screens'),
+TOPIC_TOOLS = [   # (words, label, items); an item is 'call (note)' or ('call (note)', condition)
+    # conditions: 'iso' / 'topdown' / 'side' projection, 'post:OP' the style allows that light op,
+    # 'soft' the style has a light layer (alpha is fine), 'strict' it has none (opaque slots only)
+    (['rain', 'storm', 'wet', 'puddle', '雨', '暴风', '湿', '水坑'], 'rain and wet', [
+        'fx.rain_cells (opaque streaks in palette slots)', 'texture.wet_streaks (speculars on up-facing edges)',
+        'water.reflect (puddles)', ('fx.light_streaks (alpha streaks with a stepped tail)', 'soft'),
+        ('Post.rain (screen-res hairlines)', 'post:rain')]),
+    (['snow', 'winter', 'ice', '雪', '冬', '冰'], 'snow and ice', [
+        'texture.speckle (flakes on dark)', 'texture.stipple (drifts)', 'sky.strata (a flat winter sky)']),
+    (['fog', 'mist', 'haze', '雾', '霭'], 'fog', [
+        'palette.haze and haze_levels per depth plane', ('Post.fog', 'post:fog'),
+        'canvas.wrap_offset for drifting banks (canvas.loop_dissolve in lofi only)']),
+    (['sea', 'ocean', 'lake', 'river', 'stream', 'harbour', 'harbor', 'port', 'coast', 'beach', 'waterfall', 'pond',
+      'canal', 'boat', 'ship', 'dock', 'pier', '海', '湖', '河', '溪', '港', '海岸', '沙滩', '瀑布', '池塘', '运河', '船',
+      '码头'], 'water', [
+        'water.depth_bands (sea by distance from land)', 'water.foam_rings (where things stand in water)',
+        'water.reflect', 'water.pool (still basins)', 'water.waterfall', ('post.over (a translucent glaze)', 'post:over'),
+        'boats and docks: no prop yet, draw slot maps (a tool gap)']),
+    (['forest', 'tree', 'trees', 'garden', 'jungle', 'park', 'leaf', 'leaves', 'grass', 'bush', '森林', '树', '花园',
+      '丛林', '公园', '叶', '草', '灌木'], 'foliage', [
+        'texture.clumps (grass and bush clumps)', 'veg.fern', 'veg.vine', 'props.trunk',
+        'veg.leaf_scales (round shingled canopies)', 'veg.leafmass (a leaf mass lining a frame)',
+        'texture.leaflight (flecks in dark foliage)', 'shapes.lobes_along (far tree lines)',
+        ('veg.leaf_glyphs (2:1 leaf glyphs, the iso sticker look)', 'iso')]),
+    (['sky', 'cloud', 'clouds', 'sunset', 'dusk', 'dawn', '天空', '云', '日落', '黄昏', '清晨'], 'sky', [
+        'sky.strata (flat undithered bands)', 'sky.wisp', 'sky.smile', 'sky.streaks',
+        'shapes.cloud / cloud_mass / cloud_mask / cloud_rgba']),
+    (['cave', 'mine', 'rock', 'cliff', 'mountain', 'rubble', 'stone', 'underground', '洞', '矿', '岩', '悬崖', '山',
+      '石', '地下'], 'rock', [
+        'texture.stones (rubble, cave walls)', 'texture.flakes (layered rock)', 'texture.pebbles', 'shapes.ledges',
+        'shapes.noisy_edge', 'shapes.void_edge', 'props.rails, props.ladder and props.stairwell underground']),
+    (['city', 'town', 'street', 'building', 'house', 'houses', 'village', 'alley', 'castle', 'wall', 'brick', 'roof',
+      '城', '镇', '街', '楼', '房', '村', '巷', '城堡', '墙', '砖', '屋顶'], 'buildings', [
+        'layout.ashlar + texture.shade_cells (stone)', 'texture.bricks', 'texture.panels', 'texture.mottle',
+        'texture.inset_frame (trim)', 'props.lantern (wall and paper lamps)', 'canvas.Canvas.catenary (cables, lines)',
+        ("iso.Iso(camera='topdown') boxes and gables, with cast_shadows", 'topdown'),
+        ('iso.Iso boxes, props.glass_streak for glass faces', 'iso'),
+        'roof shingles and plank walls: no texture yet (texture.bricks is the closest; a tool gap)']),
+    (['industrial', 'factory', 'crane', 'construction', 'tower', '工厂', '吊车', '工地', '塔'], 'structure', [
+        'props.girders', 'props.truss', 'texture.grille', 'texture.pits (concrete)']),
+    (['tech', 'sci-fi', 'scifi', 'robot', 'mech', 'machine', 'computer', 'neon', 'space', 'cyberpunk', '科技', '科幻',
+      '机器', '机甲', '电脑', '霓虹', '太空', '赛博'], 'tech', [
+        'texture.circuit', 'texture.emitter_grid (lamp panels)', 'fx.indicator', 'texture.grille',
+        'fx.emissive (screens, tubes)', 'neon signs: glyphs.rune / glyphs.stamp for letters plus a glow where '
+        'allowed; no sign builder yet (a tool gap)']),
     (['ruin', 'ruins', 'temple', 'rune', 'magic', 'spell', 'shrine', '遗迹', '神殿', '符文', '魔法', '法术', '神社'],
-     'magic and ruins: glyphs.rune and glyphs.stamp, anim.cascade (runes lighting in turn), fx.pixel_motes, '
-     'texture.tapestry, texture.circuit'),
-    (['fire', 'explosion', 'battle', 'fight', 'gun', 'shoot', 'war', 'boss', 'sword', '火', '爆炸', '战斗', '打', '枪',
-      '射击', '战争', '剑'],
-     'action: fx.fireball, fx.puff, fx.burst, fx.shot, fx.muzzle_light, fx.hit_flash, fx.crescent (swing trails), '
-     'fx.tumble, anim.recoil, anim.arc'),
+     'magic and ruins', [
+        'glyphs.rune and glyphs.stamp', 'anim.cascade (runes lighting in turn)', 'fx.pixel_motes',
+        'texture.tapestry', 'texture.circuit']),
+    (['fire', 'explosion', 'battle', 'fight', 'gun', 'shoot', 'war', 'boss', 'sword', 'samurai', 'ninja', '火', '爆炸',
+      '战斗', '打', '枪', '射击', '战争', '剑', '武士', '忍者'], 'action', [
+        'fx.fireball', 'fx.puff / fx.smoke_puff', 'fx.burst', 'fx.sparks', 'fx.shot', 'fx.muzzle_light',
+        'fx.hit_flash', 'fx.crescent (swing trails)', 'fx.trail', 'fx.tumble', 'anim.recoil', 'anim.arc']),
+    (['level', 'stage', 'platformer', 'game', 'gameplay', 'hud', '关卡', '平台', '游戏', '玩法'], 'game level', [
+        'anim.arc (jumps)', 'anim.hop', 'fx.burst (landing dust)', 'canvas.parallax (layer scroll)',
+        'canvas.Canvas.tile (tiles)', 'pixfont.draw (HUD text)', 'glyphs.stamp (pickups, icons)']),
     (['lamp', 'lantern', 'candle', 'torch', 'window', 'fireplace', 'neon sign', '灯', '灯笼', '蜡烛', '火把', '窗',
-      '壁炉'],
-     'small lights: light.flicker (held steps), light.rim, anim.chase (marquee and signal lights), '
-     'Post lightmap / light / glow per the style'),
+      '壁炉'], 'small lights', [
+        'props.lantern', 'light.flicker (held steps; pass t % T so the seam holds)', 'light.rim',
+        'anim.chase (marquee and signal lights)', ('Post.lightmap (multiplied pools)', 'post:lightmap'),
+        ('Post.light (shaped pools)', 'post:light'), ('Post.glow (from an emitter mask)', 'post:glow'),
+        ('light.Light.point / apply (pools drawn in palette steps)', 'strict')]),
     (['crowd', 'people', 'busy', 'traffic', 'market', 'festival', 'car', 'cars', '人群', '热闹', '车', '集市', '夜市',
-      '庙会'],
-     'crowds: compose.populate (traffic and crowds in iso), props.car, figures.iso_person, compose.check_density'),
-    (['cat', 'dog', 'deer', 'horse', 'animal', 'bird', 'birds', 'fish', 'slime', '猫', '狗', '鹿', '马', '动物', '鸟',
-      '鱼'],
-     'animals: figures.quadruped_slim, anim.hop (squash and hop), anim.orbit (birds, fish), anim.lag for tails'),
+      '庙会'], 'crowds', [
+        ('compose.populate (traffic and crowds)', 'iso'), ('props.car', 'iso'), ('figures.iso_person', 'iso'),
+        'compose.check_density']),
+    (['cat', 'dog', 'deer', 'horse', 'animal', 'bird', 'birds', 'gull', 'gulls', 'seagull', 'crow', 'fish', '猫',
+      '狗', '鹿', '马', '动物', '鸟', '海鸥', '乌鸦', '鱼'], 'animals', [
+        'figures.quadruped_slim (a slim deer; other animals are slot maps, a tool gap)',
+        'anim.orbit (birds circling, fish)', 'anim.lag (tails)', 'sprite.drop_shadow']),
+    (['slime', 'blob', '史莱姆', '黏液'], 'slimes', [
+        'anim.hop (squash-and-hop sizes per frame)', 'sprite.spec_edges', 'sprite.drop_shadow',
+        'the body itself: a slot-map dome, no drawer yet (a tool gap)']),
     (['person', 'people', 'character', 'hero', 'girl', 'boy', 'man', 'woman', 'kid', 'knight', 'samurai', 'walk',
-      '人', '角色', '主角', '女孩', '男孩', '骑士', '武士', '走'],
-     'figures: figures.chibi / slim / thin / iso_person per the style, anim.lag for hair, capes and scarves, '
-     'sprite.chain for ropes and scarves, sprite.drop_shadow, sprite.spec_edges'),
+      '人', '角色', '主角', '女孩', '男孩', '骑士', '武士', '走'], 'figures', [
+        'the style\'s figure (see section 11)', 'anim.lag (hair, capes, scarves)', 'sprite.chain (ropes, scarves)',
+        'sprite.drop_shadow', 'sprite.spec_edges', 'anim.hold / anim.Timeline for poses']),
 ]
 ALWAYS_TOOLS = ('checks: stats.budget_report (the style budget), anim.check_periods (every period divides the loop), '
                 'compose.check_density for busy scenes, styles.check on a delivered frame')
@@ -382,7 +431,11 @@ CATALOG = [('post', 'the light layer: Post (none/native/screen), Stack (depth pl
            ('morph', 'mask operations: dilate, erode, distance, normals, regions, relief'),
            ('iso', '2:1 isometric boxes and scenes'),
            ('stats', 'measuring a frame against a style budget'),
-           ('styles', 'the 11 style presets, their budgets and checks')]
+           ('styles', 'the 11 style presets, their budgets and checks'),
+           ('artlib', 'slot-map sprites for the lofi JS engine: Grid, stamping, orphan checks, export to sprites.js'),
+           ('era', 'console-era limits (NES, Game Boy, SNES, Genesis, GBA, PICO-8, Neo Geo): check and force'),
+           ('pixfont', 'the pixel font for HUD and captions'),
+           ('cjkfont', 'a CJK pixel font for Chinese and Japanese text')]
 
 def catalog():
     """guides/toolkit.md: every public function and class in the kit with its first doc line, so an
@@ -393,8 +446,9 @@ def catalog():
          'regenerate it after adding a tool. Read it before writing a brief: the router only suggests the',
          'tools its keywords know about, and the best brief uses whatever the scene needs.', '']
     L.append('## By subject\n')
-    for words, line in TOPIC_TOOLS:
-        L.append('- ' + line[0].upper() + line[1:] + '.')
+    for words, label, items in TOPIC_TOOLS:
+        L.append('- %s: %s.' % (label[0].upper() + label[1:],
+                                ', '.join(it if isinstance(it, str) else '%s [%s]' % it for it in items)))
     L.append('- ' + ALWAYS_TOOLS[0].upper() + ALWAYS_TOOLS[1:] + '.')
     for mod, what in CATALOG:
         try:
@@ -417,9 +471,35 @@ def catalog():
                     L.append('  - `.%s`%s' % (mn, (': ' + md) if md else ''))
     return '\n'.join(L) + '\n'
 
-def topic_tools(request):
+def _fits(cond, style, projection):
+    st = styles.get(style)
+    if cond in ('iso', 'topdown', 'side'):
+        return {'iso': '2:1 iso', 'topdown': '3/4 top-down', 'side': 'side'}[cond] == projection
+    if cond == 'soft':
+        return st['res'] != 'none'
+    if cond == 'strict':
+        return st['res'] == 'none'
+    if cond.startswith('post:'):
+        return styles.allows(style, cond[5:])
+    return True
+
+def topic_tools(request, style=None, projection=None):
+    """-> ['label: call, call, ...'] for the subjects the request names, filtered to what the style
+    and projection allow (a banned light op or an iso-only prop is left out)"""
     t = ' ' + request.lower() + ' '
-    return [line for words, line in TOPIC_TOOLS if _hits(t, words)]
+    out = []
+    for words, label, items in TOPIC_TOOLS:
+        if not _hits(t, words):
+            continue
+        keep = []
+        for it in items:
+            if isinstance(it, tuple):
+                if style is None or _fits(it[1], style, projection or ROUTE[style]['projection']):
+                    keep.append(it[0])
+            else:
+                keep.append(it)
+        out.append('%s: %s' % (label, ', '.join(keep)))
+    return out
 
 # ---------------------------------------------------------------- what the request leaves open
 WORDS = dict(
@@ -449,6 +529,11 @@ TIME_DEFAULT = {
     'contre-jour': 'night fog, one strong backlight behind the subject, sparse rain',
 }
 
+UNDERGROUND = ['mine', 'cave', 'underground', 'dungeon', 'tunnel', 'sewer', 'crypt', '矿', '洞', '地下', '地牢',
+               '隧道', '下水道']
+INDOOR = ['interior', 'inside', 'room', 'bedroom', 'kitchen', 'cafe', 'shop', 'library', 'tavern', 'inn',
+          '室内', '屋内', '房间', '卧室', '厨房', '咖啡', '店', '图书馆', '酒馆', '客栈']
+
 def gaps(request, r=None):
     """-> [{topic, stated, default}]: each open choice in the request and the default it takes for the
     top style. Fill the brief with the defaults, then list them for the user to confirm or change."""
@@ -468,16 +553,35 @@ def gaps(request, r=None):
                     default='`%s` (%s); the runners-up are %s' % (
                         st['name'], st['what'], ', '.join('`%s`' % q['style'] for q in r['picks'][1:]))))
     out.append(dict(topic='projection', stated=r['projection'] or '', default=p['projection']))
-    add('time and weather', WORDS['time'], TIME_DEFAULT.get(st['name'],
+    under = _hits(t, UNDERGROUND)
+    inside = _hits(t, INDOOR)
+    add('time and weather', WORDS['time'],
+        'underground, no sky: the lamps are the only light, and one shaft or opening shows the world above'
+        if under else 'indoors: the room lit by its own lamps and one window showing the weather outside'
+        if inside else TIME_DEFAULT.get(st['name'],
         'night, one main light source, light rain' if dark else 'late afternoon, clear, low warm sun'))
     add('phases', WORDS['phases'],
-        'four seasons, each with its own signature elements (as Lantern Isle)' if st['name'] == 'lofi'
+        'one phase; for a long stream cover, a cycle of 3-4 phases each with its own signature elements '
+        '(not Lantern Isle\'s four seasons again unless asked)' if st['name'] == 'lofi'
         else 'one phase, no cycle')
+    named = _hits(t, WORDS['figures'] + ['slime', 'robot', 'samurai', '史莱姆', '武士', '机器人'])
     add('figures', WORDS['figures'],
+        'only the actors the request names, nobody added' if named else
         'one or two small figures doing a quiet, specific task (%s)' % st['figures'])
+    loop = ('the engine\'s 30-tick clock, sprites at 10, 5 or 2 fps; the loop is the music\'s length'
+            if st['name'] == 'lofi' else 'a seamless %s-frame loop at %d fps' % (frames or 'TODO', st['fps']))
+    excerpt = 'a GIF excerpt' if st['res'] == 'none' else 'an APNG excerpt (a GIF bands soft light)'
     add('purpose and outputs', WORDS['purpose'],
-        'a gallery showcase: seamless %s-frame loop at %d fps as 1080p MP4, a GIF excerpt and a still' % (
-            frames or 'TODO', st['fps']))
+        'a gallery showcase: %s, as 1080p MP4, %s and a still' % (loop, excerpt))
+    if r.get('era'):
+        import era as eramod
+        e = eramod.ERAS[r['era']]
+        out.append(dict(topic='era limits', stated=r['era'], default='%s: %dx%d, at most %d colours%s%s; no light '
+                        'layer; check with `pixelate era IMG --era %s`' % (
+                            e['name'], e['size'][0], e['size'][1], e['max_colors'],
+                            (', palette %s' % e['palette']) if e.get('palette') else '',
+                            (', %d colours per %dx%d block' % (e['block_colors'], e['block'], e['block']))
+                            if e.get('block') else '', r['era'])))
     add('music', WORDS['music'],
         'a lofi track with one motif per phase (guides/music.md)' if st['name'] == 'lofi' else 'none')
     return out
@@ -528,15 +632,33 @@ def lint(text):
     m = find('Motion table')
     if m is not None and not re.search(r'\d+\s*(frames?|fps|drawings?|ticks?)', m):
         probs.append('Motion table has no frame counts or rates')
-    head = re.search(r'Motion table[^\n]*?(\d+)\s*frames', text)
+    head = (re.search(r'Motion table[^\n]*?(\d+)\s*frames', text) or
+            re.search(r'Loop:\s*(?:a seamless\s*)?(\d+)[\s-]*frames', text) or
+            re.search(r'(\d+)[\s-]*frame loop', text))
     if head and m:
         T = int(head.group(1))
-        for k in re.findall(r'every\s+(\d+)\s+frames', m):
-            if T % int(k):
-                probs.append('Motion table: a period of %s frames does not divide the %d-frame loop' % (k, T))
+        pats = [r'every\s+(\d+)\s+frames', r'(\d+)[\s-]*frame (?:cycle|period|action|loop|turn)',
+                r'(?:once|one \w+) (?:every|per) (\d+)\s+frames', r'period(?: of)?\s+(\d+)']
+        for pat in pats:
+            for k in re.findall(pat, m):
+                if int(k) and T % int(k):
+                    probs.append('Motion table: a period of %s frames does not divide the %d-frame loop' % (k, T))
+        for n, k in re.findall(r'(\d+)\s+drawings?,?\s+(\d+)\s+frames? each', m):
+            if int(n) * int(k) and T % (int(n) * int(k)):
+                probs.append('Motion table: %s drawings x %s frames = %d does not divide the %d-frame loop' % (
+                    n, k, int(n) * int(k), T))
     li = find('Light list')
     if li is not None and not re.search(r'\d', li):
         probs.append('Light list has no sizes or radii: give every emitter a colour, a radius and what hides it')
+    sl = find('Style and light regime')
+    if sl is not None:
+        if not re.search(r'\b(none|native|screen)\b|no light layer', sl):
+            probs.append('Style and light regime does not name the light layer (none, native or screen)')
+        if not re.search(r'budget|L\s*[<>]|below L|above L', text):
+            probs.append('no value budget anywhere (how much of the frame is dark, how rare the highlights are)')
+    if re.search(r'res\W*(native|screen)|light layer\W*(native|screen)', text.lower()) and li is not None \
+            and not re.search(r'hide|hidden|occlud|block|behind', li.lower()):
+        probs.append('Light list never says what hides a light (the near plane, a wall, a door frame)')
     sc = find('The scene')
     if sc is not None and not re.search(r'\d', sc):
         probs.append('The scene has no counts, sizes or positions')
@@ -547,22 +669,31 @@ def lint(text):
     return probs
 
 KIT_MODULES = ('post', 'light', 'palette', 'texture', 'layout', 'shapes', 'figures', 'props', 'compose', 'anim',
-               'sprite', 'fx', 'glyphs', 'sky', 'veg', 'water', 'canvas', 'morph', 'stats', 'styles', 'assets')
+               'sprite', 'fx', 'glyphs', 'sky', 'veg', 'water', 'canvas', 'morph', 'stats', 'styles', 'assets',
+               'iso', 'artlib', 'era', 'pixfont', 'cjkfont')
 
 def _tool_refs(text):
     """every `module.name` (or `module.Class.name`) in backticks must exist in the kit"""
     import importlib
     bad = []
-    for ref in sorted(set(re.findall(r'`([a-z_]+(?:\.[A-Za-z_]+)+)', text))):
+    for ref in sorted(set(re.findall(r'(?<![\w./])([a-z_]+(?:\.[A-Za-z_]+)+)(?=[\s`(),;:.]|$)', text))):
         mod, *path = ref.split('.')
-        if mod not in KIT_MODULES:
+        if mod not in KIT_MODULES or path[-1] in ('js', 'py', 'md', 'json', 'hex', 'png'):
             continue
         try:
             obj = importlib.import_module(mod)
             for k in path:
                 obj = getattr(obj, k)
         except Exception:
-            bad.append('`%s` is not in the kit: use a real function or name the tool gap' % ref)
+            hint = ''
+            try:
+                m = importlib.import_module(mod)
+                cls = [n for n, o in vars(m).items() if isinstance(o, type) and hasattr(o, path[-1])]
+                if cls:
+                    hint = ' (did you mean `%s.%s.%s`?)' % (mod, cls[0], path[-1])
+            except Exception:
+                pass
+            bad.append('`%s` is not in the kit%s: use a real function or name the tool gap' % (ref, hint))
     return bad
 
 # ---------------------------------------------------------------- the pre-filled brief
@@ -570,12 +701,17 @@ def _fmt_budget(b):
     return '; '.join('%s %s' % (k, ('>= %s' % lo) if hi is None else ('<= %s' % hi) if lo is None else
                                 '%s..%s' % (lo, hi)) for k, (lo, hi) in b.items()) or 'none (look at it)'
 
-def brief(style, request='', projection=None, choices=None):
+def brief(style, request='', projection=None, choices=None, era=None):
     """the craft.md brief as Markdown, with everything the style decides filled in and the
     scene-specific parts as TODO prompts; choices (from gaps()) adds section 0"""
     st = styles.get(style)
     r = ROUTE[st['name']]
     w, h = st['size']
+    E = None
+    if era:
+        import era as eramod
+        E = eramod.ERAS[era]
+        w, h = E['size']
     frames, fps = r['frames'][0], st['fps']
     proj = projection or r['projection']
     light = {'none': 'no light layer: light is palette steps (warm slots, rims, a few highlight pixels)',
@@ -588,11 +724,22 @@ def brief(style, request='', projection=None, choices=None):
         L.append(gaps_md(choices))
     L.append('## 1. Purpose and delivery')
     L.append('- TODO what it is for, where it will be seen (full screen, thumbnail, README), outputs (MP4, GIF/APNG, page, still).')
-    L.append('- Loop: %s frames at %d fps.%s' % (frames or 'TODO', fps, ' Delivered prescaled (screen light).' if st['res'] == 'screen' else ''))
+    if st['name'] == 'lofi':
+        L.append('- Loop: the engine runs on a 30-tick clock (TICKS = cycle * grand * 30); sprites step at 10, 5 '
+                 'or 2 fps; TODO the loop length (the music length for a stream cover).')
+    else:
+        L.append('- Loop: %s frames at %d fps.%s' % (frames or 'TODO', fps,
+                 ' Delivered prescaled (screen light); excerpts as APNG, since a GIF bands soft light.'
+                 if st['res'] == 'screen' else ' Excerpts as APNG (soft light bands in a GIF).'
+                 if st['res'] == 'native' else ''))
     L.append('\n## 2. Style and light regime')
     L.append('- Style `%s` (learned from %s): %s.' % (st['name'], st['ref'], st['what']))
     L.append('- Light: %s; blend %s.' % (light, ', '.join(st['blend']) or 'none'))
-    L.append('- Ramps: `%s`. Palette: %s.' % (', '.join(st['ramp']), st['palette']))
+    if E:
+        L.append('- Ramps: 3-4 steps picked by hand from the %s palette. Palette: at most %d colours%s.' % (
+            E.get('palette', era), E['max_colors'], ', shared backdrop' if E.get('shared_backdrop') else ''))
+    else:
+        L.append('- Ramps: `%s`. Palette: %s.' % (', '.join(st['ramp']), st['palette']))
     L.append('- Outline: %s. Dither: %s.' % (st['outline'], (', '.join(st['dither']) + ', ' + st['dither_where']) if st['dither'] else 'none'))
     L.append('- Learn the grammar only: no characters, places, logos or UI layouts from %s. TODO name anything else to avoid.' % st['ref'])
     L.append('\n## 3. Art direction rules')
@@ -616,10 +763,15 @@ def brief(style, request='', projection=None, choices=None):
     else:
         L.append('- TODO each emitter: what, where, colour, radius or width, flicker or pulse, what it lights, what hides it.')
         L.append('- Allowed light ops: %s.' % (', '.join(st['allowed_post']) or 'none'))
-    L.append('\n## 8. Motion table')
+    L.append('\n## 8. Motion table' + ('' if st['name'] == 'lofi' or not frames else
+                                       ' (%d frames at %d fps)' % (frames, fps)))
     L.append('- Motion: %s at about %d fps; every period divides the loop (anim.check_periods).' % (
         'stepped, hold tables' if st['motion'] == 'stepped' else 'actors move in screen pixels', fps))
     L.append('- TODO every moving thing with its frame count and rate; keep only a few things moving at once.')
+    if frames and st['name'] != 'lofi':
+        L.append('- Drifting layers (clouds, fog, water) make whole trips per loop: at %d frames a %d px trip moves '
+                 '%.0f px/s; if that is faster than the drift should feel (clouds 15 px/s or less), lengthen the '
+                 'loop to a multiple of %d.' % (frames, w, w * fps / frames, frames))
     L.append('\n## 9. Particles')
     L.append('- TODO kinds, sprite variants, densities, depth layers, paths (hashed spawns, whole trips per loop).')
     L.append('\n## 10. Never')
@@ -630,15 +782,24 @@ def brief(style, request='', projection=None, choices=None):
         L.append('- Banned light ops: %s.' % ', '.join(banned))
     L.append('- TODO anything else this scene must not do.')
     L.append('\n## 11. Technical')
-    L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
-        w, h, st['scale'], w * st['scale'], h * st['scale'],
-        'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
+    if E:
+        L.append('- %s limits: native %dx%d, at most %d colours on screen%s%s%s. No light layer, no dither the '
+                 'console could not show. These override the style\'s canvas and colour count.' % (
+                     E['name'], w, h, E['max_colors'], (', palette `%s`' % E['palette']) if E.get('palette') else '',
+                     (', %d colours per %dx%d block' % (E['block_colors'], E['block'], E['block'])) if E.get('block') else '',
+                     (', %d-colour sprites' % E['sprite_colors']) if E.get('sprite_colors') else ''))
+        L.append('- Check: `pixelate era frame.png --era %s` (and `--force` to snap a draft); ramps picked from the '
+                 'era palette, not palette.ramp.' % era)
+    else:
+        L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
+            w, h, st['scale'], w * st['scale'], h * st['scale'],
+            'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
     L.append('- Figures: %s.' % st['figures'])
     L.append('- Budget (`styles.check`): %s.' % _fmt_budget(st['budgets']))
     L.append('- Checks: frame T equals frame 0; `python3 tools/styles.py %s frame.png --scale %d`; reads at 480 px wide.' % (
         st['name'], st['scale']))
     L.append('\nTools for this style: ' + '; '.join(r['tools']) + '.')
-    tt = topic_tools(request)
+    tt = topic_tools(request, st['name'], proj)
     if tt:
         L.append('Tools for this subject:')
         L += ['- ' + x + '.' for x in tt]
@@ -673,7 +834,7 @@ def main(a):
     req = ' '.join(a)
     r = route(req)
     if want:
-        text = brief(r['picks'][0]['style'] if want is True else want, req, choices=gaps(req, r))
+        text = brief(r['picks'][0]['style'] if want is True else want, req, choices=gaps(req, r), era=r.get('era'))
         if out:
             pathlib.Path(out).write_text(text); print('wrote', out)
         else:
@@ -689,7 +850,7 @@ def main(a):
         print('   pick it for: ' + p['pick_if'])
         if p['example']:
             print('   example: ' + p['example'])
-    tt = topic_tools(req)
+    tt = topic_tools(req, r['picks'][0]['style'], r['picks'][0]['projection'])
     if tt:
         print('\ntools for the subject:')
         for x in tt:

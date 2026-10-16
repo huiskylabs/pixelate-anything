@@ -94,7 +94,7 @@ STYLES = {
         banned_post=_FILTERS + ('light', 'shaft', 'flare', 'rain:hair'),
         budgets={'median_C': (0.025, 0.06), 'C>0.12': (None, 0.05), 'L>0.8': (None, 0.1), 'median_L': (0.25, 0.5)},
         motion='stepped', fps=12, scale=3, size=(640, 360), colours=120,
-        figures='chibi, about 26 px'),
+        figures='chibi 13x26 (figures.chibi)'),
     'arcade': dict(
         ref='05 Metal Slug 3', what='Neo Geo density: warm hand-modelled actors on a cold dark world; FX are '
                                     'opaque palette sprites, no light layer',
@@ -164,7 +164,7 @@ STYLES = {
         banned_post=_FILTERS + ('light:screen', 'rain:hair'),
         budgets={'C>0.1': (None, 0.015), 'black': (0.15, None), 'L>=0.7': (None, 0.035), 'median_C': (None, 0.035)},
         motion='stepped', fps=12, scale=5, size=(384, 216), colours=50,
-        figures='42 px, thin limbs, no outline, brightest values in the frame'),
+        figures='38-42 px (figures.thin, h=38 by default), thin limbs, no outline, brightest values in the frame'),
     'cosy-lightmap': dict(
         ref='10 Stardew Valley mine', what='16-bit cosy cave: pixel layer under one smooth multiplied lamp map at '
                                            'screen resolution; the void stays black',
@@ -177,7 +177,7 @@ STYLES = {
         banned_post=_FILTERS + ('light:screen',),
         budgets={'L<0.1': (0.35, 0.65), 'L>0.8': (None, 0.006), 'C>0.1': (None, 0.015)},
         motion='subpixel', fps=12, scale=4, size=(480, 270), colours=45,
-        figures='chibi 29 px, outlines per part, camera-following'),
+        figures='chibi 13x26 (figures.chibi), outlines per part, camera-following'),
     'lofi': dict(
         ref='lantern-isle (this repo)', what='the toolkit\'s original look: 16-bit-ish palette-step light, '
                                              'Bayer gradients, own-material outlines',
@@ -189,7 +189,7 @@ STYLES = {
         allowed_post=(),
         banned_post=_SOFT + _FILTERS,
         budgets={},
-        motion='stepped', fps=12, scale=6, size=(320, 180), colours=60,
+        motion='stepped', fps=10, scale=6, size=(320, 180), colours=60,
         figures='sprite-sheet characters'),
 }
 ALIASES = {'01': 'contre-jour', '02': 'pastel-cell', '03': 'native-glow', '04': 'hd-overworld', '05': 'arcade',

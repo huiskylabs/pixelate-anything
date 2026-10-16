@@ -6,22 +6,24 @@ tools its keywords know about, and the best brief uses whatever the scene needs.
 
 ## By subject
 
-- Rain and wet: fx.rain_cells (opaque streaks), fx.light_streaks, texture.wet_streaks (speculars on up-facing edges), water.reflect for puddles, Post rain:hair at screen res where the style allows it.
-- Snow and ice: texture.speckle for flakes on dark, texture.stipple for drifts, sky.strata for a flat winter sky.
-- Fog: palette.haze and haze_levels per depth plane, Post fog where allowed, canvas.loop_dissolve for drifting banks.
-- Water: water.depth_bands, water.foam_rings, water.pool, water.waterfall, water.reflect.
-- Foliage: veg.leaf_scales (round canopies), veg.leaf_glyphs, veg.leafmass, texture.leaflight (flecks in dark foliage), props.trunk, shapes.lobes_along for far tree lines.
-- Sky: sky.strata, sky.wisp, sky.smile, sky.streaks, shapes.cloud / cloud_mass / cloud_mask.
-- Rock: texture.stones (rubble, cave walls), texture.flakes (layered rock), texture.pebbles, shapes.ledges, shapes.noisy_edge, shapes.void_edge, props.rails and props.stairwell underground.
-- Buildings: layout.ashlar and texture.shade_cells for stone, texture.bricks, texture.panels, texture.mottle, texture.inset_frame for trim, props.glass_streak for windows, iso.Iso boxes in iso.
-- Structure: props.girders, props.truss, texture.grille, texture.pits for concrete.
-- Tech: texture.circuit, texture.emitter_grid (lamp panels), fx.indicator, texture.grille, fx.emissive for screens.
+- Rain and wet: fx.rain_cells (opaque streaks in palette slots), texture.wet_streaks (speculars on up-facing edges), water.reflect (puddles), fx.light_streaks (alpha streaks with a stepped tail) [soft], Post.rain (screen-res hairlines) [post:rain].
+- Snow and ice: texture.speckle (flakes on dark), texture.stipple (drifts), sky.strata (a flat winter sky).
+- Fog: palette.haze and haze_levels per depth plane, Post.fog [post:fog], canvas.wrap_offset for drifting banks (canvas.loop_dissolve in lofi only).
+- Water: water.depth_bands (sea by distance from land), water.foam_rings (where things stand in water), water.reflect, water.pool (still basins), water.waterfall, post.over (a translucent glaze) [post:over], boats and docks: no prop yet, draw slot maps (a tool gap).
+- Foliage: texture.clumps (grass and bush clumps), veg.fern, veg.vine, props.trunk, veg.leaf_scales (round shingled canopies), veg.leafmass (a leaf mass lining a frame), texture.leaflight (flecks in dark foliage), shapes.lobes_along (far tree lines), veg.leaf_glyphs (2:1 leaf glyphs, the iso sticker look) [iso].
+- Sky: sky.strata (flat undithered bands), sky.wisp, sky.smile, sky.streaks, shapes.cloud / cloud_mass / cloud_mask / cloud_rgba.
+- Rock: texture.stones (rubble, cave walls), texture.flakes (layered rock), texture.pebbles, shapes.ledges, shapes.noisy_edge, shapes.void_edge, props.rails, props.ladder and props.stairwell underground.
+- Buildings: layout.ashlar + texture.shade_cells (stone), texture.bricks, texture.panels, texture.mottle, texture.inset_frame (trim), props.lantern (wall and paper lamps), canvas.Canvas.catenary (cables, lines), iso.Iso(camera='topdown') boxes and gables, with cast_shadows [topdown], iso.Iso boxes, props.glass_streak for glass faces [iso], roof shingles and plank walls: no texture yet (texture.bricks is the closest; a tool gap).
+- Structure: props.girders, props.truss, texture.grille, texture.pits (concrete).
+- Tech: texture.circuit, texture.emitter_grid (lamp panels), fx.indicator, texture.grille, fx.emissive (screens, tubes), neon signs: glyphs.rune / glyphs.stamp for letters plus a glow where allowed; no sign builder yet (a tool gap).
 - Magic and ruins: glyphs.rune and glyphs.stamp, anim.cascade (runes lighting in turn), fx.pixel_motes, texture.tapestry, texture.circuit.
-- Action: fx.fireball, fx.puff, fx.burst, fx.shot, fx.muzzle_light, fx.hit_flash, fx.crescent (swing trails), fx.tumble, anim.recoil, anim.arc.
-- Small lights: light.flicker (held steps), light.rim, anim.chase (marquee and signal lights), Post lightmap / light / glow per the style.
-- Crowds: compose.populate (traffic and crowds in iso), props.car, figures.iso_person, compose.check_density.
-- Animals: figures.quadruped_slim, anim.hop (squash and hop), anim.orbit (birds, fish), anim.lag for tails.
-- Figures: figures.chibi / slim / thin / iso_person per the style, anim.lag for hair, capes and scarves, sprite.chain for ropes and scarves, sprite.drop_shadow, sprite.spec_edges.
+- Action: fx.fireball, fx.puff / fx.smoke_puff, fx.burst, fx.sparks, fx.shot, fx.muzzle_light, fx.hit_flash, fx.crescent (swing trails), fx.trail, fx.tumble, anim.recoil, anim.arc.
+- Game level: anim.arc (jumps), anim.hop, fx.burst (landing dust), canvas.parallax (layer scroll), canvas.Canvas.tile (tiles), pixfont.draw (HUD text), glyphs.stamp (pickups, icons).
+- Small lights: props.lantern, light.flicker (held steps; pass t % T so the seam holds), light.rim, anim.chase (marquee and signal lights), Post.lightmap (multiplied pools) [post:lightmap], Post.light (shaped pools) [post:light], Post.glow (from an emitter mask) [post:glow], light.Light.point / apply (pools drawn in palette steps) [strict].
+- Crowds: compose.populate (traffic and crowds) [iso], props.car [iso], figures.iso_person [iso], compose.check_density.
+- Animals: figures.quadruped_slim (a slim deer; other animals are slot maps, a tool gap), anim.orbit (birds circling, fish), anim.lag (tails), sprite.drop_shadow.
+- Slimes: anim.hop (squash-and-hop sizes per frame), sprite.spec_edges, sprite.drop_shadow, the body itself: a slot-map dome, no drawer yet (a tool gap).
+- Figures: the style's figure (see section 11), anim.lag (hair, capes, scarves), sprite.chain (ropes, scarves), sprite.drop_shadow, sprite.spec_edges, anim.hold / anim.Timeline for poses.
 - Checks: stats.budget_report (the style budget), anim.check_periods (every period divides the loop), compose.check_density for busy scenes, styles.check on a delivered frame.
 
 ## post
@@ -444,3 +446,54 @@ The 11 style presets, their budgets and checks.
 - `styles.check`: everything a style can check on a frame -> list of problems ([] = fine): the numeric budget (stats.budget), native cells of the delivered frame `big` for...
 - `styles.describe`
 - `styles.main`
+
+## artlib
+
+Slot-map sprites for the lofi JS engine: Grid, stamping, orphan checks, export to sprites.js.
+
+- `artlib.load_palettes`: Palettes from the scene's palettes.js. aliases {slot: other_slot} fills dynamic slots (set per frame in the page) for previews.
+- `artlib.hexrgb`
+- `artlib.Grid`
+  - `.get`
+  - `.set`
+  - `.stamp`: Stamp ASCII art. '.' or ' ' are transparent. key maps char->slot.
+  - `.paste`
+  - `.crop`
+  - `.copy`
+  - `.flipx`
+  - `.replace`
+  - `.count_orphans`: pixels whose 4 neighbours all differ (stray single pixels).
+- `artlib.parse_art`
+- `artlib.to_js`: grids: list of Grid frames (same size). returns a def(...) call.
+- `artlib.preview`
+- `artlib.disc_mask`: clean pixel-art disc of radius r (integer or .5), as set of (dx,dy) offsets.
+- `artlib.line`
+- `artlib.bayer`
+- `artlib.rng`: tiny deterministic generator for authoring variety.
+
+## era
+
+Console-era limits (NES, Game Boy, SNES, Genesis, GBA, PICO-8, Neo Geo): check and force.
+
+- `era.palette_rgb`
+- `era.check`: problems with this image under the era's rules (layer 'bg' also applies the per-block rule; sprites over a background are exempt from it)
+- `era.enforce`: the image made legal: snapped to the palette or bit depth, cut to the colour limits
+- `era.main`
+
+## pixfont
+
+The pixel font for HUD and captions.
+
+- `pixfont.width`
+- `pixfont.draw`: draw text into anything with .set(x, y, v); shadow: a slot for a 1 px drop shadow
+- `pixfont.draw_pil`
+
+## cjkfont
+
+A CJK pixel font for Chinese and Japanese text.
+
+- `cjkfont.glyph`: (width, rows) with bit width-1 of each row the leftmost pixel; None if the font lacks it
+- `cjkfont.advance`
+- `cjkfont.width`
+- `cjkfont.wrap`: break a line to fit max_w pixels; CJK breaks anywhere, but a line never starts with closing punctuation (it stays on the line before)
+- `cjkfont.draw`: draw s with its top-left at (x, y). outline: a 1 px ring round every stroke (8 neighbours); shadow: a 1 px drop shadow down and right; upto: only the first...

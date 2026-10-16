@@ -2,7 +2,8 @@
 """Console-era presets: the hardware limits that gave classic pixel art its look, and a checker
 that holds an image to them (or forces it into them).
 
-usage: era.py IMAGE --era nes|gameboy|snes|genesis|gba|pico-8 [-o OUT] [--scale 4] [--layer bg|full]
+usage: era.py IMAGE --era nes|gameboy|snes|genesis|gba|pico-8|neogeo [-o OUT] [--scale 4]
+              [--layer bg|full|sprite|fix]
        era.py --list
 
 Without -o it reports. With -o it also writes OUT (the image made legal) and OUT@Nx.png.
@@ -16,6 +17,10 @@ What each preset holds you to:
   genesis  320x224, 9-bit colour (3 bits per channel), 61 on screen, 16 per 8x8 tile.
   gba      240x160, 15-bit colour, 256 on screen, 16 per 8x8 tile.
   pico-8   128x128, its 16 colours.
+  neogeo   304x224, 15-bit colour (5 bits per channel; the hardware's extra dark bit is ignored),
+           up to 4096 on screen from many palettes, no blending. Check each layer on its own:
+           --layer sprite (actors, FX and backgrounds are all sprites): every 16x16 tile uses at
+           most 15 colours plus transparent; --layer fix (the HUD): 8x8 tiles, 15 colours each.
 The names describe hardware limits only; the art you make with them should be your own.
 """
 import pathlib, sys
@@ -33,7 +38,17 @@ ERAS = {
     'genesis': dict(name='Mega Drive-style 16-bit', size=(320, 224), bits=3, max_colors=61, block=8, block_colors=16),
     'gba':     dict(name='GBA-style', size=(240, 160), bits=5, max_colors=256, block=8, block_colors=16),
     'pico-8':  dict(name='PICO-8', size=(128, 128), palette='pico-8', max_colors=16),
+    'neogeo':  dict(name='Neo Geo-style arcade', size=(304, 224), bits=5, max_colors=4096, block=16, block_colors=15,
+                    fix_block=8, layers={'sprite': (16, 15), 'bg': (16, 15), 'fix': (8, 15)}),
 }
+
+def _block_rule(e, layer):
+    """(block size, colours per block) for a layer, or None when the layer has no block rule"""
+    if layer in e.get('layers', {}):
+        return e['layers'][layer]
+    if layer == 'bg' and e.get('block'):
+        return e['block'], e['block_colors']
+    return None
 
 def _rgb(img):
     return np.asarray(img.convert('RGBA'))
@@ -65,11 +80,12 @@ def check(img, era, layer='full'):
             issues.append('%d colours outside the %s palette' % (len(off), e['name']))
     if 'bits' in e and len(cols):
         step = 255 / (2 ** e['bits'] - 1)
-        off = int((np.abs(cols / step - np.round(cols / step)) > 0.02).any(1).sum())
+        off = int((np.round(np.round(cols / step) * step) != cols).any(1).sum())   # what enforce's snap gives
         if off:
             issues.append('%d colours not on the %d-bit-per-channel grid' % (off, e['bits']))
-    if layer == 'bg' and e.get('block'):
-        b, lim = e['block'], e['block_colors']
+    rule = _block_rule(e, layer)
+    if rule:
+        b, lim = rule
         bad = 0
         backdrop = None
         if e.get('shared_backdrop') and len(rgb):
@@ -104,21 +120,26 @@ def enforce(img, era, layer='full'):
     def remap(region, keep):
         flat = region[..., :3].reshape(-1, 3).astype(float)
         k = np.array(keep, float)
-        idx = cl.nearest(cl.rgb_to_oklab(flat), cl.rgb_to_oklab(k))
+        lab, klab = cl.rgb_to_oklab(flat), cl.rgb_to_oklab(k)
+        step = max(256, 4000000 // max(1, len(k)))          # bounded memory for 4096-colour eras
+        idx = np.concatenate([cl.nearest(lab[i:i + step], klab) for i in range(0, len(lab), step)]) if len(lab) else np.zeros(0, int)
         region[..., :3] = k[idx].reshape(region[..., :3].shape).astype(np.uint8)
     used, counts = np.unique(a[..., :3][opaque], axis=0, return_counts=True)
     if len(used) > e['max_colors']:                  # merge the rarest colours into their nearest kept one
         keep = used[np.argsort(-counts)[:e['max_colors']]]
         remap(a, keep)
-    if layer == 'bg' and e.get('block'):
-        b, lim = e['block'], e['block_colors']
+    rule = _block_rule(e, layer)
+    if rule:
+        b, lim = rule
         used, counts = np.unique(a[..., :3][opaque], axis=0, return_counts=True)
         backdrop = tuple(used[counts.argmax()]) if e.get('shared_backdrop') and len(used) else None
         H, W = a.shape[:2]
         for y in range(0, H, b):
             for x in range(0, W, b):
                 blk = a[y:y + b, x:x + b]
-                u, c = np.unique(blk[..., :3].reshape(-1, 3), axis=0, return_counts=True)
+                m = blk[..., 3] >= 128 if layer in e.get('layers', {}) else np.ones(blk.shape[:2], bool)
+                if not m.any(): continue
+                u, c = np.unique(blk[..., :3][m].reshape(-1, 3), axis=0, return_counts=True)
                 order = [tuple(v) for v in u[np.argsort(-c)]]
                 keep = ([backdrop] if backdrop else []) + [v for v in order if v != backdrop]
                 if len(set(keep)) > lim:

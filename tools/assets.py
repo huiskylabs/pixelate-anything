@@ -247,12 +247,44 @@ def export(pack, scale=None, only=None):
           'many of them read as noise')
     return not bad
 
-def export_scene(s, out, scale):
+def export_scene(s, out, scale, prescaled=None):
     """a whole animated picture (art module returns {'kind': 'scene', 'images': [PIL frames]}):
-    NAME.png (first frame, 1x), NAME@Nx.png, NAME.gif and NAME.mp4 (both scaled), no atlas"""
+    NAME.png (first frame, 1x), NAME@Nx.png, NAME.gif and NAME.mp4 (both scaled), no atlas.
+
+    prescaled=True (or 'prescaled': True in the scene dict): the frames are already at delivery
+    size (a screen-resolution light layer, post.Post.image()), so nothing is resized: NAME.png is
+    the delivered frame, the MP4 keeps the frames' own size (an odd size is padded by one black
+    pixel, never rescaled), and an APNG (NAME.png animated as NAME.apng) is written because a
+    255-colour GIF bands soft light. scale then only names the @Nx file (the scene's 'scale')."""
     import shutil, subprocess
     frames = [f.convert('RGB') for f in s['images']]
     name, (w, h) = s['name'], frames[0].size
+    if prescaled is None:
+        prescaled = bool(s.get('prescaled'))
+    if prescaled:
+        scale = s.get('scale', scale)
+        frames[0].save(out / (name + '.png'))
+        frames[0].save(out / ('%s@%dx.png' % (name, scale)))
+        if len(frames) > 1:
+            ms = durations(dict(s, frames=frames))
+            frames[0].save(out / (name + '.apng'), format='PNG', save_all=True, append_images=frames[1:],
+                           duration=ms, loop=0)
+            pal = [f.quantize(colors=255, method=Image.Quantize.MAXCOVERAGE, dither=Image.Dither.NONE) for f in frames]
+            pal[0].save(out / (name + '.gif'), save_all=True, append_images=pal[1:], duration=ms, loop=0, optimize=False)
+            if shutil.which('ffmpeg'):
+                W2, H2 = w + w % 2, h + h % 2                         # yuv420p needs even sides: pad, don't scale
+                fps = s.get('fps') or 1000.0 / ms[0]
+                p = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (W2, H2),
+                                      '-r', '%g' % fps, '-i', '-', '-c:v', 'libx264', '-crf', '14', '-preset', 'slow', '-pix_fmt', 'yuv420p',
+                                      '-movflags', '+faststart', str(out / (name + '.mp4'))], stdin=subprocess.PIPE)
+                for f in frames:
+                    if (W2, H2) != (w, h):
+                        g = Image.new('RGB', (W2, H2)); g.paste(f, (0, 0)); f = g
+                    p.stdin.write(f.tobytes())
+                p.stdin.close(); p.wait()
+        print('scene %s: %dx%d prescaled, %d frames -> %s.png%s' % (name, w, h, len(frames), name,
+              ', .apng, .gif, .mp4' if len(frames) > 1 else ''))
+        return
     frames[0].save(out / (name + '.png'))
     big = [f.resize((w * scale, h * scale), Image.NEAREST) for f in frames]
     big[0].save(out / ('%s@%dx.png' % (name, scale)))

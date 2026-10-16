@@ -9,7 +9,7 @@ art you make with them is your own.
 ```
 python3 tools/styles.py                      list the presets
 python3 tools/styles.py neon-noir            one preset in full
-python3 tools/styles.py neon-noir out@5x.png --scale 5     check a delivered frame
+pixelate check out@5x.png --style neon-noir --scale 5      the gate on a delivered frame
 python3 tools/stats.py frame.png --style neon-noir         the numbers behind the check
 python3 tools/palette.py styles -o ramps     every ramp style as a swatch sheet
 ```
@@ -199,10 +199,21 @@ Masks are 1x bool arrays or slot names (`'hero'` is the ramp hero0..heroN, `'far
 
 ## Checks before delivery
 
-1. **The pixel layer.** Render the frame before any light. `stats.palette_subset(img, PAL)` must report no off-palette pixels.
-2. **Native styles** (`none` and `native`). `stats.native_cells(delivered, scale)` must be 0.
-3. **Screen styles.** The light must come only from the `post.py` calls the scene lists.
-4. **Budget.** `styles.check(frame_1x, style, big=delivered)` runs steps 1-2 and the budget together.
+The gate runs all of these in one command, on the delivered frame:
+
+```
+pixelate check FRAME.png --style S --scale N [--pal palette.json] [--pre prelight.png]
+               [--actor actor_mask.png] [--used op,op] [--intent mask.png]
+```
+
+1. **Budget.** Every rule of the style's numeric budget (the table above).
+2. **Native cells** (`none` and `native` styles). Every N x N cell is flat (`stats.native_cells`).
+3. **Post ops.** Each op in `--used` is one the style allows. Screen styles take their light only from the `post.py` calls the scene lists.
+4. **The pixel layer.** `--pre` is the frame before any light (the frame itself for pixel-only styles); with `--pal` it must have no off-palette pixels (`stats.palette_subset`).
+5. **Readability.** The actor (`--actor`) stands apart from the 8 px ring around it (`stats.readability`).
+6. **Craft.** Orphans, jaggies, stripes, doubled outlines, pillow shading and clusters stay inside the style's `craftcheck.CRAFT` limits; `--intent` marks sparkles and flecks placed on purpose.
+
+Every line prints PASS, FAIL or SKIP with the value and the limit. Redraw until every line passes, then show one still for go/no-go. Engine scenes also run `pixelate check SCENE`. `styles.check(frame_1x, style, big=delivered)` is the same budget check from Python.
 
 ## Export
 

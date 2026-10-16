@@ -14,7 +14,7 @@ Outputs:
 
 ## Workflow
 
-1. **Settle the brief.** Ask only what you can't infer, then write the full brief (the eleven sections in `references/craft.md`, at the density of `examples/lantern-isle/BRIEF.md`) and show it before building. Pick a style from `guides/styles.md`.
+1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/craft.md`, at the density of `examples/lantern-isle/BRIEF.md`) and show it. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief.
    - **The subject.**
    - **Phases:** 1 to 6, each with a mood, a palette idea, signature elements and its music.
    - **The canvas:**
@@ -24,34 +24,46 @@ Outputs:
      - Smaller canvases mean chunkier pixels and less to draw.
    - **The outputs.**
 
-   For a still image, use a single phase and export a PNG with `pixelate video SCENE --png 0 out.png --scale 4`.
-
 2. **Start:** `pixelate new scene my-scene` gives a 2-phase, 240x135 starter that passes every check. Read `references/scene-contract.md` once: files, `SCENE` fields, hooks, engine API.
 
 3. **Palettes** (`palettes.js`): one per phase, with the same slot names. See `guides/palettes.md` and `references/craft.md`.
 
-4. **Sprites** (`sprites.js`, `def(name, key, rows)`): hand-place every pixel.
-   - For organic or repeated shapes (terrain, canopies, snow overlays), write Python in `my-scene/art/*.py` with `tools/artlib.py` and run `pixelate sprites my-scene`.
+4. **Sprites** (`sprites.js`, `def(name, key, rows)`): draw every object from scratch and hand-place every pixel.
+   - For organic or repeated shapes (terrain, canopies, snow overlays), write Python in `my-scene/art/*.py` with the primitives in `tools/` (`guides/toolkit.md`) and run `pixelate sprites my-scene`.
+   - Finished objects in `references/assets/` (boats, cats, props, particle sprites) are examples to read, never call. Anything the kit lacks is a slot map you write.
 
-5. **Compose and animate** (`scene.js` hooks), following the loop rules below:
+5. **Compose one still** (`scene.js` hooks), with nothing moving yet:
    - **Background:** `bands()` gradients.
    - **Objects:** `blit` into `OB`.
    - **Reflections and light on water:** `sceneAfterObjects`.
+
+6. **Gate it, then show it.**
+   ```
+   pixelate video my-scene --png 0 still.png --scale 4
+   pixelate check still.png --style lofi --scale 4 [--pal P] [--actor MASK]
+   pixelate check my-scene
+   ```
+   Redraw until every line passes, then show the user that one still for go/no-go. For a still-only job, this is the delivery.
+
+7. **Confirm the animation plan.** Show the loop length (`cycle`, `grand`, ticks), what moves, and each rate and frame count, every period dividing the loop (the brief's motion table, updated). Animate only after the user says OK.
+
+8. **Animate**, following the loop rules below:
    - **Flicker:** `sceneDynamic`.
    - **Weather:** `sceneParticles`.
+   - **Moving objects:** frames picked with slow clocks in `sceneObjects`.
 
-6. **Music** (`music.js`): see `guides/music.md`. Leave out `music.js` for a silent loop.
+9. **Music** (`music.js`): see `guides/music.md`. Leave out `music.js` for a silent loop.
 
-7. **Look and check, every iteration:**
-   ```
-   pixelate shot my-scene 5 30 55 80 --grid --zoom 3     # then view the PNGs
-   pixelate check my-scene --page
-   ```
-   - View every phase and a frame mid-transition, at zoom.
-   - Fix what looks off before adding more.
-   - `check` must say ALL OK.
+10. **Look and check, every iteration:**
+    ```
+    pixelate shot my-scene 5 30 55 80 --grid --zoom 3     # then view the PNGs
+    pixelate check my-scene --page
+    ```
+    - View every phase and a frame mid-transition, at zoom.
+    - Fix what looks off before adding more.
+    - `check` must say ALL OK, and frames from each phase pass the frame gate like the still did.
 
-8. **Deliver:**
+11. **Deliver:**
    ```
    pixelate build my-scene --release                       # my-scene/dist/<title>.html
    pixelate audio my-scene my-scene/loop.wav               # one seamless loop of the music
@@ -105,14 +117,16 @@ module's `export()` and writes `sprites.js`. Two rules:
   `TICKS` (frames x hold), or `TICKS / 2` on the 15 Hz particle clock; `anim.check_periods`
   says which do not.
 
-`tools/particles.py` bakes lofi weather this way: `petals`, `leaves`, `snow`, `drizzle` and
-`fireflies` each return a Field with hand-keyed drawings and per-particle tables whose periods
-divide `TICKS / 2`, so the particles loop exactly. `Field.export(NAME)` returns the drawings, the
-table and the engine helper `drawBaked`; `Field.grid(k2, W, H)` previews a step in Python.
+`references/assets/particles.py` shows how lofi weather is baked this way (read it, never call it):
+a Field holds hand-keyed drawings and per-particle tables whose periods divide `TICKS / 2`, so the
+particles loop exactly; `export(NAME)` returns the drawings, the table and the engine helper
+`drawBaked`, and `grid(k2, W, H)` previews a step in Python. Write your own field for the scene's
+weather, at its size and in its palette.
 
 ```python
 # my-scene/art/art_kit.py
-import anim, canvas, sprite, particles
+import anim, canvas, sprite
+from art_weather import drizzle                     # your own Field, written like references/assets/particles.py
 from artlib import Grid
 
 TICKS = 96 * 2 * 30                                  # cycle * grand * 30, as in config.js

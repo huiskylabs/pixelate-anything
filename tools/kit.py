@@ -24,7 +24,9 @@ import route
 SKIP = {'cli', 'mcp_server', 'setup_agents', 'kit'}          # the command line itself, not drawing code
 CONDITIONS = {'lofi': 'lofi style only', 'iso': '2:1 iso projection', 'topdown': '3/4 top-down projection',
               'side': 'side projection', 'soft': 'styles with a light layer', 'strict': 'styles without a light layer',
-              '!post:shaft': 'styles without the soft shaft (pastel-cell, the pixel-only styles)'}
+              '!post:shaft': 'styles without the soft shaft (pastel-cell, the pixel-only styles)',
+              '!iso': 'side and 3/4 top-down projections', 'nodither': 'styles without dither',
+              'bayer': 'styles with Bayer dither'}
 
 # ---------------------------------------------------------------- source
 def _path(mod):
@@ -187,7 +189,8 @@ def query(q='', style=None):
     parts = [x for x in (t, module(q) if _path(q) and not (t and style) else None) if x]   # with --style, a topic wins
     if parts:
         return '\n'.join(parts)
-    return 'nothing for %r. Topics and modules:\n\n%s' % (q, listing())
+    return 'no topic or module for %r; topics: %s. `pixelate tools` lists the modules too.\n' % (
+        q, ', '.join(label for _, label, _ in route.TOPIC_TOOLS))
 
 def main(a):
     if a and a[0] in ('-h', '--help'):
@@ -197,7 +200,7 @@ def main(a):
         i = a.index('--style'); style = a[i + 1]; del a[i:i + 2]
     out = query(' '.join(a), style)
     print(out, end='')
-    return 1 if out.startswith('nothing for') else 0
+    return 1 if out.startswith('no topic or module for') else 0
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

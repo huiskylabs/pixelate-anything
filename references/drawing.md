@@ -22,12 +22,17 @@ to read, never call (`references/assets/README.md`). Anything missing is a slot 
 ## Rules for every mode
 
 - **Palette first, and keep it strict.**
-  - Each material gets 3 to 5 hue-shifted tones: shadows cooler, lights warmer.
+  - Each material gets 3 to 5 hue-shifted tones: shadows cooler, lights warmer. Exceptions: `pastel-cell` keeps every hue inside one window (245-350), `tactics` carries the stage on five near-neutral greys, `sticker-iso` uses flat paints at the gamut edge.
   - The same slot names keep the same meaning everywhere.
   - Use no colour outside the palette, and no blur, anti-aliasing or alpha blending.
 - **Draw it yourself, in code.** Never paste or trace an image, and never call a finished object from `references/assets/`; read it, then draw your own at the scene's size and style.
 - **Hand-place and keep it asymmetric.** Pick positions yourself; uniform scatter and symmetry read as generated.
-- **Outlines and one light direction.** Every form has a dark outline from its own ramp, a lit side and a shadow side.
+- **Outlines and one light direction.** Every form has a dark outline from its own ramp, a lit side and a shadow side. The style's `outline` (`pixelate style NAME`) overrides this:
+  - No outline: `contre-jour`, `native-glow`, `neon-noir` (actors take a 1 px warm rim on the lamp side instead).
+  - Actors and one interactive prop only: `pastel-cell` (dark violet, never black); scenery is a rimmed silhouette.
+  - Black: `sticker-iso` (full #000 silhouettes) and `tactics` (black outlines with white spec strokes).
+  - Tinted near-blacks or a shared dark: `hd-overworld` per class, `cosy-lightmap` the shared plum; `illustrated` is selective (lit side in the material, shadow side near-black).
+  - No lit and shadow side: `sticker-iso` has no light and no shadow (box faces keep a fixed order, top lightest, left mid, right darker); the near plane of `contre-jour` is a flat silhouette that never takes light.
 - **Look at every preview at zoom.** The usual failures are mush, noise, stripes, a subject too small, and a recolour sold as a variation. Fix them before adding more.
 
 The tools handle the mechanical parts (colour maths, exact loops, exports). The quality comes from
@@ -50,14 +55,17 @@ in one of three regimes, one per scene (`guides/styles.md` has the concepts; `pi
   composited between depth planes so near silhouettes stay flat dark (`post.Stack`).
 
 Whatever the regime, light is code: a pure function of masks, positions, t and a seed, never
-painted in an editor. Mixing regimes in one frame makes it read as a filter. Vignette, grain,
+painted in an editor. Angles are screen degrees with y down: 0 points right, 90 straight down, 270
+straight up (`Post.shaft`, `shapes.ray`, `light.Light.cone`). A moving occluder in `Post.lightmap`
+(a door leaf, a figure in the doorway) is a new mask each frame and is traced again; keep it to a few
+held drawings so each is traced once per light. Mixing regimes in one frame makes it read as a filter. Vignette, grain,
 scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Palette
 
 - **One strict palette per phase.** Write the palette before drawing: the palette *is* the mood. Roughly 40 to 80 slots for a full scene.
 - **3 to 5 tones per material.** Shift the hue across the ramp: shadows move toward blue or purple and get more saturated, lights move toward yellow or orange and get less saturated. A ramp that only changes brightness looks dead. `palette.ramp(base, steps, style=...)` builds the measured ramp shapes (`lofi`, `rise`, `arch`, `flat`, `living`, `lit`, `plum`, `window`, `toy`, `arcade`).
-- **No pure black or white.** The darkest dark carries the scene's hue (a night sea's black is deep teal). Styles that measure a true black (`neon-noir`) say so.
+- **No pure black or white.** The darkest dark carries the scene's hue (a night sea's black is deep teal). Styles that measure a true black say so in their budget: `neon-noir` (at least 15% exact black), `sticker-iso` (8-30% exact black, and #fff in the palette), `cosy-lightmap` (the #000 void), `native-glow` (black in the void only, at most 4%), and `tactics` draws its outlines in black.
 - **Ration chroma and highlights.** The top chroma belongs to the actor or the one interactive prop; the brightest values sit at the focal point. Check the numbers with `styles.check` (for example, contre-jour keeps L>0.75 under 0.3% of the frame).
 - **Slots keep their role across phases.** `F2` is "roof, mid tone" in every season, so one roof sprite works everywhere and the phase dissolve stays coherent.
 - **Use dynamic slots for flicker.** In `sceneDynamic`, remap warm slots with `flick()`, held for 3 to 5 steps at 10 fps. The steadiness is what makes flame read as flame.
@@ -71,7 +79,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Drawing objects
 
-- **Outline and lit side.** Choose one light source and keep it everywhere. Outline with the darkest tone of the material, not with black (`Canvas.outline` modes: own, part, selective, slot). Put lit edges on the side facing the light. Styles differ: scenery in `pastel-cell` has no outline and only the actor does; `contre-jour` figures have none at all.
+- **Outline and lit side.** Choose one light source and keep it everywhere. Outline with the darkest tone of the material, not with black (`Canvas.outline` modes: own, part, selective, slot). Put lit edges on the side facing the light. Styles differ (see the list under Rules for every mode): scenery in `pastel-cell` has no outline and only the actor does; `contre-jour` figures have none at all; `sticker-iso` and `tactics` outline in black.
 - **Canopies are clumps.** Draw 6 to 12 overlapping lobes, each with a lit upper rim, a mid body and a dark underside (`texture.clumps`, `veg.lobe_light`, `veg.leafmass`). Leave holes for sky. Never a ball with noise on it.
 - **Roofs are courses of shingles**, offset row by row, with the odd patched tile. Uniform tiles read as a brick wall.
 - **Materials are shaped units, never raw noise:**
@@ -128,6 +136,7 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 
 - The subject fills about 40 to 60% of the frame width, and the horizon sits about two-thirds of the way down. The subject is the focal area or group, not one figure: a tiny hero in a big world is fine when the composition (lines, light, contrast) leads the eye to them.
 - Leave calm areas (sky, water) for the eye to rest and for the title on a thumbnail.
+- In 2:1 iso, sizes are world units, not screen px: +1 x is 2 px right and 1 down, +1 y is 2 px left and 1 down, +1 z is 1 px up, so a figure H px tall is H units of z (all times `Iso(scale=)`; `iso.py` has the rest).
 - Frame with planes: a dark near plane (a tree, a monolith, a bush band) in front of a lit middle and a hazed far plane gives depth (`compose.proscenium`, `compose.stage`, `palette.haze`).
 - **Test at the delivered size and at thumbnail size.** If the subject reads as a speck at 320x180, crop in or move to a smaller canvas.
 

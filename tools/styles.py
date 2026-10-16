@@ -242,6 +242,12 @@ for _k, _v in STYLES.items():
     _v['name'] = _k
     _v.setdefault('native_cells', 0.0 if _v['res'] in ('none', 'native') else None)
 
+def ref_label(name):
+    """the neutral label a card or a brief shows for the style's reference: 'reference 01' (the measured
+    game stays in st['ref'] and guides/styles.md, never in what a user is shown), or the repo example"""
+    ref = get(name)['ref']
+    return 'reference %s' % ref[:2] if ref[:2].isdigit() else ref
+
 def get(name):
     """a copy of a preset by name, reference number ('09') or nickname ('katana')"""
     key = ALIASES.get(str(name).lower(), str(name).lower())
@@ -349,7 +355,7 @@ def card(name):
         craft = {}
     j = lambda v: ', '.join(map(str, v)) if isinstance(v, (tuple, list)) else str(v)
     w, h = st['size']
-    L = ['# %s  (learned from %s)' % (n, st['ref']), '', st['what'] + '.']
+    L = ['# %s  (%s)' % (n, ref_label(n)), '', st['what'] + '.']
     if r.get('pick_if'):
         L.append('Pick it for: %s.' % r['pick_if'])
     L.append('Projection: %s.%s' % (r.get('projection', '-'),
@@ -411,7 +417,7 @@ def card(name):
 
 def listing():
     """one line per style"""
-    return '\n'.join('%-14s %-26s res %-6s %dx %dx%d  %s' % (k, v['ref'], v['res'], v['scale'], v['size'][0],
+    return '\n'.join('%-14s %-24s res %-6s %dx %dx%d  %s' % (k, ref_label(k), v['res'], v['scale'], v['size'][0],
                                                             v['size'][1], v['what'][:80]) for k, v in STYLES.items())
 
 USAGE = """usage: pixelate style --list | NAME | NAME IMAGE [--scale N]

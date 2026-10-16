@@ -14,6 +14,13 @@ Projection (2:1 "pixel isometric"): +1 x is 2 px right and 1 down, +1 y is 2 px 
 as perfect 2-1 stairs because every pixel is resolved by inverse projection at its centre, with
 a depth buffer, so any arrangement of shapes occludes correctly; no sorting needed.
 
+Units, so a brief can size things: positions and sizes are world units, never screen px. At
+scale=1 a unit floor square covers 4 px^2 of screen (compose.populate's densities use this), a
+box h units tall stands h px, so a figure H px tall is H units of z, and a run of n units along
+x or y spans 2n px across and n px down. Iso(scale=k) multiplies all of it by k (k px per unit
+of z). to_screen(x, y, z) gives the screen point of any world point: project the corners of
+anything the boxes cannot draw (a bridge turned to an angle) and fill the polygon yourself.
+
 Materials are palette-ramp names: 'brick' means slots brick0 (darkest) .. brick4 (lightest).
 By default the top face uses step 3, the left (lit) face step 2 and the right (shade) face
 step 1; light comes from the upper left. A face can instead be a slot ('#hex' works too) or a

@@ -24,7 +24,8 @@ except ImportError:                     # mcp 1.x
 GUIDES = {p.stem: p for p in sorted((KIT / 'guides').glob('*.md'))}
 GUIDES.update({'brief': KIT / 'references' / 'brief.md', 'drawing': KIT / 'references' / 'drawing.md',
                'delivery': KIT / 'references' / 'delivery.md', 'craft': KIT / 'references' / 'craft.md',
-               'scene-contract': KIT / 'references' / 'scene-contract.md', 'skill': KIT / 'SKILL.md'})
+               'scene-contract': KIT / 'references' / 'scene-contract.md', 'skill': KIT / 'SKILL.md',
+               'art-director': KIT / 'references' / 'art-director.md'})
 
 INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read only what each step needs.
 1. Read the intent: one line on what the user wants but did not say (guide('brief')).
@@ -37,8 +38,10 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
    kit_tools('rain') the techniques for a subject, kit_tools('post.Post.lightmap') one signature.
    references/assets holds examples to read, never to call.
 6. check_frame and redraw until every line passes (guide('delivery')).
-7. Show one still for go/no-go.
-8. Confirm the animation plan (loop length, what moves, rates), then animate.
+7. critique_prompt(frame, brief): send the prompt it returns to a separate agent that did not draw
+   the frame, apply its fixes, check_frame again, repeat until it grades A.
+8. Show one still for go/no-go, only once it is graded A, with the last critique in one line.
+9. Confirm the animation plan (loop length, what moves, rates), then animate.
 Hard rules: pixel-art projections only (side, 3/4 top-down, 2:1 iso, oblique, military); originals
 only, no existing IP; rebuild a photo rather than convert it; every effect is done in code. Every
 track goes through check_music until it passes. Look at every preview image you get back and fix what
@@ -111,6 +114,16 @@ def check_frame(frame: str, style: str, scale: int = 1, palette: str = '', preli
     return [('PASS\n' if code == 0 else 'FAIL\n') + text, thumb(P(frame))]
 
 @server.tool()
+def critique_prompt(frame: str, brief: str, style: str = '') -> str:
+    """The prompt for an independent art director, as `pixelate critique`: the rubric
+    (references/art-director.md), the brief's request, section 0 and signature elements, and the paths
+    of the frame, a 480 px nearest-neighbour thumbnail and its greyscale (written next to the frame) and
+    the bar image. Send it to a separate agent or model that did not draw the frame; apply the fixes it
+    returns, check_frame again, and repeat until it grades A."""
+    import critique
+    return critique.prompt(P(frame, write=True), P(brief), style)
+
+@server.tool()
 def check_music(track: str, style: str = 'any', use: str = 'loop', bpm: float = 0, key: str = '') -> list:
     """The music gate for a rendered track (any code made it): clipping, loudness, clicks, stereo,
     silence, loop seam, band balance, tilt, dynamics, steady tempo, clear key, variety, a hook that
@@ -150,8 +163,9 @@ def kit_tools(query: str = '', style: str = '') -> str:
 @server.tool()
 def guide(name: str) -> str:
     """Read a guide. names: rebuild, eras, pixelate, palettes, assets, scenes, music, styles, toolkit, brief,
-    drawing, delivery, craft (an index of the last three), scene-contract, skill. Read the guide for the
-    task's mode first, 'brief' to write the brief, 'drawing' before drawing, 'delivery' for the gate."""
+    drawing, delivery, craft (an index of the last three), scene-contract, skill, art-director. Read the guide
+    for the task's mode first, 'brief' to write the brief, 'drawing' before drawing, 'delivery' for the gate,
+    'art-director' only if you are the art director."""
     if name not in GUIDES:
         return 'guides: ' + ', '.join(GUIDES)
     return GUIDES[name].read_text()

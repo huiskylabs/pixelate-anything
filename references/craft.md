@@ -7,5 +7,5 @@ This page is an index. The craft rules now live in three files, one per stage of
   first" and "From one line to a brief" are here.
 - [drawing.md](drawing.md): how to draw: light, palette, gradients, objects, characters, phases,
   motion, composition.
-- [delivery.md](delivery.md): the gate (`pixelate check FRAME.png --style S --scale N`), the still
-  for go/no-go, the animation plan, export, and the failure checklist.
+- [delivery.md](delivery.md): the gate (`pixelate check FRAME.png --style S --scale N`), the art
+  director (`pixelate critique`, rubric in [art-director.md](art-director.md)), the still for go/no-go, the animation plan, export, and the failure checklist.

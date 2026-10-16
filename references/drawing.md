@@ -2,7 +2,7 @@
 
 Step 5 of every job: draw everything from scratch in code. These rules apply to every mode:
 scenes, sprites, tiles, and finishing a pixelated image. Read the section for what you are drawing.
-The brief comes first ([brief.md](brief.md)); the gate, the still and the animation plan come after
+The brief comes first ([brief.md](brief.md)); the gate, the art director, the still and the animation plan come after
 ([delivery.md](delivery.md)).
 
 These are the rules that separate a scene a pixel artist would sign from generic

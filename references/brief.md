@@ -1,8 +1,8 @@
 # Brief: from one line to an approved brief
 
 Steps 1 to 4 of every job: read the intent, route as a hint, expand into a brief, self-review it,
-and get the user's OK. Drawing rules are in [drawing.md](drawing.md); the gate, the still and the
-animation plan are in [delivery.md](delivery.md).
+and get the user's OK. Drawing rules are in [drawing.md](drawing.md); the gate, the art director, the still and
+the animation plan are in [delivery.md](delivery.md).
 
 ## Write the brief first
 

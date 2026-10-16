@@ -271,7 +271,7 @@ def build_static():
                 h = 6 + int(hash2(k, 4, 9) * 7)
                 s.solid(cyc_house(x, yb, 8 * lvl, w, d, h, k))
                 if hash2(k, 9, 9) < 0.28:
-                    s.sprite(BLOOM_G, x + 0.4, yb + d + 0.6, 8 * lvl)
+                    s.sprite(BLOOM_G, x + 0.4, yb + d + 0.6, 8 * lvl, upright=False)
             elif gap == 0 and hash2(k, 10, 9) < 0.5 and lvl < 13:
                 s.solid(stair(x + 1, lvl))
             x += w + gap; k += 1
@@ -281,9 +281,9 @@ def build_static():
                 Arch(wx - 1, wy + 3.2, wz, 2.0, 2.5, 4.5, mat='door')))
     for ti, pools in POOLS.items():
         for cx, cy, rx, ry, kid in pools:
-            s.sprite(UMB_G, cx + rx + 1.2, cy - ry + 0.5, 8 * ti)
+            s.sprite(UMB_G, cx + rx + 1.2, cy - ry + 0.5, 8 * ti, upright=False)
             if hash2(int(cx), ti, 11) < 0.5:
-                s.sprite(PALM_G, cx - rx - 1.5, cy - 0.5, 8 * ti)
+                s.sprite(PALM_G, cx - rx - 1.5, cy - 0.5, 8 * ti, upright=False)
     return s
 
 # ---------------------------------------------------------------- moving things
@@ -302,7 +302,7 @@ def draw_windmill(s, t):
                     qx, qy = px + w * math.cos(a + math.pi / 2), py + w * math.sin(a + math.pi / 2)
                     g.set(int(round(qx)), int(round(qy)), 'sail')
     g.set(18, 18, 'wood0')
-    s.sprite(g, wx + 3.4, wy + 3.4, wz + 18, anchor=(18, 18))
+    s.sprite(g, wx + 3.4, wy + 3.4, wz + 18, anchor=(18, 18), upright=False)
 
 def draw_boat(s, t):
     x = 60 + t * 95 / FRAMES                                        # enters left, leaves past the bottom edge
@@ -320,7 +320,7 @@ def draw_people(s, t):
         y = front_y(x, lvl) - 1.5
         g = artlib.Grid(1, 3)
         g.set(0, 0, 'cream1'); g.set(0, 1, ['shirt3', 'bloom3', 'dome3', 'palm3', 'clay3', 'sea3'][i % 6]); g.set(0, 2, 'ol')
-        s.sprite(g, x, y, 8 * lvl, anchor=(0, 2))
+        s.sprite(g, x, y, 8 * lvl, anchor=(0, 2), upright=False)
 
 # ---------------------------------------------------------------- sky, timeline, frames
 def sky_slots():

@@ -35,7 +35,12 @@ def _hash(a, b, s=0):
     h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF
     return ((h ^ (h >> 16)) & 0xFFFF) / 65536.0
 
-def _frame(frame, w, h):
+def _frame(frame, w, h, mask=None):
+    """(W, H) of the result: frame (a canvas or (W, H)), else the mask's own shape, else the
+    pattern's far corner"""
+    if frame is None and mask is not None:
+        H, W = np.asarray(mask).shape[:2]
+        return int(W), int(H)
     if frame is None:
         return int(math.ceil(w)), int(math.ceil(h))
     if hasattr(frame, 'W'):
@@ -119,7 +124,7 @@ def ashlar(x0, y0, x1, y1, h=9, w=(10, 16), seed=0, bond='running', wobble=1, le
     w=(16, 16)), 'random' lets them fall where they fall. wobble moves each bed joint up or down
     by up to that many px in runs of 4-9 px; lean tilts a share of the head joints by 1 px, so
     blocks read as cut by hand (08). mask clips the result."""
-    W, H = _frame(frame, x1, y1)
+    W, H = _frame(frame, x1, y1, mask)
     yy, xx = np.mgrid[0:H, 0:W]
     raw = np.full((H, W), -1, np.int64)
     hs = []                                          # course tops
@@ -190,7 +195,7 @@ def polar_blocks(cx, cy, bands, block_len=12, jitter=0.5, rot=0.0, a0=None, a1=N
     ring. Each band is its own group, so the breaks between rings can be structural."""
     rmax = max(b[1] for b in bands)
     rot = rot % (2 * math.pi)                         # a whole turn is exactly no turn (loops)
-    W, H = _frame(frame, cx + rmax + 1, cy + rmax + 1)
+    W, H = _frame(frame, cx + rmax + 1, cy + rmax + 1, mask)
     yy, xx = np.mgrid[0:H, 0:W] + 0.5
     r = np.hypot(xx - cx, yy - cy)
     a = np.arctan2(yy - cy, xx - cx)
@@ -291,7 +296,7 @@ def round_corners(ids, r=2.5):
 
 def grid(x0, y0, x1, y1, cell=(16, 16), phase=(0, 0), frame=None, mask=None, group=0):
     """a regular grid of cells (paver courses, tile seams every 16 px)"""
-    W, H = _frame(frame, x1, y1)
+    W, H = _frame(frame, x1, y1, mask)
     yy, xx = np.mgrid[0:H, 0:W]
     sub = (yy >= y0) & (yy < y1) & (xx >= x0) & (xx < x1)
     if mask is not None:

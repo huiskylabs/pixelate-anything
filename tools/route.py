@@ -185,10 +185,11 @@ ROUTE = {
         rules=['Paint at the gamut edge, black silhouettes, no light and no shadows.',
                'Density is the subject: a readable little story in every 100 px window.',
                'Trees are leaf-glyph canopies on black; people are 3.3-head iso figures.'],
-        tools=['iso boxes (iso.Iso)', 'flat paints at the gamut edge (palette.ramp(style="flat"))',
+        tools=['iso boxes (iso.Iso)', 'the black silhouette round every object in a full-bleed scene (iso.Iso.render(silhouette=True))',
+               'flat paints at the gamut edge (palette.ramp(style="flat"))',
                'leaf-glyph canopies on black (veg.leaf_glyphs)',
                'people and cars as your own slot maps (study references/assets/figures.py iso_person and props.py car, pole, tyre)',
-               'crowds and traffic on lanes (compose.populate, compose.strips, anim.lane_offset)'],
+               'your own cars and people placed on lanes and plazas: compose only lays them out, your car= and person= functions draw them (compose.populate, compose.strips, anim.lane_offset)'],
         never=['light of any kind', 'cast shadows', 'empty areas']),
     'illustrated': dict(
         pick_if='an illustration-grade sky world: floating islands, carved stone, a monument, painterly depth '
@@ -260,7 +261,9 @@ ROUTE = {
                  (2, ['mysterious', 'forest', 'moon', 'moonlight', 'night', 'standing stone', 'eerie', 'solemn',
                       '神秘', '森林', '月', '夜', '立石', '肃穆'])],
         rules=['One navy covers most of the frame; at least 55% of pixels below L .25, highlights rare.',
-               'Near planes are flat near-black silhouettes with leafy broken edges; they never take light.',
+               'Near planes are flat near-black silhouettes with leafy broken edges; they never take light. Keep them at least '
+               '0.06 darker in OkLab L than the sky or fog right behind them (sky navy about L .24-.28, the near plane L .16 '
+               'or lower), or the silhouette vanishes into the sky.',
                'All softness is a screen-resolution light layer composited between depth planes (post.Stack).',
                'Figures are slim, 20-30 px, 1 px legs, no outline; leaf-light flecks take their nearest light\'s colour.'],
         tools=['a bridge ramp between two hues, hazed per plane (palette.ramp_between, palette.haze_levels)',
@@ -404,7 +407,7 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
     (['sea', 'ocean', 'lake', 'river', 'stream', 'harbour', 'harbor', 'port', 'coast', 'beach', 'waterfall', 'pond',
       'canal', 'boat', 'ship', 'dock', 'pier', '海', '湖', '河', '溪', '港', '海岸', '沙滩', '瀑布', '池塘', '运河', '船',
       '码头', 'island', 'islands', 'islet', 'isle', '岛', '小岛', '海岛'], 'water', [
-        'sea in hard bands by distance from land (water.depth_bands)',
+        'sea in hard bands by distance from land, boats and fenders passed as floating= so they make no islands (water.depth_bands)',
         'dashed foam rings where things stand in water (water.foam_rings)',
         'reflections of hulls, posts and lights only (water.reflect)', 'still basins and falls (water.pool, water.waterfall)',
         ('a translucent glaze over the shallows (post.over)', 'post:over'),
@@ -440,6 +443,7 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         ("boxes and gables seen from above with hard cast shadows (iso.Iso(camera='topdown'), iso.Iso.cast_shadows)",
          'topdown'),
         ('iso boxes (iso.Iso.box)', 'iso'),
+        ('planks, bricks and shingles laid along an iso wall face, courses on the 2:1 slope (texture.iso_face)', 'iso'),
         ('glass faces as diagonal streaks (study references/assets/props.py glass_streak)', 'iso'),
         'lanterns, pipes, drains and barrels as slot maps with a lit edge (study references/assets/props.py lantern, '
         'pipe, drain, barrel)']),
@@ -481,13 +485,13 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         'lamps and lanterns as slot maps in warm slots (study references/assets/props.py lantern)',
         'flicker on held steps, passing t % T so the seam holds (light.flicker), and lamp-side rims (light.rim)',
         'marquee and signal lights (anim.chase)',
-        ('multiplied pools, walls blocking light with occlude= and per-light flicker in the light tuple (Post.lightmap)',
+        ('multiplied pools, walls blocking light with occlude= (occlude_soft=2 so thin strips only dim it) and per-light flicker in the light tuple (Post.lightmap)',
          'post:lightmap'),
         ('shaped pools (Post.light)', 'post:light'), ('glow from an emitter mask (Post.glow)', 'post:glow'),
         ('pools drawn in palette steps (light.Light.point, light.Light.apply)', 'strict')]),
     (['crowd', 'people', 'busy', 'traffic', 'market', 'festival', 'car', 'cars', '人群', '热闹', '车', '集市', '夜市',
       '庙会'], 'crowds', [
-        ('traffic and crowds placed on lanes (compose.populate)', 'iso'),
+        ('traffic and crowds placed on lanes, drawn by your own car= and person= functions (compose.populate, compose.vignette)', 'iso'),
         ('iso people and cars as your own slot maps (study references/assets/figures.py iso_person and props.py car)',
          'iso'),
         'density per window (compose.check_density)']),
@@ -529,7 +533,7 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         'carried lights move with their bearer and flicker on the loop (light.flicker passing t % T)',
         ('a pool per carried lantern on the light layer (post.Post.light)', 'post:light'),
         ('a pool per carried lantern in palette steps (light.Light.point, light.Light.apply)', 'strict'),
-        ('walkers on lanes in world units (anim.lane_offset, compose.populate walks)', 'iso')]),
+        ('walkers on lanes in world units, your own figure passed as person= (anim.lane_offset, compose.populate walks)', 'iso')]),
     (['steam', 'steaming', 'vapour', 'vapor', 'smoke', 'chimney', 'kettle', 'hot spring', 'breath', '蒸汽', '热气',
       '水汽', '冒烟', '炊烟', '温泉'], 'steam and smoke', [
         'steam and smoke as hand-shaped plume sprites with a few drawings that rise and thin, never dotted squares '
@@ -750,6 +754,7 @@ WEATHER_WORDS = [(['storm', 'stormy', 'thunderstorm', 'thunder', 'lightning', 'g
                  (['fog', 'foggy', 'mist', 'misty', 'haze', '雾', '霭'], 'fog'),
                  (['clear', 'cloudless', 'starry', '晴朗', '星空'], 'clear')]
 PRECIP = ('rain', 'storm', 'snow')
+ASKED_ONLY = PRECIP + ('fog',)     # weather a default never adds once the request names its time
 BUCKET_LIGHT = {'night': "the scene's own lights (windows, lamps, the subject) are the only light",
                 'dusk': 'a low sun or its afterglow, the first lamps lit',
                 'dawn': 'low, cool early light',
@@ -782,7 +787,8 @@ def _no_era(t):
 def time_weather(request, style):
     """-> (text, stated): the time and weather line. The request's own words come first (night, storm,
     snow, noon, indoors, a street); the style's default fills only what the request leaves open, and
-    never adds rain, snow or a storm the request did not ask for."""
+    never adds rain, snow, a storm or fog the request did not ask for once it names a time (a
+    midnight observatory is a clear night unless the request says mist)."""
     t = _no_era(' ' + request.lower() + ' ')
     st = styles.get(style)['name']
     d_time, d_bucket, d_weather, d_light = TIME_DEFAULT.get(st, ('late afternoon', 'day', 'clear', 'a low warm sun'))
@@ -797,7 +803,7 @@ def time_weather(request, style):
         time, bucket, weather, light = d_time, d_bucket, d_weather, d_light
     else:
         time, bucket = (when[0], when[1]) if when else (d_time, d_bucket)
-        weather = sky[0] if sky else ('' if d_weather in PRECIP else d_weather)
+        weather = sky[0] if sky else ('' if d_weather.split(':')[0] in ASKED_ONLY else d_weather)
         light = d_light if bucket == d_bucket else BUCKET_LIGHT[bucket]
     inside = _hits(t, INDOOR)
     place = _hits(t, PLACES)
@@ -1123,16 +1129,28 @@ LIGHT_OPS = ('light', 'lightmap', 'glow', 'shaft', 'flare', 'streak', 'band', 't
 NEGATED = (r"\b(?:no|not|never|banned|bans|without|instead|avoid|rather than|fallback|forbidden|nor|don't|do not|"
            r"isn't|is not|unlike)\b")
 
+ALLOW_LINE = re.compile(r'^\s*[-*]\s*Gate override:\s*allow\s+(.+?)\s*$', re.M | re.I)
+REASON = re.compile(r'\([^()]*[A-Za-z\u4e00-\u9fff][^()]*\)\s*\.?\s*$')
+
 def _banned_ops(text, find):
     """a light op the brief's style does not allow (`Post.shaft` in pastel-cell, any Post op in a
     no-light-layer style), unless a line declares it as a deviation or override. Clauses that say
-    no, never, banned or instead are skipped, and so is the Never section."""
+    no, never, banned or instead are skipped, and so is the Never section. The override form is
+    `- Gate override: allow Post.shaft (the reason)`: one or more ops after `allow`, the reason in
+    brackets (an allow line without one is a problem)."""
     style = _style_of(text)
     if not style:
         return []
     never = find('Never') or ''
     body = text.replace(never, '') if never else text
-    declared = ' '.join(x for x in text.splitlines() if re.search(r'deviat|override|exception', x, re.I))
+    probs, unreasoned = [], set()
+    for m in ALLOW_LINE.finditer(text):
+        if not REASON.search(m.group(1)):
+            unreasoned.add(m.group(0).strip())
+            probs.append('`Gate override: allow %s` has no reason: write it as `- Gate override: allow Post.OP '
+                         '(the reason)`' % m.group(1).strip())
+    declared = ' '.join(x for x in text.splitlines()
+                        if re.search(r'deviat|override|exception', x, re.I) and x.strip() not in unreasoned)
     used = []
     for line in body.splitlines():
         for clause in re.split(r';|\.\s', line):
@@ -1146,12 +1164,13 @@ def _banned_ops(text, find):
     bad = [op for op in used if not styles.allows(style, op)
            and not re.search(r'\b%s\b' % re.escape(op.split(':')[0]), declared)]
     if not bad:
-        return []
+        return probs
     st = styles.get(style)
-    return ['uses %s, which `%s` does not allow (%s): use an allowed op, or declare it in section 0 as a deviation '
-            'with the reason' % (', '.join('`Post.%s`' % op for op in bad), style,
-                                 ('allowed: ' + ', '.join(st['allowed_post'])) if st['allowed_post'] and st['res'] != 'none'
-                                 else 'no light layer: light is palette steps')]
+    return probs + ['uses %s, which `%s` does not allow (%s): use an allowed op, or add `- Gate override: allow '
+                    'Post.%s (the reason)` (or declare it in section 0 as a deviation with the reason)' % (
+                        ', '.join('`Post.%s`' % op for op in bad), style,
+                        ('allowed: ' + ', '.join(st['allowed_post'])) if st['allowed_post'] and st['res'] != 'none'
+                        else 'no light layer: light is palette steps', bad[0].split(':')[0])]
 
 def _canvas_mismatch(find):
     """the scene's canvas against Technical's native size, and native x scale against the delivered size"""
@@ -1281,7 +1300,8 @@ def size_of(text):
 def delivery(style, size=None, scale=None, era=None):
     """-> (w, h, scale, W, H): the native canvas, the whole scale and the delivered picture. size is the
     delivered (W, H): with a scale the canvas is size / scale; without one the scale is the whole divisor
-    of both sides that puts the native height nearest the style's own (ties: nearest the style's scale).
+    of both sides, at least 2, that puts the native height nearest the style's own (ties: nearest the
+    style's scale), so a pixel-art delivery never lands at 1x (sticker-iso at 1280x720 is 640x360 at 2x).
     An era keeps its screen and takes the largest scale that fits (the rest is border)."""
     import math
     st = styles.get(style)
@@ -1299,8 +1319,11 @@ def delivery(style, size=None, scale=None, era=None):
         if W % scale or H % scale:
             raise SystemExit('%dx%d is not a whole multiple of %d' % (W, H, scale))
         return W // scale, H // scale, scale, W, H
-    s = min((k for k in range(1, min(W, H) + 1) if W % k == 0 and H % k == 0),
-            key=lambda k: (round(abs(math.log(H / k / h0)), 6), abs(math.log(k / st['scale']))))
+    ks = [k for k in range(2, min(W, H) + 1) if W % k == 0 and H % k == 0]
+    if not ks:                                       # never 1x: the pixel grid has to show
+        raise SystemExit('%dx%d has no whole scale of 2 or more; pick a size whose sides share a factor '
+                         '(e.g. %dx%d) or pass --scale' % (W, H, W - W % 2, H - H % 2))
+    s = min(ks, key=lambda k: (round(abs(math.log(H / k / h0)), 6), abs(math.log(k / st['scale']))))
     return W // s, H // s, s, W, H
 
 def _figure_lines(st, h, scale, framed=None):
@@ -1687,6 +1710,7 @@ BRIEF_CASES = [
     ('A Game Boy style lighthouse on a stormy night. Four shades of green, the beam sweeping over the waves.',
      (1920, 1080), None, ['--style lofi --era gameboy --scale 7', 'replace the style\'s value budget', 'shapes.ray']),
     ('A busy canal market at noon in isometric.', (1920, 1080), 3, ['Canvas 640x360', 'about 20-22 px']),
+    ('A busy canal market at noon in isometric.', (1280, 720), None, ['Canvas 640x360', '2x nearest to 1280x720']),
 ]
 
 # (request, gaps topic, text its default must hold, text it must not hold, stated must be empty): defaults
@@ -1698,7 +1722,8 @@ GAP_CASES = [
      ['indoors', 'rain'], False),
     ('下雪的夜里，一家小面馆，从上往下看。', 'time and weather', ['night', 'snow'], ['indoors', 'rain'], False),
     ('Midnight on a mountain top. Light pours up out of a cracked-open observatory.', 'time and weather',
-     ['midnight'], ['rain'], False),
+     ['midnight'], ['rain', 'fog'], False),
+    ('a misty midnight forest ritual', 'time and weather', ['midnight', 'fog'], [], False),
     ('a cosy coffee shop interior in the morning', 'time and weather', ['indoors', 'morning'], [], False),
     ('a cosy farm at noon', 'time and weather', ['noon'], ['rain', 'night'], False),
     ('A Game Boy style lighthouse on a stormy night.', 'figures', ['one or two small figures'], [], True),
@@ -1718,6 +1743,9 @@ LINT_CASES = [
     ('banned', 'Style `pastel-cell`\n- Rays: Post.shaft from the gap', True),
     ('banned', 'Style `pastel-cell`\n- **light deviation**: Post.shaft for the rays\n- Rays: Post.shaft from the gap', False),
     ('banned', 'Style `sticker-iso`\n- No Post.glow, no shaft: light is palette steps', False),
+    ('banned', 'Style `pastel-cell`\n- Gate override: allow Post.shaft (the rays through the gap are the subject)\n'
+               '- Rays: Post.shaft from the gap', False),
+    ('banned', 'Style `pastel-cell`\n- Gate override: allow Post.shaft\n- Rays: Post.shaft from the gap', True),
 ]
 
 def _lint_case(fn, arg):

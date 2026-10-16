@@ -15,6 +15,7 @@ Three engines and a kit, all painting palette slots (BASE + step) into a canvas.
            cap, wet_streaks, tapestry, circuit, segments, slats
   roofs    shingles (scallop / rect / shake courses, slipped and missing tiles, moss), thatch,
            planks (walls, floors, board-and-batten: grain ticks, knots, short and replaced boards)
+  iso_face wraps any of them onto a 2:1 iso wall face (courses follow the slope)
 
     import layout, texture as tx
     ids = layout.ashlar(0, 96, 200, 140, h=9, w=(10, 16), seed=2, frame=c)
@@ -1756,3 +1757,57 @@ def thatch(c, mask=None, ramp='straw', course=5, base=3, fringe=(0, 2), strokes=
     if moss > 0:
         _moss(c, m, m & shade, m & litm, moss, moss_ramp, moss_cell, seed, steps)
     return ids
+
+# ---------------------------------------------------------------- iso faces
+def iso_face(c, mask, fn, face='left', *args, **kw):
+    """paint any screen-aligned texture (planks, bricks, shingles, ashlar shading) onto a 2:1 iso
+    wall face: the face's pixels are un-sheared into a flat strip (each column moves 1 px per
+    2 px across), fn paints the strip, and the result is sheared back, so courses and boards run
+    along the face's 2:1 slope while vertical joints stay vertical. face 'left': the face that
+    falls to the right, 1 px down per 2 across (iso.Iso's y face, its "left" face); 'right': the
+    one that rises to the right (the x face). fn is called as fn(strip, *args, mask=strip_mask, **kw) when it takes a
+    mask (planks), else as fn(strip, x0, y0, x1, y1, *args, **kw) over the strip's box (bricks);
+    only the face's own pixels change. Returns fn's id map sheared back when it returns one.
+
+        tx.iso_face(c, wall_y_face, tx.planks, 'left', ramp='wood', width=4)
+        tx.iso_face(c, wall_x_face, tx.bricks, 'right', 'brick', size=(8, 4))"""
+    import inspect
+    import canvas as _cv
+    m = _mask(c, mask)
+    if not m.any():
+        return None
+    if face not in ('left', 'right'):
+        raise ValueError("face is 'left' or 'right', got %r" % (face,))
+    sgn = 1 if face == 'left' else -1
+    xs = np.nonzero(m.any(0))[0]
+    xr = int(xs[0])
+    cols = np.arange(c.W)
+    shift = sgn * ((cols - xr) // 2)                       # screen row = strip row + shift - pad
+    pad = int(max(0, shift.max()))
+    Hs = c.H + pad + int(max(0, -shift.min()))
+    yy = np.arange(Hs)[:, None] - pad + shift[None, :]     # the screen row of every strip pixel
+    ok = (yy >= 0) & (yy < c.H)
+    yc = np.clip(yy, 0, c.H - 1)
+    xx = np.broadcast_to(cols[None, :], yy.shape)
+    strip = _cv.Canvas(c.W, Hs)
+    strip.g[ok] = c.g[yc[ok], xx[ok]]
+    sm = np.zeros((Hs, c.W), bool)
+    sm[ok] = m[yc[ok], xx[ok]]
+    try:
+        takes_mask = 'mask' in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        takes_mask = True
+    if takes_mask:
+        res = fn(strip, *args, mask=sm, **kw)
+    else:
+        ys_, xs_ = np.nonzero(sm)
+        before = strip.g.copy()
+        res = fn(strip, int(xs_.min()), int(ys_.min()), int(xs_.max()) + 1, int(ys_.max()) + 1, *args, **kw)
+        strip.g[~sm] = before[~sm]                          # a box painter stays inside the face
+    put = ok & sm
+    c.g[yc[put], xx[put]] = strip.g[put]
+    if isinstance(res, np.ndarray) and res.shape[:2] == (Hs, c.W):
+        out = np.full((c.H, c.W), -1, res.dtype)
+        out[yc[put], xx[put]] = res[put]
+        return out
+    return res

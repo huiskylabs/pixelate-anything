@@ -89,6 +89,9 @@ One preset from `tools/styles.py` (or `lofi`), and what that fixes: light layer 
 or `screen`, the blend, the ramp style, the outline mode, the dither vocabulary, the value budget
 (`pixelate style NAME` prints all of it). Name the reference style it learns from and what it must
 not copy (characters, places, logos, UI layouts). See [drawing.md#light](drawing.md#light).
+When the scene needs a light op its style does not allow (rays in `pastel-cell`), say so in one
+line with the reason, `- Gate override: allow Post.shaft (the rays through the cloud gap are the
+subject)`; `pixelate route --lint` accepts the op then, and rejects the line without a reason.
 
 ### 3. Art direction rules
 

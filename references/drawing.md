@@ -58,7 +58,7 @@ Whatever the regime, light is code: a pure function of masks, positions, t and a
 painted in an editor. Angles are screen degrees with y down: 0 points right, 90 straight down, 270
 straight up (`Post.shaft`, `shapes.ray`, `light.Light.cone`). A moving occluder in `Post.lightmap`
 (a door leaf, a figure in the doorway) is a new mask each frame and is traced again; keep it to a few
-held drawings so each is traced once per light. Mixing regimes in one frame makes it read as a filter. Vignette, grain,
+held drawings so each is traced once per light. Its occlusion is flat 2D with no height: a thin strip blocks a whole wedge unless you pass `occlude_soft=2` (or a float mask), and a lamp painted inside a window needs its own `{'near': px}` or `{'occlude': None}` to reach the street. Mixing regimes in one frame makes it read as a filter. Vignette, grain,
 scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Palette

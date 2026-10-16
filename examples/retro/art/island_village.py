@@ -18,7 +18,7 @@ import pixfont
 
 W, H = 160, 144
 FRAMES, FPS = 96, 12
-SHADES = [np.array(cl.hex_to_rgb(h), np.uint8) for h in ('#0f380f', '#306230', '#8bac0f', '#9bbc0f')]   # 0 dark .. 3 light
+SHADES = [np.array(cl.hex_to_rgb(h), np.uint8) for h in ('#0f380f', '#306230', '#678e23', '#9bbc0f')]   # 0 dark .. 3 light
 
 class Canvas:
     def __init__(self):

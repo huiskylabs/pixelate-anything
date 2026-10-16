@@ -193,7 +193,7 @@ def build_static():
         s.box(sx, 45, 0, 3, 3, 24, 'white', left=windows('white', 'paneHi', every=(3, 5), size=(1, 2), margin=(1, 14)))
         s.pyramid(sx, 45, 24, 3, 3, 8, 'white', step_h=3, shrink=0.5, cap=1)
     for i, (tx, ty) in enumerate([(6, 52), (11, 57), (20, 50), (24, 58), (7, 61), (22, 42), (14, 62), (25, 46)]):
-        s.sprite(TREE_G, tx, ty, 0)
+        s.sprite(TREE_G, tx, ty, 0, upright=False)
     # the Pyramid
     frustum(s, 41, 41, 0, 10, 10, 116, 'quartz', top_w=2.0, face=bands('quartz', period=3, seed=1), top='quartz4')
     s.box(41.5, 45, 70, 1, 2, 30, 'quartz', top='quartz4')          # the elevator wing
@@ -201,7 +201,7 @@ def build_static():
     s.box(44.5, 44.5, 138, 1, 1, 1, 'quartz', top='beacon', left='beacon', right='beacon')
     # Redwood Park
     for i, (tx, ty) in enumerate([(55, 40), (58, 44), (61, 41), (56, 49), (60, 53), (63, 48), (57, 58), (61, 61), (54, 63)]):
-        s.sprite(REDWOOD_G if i % 2 == 0 else TREE_G, tx, ty, 0)
+        s.sprite(REDWOOD_G if i % 2 == 0 else TREE_G, tx, ty, 0, upright=False)
     # a mid-rise beside the pyramid (back-right)
     s.box(39, 56, 0, 10, 8, 26, 'cream', top='roof2', left=tower_windows('cream', seed=6), right=tower_windows('cream', seed=7))
     # right block: the white tower with a grid
@@ -241,7 +241,7 @@ def fill_blocks(s):
             ctr = (x0 + x1 + y0 + y1) / 2                        # x + y: larger is nearer the viewer
             if hash2(i, j, 31) < 0.12:                           # a small park
                 for n in range(6):
-                    s.sprite(TREE_G, x0 + 3 + hash2(n, i, 32) * (x1 - x0 - 6), y0 + 3 + hash2(n, j, 33) * (y1 - y0 - 6), 0)
+                    s.sprite(TREE_G, x0 + 3 + hash2(n, i, 32) * (x1 - x0 - 6), y0 + 3 + hash2(n, j, 33) * (y1 - y0 - 6), 0, upright=False)
                 continue
             nx = 2 if ctr > 150 else 3
             ny = 2 if ctr > 150 else 3
@@ -335,7 +335,7 @@ def draw_people(s, t):
         g.set(0, 0, 'pink3' if i % 2 else 'earth2'); g.set(0, 1, SHIRTS[i % len(SHIRTS)]); g.set(0, 2, 'ol')
         if (t // 3) % 2:
             g.set(0, 2, 'road1')
-        s.sprite(g, x, y, 0, anchor=(0, 2))
+        s.sprite(g, x, y, 0, anchor=(0, 2), upright=False)
 
 # ---------------------------------------------------------------- sky and phases
 STARS = [(int(hash2(i, 1, 2) * W), int(hash2(i, 2, 2) * 150)) for i in range(70)]

@@ -43,14 +43,21 @@ def _shift_slots(g, m, k, steps=None):
         g[m & (g == v)] = '%s%d' % (b, j)
 
 # ---------------------------------------------------------------- depth bands (04)
-def depth_bands(c, water, land, ramp='sea', cuts=(5, 14, 30), wobble=3, cell=16, top=None, seed=0):
-    """the sea in hard bands by distance from land (no dither): D = d(land) + wobble * n(x, y),
+def depth_bands(c, water, land, ramp='sea', cuts=(5, 14, 30), wobble=3, cell=16, top=None, seed=0, shore=None,
+                floating=None):
+    """the sea in hard bands by distance from land (no dither): D = d(shore) + wobble * n(x, y),
     n a 2D value noise of `cell` px; the shallowest band is step `top` (default len(cuts)), one
-    step darker past each cut. Returns the integer step map (-1 off the water)."""
+    step darker past each cut. Returns the integer step map (-1 off the water).
+    shore: the mask the bands measure from (default `land`). Pass the banks and piers only, or
+    floating (a mask of boats, fenders, buoys, ducks: things that float) to take them out of land,
+    so floating things do not make shallow blob islands in a canal; they still sit on water
+    and foam_rings can still ring them."""
     g = _grid(c)
     H, W = g.shape
     water = np.asarray(water, bool)
-    land = np.asarray(land, bool)
+    land = np.asarray(land if shore is None else shore, bool)
+    if floating is not None:
+        land = land & ~np.asarray(floating, bool)
     d = morph.distance_outside(land, 'euclid') if land.any() else np.full((H, W), 1e9)
     D = d + wobble * vnoise2((H, W), cell, seed)
     if top is None:

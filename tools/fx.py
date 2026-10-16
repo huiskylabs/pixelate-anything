@@ -209,14 +209,16 @@ def debris(c, x, y, age, n=8, seed=0, speed=(16, 34), g=30.0, spread=(0.05, 0.95
 
 # ---------------------------------------------------------------- smoke, trails, dust
 def smoke_puff(c, cx, cy, age, seed=0, r=(1.5, 6.5), ramp='smoke', pores=0.1, lobes=7, rise=3.0,
-               sway=1.5):
+               sway=1.5, steps=6):
     """an opaque cauliflower smoke puff (05): `lobes` lobes (radius base * (0.6 + 0.5 h), base
     growing from r[0] to r[1] with sqrt(age)) set round the rim so the silhouette scallops, lit
     from the upper left on a 6-step ramp: a pale cap, a light main tone (step 4, the measured
     #b5aaa9 band), a step-2 shadow side and a 1 px dark crease where a lobe's lower rim covers
     another. Dark 1-2 px pores sit in the shadow half and spread with age, a broken 2 px fringe
     while young, and a clustered 2x2 dissolve from age 0.55. It rises `rise` px over its life
-    and sways sideways."""
+    and sways sideways. ramp: a ramp name (slots NAME0..NAME{steps-1}, steps default 6) or a
+    list of slots dark to light, any length from 2; the six tones above are spread over it
+    (a 4-slot ramp shares the crease with the shadow and the cap with the main tone)."""
     if not 0 <= age < 1:
         return
     arr, commit = grid_of(c)
@@ -261,7 +263,11 @@ def smoke_puff(c, cx, cy, age, seed=0, r=(1.5, 6.5), ramp='smoke', pores=0.1, lo
         edge = 1 - np.minimum(1, morph.distance(code > 0, 'chessboard', border=False) / max(1.0, base_r))
         kill = (_h(ix // 2, iy // 2, seed + 7) < kk * (0.7 + 0.8 * edge)) | (_h(ix, iy, seed + 9) < kk * 0.15)
         code[kill] = 0
-    _write(arr, box, code, [None] + ['%s%d' % (ramp, i) for i in range(6)])
+    slots = list(ramp) if isinstance(ramp, (list, tuple)) else ['%s%d' % (ramp, i) for i in range(int(steps))]
+    n = len(slots)
+    if n < 2:
+        raise ValueError('smoke_puff: the ramp needs at least 2 slots')
+    _write(arr, box, code, [None] + [slots[int(round(j * (n - 1) / 5.0))] for j in range(6)])
     commit()
 
 def trail(c, path, t, T, every=3, life=24, puff=None, seed=0, **kw):
@@ -757,12 +763,13 @@ def pixel_motes(target, t, T, region=None, density=1.4e-3, colour='#1afc88', dim
 
 # ---------------------------------------------------------------- rain and streaks
 def rain_cells(c, t, T, n=30, length=30, slot='rain', cycles=8, seed=11, region=None, slant=0,
-               over=None):
+               over=None, lean='right'):
     """Celeste rain (02): n opaque streaks 1 px wide and `length` px long written straight into
     the slot grid over everything. Streak i sits in column floor(hash*W) and falls `cycles`
     whole spans (H + length) per loop: y = (o_i + cycles*S*t // T) mod S - length, so frame T is
     frame 0. cycles may be a tuple (each streak picks one, whole numbers). slant k > 0: the gust
-    look, the column steps 1 px right every k rows (Bresenham cells, never anti-aliased).
+    look, the column steps 1 px sideways every k rows (Bresenham cells, never anti-aliased), toward
+    `lean` ('right' or 'left'; a negative slant also leans left).
     region (x0, y0, x1, y1) limits it; over: a bool mask where rain is not drawn (a HUD)."""
     arr, commit = grid_of(c)
     H, W = arr.shape
@@ -780,11 +787,14 @@ def rain_cells(c, t, T, n=30, length=30, slot='rain', cycles=8, seed=11, region=
     cy = np.asarray(cyc)[(_h(i, 2, seed) * len(cyc)).astype(int)]
     ytop = (off + (cy * S * int(t)) // T) % S - length + y0
     blk = None if over is None else np.asarray(over, bool)
+    if lean not in ('right', 'left'):
+        raise ValueError("lean is 'right' or 'left', got %r" % (lean,))
+    sgn = (-1 if lean == 'left' else 1) * (-1 if slant < 0 else 1)
     for k in range(n):
         rows = np.arange(max(y0, ytop[k]), min(y1, ytop[k] + length))
         if not len(rows):
             continue
-        cols = xs[k] + (rows // slant if slant else np.zeros_like(rows))
+        cols = xs[k] + (sgn * (rows // abs(slant)) if slant else np.zeros_like(rows))
         cols = x0 + (cols - x0) % (x1 - x0)
         if blk is not None:
             keep = ~blk[rows, cols]

@@ -173,11 +173,16 @@ def visibility(block, x, y, reach, cell=1, near=1.5):
     (a box) are tested; the rest stay 1. Marches each ray in steps of at most 1 px; the target
     pixel itself and anything within `near` px of the source never block, so a light set on a
     lamp drawn into a wall still shines. cell > 1 tests every cell-th pixel (a coarse grid) and
-    resizes the result bicubically (softer, faster). Cached per (mask, light, reach, cell)."""
-    block = np.asarray(block, bool)
+    resizes the result bicubically (softer, faster). Cached per (mask, light, reach, cell).
+    block may also be a float opacity mask (0 clear, 1 solid; see thin_opacity()): then each ray
+    keeps (1 - opacity) per pixel of path it runs through, so a curtain at 0.4 dims the light
+    behind it instead of cutting it (a 1 px strip crossed square on passes 0.6, slantwise less)."""
+    block = np.asarray(block)
+    soft = block.dtype != bool and not np.isin(block, (0, 1)).all()
+    block = np.clip(block.astype(np.float32), 0, 1) if soft else block.astype(bool)
     H, W = block.shape
-    key = (block.shape, block.tobytes() if block.size < 4096 else
-           hashlib.sha1(np.packbits(block).tobytes()).digest(),
+    key = (block.shape, soft, block.tobytes() if block.size < 4096 else
+           hashlib.sha1(block.tobytes() if soft else np.packbits(block).tobytes()).digest(),
            round(float(x), 3), round(float(y), 3), round(float(reach), 3), int(cell), float(near))
     hit = _VIS1.get(key)
     if hit is not None:
@@ -192,20 +197,55 @@ def visibility(block, x, y, reach, cell=1, near=1.5):
         tx, ty = tj + 0.5, ti + 0.5
         dx, dy = x - tx, y - ty
         d = np.hypot(dx, dy)
-        n = int(math.ceil(d.max())) + 1
+        n = int(math.ceil(d.max() * (3 if soft else 1))) + 1      # soft: 1/3 px steps, less aliasing
         shadow = np.zeros(tx.shape, bool)
+        depth = np.zeros(tx.shape, np.float32)                     # optical depth, in px of opacity
         for k in range(1, n):
             f = k / n
             px, py = tx + f * dx, ty + f * dy
             ix, iy = np.floor(px).astype(np.int64), np.floor(py).astype(np.int64)
             ok = (ix >= 0) & (ix < W) & (iy >= 0) & (iy < H) & ~((ix == tj) & (iy == ti))
             ok &= (1 - f) * d >= near                     # distance from this sample to the light
-            shadow |= ok & block[np.clip(iy, 0, H - 1), np.clip(ix, 0, W - 1)]
-        v = (~shadow).astype(np.float32)
+            b = block[np.clip(iy, 0, H - 1), np.clip(ix, 0, W - 1)]
+            if soft:                                      # (1 - opacity) per px of path inside
+                depth += np.where(ok, -np.log(np.maximum(1 - b, 1e-4)), 0) * (d / n)
+            else:
+                shadow |= ok & b
+        v = np.exp(-depth).astype(np.float32) if soft else (~shadow).astype(np.float32)
         if cell > 1:
             v = np.clip(smooth_up(v, len(cols) * cell, len(rows) * cell), 0, 1)
         vis[y0:y1, x0:x1] = v[:y1 - y0, :x1 - x0]
     return _cache_put(_VIS1, key, vis, 64)
+
+def thin_opacity(mask, soft=2, opacity=1.0):
+    """a 1x float occluder from a bool mask where thin strips only partly block: a pixel's
+    opacity is its strip's thickness (the shorter of its horizontal and vertical runs) over
+    2 * soft + 1, so with soft=2 a 1 px strip (a curtain cord, an arm) blocks 0.2 of the light,
+    3 px 0.6 and anything 5 px or thicker blocks fully. opacity scales the whole mask (a paper
+    screen at 0.5). soft=0: the mask as is. Pass the result as Post.lightmap(occlude=...)."""
+    m = np.asarray(mask, bool)
+    if soft <= 0:
+        return m.astype(np.float32) * float(opacity)
+    b = 2 * int(soft) + 1
+    run = np.minimum(_run(m, 0), _run(m, 1))
+    op = np.minimum(run, b) / b
+    return np.where(m, op * float(opacity), 0).astype(np.float32)
+
+def _run(m, axis):
+    """per True pixel, the length of the straight run of True it sits in along axis"""
+    m = np.moveaxis(m, axis, -1)
+    out = np.zeros(m.shape, np.int32)
+    for r in range(m.shape[0]):
+        row = m[r]
+        if not row.any():
+            continue
+        d = np.diff(np.r_[0, row.view(np.int8), 0])
+        st, en = np.flatnonzero(d == 1), np.flatnonzero(d == -1)
+        for a, e in zip(st, en):
+            out[r, a:e] = e - a
+    return np.moveaxis(out, -1, axis)
+
+_BAYER4 = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32)
 
 def _smoothstep(e0, e1, x):
     if e1 == e0:
@@ -534,14 +574,19 @@ class Post:
         return self
 
     def lightmap(self, ambient=0.3, lights=(), cap=1.3, geo=None, levels=None, t=None, T=None,
-                 flicker=0.06, hold=3, keep=None, behind=None, occlude=None, occlude_cell=1):
+                 flicker=0.06, hold=3, keep=None, behind=None, occlude=None, occlude_cell=1,
+                 occlude_soft=0, dither=None):
         """multiplicative light: L = ambient + sum(gain * colour * gauss), clipped to cap, and
         out = frame * L, so black stays black and overlapping pools add (Stardew's mine: ambient
         (0.30, 0.33, 0.36), lamps sigma 18, colour (1, .85, .45), gain ~1, 4x the ambient at the
         peak; Katana ZERO's wall wash: ambient 1, gain 0.25-0.35, sigma (35, 80), geo = wall).
         lights: [(x, y, sigma | (sx, sy), colour, gain), ...] in 1x px. ambient: number, colour,
         1x array or callable(xx, yy). geo: a 1x weight on the lamps only (wall 1, floor 0.15,
-        void 0). levels: quantise L to 1/levels steps (bounds the colour count). With t and T the
+        void 0). levels: quantise L to 1/levels steps (bounds the colour count; 8-12 is plenty).
+        dither: how the steps meet: 'bayer' (a 4x4 ordered dither at working resolution, so at
+        res='screen' each art pixel holds the whole pattern and the pool reads smooth, no
+        concentric rings), 'none' (plain rounding: hard rings, fine at res='native' where a ring
+        is a whole art pixel). None picks 'bayer' at res='screen' and 'none' at native. With t and T the
         gains flicker by +-flicker, held `hold` frames (T % hold == 0 keeps the seam a hold).
         keep (or behind, the Stack spelling): a 1x mask left untouched (lamp cores, UI).
         Per-light flicker: a light may carry a 6th and 7th item, (..., gain, flicker, hold), or
@@ -554,13 +599,38 @@ class Post:
         loop, but a moving one (a door leaf, a walker in the doorway) is a new mask every frame
         and is traced again. Keep a moving occluder to a few held drawings so each one is traced
         once (the cache keeps 64 traces, 16 at working resolution: lights x drawings should fit),
-        and use occlude_cell 2-3 for wide lights."""
+        and use occlude_cell 2-3 for wide lights.
+        occlude may be a float opacity mask (0..1) as well as a bool one; occlude_soft=n turns a
+        bool mask into thin_opacity(mask, n), so strips thinner than 2n+1 px (a door curtain, an
+        arm, a lamp post) only dim the light behind them instead of cutting a whole wedge.
+        Per-light options: a light may end with a dict, {'near': px, 'occlude': mask | None}:
+        near is the radius round the source that never blocks (default 1.5; raise it for a lamp
+        drawn inside a window or a lantern frame, so its own frame does not swallow it), and
+        occlude replaces the call's occluder for that light (None: it ignores occlusion, e.g. a
+        lamp painted inside a window that must still reach the street).
+        Limits: occlusion is a 2D test in the picture plane. Nothing has height, so a low wall
+        shadows the sky above it, a lamp behind a window pane is blocked by the wall it is
+        painted on, and a thin strip is opaque unless occlude_soft or a float mask says otherwise;
+        draw the occluder as what stands between the lamp and the lit surface, not the whole
+        silhouette."""
         keep = _either(keep, behind)
         L = self._field3(ambient)
         g = None if geo is None else self.up(np.asarray(geo, float))         # crisp: art edges
-        blk = None if occlude is None else self._crop1x(np.asarray(occlude, bool))
+        def _blk(m):
+            if m is None:
+                return None
+            m = np.asarray(m)
+            if m.dtype == bool and occlude_soft:
+                m = thin_opacity(m, occlude_soft)
+            return self._crop1x(m)
+        blk = _blk(occlude)
         for i, lt in enumerate(lights):
+            opt = {}
+            if len(lt) > 5 and isinstance(lt[-1], dict):
+                opt, lt = lt[-1], lt[:-1]
             x, y, sig, colour, gain = lt[:5]
+            lb = _blk(opt['occlude']) if 'occlude' in opt else blk
+            near = float(opt.get('near', 1.5))
             sx, sy = (sig, sig) if np.isscalar(sig) else sig
             amt, hd = flicker, hold
             if len(lt) > 5 and lt[5] is not None:
@@ -571,9 +641,9 @@ class Post:
             if len(lt) > 6 and lt[6] is not None:
                 hd = lt[6]
             vis = None
-            if blk is not None:                           # unflickered reach: cached across t
-                vis = self._occlusion(blk, x, y, 4.0 * max(sx, sy) * (1 + 0.3 * abs(amt or 0)) + 1,
-                                      occlude_cell)
+            if lb is not None:                            # unflickered reach: cached across t
+                vis = self._occlusion(lb, x, y, 4.0 * max(sx, sy) * (1 + 0.3 * abs(amt or 0)) + 1,
+                                      occlude_cell, near)
             if t is not None and amt:
                 f = _flicker(t, T, seed=i, hold=hd, amount=amt)
                 gain, sx, sy = gain * f, sx * (1 + 0.3 * (f - 1)), sy * (1 + 0.3 * (f - 1))
@@ -589,7 +659,14 @@ class Post:
             L[sl] += (k[..., None] * rgbf(colour)).astype(np.float32)
         np.clip(L, 0, cap if cap is not None else np.inf, out=L)
         if levels:
-            L = np.round(L * levels) / levels
+            d = dither or ('bayer' if self.res == 'screen' else 'none')
+            if d == 'bayer':
+                b = (_BAYER4[np.arange(self.H)[:, None] % 4, np.arange(self.W)[None, :] % 4] + 0.5) / 16
+                L = np.floor(L * levels + b[..., None]) / levels
+            elif d == 'none':
+                L = np.round(L * levels) / levels
+            else:
+                raise ValueError("dither is 'bayer', 'none' or None, got %r" % (dither,))
         out = self.a * L
         if keep is not None:
             km = self.up(np.asarray(keep, bool))
@@ -597,10 +674,10 @@ class Post:
         self.a = out.astype(np.float32, copy=False)
         return self
 
-    def _occlusion(self, blk, x, y, reach, cell):
+    def _occlusion(self, blk, x, y, reach, cell, near=1.5):
         """visibility() of one light at working resolution (nearest at native, bicubic at
         screen), cached with the view so a 96-frame loop computes each light once"""
-        vis = visibility(blk, x, y, reach, cell)
+        vis = visibility(blk, x, y, reach, cell, near)
         key = (id(vis), self.s, self.res, self._view and tuple(self._view[:4]), self.H, self.W)
         hit = _VISW.get(key)
         if hit is not None and hit[0] is vis:

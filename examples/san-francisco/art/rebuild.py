@@ -100,7 +100,7 @@ def flag(s, x, y, z):
             g.set(i, j, 'carR3' if j != 1 else 'white4')
     for i in range(2):
         g.set(i, 0, 'carB2')
-    s.sprite(g, x + 0.5, y, z + 14, anchor=(0, 0))
+    s.sprite(g, x + 0.5, y, z + 14, anchor=(0, 0), upright=False)
 
 def landmarks(s):
     # the Pyramid, its wings and spire
@@ -113,11 +113,11 @@ def landmarks(s):
     # Redwood Park, east of the Pyramid
     RESERVED.append((154, 176, gy(140), gy(160)))
     for i, (tx, sy) in enumerate([(158, 148), (163, 152), (168, 147), (172, 153), (160, 157), (167, 158)]):
-        s.sprite(REDWOOD_G if i % 2 == 0 else TREE_G, tx, gy(sy), 0)
+        s.sprite(REDWOOD_G if i % 2 == 0 else TREE_G, tx, gy(sy), 0, upright=False)
     # Washington Square and Saints Peter and Paul
     RESERVED.append((148, 188, gy(56), gy(82)))
     for tx, sy in [(153, 64), (160, 70), (170, 62), (178, 72), (183, 66), (165, 77), (156, 78), (175, 79)]:
-        s.sprite(TREE_G, tx, gy(sy), 0)
+        s.sprite(TREE_G, tx, gy(sy), 0, upright=False)
     Y, d = bld(s, 194, 222, 52, 60, 14, 'white', left=grid('white', 'paneHi', every=(4, 6), size=(1, 3), margin=(2, 3)))
     s.gable(194, Y, 14, 28, d, 6, 'roof', along='x')
     for sx in (195, 216):
@@ -201,7 +201,7 @@ def north_beach(s):
         sx = 150 - (sy - 232) * 0.55
         for side in (-7, 7):
             if free(sx + side - 2, sx + side + 2, gy(sy) - 2, gy(sy) + 2):
-                s.sprite(TREE_G, sx + side, gy(sy), 0)
+                s.sprite(TREE_G, sx + side, gy(sy), 0, upright=False)
 
 def build_static():
     RESERVED.clear()

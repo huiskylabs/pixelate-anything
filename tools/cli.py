@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """pixelate: one command for everything in pixelate-anything.
 
-  pixelate route "REQUEST" [--brief [STYLE] -o brief.md]   pick a style, expand to a brief  (references/brief.md)
+  pixelate route "REQUEST" [--brief [STYLE] -o brief.md] [--size WxH] [--scale N]   pick a style, expand to a brief
   pixelate route --lint brief.md         self-critique a brief before showing it
   pixelate style --list                  every style, one line each
   pixelate style NAME                    one style's card: rules, light, budgets, craft limits, techniques, check
@@ -18,6 +18,7 @@
   pixelate shot SCENE t [t...] [--grid]  preview frames                            (guides/scenes.md)
   pixelate check SCENE [--page]          palettes, timing, loop seam, page
   pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op]   the delivery gate
+                         [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
   pixelate check TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]   the music gate
   pixelate build SCENE [--release]       one self-contained HTML page
   pixelate audio SCENE out.{wav,ogg,flac,mp3}   one seamless loop of the music     (guides/music.md)

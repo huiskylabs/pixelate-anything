@@ -80,10 +80,13 @@ def route_request(request: str) -> str:
     return cli('route', request)[1]
 
 @server.tool()
-def write_brief(request: str, out: str, style: str = '') -> str:
+def write_brief(request: str, out: str, style: str = '', size: str = '', scale: int = 0) -> str:
     """Write the pre-filled scene brief (section 0 choices to confirm, then 11 sections) to `out`,
-    for the top style or `style`. Fill every TODO with concrete choices, then lint_brief."""
-    return cli('route', request, '--brief', *([style] if style else []), '-o', P(out, write=True))[1]
+    for the top style or `style`. size: the delivered picture, e.g. '1920x1080' (the canvas is size /
+    scale; without scale the scale keeps the style's native height); figure sizes follow. Fill every
+    TODO with concrete choices, then lint_brief."""
+    return cli('route', request, '--brief', *([style] if style else []), *(['--size', size] if size else []),
+               *(['--scale', scale] if scale else []), '-o', P(out, write=True))[1]
 
 @server.tool()
 def lint_brief(path: str) -> str:
@@ -93,14 +96,17 @@ def lint_brief(path: str) -> str:
 
 @server.tool()
 def check_frame(frame: str, style: str, scale: int = 1, palette: str = '', prelight: str = '',
-                actor: str = '', used: str = '') -> list:
+                actor: str = '', used: str = '', scene: str = '', era: str = '', brief: str = '') -> list:
     """The delivery gate for one frame: the style's value budget, square native pixels, banned light ops,
     palette subset, actor readability and pixel craft (orphans, jaggies, banding, pillow shading,
-    clusters). Redraw until every line passes; no frame is shown as final before that."""
+    clusters). scene: the style's scene variant (style_card lists them); era: the console era's checks
+    replace the value budget; brief: apply its `- Gate override: RULE BOUND (reason)` lines. Redraw
+    until every line passes; no frame is shown as final before that."""
     args = ['check', P(frame), '--style', style, '--scale', scale]
-    for flag, v in (('--pal', palette), ('--pre', prelight), ('--actor', actor), ('--used', used)):
+    for flag, v in (('--pal', palette), ('--pre', prelight), ('--actor', actor), ('--used', used),
+                    ('--scene', scene), ('--era', era), ('--brief', brief)):
         if v:
-            args += [flag, P(v) if flag != '--used' else v]
+            args += [flag, P(v) if flag in ('--pal', '--pre', '--actor', '--brief') else v]
     code, text = cli(*args)
     return [('PASS\n' if code == 0 else 'FAIL\n') + text, thumb(P(frame))]
 

@@ -18,7 +18,7 @@ suggests the techniques its keywords know about; the best brief uses whatever th
 
 ## Topics
 
-rain and wet, snow and ice, fog, water, foliage, sky, rock, buildings, structure, tech, magic and ruins, action, game level, small lights, crowds, animals, slimes, figures.
+rain and wet, snow and ice, fog, water, foliage, sky, rock, buildings, structure, tech, magic and ruins, action, game level, light beams, small lights, crowds, animals, slimes, figures.
 
 ## Modules
 

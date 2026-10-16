@@ -23,7 +23,8 @@ import route
 
 SKIP = {'cli', 'mcp_server', 'setup_agents', 'kit'}          # the command line itself, not drawing code
 CONDITIONS = {'lofi': 'lofi style only', 'iso': '2:1 iso projection', 'topdown': '3/4 top-down projection',
-              'side': 'side projection', 'soft': 'styles with a light layer', 'strict': 'styles without a light layer'}
+              'side': 'side projection', 'soft': 'styles with a light layer', 'strict': 'styles without a light layer',
+              '!post:shaft': 'styles without the soft shaft (pastel-cell, the pixel-only styles)'}
 
 # ---------------------------------------------------------------- source
 def _path(mod):
@@ -121,7 +122,8 @@ def topic(q, style=None):
                     L.append('- ' + text)
                 else:
                     why = CONDITIONS.get(cond) or ('styles that allow the %s light op' % cond[5:]
-                                                   if cond.startswith('post:') else cond)
+                                                   if cond.startswith('post:') else '%s style only' % cond[6:]
+                                                   if cond.startswith('style:') else cond)
                     L.append('- %s  [%s]' % (text, why))
             else:
                 L.append('- ' + it)

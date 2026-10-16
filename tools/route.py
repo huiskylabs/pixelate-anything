@@ -9,6 +9,11 @@ usage:
                                                    palette, one sprite, an icon set, a photo, assets,
                                                    music) gets a short brief instead
   pixelate route "..." --brief --full              the 11 sections even for a small ask
+  pixelate route "..." --brief --size 1920x1080 [--scale N]
+                                                   the delivered picture: the canvas is size / scale,
+                                                   the scale picked to keep the style's native height
+                                                   when not given; a size in the request (3840x2160,
+                                                   4k, 1080p) works too; figure sizes follow
   pixelate route --lint brief.md                   self-critique of a finished brief: what is still
                                                    vague, missing or thin
   pixelate route --catalog                         regenerate guides/toolkit.md, the index of the kit
@@ -460,6 +465,15 @@ TOPIC_TOOLS = [   # (words, label, items); an item is 'technique (primitive)' or
         'jumps and hops (anim.arc, anim.hop), landing dust (fx.burst)', 'layer scroll and tiles (canvas.parallax, '
         'canvas.Canvas.tile)', 'HUD text (pixfont.draw)',
         'pickups and icons as small slot maps (study references/assets/glyphs.py stamp)']),
+    (['sun ray', 'sunray', 'sunbeam', 'god ray', 'light shaft', 'shaft of light', 'shaft', 'beam', 'ray',
+      'spotlight', 'searchlight', 'pillar of light', '光柱', '光束', '丁达尔', '探照灯', '耶稣光'], 'light beams', [
+        ('soft angled shafts on the light layer, angle 90 points down (post.Post.shaft)', 'post:shaft'),
+        ('a hard-edged angled ray in palette slots: a stepped band filled one ramp step lighter, no blend '
+         '(shapes.ray, canvas.Canvas.fill)', '!post:shaft'),
+        'what the beam crosses steps up one slot: rain, flakes, wave crests inside the ray mask (shapes.ray as the mask)',
+        'a sweeping beam (a lighthouse, a searchlight): the angle stepped per frame on a hold table whose period '
+        'divides the loop (shapes.ray, anim.hold)',
+        ('one big beam breaks the highlight budget: gate it with `--scene beam`', 'style:contre-jour')]),
     (['lamp', 'lantern', 'candle', 'torch', 'window', 'fireplace', 'neon sign', '灯', '灯笼', '蜡烛', '火把', '窗',
       '壁炉'], 'small lights', [
         'lamps and lanterns as slot maps in warm slots (study references/assets/props.py lantern)',
@@ -552,6 +566,10 @@ def catalog():
     return '\n'.join(L) + '\n'
 
 def _fits(cond, style, projection):
+    if cond.startswith('!'):
+        return not _fits(cond[1:], style, projection)
+    if cond.startswith('style:'):
+        return styles.get(style)['name'] == cond[6:]
     st = styles.get(style)
     if cond in ('iso', 'topdown', 'side'):
         return {'iso': '2:1 iso', 'topdown': '3/4 top-down', 'side': 'side'}[cond] == projection
@@ -620,7 +638,7 @@ UNDERGROUND = ['mine', 'cave', 'underground', 'dungeon', 'tunnel', 'sewer', 'cry
 INDOOR = ['interior', 'inside', 'room', 'bedroom', 'kitchen', 'cafe', 'shop', 'library', 'tavern', 'inn',
           '室内', '屋内', '房间', '卧室', '厨房', '咖啡', '店', '图书馆', '酒馆', '客栈']
 
-def gaps(request, r=None):
+def gaps(request, r=None, delivered=None):
     """-> [{topic, stated, default}]: each open choice in the request and the default it takes for the
     top style. Fill the brief with the defaults, then list them for the user to confirm or change."""
     r = r or route(request)
@@ -658,7 +676,8 @@ def gaps(request, r=None):
             if st['name'] == 'lofi' else 'a seamless %s-frame loop at %d fps' % (frames or 'TODO', st['fps']))
     excerpt = 'a GIF excerpt' if st['res'] == 'none' else 'an APNG excerpt (a GIF bands soft light)'
     add('purpose and outputs', WORDS['purpose'],
-        'a gallery showcase: %s, as 1080p MP4, %s and a still' % (loop, excerpt))
+        'a gallery showcase: %s, as %s MP4, %s and a still' % (
+            loop, ('a %dx%d' % delivered) if delivered else '1080p', excerpt))
     if r.get('era'):
         import era as eramod
         e = eramod.ERAS[r['era']]
@@ -932,22 +951,94 @@ def _tool_refs(text):
                         '`%s` is not in the kit%s: use a real function or name the tool gap') % (ref, hint))
     return bad
 
+# ---------------------------------------------------------------- delivery size and gate variants
+SIZE_WORDS = {'4k': (3840, 2160), '2160p': (3840, 2160), '1440p': (2560, 1440), '1080p': (1920, 1080),
+              '720p': (1280, 720)}
+_SIZE = re.compile(r'(?<![\w.])(\d{2,5})\s*[x×]\s*(\d{2,5})(?![\w.])')
+MIN_HERO_PX = 40            # a hero stays at least this tall on screen, at the delivered cell size
+
+def size_of(text):
+    """'1920x1080', '4k' or a request naming one -> (W, H) or None; in a request only a screen-sized
+    WxH counts (both sides 480 or more), so '16x16 icons' is not a delivery size"""
+    m = _SIZE.search(text or '')
+    if m and (min(int(m.group(1)), int(m.group(2))) >= 480 or _SIZE.fullmatch((text or '').strip())):
+        return int(m.group(1)), int(m.group(2))
+    t = ' ' + (text or '').lower() + ' '
+    return next((v for k, v in SIZE_WORDS.items() if _hit(t, k)), None)
+
+def delivery(style, size=None, scale=None, era=None):
+    """-> (w, h, scale, W, H): the native canvas, the whole scale and the delivered picture. size is the
+    delivered (W, H): with a scale the canvas is size / scale; without one the scale is the whole divisor
+    of both sides that puts the native height nearest the style's own (ties: nearest the style's scale).
+    An era keeps its screen and takes the largest scale that fits (the rest is border)."""
+    import math
+    st = styles.get(style)
+    w0, h0 = st['size']
+    if era:
+        import era as eramod
+        w0, h0 = eramod.ERAS[era]['size']
+        s = scale or (max(1, min(size[0] // w0, size[1] // h0)) if size else st['scale'])
+        return w0, h0, s, w0 * s, h0 * s
+    if not size:
+        s = scale or st['scale']
+        return w0, h0, s, w0 * s, h0 * s
+    W, H = size
+    if scale:
+        if W % scale or H % scale:
+            raise SystemExit('%dx%d is not a whole multiple of %d' % (W, H, scale))
+        return W // scale, H // scale, scale, W, H
+    s = min((k for k in range(1, min(W, H) + 1) if W % k == 0 and H % k == 0),
+            key=lambda k: (round(abs(math.log(H / k / h0)), 6), abs(math.log(k / st['scale']))))
+    return W // s, H // s, s, W, H
+
+def _figure_lines(st, h, scale, framed=None):
+    """the figure size for this canvas: the style's size is for its own canvas height, scaled by native
+    height, plus how tall the hero is on screen"""
+    L = ['- Figures: %s, drawn as your own slot maps.' % _as_example(st['figures'])]
+    m = re.search(r'(\d+)x(\d+)|(\d+)(?:-(\d+))? px', st['figures'])
+    if not m:
+        return L
+    f = h / st['size'][1]
+    tall = int(m.group(2) or m.group(4) or m.group(3))
+    if abs(f - 1) > 0.05:
+        size = ('%dx%d' % (round(int(m.group(1)) * f), round(tall * f)) if m.group(1) else
+                '%d-%d px' % (round(int(m.group(3)) * f), round(tall * f)) if m.group(4) else '%d px' % round(tall * f))
+        L.append('- That size is for the style\'s %dx%d canvas; on this %d-row canvas draw them about %s (x%.2f by '
+                 'native height).' % (st['size'][0], st['size'][1], h, size, f))
+    L.append('- On screen the hero is about %d px tall (%d native rows x %d); in a collage cell or a small embed it '
+             'stays at least %d px tall at the delivered cell size (see references/drawing.md#characters).' % (
+                 round(tall * f) * scale, round(tall * f), scale, MIN_HERO_PX))
+    return L
+
+def scene_of(style, request):
+    """the style's scene variant the request matches (styles.STYLES[...]['scenes']), or None"""
+    t = ' ' + (request or '').lower() + ' '
+    for name, v in styles.get(style).get('scenes', {}).items():
+        if _hits(t, v['words']):
+            return name
+    return None
+
+def gate_cmd(st, scale, file='frame.png', era=None, scene=None):
+    return 'pixelate check %s --style %s%s%s --scale %d' % (file, st['name'], (' --era %s' % era) if era else '',
+                                                            (' --scene %s' % scene) if scene else '', scale)
+
 # ---------------------------------------------------------------- the pre-filled brief
 def _fmt_budget(b):
     return '; '.join('%s %s' % (k, ('>= %s' % lo) if hi is None else ('<= %s' % hi) if lo is None else
                                 '%s..%s' % (lo, hi)) for k, (lo, hi) in b.items()) or 'none (look at it)'
 
-def brief(style, request='', projection=None, choices=None, era=None):
+def brief(style, request='', projection=None, choices=None, era=None, size=None, scale=None):
     """the references/brief.md brief as Markdown, with everything the style decides filled in and the
-    scene-specific parts as TODO prompts; choices (from gaps()) adds section 0"""
+    scene-specific parts as TODO prompts; choices (from gaps()) adds section 0; size (W, H) is the
+    delivered picture and scale the whole scale (delivery())"""
     st = styles.get(style)
     r = ROUTE[st['name']]
-    w, h = st['size']
+    w, h, N, DW, DH = delivery(st['name'], size, scale, era)
+    scene = None if era else scene_of(st['name'], request)
     E = None
     if era:
         import era as eramod
         E = eramod.ERAS[era]
-        w, h = E['size']
     frames, fps = r['frames'][0], st['fps']
     proj = projection or r['projection']
     light = {'none': 'no light layer: light is palette steps (warm slots, rims, a few highlight pixels)',
@@ -962,6 +1053,8 @@ def brief(style, request='', projection=None, choices=None, era=None):
     L.append('## 1. Purpose and delivery')
     L.append('- TODO what it is for, where it will be seen (full screen, thumbnail, README), outputs (MP4, GIF/APNG, page, still) '
              '(see references/brief.md#1-purpose-and-delivery).')
+    L.append('- Delivered at %dx%d: native %dx%d, %dx nearest%s.' % (
+        DW, DH, w, h, N, (', centred in a %dx%d frame' % size) if size and (DW, DH) != tuple(size) else ''))
     if st['name'] == 'lofi':
         L.append('- Loop: the engine runs on a 30-tick clock (TICKS = cycle * grand * 30); sprites step at 10, 5 '
                  'or 2 fps; TODO the loop length (the music length for a stream cover; see references/drawing.md#motion).')
@@ -1044,13 +1137,25 @@ def brief(style, request='', projection=None, choices=None, era=None):
                  'era palette, not palette.ramp.' % era)
     else:
         L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
-            w, h, st['scale'], w * st['scale'], h * st['scale'],
+            w, h, N, DW, DH,
             'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
-    L.append('- Figures: %s, drawn as your own slot maps.' % _as_example(st['figures']))
-    L.append('- Budget (`styles.check`): %s.' % _fmt_budget(st['budgets']))
-    L.append('- Gate: `pixelate check frame.png --style %s --scale %d` passes every line (redraw until it does)%s; '
-             'frame T equals frame 0; reads at 480 px wide (see references/delivery.md#gate).' % (
-                 st['name'], st['scale'], '; `pixelate check SCENE` for the engine scene' if st['name'] == 'lofi' else ''))
+    L += _figure_lines(st, h, N)
+    if E:
+        L.append('- Budget: the %s checks replace the style\'s value budget in the gate (`--era %s`): screen size, '
+                 'colour count, palette, colours per block, unique tiles; the style still sets the craft limits.' % (
+                     E['name'], era))
+    elif scene:
+        L.append('- Budget: %s (scene `%s`: %s; provisional; the style\'s own: %s).' % (
+            _fmt_budget(styles.budgets(st['name'], scene)), scene, st['scenes'][scene]['what'],
+            _fmt_budget(st['budgets'])))
+    else:
+        L.append('- Budget (`styles.check`): %s.' % _fmt_budget(st['budgets']))
+    L.append('- Gate: `%s` passes every line (redraw until it does)%s; frame T equals frame 0; reads at 480 px '
+             'wide (see references/delivery.md#gate).' % (
+                 gate_cmd(st, N, era=era, scene=scene),
+                 '; `pixelate check SCENE` for the engine scene' if st['name'] == 'lofi' else ''))
+    L.append('- Gate overrides: none. If the scene cannot meet one bound, add a line `- Gate override: RULE <= V '
+             '(the reason)` and pass `--brief` to the gate (see references/delivery.md#gate).')
     L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
              '(see references/delivery.md#still and references/delivery.md#animation-plan).')
     L.append('\nTechniques for this style: ' + '; '.join(r['tools']) + '.')
@@ -1098,17 +1203,16 @@ def _as_example(s):
     return re.sub(r'(?<![\w/.])(%s)\.(?!py\b|md\b)([A-Za-z_]\w*)' % '|'.join(EXAMPLE_MODULES),
                   r'study references/assets/\1.py \2', s)
 
-def short_brief(style, request='', kind='sprite', r=None, era=None):
+def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, scale=None):
     """the short brief for a small ask: section 0 (intent and defaults), style, palette and size, the
     work, the gate command, what to show the user"""
     st = styles.get(style)
-    w, h = st['size']
-    S, N = st['name'], st['scale']
+    S = st['name']
+    w, h, N, DW, DH = delivery(S, size, scale, era)
     E = None
     if era:
         import era as eramod
         E = eramod.ERAS[era]
-        w, h = E['size']
     g = {x['topic']: x for x in gaps(request, r)} if r else {}
     file = {'palette': 'test.png', 'icons': 'icons.png', 'photo': 'out.png', 'assets': 'SHEET.png',
             'sprite': 'sprite.png', 'music': None}[kind]
@@ -1122,7 +1226,7 @@ def short_brief(style, request='', kind='sprite', r=None, era=None):
         L.append('- **style**: %s' % g['style']['default'])
     size = {'palette': 'about %d colours in `%s` ramps, 4-6 steps per role' % (st['colours'], ', '.join(st['ramp'])),
             'icons': '12 icons at 16x16 on one shared palette, lit from the upper left',
-            'photo': 'native %dx%d, %dx nearest to %dx%d, about %d colours' % (w, h, N, w * N, h * N, st['colours']),
+            'photo': 'native %dx%d, %dx nearest to %dx%d, about %d colours' % (w, h, N, DW, DH, st['colours']),
             'assets': 'TODO each sprite or tile with its size and frame count, for TODO the engine (see guides/assets.md)',
             'sprite': 'one sprite, %s, one pose facing right' % _as_example(st['figures']),
             'music': 'a seamless 60-120 s loop, calm, about 70-80 bpm'}[kind]
@@ -1182,9 +1286,8 @@ def short_brief(style, request='', kind='sprite', r=None, era=None):
     if kind == 'music':
         L.append('- `pixelate check DIR`, then `pixelate audio DIR loop.wav`: the seam holds below -60 dB.')
     else:
-        L.append('- `pixelate check %s --style %s --scale %d`%s; redraw until every line passes '
-                 '(see references/delivery.md#gate).' % (
-            file, S, N, ' --pal PALETTE' if kind == 'palette' else ''))
+        L.append('- `%s%s`; redraw until every line passes (see references/delivery.md#gate).' % (
+            gate_cmd(st, N, file, era=era), ' --pal PALETTE' if kind == 'palette' else ''))
         if E:
             L.append('- `pixelate era %s --era %s`.' % (file, era))
     L.append('\n## 5. Show the user (see references/delivery.md#still)')
@@ -1254,9 +1357,37 @@ CASES = [
     ('a sunny harbour town with boats and gulls', 'scene', {'hd-overworld', 'sticker-iso'}),
 ]
 
+# (request, size, scale, text the long brief must hold): delivery size, scene variants and era gates
+BRIEF_CASES = [
+    ('A tiny noodle shop on a snowy street at night, seen from above.', (1920, 1080), None,
+     ['Canvas 480x270', '--style cosy-lightmap --scene exterior --scale 4', 'scene `exterior`']),
+    ('下雪的夜里，一家小面馆，从上往下看。3840x2160', None, None,
+     ['Native 480x270, 8x nearest to 3840x2160', '--scene exterior --scale 8']),
+    ('午夜山顶，一座裂开的天文台里涌出一道光柱，提着纸灯的朝圣者正沿石阶往上走。', None, None,
+     ['--style contre-jour --scene beam', 'post.Post.shaft', '`--scene beam`']),
+    ('A kid on a paper kite glides over a pink sea of clouds, sun rays through the gaps.', (1280, 720), None,
+     ['Canvas 320x180', '4x nearest to 1280x720', 'shapes.ray']),
+    ('A Game Boy style lighthouse on a stormy night. Four shades of green, the beam sweeping over the waves.',
+     (1920, 1080), None, ['--style lofi --era gameboy --scale 7', 'replace the style\'s value budget', 'shapes.ray']),
+    ('A busy canal market at noon in isometric.', (1920, 1080), 3, ['Canvas 640x360', 'about 20-22 px']),
+]
+
 def selftest(verbose=False):
-    """-> number of cases that route wrong (printed)"""
+    """-> number of cases that route wrong or whose brief misses a line (printed)"""
     bad = 0
+    for q, size, scale, want in BRIEF_CASES:
+        r = route(q)
+        text = brief(r['picks'][0]['style'], q, era=r.get('era'), size=size or size_of(q), scale=scale)
+        miss = [w for w in want if w not in text]
+        bad += bool(miss)
+        if miss or verbose:
+            print('%s brief   %-14s %s%s' % ('XX' if miss else '  ', r['picks'][0]['style'], q[:60],
+                                            ('  missing: %s' % miss) if miss else ''))
+    for neg in ('Post.shaft' in brief('pastel-cell', 'sun rays over the clouds'),
+                '(shapes.ray, canvas.Canvas.fill)' in brief('contre-jour', 'a beam of light')):
+        bad += neg
+        if neg:
+            print('XX the light-beams topic gives a style the wrong ray')
     for q, mode, ok in CASES:
         r = route(q)
         top = r['picks'][0]['style']
@@ -1264,7 +1395,7 @@ def selftest(verbose=False):
         bad += wrong
         if wrong or verbose:
             print('%s %-7s %-14s %s' % ('XX' if wrong else '  ', r['mode'], top, q[:70]))
-    print('%d/%d cases route as expected' % (len(CASES) - bad, len(CASES)))
+    print('%d/%d cases route as expected' % (len(CASES) + len(BRIEF_CASES) + 2 - bad, len(CASES) + len(BRIEF_CASES) + 2))
     return bad
 
 def main(a):
@@ -1288,6 +1419,13 @@ def main(a):
     full = '--full' in a
     if full:
         a.remove('--full')
+    size = scale = None
+    if '--size' in a:
+        i = a.index('--size'); size = size_of(a[i + 1]); del a[i:i + 2]
+        if not size:
+            raise SystemExit('--size takes WxH, e.g. 1920x1080 (the delivered picture)')
+    if '--scale' in a:
+        i = a.index('--scale'); scale = int(a[i + 1]); del a[i:i + 2]
     want = None
     if '--brief' in a:
         i = a.index('--brief')
@@ -1297,13 +1435,16 @@ def main(a):
         want = want or True
     req = ' '.join(a)
     r = route(req)
+    size = size or size_of(req)
     if want:
         style = r['picks'][0]['style'] if want is True else want
         kind = None if full else small_kind(req, r)
+        DW, DH = delivery(style, size, scale, r.get('era'))[3:]
         if kind:
-            text = short_brief(style, req, kind, r, era=r.get('era'))
+            text = short_brief(style, req, kind, r, era=r.get('era'), size=size, scale=scale)
         else:
-            text = brief(style, req, choices=gaps(req, r), era=r.get('era'))
+            text = brief(style, req, choices=gaps(req, r, (DW, DH) if size or scale else None), era=r.get('era'),
+                         size=size, scale=scale)
         if out:
             pathlib.Path(out).write_text(text); print('wrote', out)
         else:

@@ -11,6 +11,7 @@ arguments and a seed; nothing is hand-placed pixel by pixel.
     xe = shapes.ledges(0, 180, 170, seed=5)                                 # a stepped cliff face (02)
     pts = shapes.noisy_edge([(52, 0), (52, 270)], amp=8, wavelength=28)     # displaced polyline (08)
     shapes.void_edge(c, room, 'rock', side='top')                           # checker wall crown (10)
+    c.fill(shapes.ray((180, 320), 200, 0, angle=110, length=170, width=(6, 22)), 'sky4')   # a stepped ray in a slot
 
 Conventions: native art pixels, y down, slots are BASE + step (rock0 darkest). Masks are H x W
 bool arrays. Pixels are filled on their centres: a disc holds (x + .5 - cx)^2 + (y + .5 - cy)^2
@@ -513,6 +514,39 @@ def noisy_edge(pts, amp=8, wavelength=28, seed=0, closed=False, spacing=1.0, per
     w2 = 10 if wavelength > 10 else wavelength / 2.8
     d = amp * (0.6 * vnoise1(s, wavelength, seed, per) + 0.4 * vnoise1(s, w2, seed + 1, per))
     return q + nv * d[:, None]
+
+def _stepped(a, b, span, t):
+    """the across position of a straight edge from a (at t = 0) to b (at t = span), its slope snapped
+    to a pixel-art ratio (1 px every n rows, or n px every row) so it steps in equal runs"""
+    a = float(np.round(a))
+    k = (b - a) / max(span, 1e-9)
+    if abs(k) < 1e-3:
+        return np.full(t.shape, a)
+    if abs(k) < 1:
+        return a + np.sign(k) * np.floor(np.maximum(t, 0) / max(1, round(1 / abs(k))))
+    return a + np.sign(k) * round(abs(k)) * np.floor(np.maximum(t, 0))
+
+def ray(shape, x, y, angle=90, length=100, width=(4, 16)):
+    """a hard-edged light ray as an H x W bool mask: a band from (x, y) toward `angle` degrees (90 =
+    straight down, as in post.Post.shaft) over `length` px, widening from width[0] to width[1]. Each
+    edge is a straight line stepped in equal runs (its slope snapped to 1:n or n:1), so it reads as a
+    drawn pixel-art ray, not a jagged polygon. Fill it with a slot one ramp step lighter (Canvas.fill),
+    or step what it crosses up a slot (rain, flakes, crests inside the mask): the angled ray for styles
+    with no soft shaft. Within 45 degrees of vertical it steps per row, otherwise per column."""
+    H, W = shape
+    a = math.radians(angle)
+    ux, uy = math.cos(a), math.sin(a)
+    vertical = abs(uy) >= abs(ux)
+    s0, c0, ds, dc, N, M = (y, x, uy, ux, H, W) if vertical else (x, y, ux, uy, W, H)
+    span = length * abs(ds)                          # extent along the main axis
+    k = dc / abs(ds)                                 # across shift per px along it
+    h0, h1 = width[0] / 2 / abs(ds), width[1] / 2 / abs(ds)
+    t = (np.arange(N) + 0.5 - s0) * (1 if ds > 0 else -1)
+    lo = _stepped(c0 - h0, c0 + k * span - h1, span, t)
+    hi = _stepped(c0 + h0, c0 + k * span + h1, span, t)
+    cc = np.arange(M) + 0.5
+    m = ((t >= 0) & (t <= span))[:, None] & (cc[None, :] >= lo[:, None]) & (cc[None, :] < hi[:, None])
+    return m if vertical else m.T
 
 def _orient(a, side):
     """view an array so `side` is the top (the void above the room)"""

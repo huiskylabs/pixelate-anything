@@ -209,57 +209,175 @@ def brief_overrides(path):
 # The hero line of a brief (section 4), read by the gate's focus lines and by --blockin:
 #   - Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT
 # The bbox is inclusive, at 1x. An OBJECT that is not the hero (a sun, a lamp) gives its own bbox in
-# brackets, `peak value: the sun disc (244,6,268,32)`, so the peak may sit there instead.
+# brackets, `peak value: the sun disc (244,6,268,32)` or `[244,6,268,32]`, so the peak may sit there
+# instead; several boxes are allowed, and other brackets (reasons) may come before or after them.
 # The plane line, read by --blockin:   - Planes: street 45% (mid), sky 20% (light), houses 25% (dark)
-# Planes name objects or places. A plane may carry a band tag in brackets: darkest, dark, mid, light,
-# brightest, or a band number 1-4 counted from the darkest; other text on the line (reasons) is ignored.
+# Planes name objects or places, and a name may hold commas (`cloud banks A, B and D 35% (mid)`). A
+# plane may carry a band tag in brackets: darkest, dark, mid, light, brightest, or a band number 1-7
+# counted from the darkest. Ignored: text after a share up to the next comma (a reason), a last part
+# with no share, and everything after the line's first sentence.
 _BOX = r'(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)'
-HERO_LINE = re.compile(r'^\s*[-*]\s*\**Hero\**:\s*\**\s*' + _BOX + r'(.*)$', re.M | re.I)
+HERO_LINE = re.compile(r'^\s*[-*]\s*\**Hero\**:\s*\**\s*\[?\s*' + _BOX + r'\s*\]?(.*)$', re.M | re.I)
 PLANES_LINE = re.compile(r'^\s*[-*]\s*\**Planes\**:\s*(.+?)\s*$', re.M | re.I)
 
-def _owner(rest, what):
-    m = re.search(what + r'\s*:\s*([^;]+)', rest, re.I)
-    if not m:
-        return None, None
-    name = m.group(1).strip().rstrip('.')
-    b = re.search(r'\(\s*' + _BOX + r'\s*\)', name)
-    return re.sub(r'\s*\(.*?\)\s*', ' ', name).strip(), (tuple(int(v) for v in b.groups()) if b else None)
+def _split_top(text, seps=';'):
+    """split on any of seps outside round and square brackets"""
+    out, depth, cur = [], 0, ''
+    for ch in text:
+        depth = max(0, depth + (ch in '([') - (ch in ')]'))
+        if ch in seps and depth == 0:
+            out.append(cur); cur = ''
+        else:
+            cur += ch
+    return out + [cur]
+
+def _boxes_in(text, where, problems):
+    """every inclusive x0,y0,x1,y1 box inside a (...) or [...] of text; a reversed box is a problem"""
+    out = []
+    for inner in re.findall(r'[(\[]([^()\[\]]*)[)\]]', text):
+        for b in re.finditer(_BOX, inner):
+            x0, y0, x1, y1 = (int(v) for v in b.groups())
+            if x1 < x0 or y1 < y0:
+                problems.append('%s: box %d,%d,%d,%d is reversed (write x0,y0,x1,y1 with x1 >= x0, y1 >= y0)'
+                                % (where, x0, y0, x1, y1))
+            else:
+                out.append((x0, y0, x1, y1))
+    return out
+
+def _owner(rest, what, problems=None):
+    """the OBJECT of `what: OBJECT` in the Hero line's rest -> (name, [boxes]); `;` inside brackets
+    does not end it"""
+    problems = [] if problems is None else problems
+    for part in _split_top(rest):
+        m = re.match(r'\s*' + what + r'\s*:\s*(.+)$', part.strip(), re.I | re.S)
+        if m:
+            name = m.group(1).strip().rstrip('.')
+            boxes = _boxes_in(name, what, problems)
+            return re.sub(r'\s*[(\[][^()\[\]]*[)\]]\s*', ' ', name).strip(), boxes
+    return None, []
 
 def brief_hero(path):
-    """the brief's `- Hero:` line -> {'bbox', 'value', 'value_box', 'chroma', 'chroma_box'}, or None"""
+    """the brief's `- Hero:` line -> {'bbox', 'value', 'value_box', 'value_boxes', 'chroma',
+    'chroma_box', 'chroma_boxes', 'problems'}, or None"""
     m = HERO_LINE.search(pathlib.Path(path).read_text())
     if not m:
         return None
     x0, y0, x1, y1 = (int(v) for v in m.groups()[:4])
     if x1 < x0 or y1 < y0:
         raise SystemExit('brief Hero bbox %d,%d,%d,%d: write it as x0,y0,x1,y1 with x1 >= x0 and y1 >= y0' % (x0, y0, x1, y1))
-    v, vb = _owner(m.group(5), 'peak value')
-    c, cb = _owner(m.group(5), 'peak chroma')
-    return {'bbox': (x0, y0, x1, y1), 'value': v, 'value_box': vb, 'chroma': c, 'chroma_box': cb}
+    problems = []
+    v, vb = _owner(m.group(5), 'peak value', problems)
+    c, cb = _owner(m.group(5), 'peak chroma', problems)
+    return {'bbox': (x0, y0, x1, y1), 'value': v, 'value_box': vb[0] if vb else None, 'value_boxes': vb,
+            'chroma': c, 'chroma_box': cb[0] if cb else None, 'chroma_boxes': cb, 'problems': problems}
 
 BAND_WORDS = ('darkest', 'dark', 'mid', 'light', 'brightest')
 
 def _band_tag(text):
     """the band a bracket names: 'mid' -> 'mid', '3' or 'band 3' -> 3, a reason alone -> None"""
-    m = re.match(r'\s*(?:band\s*)?([1-4])(?![\d.%])', text, re.I)
+    m = re.match(r'\s*(?:band\s*)?([1-9])(?![\d.%])', text, re.I)
     if m:
         return int(m.group(1))
     m = re.match(r'\s*(darkest|brightest|dark|mid|light)\b', text, re.I)
     return m.group(1).lower() if m else None
 
+_SHARE = re.compile(r'\s*(?P<n>[^%\x00]*?[^\s%\x00\d~.][^%\x00]*?)\s+~?(?P<v>\d+(?:\.\d+)?)\s*%\s*(?:\x00(?P<t>[^\x00]*)\x00)?')
+
 def parse_planes(text):
     """the text after `Planes:` -> [(name, share, tag)]: each `NAME NN%` pair, with the band tag of the
-    bracket right after it (None when untagged). Other text (reasons, notes in brackets) is ignored."""
+    bracket right after it (None when untagged). A comma part with no share joins the next name, so
+    `cloud banks A, B and D 35%` is one plane; text after a share up to the next comma, notes in
+    brackets, a last part with no share and everything after the first sentence are ignored."""
     text = re.sub(r'(?:\(|\[)([^)\]]*)(?:\)|\])', lambda m: ' \x00%s\x00 ' % (_band_tag(m.group(1)) or ''), text)
-    out = []
-    for n, v, tag in re.findall(r'([^,;:%\x00\d~][^,;:%\x00]*?)\s+~?(\d+(?:\.\d+)?)\s*%\s*(?:\x00([^\x00]*)\x00)?', text):
-        out.append((n.strip(), float(v) / 100, (int(tag) if tag.isdigit() else tag) or None))
+    end = re.search(r'(?<![\d\s])\.(?:\s+(?=[A-Z])|\s*$)|\x00\s*\.\s+(?=[A-Z])', text)   # the first sentence ends
+    text = text[:end.end()].rstrip(' .') if end else text
+    out, pending = [], []
+    for part in re.split(r'[,;]', text):
+        m = _SHARE.match(part)
+        if not m or ':' in m.group('n'):
+            pending = [] if m else pending + [part.strip()]
+            continue
+        name = ', '.join([p for p in pending if p] + [m.group('n').strip()])
+        pending = []
+        tag = m.group('t') or ''
+        out.append((re.sub(r'\s+', ' ', name), float(m.group('v')) / 100, (int(tag) if tag.isdigit() else tag) or None))
     return out
 
 def brief_planes(path):
     """the brief's `- Planes: street 45% (mid), sky 20%` line -> [(name, share, tag)], or None"""
     m = PLANES_LINE.search(pathlib.Path(path).read_text())
     return (parse_planes(m.group(1)) or None) if m else None
+
+# The object lines of a brief, read by the gate and by --blockin (boxes native px, inclusive, in square
+# brackets; any section; one line each):
+#   - Key: OBJECT [x0,y0,x1,y1]; L .30 on PLANE .15     a secondary object that must read, its planned L
+#   - Key: OBJECT [x0,y0,x1,y1]; rim: DESCRIPTION       ... or one that reads by a rim
+#   - Value: PLANE [x0,y0,x1,y1] L .40                  the planned mean OKLab L of a plane region
+#   - Calm: NAME [x0,y0,x1,y1]                          a planned calm area
+#   - Sprites: NAME [x0,y0,x1,y1], NAME [x0,y0,x1,y1]   hardware sprites, for --era's sprite limits
+def _line_re(word):
+    return re.compile(r'^\s*[-*]\s*\**' + word + r'\**\s*:\s*\**\s*(.+?)\s*$', re.M | re.I)
+
+KEY_LINE, VALUE_LINE, CALM_LINE, SPRITES_LINE = (_line_re(w) for w in ('Key', 'Value', 'Calm', 'Sprites'))
+_SQ = r'\[\s*' + _BOX + r'\s*\]'
+_NUM = r'(\d*\.\d+|\d+(?:\.\d+)?)'
+
+def _sq_box(text, where, problems):
+    """(name before the [box], box, text after it), or None with a problem noted"""
+    m = re.search(_SQ, text)
+    if not m:
+        problems.append('%s line %r has no [x0,y0,x1,y1] box' % (where, text.strip()))
+        return None
+    x0, y0, x1, y1 = (int(v) for v in m.groups())
+    if x1 < x0 or y1 < y0:
+        problems.append('%s line %r: box %d,%d,%d,%d is reversed (x1 >= x0, y1 >= y0)' % (where, text.strip(), x0, y0, x1, y1))
+        return None
+    return text[:m.start()].strip(' :;,-*'), (x0, y0, x1, y1), text[m.end():]
+
+def brief_plan(path):
+    """the brief's Key, Value, Calm and Sprites lines -> {'keys': [{'name', 'box', 'L', 'plane',
+    'plane_L', 'rim'}], 'values': [{'name', 'box', 'L'}], 'calm': [(name, box)], 'sprites': [(name,
+    box)], 'problems': [text]}. A line that cannot be read is a problem, never silently dropped."""
+    text = pathlib.Path(path).read_text()
+    out = {'keys': [], 'values': [], 'calm': [], 'sprites': [], 'problems': []}
+    P = out['problems']
+    for body in KEY_LINE.findall(text):
+        r = _sq_box(body, 'Key', P)
+        if not r:
+            continue
+        name, box, rest = r
+        k = {'name': name or 'the object', 'box': box, 'L': None, 'plane': None, 'plane_L': None, 'rim': None}
+        rest = rest.strip(' ;,.')
+        rm = re.search(r'\brim\s*:\s*(.+)$', rest, re.I)
+        lm = re.search(r'\bL\s*' + _NUM + r'\s+(?:on|against|over)\s+(.+?)\s+(?:L\s*)?' + _NUM + r'(?![\d])', rest, re.I)
+        if rm:
+            k['rim'] = rm.group(1).strip()
+        if lm:
+            k['L'], k['plane'], k['plane_L'] = float(lm.group(1)), lm.group(2).strip(), float(lm.group(3))
+        if not rm and not lm:
+            P.append('Key line %r: after the box write `; L .30 on PLANE .15` or `; rim: DESCRIPTION`' % body.strip())
+        out['keys'].append(k)
+    for body in VALUE_LINE.findall(text):
+        r = _sq_box(body, 'Value', P)
+        if not r:
+            continue
+        name, box, rest = r
+        lm = re.search(r'\bL\s*' + _NUM, rest)
+        if not lm:
+            P.append('Value line %r: write the planned L after the box, `- Value: PLANE [x0,y0,x1,y1] L .40`' % body.strip())
+            continue
+        out['values'].append({'name': name or 'the plane', 'box': box, 'L': float(lm.group(1))})
+    for body in CALM_LINE.findall(text):
+        r = _sq_box(body, 'Calm', P)
+        if r:
+            out['calm'].append((r[0] or 'calm area', r[1]))
+    for body in SPRITES_LINE.findall(text):
+        for part in _split_top(body, ','):
+            if part.strip():
+                r = _sq_box(part, 'Sprites', P)
+                if r:
+                    out['sprites'].append((r[0] or 'sprite', r[1]))
+    return out
 
 def band_index(tag, n):
     """a plane's band tag -> the band's index (0 darkest) among n bands, or None when there is no such band.
@@ -283,15 +401,15 @@ def _focus_lines(img, hero, actor_box, line, note, ovr, chroma=True, size=True):
         return
     hb = hero['bbox'] if hero else actor_box
     src = 'brief Hero line' if hero else '--actor bbox'
-    owners_v = [hero['value_box']] if hero and hero.get('value_box') else []
-    owners_c = [hero['chroma_box']] if hero and hero.get('chroma_box') else []
+    owners_v = list(hero.get('value_boxes') or []) if hero else []
+    owners_c = list(hero.get('chroma_boxes') or []) if hero else []
     vals = craftcheck.focus(img, hb, owners_v, owners_c, chroma=chroma)
     if hero and actor_box:
         a = (actor_box[2] - actor_box[0] + 1) * (actor_box[3] - actor_box[1] + 1)
         p = (hb[2] - hb[0] + 1) * (hb[3] - hb[1] + 1)
         vals['focus_size'] = (a / p, None)
     note('focus: hero x %d-%d, y %d-%d (%s)%s%s' % (hb[0], hb[2], hb[1], hb[3], src,
-         ('; peak value: %s%s' % (hero['value'], ' %s' % (hero['value_box'],) if hero['value_box'] else '')) if hero and hero.get('value') else '',
+         ('; peak value: %s%s' % (hero['value'], ' ' + ' '.join('[%d,%d,%d,%d]' % b for b in owners_v) if owners_v else '')) if hero and hero.get('value') else '',
          ('; peak chroma: %s' % hero['chroma']) if hero and hero.get('chroma') else ''))
     for key in FOCUS_KEYS:
         lo, hi = craftcheck.FOCUS[key]
@@ -317,6 +435,114 @@ def _focus_lines(img, hero, actor_box, line, note, ovr, chroma=True, size=True):
         if reason:
             b = craftcheck.FOCUS[key]
             note('limit [%s .. %s] (override: %s)' % (fmt(b[0]) if b[0] is not None else '', fmt(b[1]) if b[1] is not None else '', reason))
+
+PLAN_KEYS = ('key', 'value', 'calm', 'density')
+
+def _bx(b):
+    return '[%d,%d,%d,%d]' % b
+
+def _plan_lines(img, plan, hero, line, note, ovr, scale=1, blockin=False):
+    """the brief's Key, Value and Calm lines against the frame (craftcheck.presence, plane_value,
+    calm_share, density); ovr: {key: (lo, hi, reason)} for 'key', 'value', 'calm', 'density'"""
+    import craftcheck as cc
+    H, W = img.size[1], img.size[0]
+    probs = list(plan['problems']) + list((hero or {}).get('problems') or [])
+    if probs:
+        line('FAIL', 'brief lines', '%d unread' % len(probs), 'every Key, Value, Calm, Sprites and Hero box is read')
+        for p in probs:
+            note(p)
+    hb = [hero['bbox']] if hero else []
+    keys = plan['keys']
+    def off(k):
+        if k in ovr and ovr[k][0] == 'off':
+            line('SKIP', k, '', 'off by override (%s)' % ovr[k][2]); return True
+        return False
+    if not keys:
+        line('SKIP', 'key objects', '', 'no `- Key: OBJECT [x0,y0,x1,y1]; L .30 on PLANE .15` lines in the brief')
+    elif not off('key'):
+        dl = ovr['key'][0] if 'key' in ovr and ovr['key'][0] is not None else cc.PRESENCE_DL
+        for k in keys:
+            others = hb + [o['box'] for o in keys if o is not k]
+            r = cc.presence(img, k['box'], others, rim=bool(k['rim']), dl=dl)
+            name = k['name'] if len(k['name']) <= 18 else k['name'][:17] + '.'
+            val = 'outside' if r['why'] == 'outside' else 'dL %+.2f' % r['dL']
+            lim = '|dL| >= %.2f vs its ring%s' % (dl, ' or a rim' if k['rim'] else '') + (' override' if 'key' in ovr else '')
+            line('PASS' if r['ok'] else 'FAIL', 'key ' + name, val, lim)
+            where = '%s at %s' % (k['name'], _bx(k['box']))
+            plane = k['plane'] or 'its surroundings'
+            plan_txt = (' (planned L %.2f on %s %.2f; measured %.2f on %.2f)' % (k['L'], k['plane'], k['plane_L'], r['obj'], r['ring'])
+                        if k['L'] is not None and r.get('obj') is not None else
+                        (' (measured %.2f on %.2f)' % (r['obj'], r['ring']) if r.get('obj') is not None else ''))
+            if r['why'] == 'outside':
+                note('%s lies outside the %dx%d frame: fix the box in the brief' % (where, W, H))
+            elif r['why'] == 'missing':
+                note('%s is missing or flat (dL %.2f, L spread %.3f)%s: draw it in its box, %s' % (
+                    where, abs(r['dL']), r['std'], plan_txt, 'one flat grey that differs from %s by %.2f' % (plane, dl)
+                    if blockin else 'with its own value step of %.2f from %s and its key shapes' % (dl, plane)))
+            elif not r['ok']:
+                note('%s blends into %s (dL %.2f)%s: make it %.2f L %s than %s, or give it a 1 px rim along '
+                     'its lit edge%s' % (where, plane, abs(r['dL']), plan_txt, dl,
+                                         'darker' if r['dL'] < 0 else 'lighter', plane,
+                                         ' (the rim reaches %d of %d px)' % (r['rim'], r['rim_need']) if k['rim'] else
+                                         ' and say so in the brief (`; rim: ...`)'))
+    vals = plan['values']
+    if not vals:
+        line('SKIP', 'plane values', '', 'no `- Value: PLANE [x0,y0,x1,y1] L .40` lines in the brief')
+    elif not off('value'):
+        tol = ovr['value'][1] if 'value' in ovr and ovr['value'][1] is not None else cc.PLANE_TOL
+        mask = hb + [k['box'] for k in keys]
+        for v in vals:
+            m, share = cc.plane_value(img, v['box'], mask)
+            if m is None:
+                m, share = cc.plane_value(img, v['box'])
+            d = m - v['L']
+            name = v['name'] if len(v['name']) <= 16 else v['name'][:15] + '.'
+            bad = abs(d) > tol
+            line('FAIL' if bad else 'PASS', 'value ' + name, 'L %.2f' % m, 'plan %.2f +- %.2f' % (v['L'], tol)
+                 + (' override' if 'value' in ovr else ''))
+            if bad:
+                note('%s %s is %.2f %s than planned (L %.2f, plan %.2f, measured on %.0f%% of its box, keys and hero '
+                     'masked): %s its albedo or its light until it lands within %.2f, or change the plan' % (
+                         v['name'], _bx(v['box']), abs(d), 'darker' if d < 0 else 'lighter', m, v['L'], 100 * share,
+                         'lift' if d < 0 else 'lower', tol))
+    calm = plan['calm']
+    if not calm:
+        line('SKIP', 'calm', '', 'no `- Calm: NAME [x0,y0,x1,y1]` lines in the brief')
+    elif not off('calm'):
+        cap = ovr['calm'][1] if 'calm' in ovr and ovr['calm'][1] is not None else cc.CALM_MAX
+        s = cc.calm_share((H, W), [b for _, b in calm])
+        line('FAIL' if s > cap else 'PASS', 'calm areas', '%.0f%%' % (100 * s), '[ .. %.0f%%] of the frame' % (100 * cap)
+             + (' override' if 'calm' in ovr else ''))
+        if s > cap:
+            note('the calm boxes (%s) cover %.0f%% of the frame: shrink them to %.0f%% or less and fill the rest with '
+                 'the scene\'s objects and stories; a calm area still needs a designed texture' % (
+                     ', '.join('%s %s' % (n, _bx(b)) for n, b in calm), 100 * s, 100 * cap))
+    if blockin:
+        return
+    if 'density' in ovr and ovr['density'][0] == 'off':
+        line('SKIP', 'density', '', 'off by override (%s)' % ovr['density'][2]); return
+    win = cc.DENSITY_WIN
+    r = cc.density(img, scale, [b for _, b in calm], win)
+    state = 'WARN' if r['empty'] else 'PASS'
+    line(state, 'density', '%d empty' % r['empty'], '[ .. 0] %d px windows (delivered) with nothing readable, outside '
+         'calm boxes (a warning)' % win)
+    if r['empty']:
+        x0, y0, x1, y1 = r['worst']
+        note('%d of %d windows of %d px (delivered) hold nothing readable; the emptiest is x %d-%d, y %d-%d at 1x '
+             '(x %d-%d, y %d-%d delivered). Put an object or a small story there, or plan it as a Calm box '
+             '(calm stays at most %.0f%% of the frame)' % (r['empty'], r['windows'], win, x0, x1, y0, y1,
+             x0 * scale, (x1 + 1) * scale - 1, y0 * scale, (y1 + 1) * scale - 1, 100 * cc.CALM_MAX))
+
+def _sprite_line(img, plan, era, line, note):
+    import era as eramod
+    if not plan or not plan['sprites']:
+        line('SKIP', 'era sprites', '', 'no `- Sprites: NAME [x0,y0,x1,y1], ...` line in the brief')
+        return
+    boxes = [(b[0], b[1], b[2] - b[0] + 1, b[3] - b[1] + 1) for _, b in plan['sprites']]
+    issues, n = eramod.check_sprites(boxes, era)
+    e = eramod.ERAS[era]
+    line('FAIL' if issues else 'PASS', 'era sprites', '%d sprites' % n, '; '.join(issues) if issues else
+         'limit %s per line, %s in all (%d boxes from the brief)' % (e.get('sprite_line'), e.get('sprite_total'), len(boxes)))
 
 def _repeat_line(img, line, note, ovr):
     import craftcheck
@@ -369,12 +595,13 @@ def _away(v, lo, hi, fmt):
     return 'inside it too'
 
 def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), intent=None, scene=None, era=None,
-          overrides=(), hero=None):
+          overrides=(), hero=None, plan=None):
     """the delivery gate for one frame: print a PASS / FAIL / SKIP line per check, return True
     when nothing fails. scene: a style's scene variant (styles.budgets); era: the console era's own
     checks replace the value budget (tools/era.py); overrides: parse_override tuples, each moving one
     budget or craft bound, printed with its reason and how far the frame is from the style's own bound;
-    hero: brief_hero() of the brief, for the focus lines (else the --actor mask's bbox)"""
+    hero: brief_hero() of the brief, for the focus lines (else the --actor mask's bbox); plan: brief_plan()
+    of the brief, for its Key, Value, Calm and Sprites lines"""
     from PIL import Image
     import stats, styles, craftcheck
     if style is None and era is None:
@@ -398,7 +625,7 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
             note('override allow %s (%s): an allowed-effect override, checked by route lint; the gate '
                  'moves no bound for it' % (key, reason))
     overrides = [o for o in overrides if o[1] != 'allow']
-    f_ovr = _ovr_map(overrides, FOCUS_KEYS + ('focus', 'repeat'))
+    f_ovr = _ovr_map(overrides, FOCUS_KEYS + ('focus', 'repeat') + PLAN_KEYS)
     overrides = [o for o in overrides if o[0] not in f_ovr]
     crafts = set(next(iter(craftcheck.CRAFT.values())))
     comps = set(craftcheck.COMP_METRICS)
@@ -422,7 +649,7 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
         line('FAIL' if t_issues else 'PASS', 'era tiles (whole frame)', '%d tiles' % nt,
              'limit %s; run `pixelate era BG.png --era %s --tiles` on the background alone' % (e.get('bg_tiles'), era)
              if t_issues else 'limit %s unique %dx%d' % (e.get('bg_tiles'), e.get('tile') or 8, e.get('tile') or 8))
-        line('SKIP', 'era sprites', '', 'needs the sprite boxes: era.check_sprites(boxes, %r) from Python' % era)
+        _sprite_line(img, plan, era, line, note)
     else:
         try:
             base = styles.budgets(st['name'], scene)
@@ -541,6 +768,10 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
     else:
         line('SKIP', 'focus', '', 'no hero: pass --actor, or a brief with a `- Hero: x0,y0,x1,y1` line')
     _repeat_line(img, line, note, f_ovr)
+    if plan is not None:
+        _plan_lines(img, plan, hero, line, note, f_ovr, scale)
+    else:
+        line('SKIP', 'brief objects', '', 'no --brief: no Key, Value or Calm lines')
     ok = 'FAIL' not in rows
     print(('ALL PASS' if ok else 'FAIL: %d of %d checks' % (rows.count('FAIL'), len(rows) - rows.count('SKIP')))
           + (' (%d warning%s)' % (rows.count('WARN'), 's' * (rows.count('WARN') > 1)) if 'WARN' in rows else ''))
@@ -563,7 +794,8 @@ def blockin(path, scale=1, brief=None, style=None, overrides=()):
     print('%s: block-in, %dx%d at 1x (x%d)%s' % (path, W, H, scale, (', brief %s' % brief) if brief else ''))
     hero = brief_hero(brief) if brief else None
     planes = brief_planes(brief) if brief else None
-    f_ovr = _ovr_map([o for o in overrides if o[1] != 'allow'], FOCUS_KEYS + ('focus', 'repeat', 'slab', 'empty', 'empty_low'))
+    f_ovr = _ovr_map([o for o in overrides if o[1] != 'allow'], FOCUS_KEYS + ('focus', 'repeat', 'slab', 'empty', 'empty_low')
+                     + PLAN_KEYS)
     F = craftcheck._Frame(img)
     chroma = float(np.hypot(F.lab[..., 1], F.lab[..., 2]).max())
     if chroma > 0.03:
@@ -578,8 +810,8 @@ def blockin(path, scale=1, brief=None, style=None, overrides=()):
         note('only %d value bands: separate the planes (far, middle, near) into their own flat greys and keep the '
              'hero\'s light as the brightest' % nb)
     elif nb > hi:
-        note('%d value bands: a block-in groups the frame into 3 or 4 values; merge the bands closer than '
-             '%.2f L and leave detail for the drawing' % (nb, 0.1))
+        note('%d value bands: a block-in groups the frame into 3 value groups of at most %d greys; merge the bands '
+             'closer than %.2f L and leave detail for the drawing' % (nb, hi, 0.1))
     m = craftcheck.band_map(F, bands) if bands else None
     top = None
     if bands:
@@ -591,7 +823,7 @@ def blockin(path, scale=1, brief=None, style=None, overrides=()):
             top = (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()))
     if hero and top:
         hb = hero['bbox']
-        ex = [hero['value_box']] if hero.get('value_box') else []
+        ex = list(hero.get('value_boxes') or [])
         bright = m == len(bands) - 1
         inside = craftcheck._boxmask(bright.shape, 1, [hb] + ex)
         share = float((bright & inside).sum() / max(1, bright.sum()))
@@ -687,6 +919,8 @@ def blockin(path, scale=1, brief=None, style=None, overrides=()):
         _focus_lines(F, hero, None, line, note, f_ovr, chroma=False, size=False)
     else:
         line('SKIP', 'focus', '', 'needs a brief with a `- Hero: x0,y0,x1,y1` line')
+    if brief:
+        _plan_lines(img, brief_plan(brief), hero, line, note, f_ovr, scale, blockin=True)
     ok = 'FAIL' not in rows
     print('ALL PASS' if ok else 'FAIL: %d of %d checks' % (rows.count('FAIL'), len(rows) - rows.count('SKIP')))
     return ok
@@ -710,7 +944,7 @@ def frame_main(a):
         raise SystemExit('frame mode needs --style (one of styles.STYLES) or --era (one of era.ERAS)')
     return frame(a[0], style, int(opt('--scale', '1')), opt('--pal'), opt('--pre'), opt('--actor'),
                  [o for o in (opt('--used') or '').split(',') if o], opt('--intent'), opt('--scene'), era, ovr,
-                 brief_hero(brief) if brief else None)
+                 brief_hero(brief) if brief else None, brief_plan(brief) if brief else None)
 
 def _run():
     if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):

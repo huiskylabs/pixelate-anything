@@ -105,24 +105,34 @@ until it passes (`guides/music.md`).
 
 ## Art director
 
-The gate passes weak drafts; an outside eye catches what it can't. The brief was graded A before
-drawing ([brief.md](brief.md#art-director-on-the-brief)); now the still is. Run
+The gate passes weak drafts; an outside eye catches what it can't. A full brief is reviewed before
+drawing ([brief.md](brief.md#art-director-on-the-brief)); a short brief skips brief-stage review.
+The still is reviewed after it passes the gate. Run
 `pixelate critique FRAME.png --brief brief.md [--style S]`: it writes a 480 px thumbnail and its
 greyscale next to the frame and prints a ready prompt (the rubric in
 [art-director.md](art-director.md), the brief's section 0, signature elements, rules, scene and
 lights, the image paths and the bar). Send that prompt to a fresh agent or a second model that did not draw the frame; it
-returns a grade, 12 scores and up to 5 ranked fixes. Apply the fixes, pass the gate again and run a
-new critique with `--prev LAST.md`, so the art director first checks each earlier fix as fixed,
-partly or not, until it grades A. Your own report of a fix is not evidence, and passing the gate
+returns a grade, 12 scores and up to 5 ranked fixes. Your own report of a fix is not evidence, and passing the gate
 means legal, not good: never grade your own still. Don't argue with a fix; if the brief causes it,
 change the brief.
+
+Each stage (full brief and still) has a default budget of **at most three art-director critique
+calls**, counting the initial critique as round 1. After a non-A grade, apply its ranked fixes,
+re-lint the brief or pass the frame gate again, and request the next critique with `--prev LAST.md`;
+the art director checks earlier fixes as fixed, partly or not. Stop on an A. If round 3 is still
+below A, stop automatic revision and review for that stage: report the grade and unresolved ranked
+fixes to the user, and ask whether to continue reviewing or change the brief. Only a user who
+explicitly allows more rounds may extend that stage's budget. A below-A brief is not ready for
+approval or drawing; a below-A still is not a finished still for go/no-go or delivery. `pixelate
+critique` generates one prompt per call; the caller tracks the stage's rounds.
 
 ## Still
 
 Show one still for go/no-go: one frame, at the delivered scale, gate passed and graded A by the art
 director, with its last critique in one line (`AD: A, signature: ..., kept: ...`). Only an A still
-goes to the user. The user accepts it or says what to change; change it, gate it, critique it again
-and show it again.
+is presented as finished; if review stops below A, report the status and ask the user as above,
+not for go/no-go on a finished still. The user accepts an A still or says what to change; change it,
+gate it and follow the review budget above before showing it again.
 
 ## Animation plan
 

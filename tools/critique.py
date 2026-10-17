@@ -9,7 +9,8 @@ prompt holds references/art-director.md (the part for that stage), the brief's r
 signature elements and, for a still, its rules, scene and light list; and the paths to read: the
 brief, the bar (docs/lantern-isle-winter.png and its brief) and, for a still, the frame plus a 480 px
 nearest-neighbour thumbnail and its greyscale written next to it. Send the printed text to a fresh
-agent, apply the fixes it returns, lint or gate again, repeat until it grades A.
+agent, then follow the brief or still review budget in references/delivery.md#art-director. This
+command generates one prompt per call; it does not orchestrate or cap the review loop.
 """
 import argparse, os, pathlib, re, sys
 

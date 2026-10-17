@@ -14,7 +14,7 @@ Outputs:
 
 ## Workflow
 
-1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `examples/lantern-isle/BRIEF.md`), block it in and have the art director grade it A (`pixelate critique --brief brief.md`, `references/brief.md#art-director-on-the-brief`), and show it. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief.
+1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `examples/lantern-isle/BRIEF.md`), block it in and seek an A within the review budget (`pixelate critique --brief brief.md`, `references/delivery.md#art-director`), and show the full brief for approval only at A. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief, which skips brief-stage review.
    - **The subject.**
    - **Phases:** 1 to 6, each with a mood, a palette idea, signature elements and its music.
    - **The canvas:**
@@ -43,7 +43,7 @@ Outputs:
    pixelate check still.png --style lofi --scale 4 [--pal P] [--actor MASK]
    pixelate check my-scene
    ```
-   Redraw until every line passes, run the art director until it grades A (`pixelate critique still.png --brief brief.md`, `references/delivery.md#art-director`), then show the user that one still for go/no-go. For a still-only job, this is the delivery.
+   Redraw until every line passes, seek an A within the review budget (`pixelate critique still.png --brief brief.md`, `references/delivery.md#art-director`), then show the user that one still for go/no-go. If review stops below A, report the grade and unresolved ranked fixes and ask whether to continue or change the brief; do not deliver that still as finished. For a still-only job, the A still is the delivery.
 
 7. **Confirm the animation plan.** Show the loop length (`cycle`, `grand`, ticks), what moves, and each rate and frame count, every period dividing the loop (the brief's motion table, updated). Animate only after the user says OK.
 

@@ -1829,7 +1829,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                  '; `pixelate check SCENE` for the engine scene' if st['name'] == 'lofi' else ''))
     L.append('- Gate overrides: none. If the scene cannot meet one bound, add a line `- Gate override: RULE <= V '
              '(the reason)` and pass `--brief` to the gate (see references/delivery.md#gate).')
-    L.append('- Art director: `pixelate critique FRAME.png --brief brief.md` to a separate agent until it grades A '
+    L.append('- Art director: `pixelate critique --brief brief.md --block BLOCKIN.png` for this full brief, '
+             'then `pixelate critique FRAME.png --brief brief.md` for the still; each stage allows at most '
+             'three critique rounds by default, counting the first, unless the user explicitly allows more '
              '(see references/delivery.md#art-director).')
     L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
              '(see references/delivery.md#still and references/delivery.md#animation-plan).')
@@ -1972,6 +1974,11 @@ def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, s
             gate_cmd(st, N, file, era=era), ' --pal PALETTE' if kind == 'palette' else ''))
         if E:
             L.append('- `pixelate era %s --era %s`.' % (file, era))
+        L.append('- Art director: `pixelate critique %s --brief brief.md` for the still after the gate; '
+                 'at most three critique rounds by default, counting the first, unless the user explicitly '
+                 'allows more. If round 3 is below A, report the grade and unresolved ranked fixes and ask '
+                 'whether to continue or change the brief; show only an A result as finished '
+                 '(see references/delivery.md#art-director).' % file)
     L.append('\n## 5. Show the user (see references/delivery.md#still)')
     L.append('- ' + {'palette': 'The chips and the test sprite side by side at 1x and %dx, for go/no-go.' % N,
                      'icons': 'The sheet at 1x and %dx, and one row at the size it will be used, for go/no-go.' % N,

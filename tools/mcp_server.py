@@ -38,15 +38,20 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
 4. Draw a greyscale block-in of the layout (flat value shapes from the brief's boxes; its gate is
    `pixelate check BLOCKIN.png --blockin --brief brief.md`), then critique_prompt(brief, block=...):
    send the prompt to a separate agent that did not write the brief, apply its changes, lint_brief
-   again, repeat until it grades A.
-5. Show the user the brief with section 0 and wait for OK.
+   again within the stage's review budget (guide('delivery'), Art director). A short brief skips
+   brief-stage review. If the budget ends below A, report grade and unresolved ranked fixes and ask
+   whether to continue or change the brief; do not ask for approval yet.
+5. Show the user an A full brief (or a short brief, which skips brief-stage review)
+   with section 0 and wait for OK.
 6. Draw everything yourself in code (guide('drawing')). kit_tools() lists topics and modules,
    kit_tools('rain') the techniques for a subject, kit_tools('post.Post.lightmap') one signature.
    references/assets holds examples to read, never to call.
 7. check_frame and redraw until every line passes (guide('delivery')).
 8. critique_prompt(brief, frame, prev=last critique): the same for the still; apply its fixes,
-   check_frame again, repeat until it grades A. Passing the gate means legal, not good: never self-grade.
-9. Show one still for go/no-go, only once it is graded A, with the last critique in one line.
+   check_frame again within the stage's review budget (guide('delivery'), Art director). If the budget
+   ends below A, stop automatic review, report grade and unresolved ranked fixes and ask whether to
+   continue or change the brief. Passing the gate means legal, not good: never self-grade.
+9. Show one still for go/no-go only once it is graded A; never present a below-A still as finished.
 10. Confirm the animation plan (loop length, what moves, rates), then animate.
 Hard rules: the five orthographic views (side, 3/4 top-down, 2:1 iso, oblique, military) are
 presets, not limits. Keep a reference's camera or an explicit one- or two-point perspective;
@@ -110,7 +115,9 @@ def write_brief(request: str, out: str, style: str = '', size: str = '', scale: 
 @server.tool()
 def lint_brief(path: str) -> str:
     """Self-critique a filled brief: TODOs left, thin or missing sections, vague words, motion periods
-    that don't divide the loop, kit names that don't exist. Fix until it says ready, then show the user."""
+    that don't divide the loop, kit names that don't exist. Fix until it says ready; a full brief
+    needs an independent A within the review budget before asking the user to approve it. A short
+    brief skips brief-stage review."""
     return cli('route', '--lint', P(path))[1]
 
 @server.tool()
@@ -143,7 +150,8 @@ def critique_prompt(brief: str, frame: str = '', block: str = '', prev: str = ''
     fix is checked first as fixed, partly or not. It holds the rubric (references/art-director.md, the
     part for that stage), the brief's request, section 0 and signature elements, and the paths of the
     brief and the bar. Send it to a separate agent or model that did not write or draw the work; apply
-    the fixes it returns, lint_brief or check_frame again, and repeat until it grades A."""
+    the fixes it returns, then lint_brief or check_frame again. This tool produces one prompt per
+    call; track the brief or still review budget in guide('delivery') yourself."""
     import critique
     return critique.prompt(P(frame, write=True) if frame else None, P(brief), style,
                            prev=P(prev) if prev else None, block=P(block) if block else None)

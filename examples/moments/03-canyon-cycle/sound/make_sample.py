@@ -37,7 +37,7 @@ def pick_window(x):
     env, hop = envelope(x, 1100, 6000)
     db = 20 * np.log10(env)
     rise = np.diff(db, prepend=db[0])
-    on = np.nonzero((rise > 4.0) & (db > db.max() - 30))[0] * hop / SR
+    on = np.nonzero((rise > 2.5) & (db > db.max() - 30))[0] * hop / SR
     on = on[np.insert(np.diff(on) > 0.15, 0, True)]
     best = None
     for t0 in np.arange(0.0, len(x) / SR - 5.0, 0.05):

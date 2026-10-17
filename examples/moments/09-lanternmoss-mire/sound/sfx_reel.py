@@ -209,7 +209,7 @@ def finish(m):
         # windowed-sinc low-pass at 18 kHz, then keep every OS-th sample
         taps = 255
         k = np.arange(taps) - (taps - 1) / 2
-        fc = 18000 / FS
+        fc = 14000 / FS
         h = 2 * fc * np.sinc(2 * fc * k) * np.blackman(taps)
         h /= h.sum()
         return np.convolve(x, h, mode='same')[::OS]
@@ -224,7 +224,17 @@ def finish(m):
             y[i] = prev_y
         return y
 
-    st = np.stack([highpass(decimate(m.L)), highpass(decimate(m.R))], axis=1)
+    def lowpass(x, fc=5200.0):
+        # one-pole low-pass: the handheld's output stage, takes the fizz off the square edges
+        a = np.exp(-2 * np.pi * fc / SR)
+        y = np.zeros_like(x)
+        prev = 0.0
+        for i, v in enumerate(x):
+            prev = (1 - a) * v + a * prev
+            y[i] = prev
+        return y
+
+    st = np.stack([highpass(lowpass(decimate(m.L))), highpass(lowpass(decimate(m.R)))], axis=1)
     n = int(DUR * SR)
     st = st[:n]
     fade_in = int(0.020 * SR)

@@ -1215,7 +1215,7 @@ class Street:
             self.px(x0 + 38 + k, cyw - 2 + (k % 2), 'cool4', base)
 
     def cat(self):
-        self.light(400, 228, (30, 7), (1.0, 0.72, 0.42), 1.0)                       # the shop's light where it walks
+        self.light(400, 227, (30, 8), (1.0, 0.72, 0.42), 1.3)                       # the shop's light where it walks
         """one cat crossing the road in the shop's light pool, walking left: pointed ears, an
         arched back, the tail up in a hook; dark body with a warm rim on the shop side"""
         art = parse("""

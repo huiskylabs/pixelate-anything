@@ -1111,10 +1111,26 @@ def hero_bbox(Y):
     ys, xs = np.nonzero(m)
     return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
 
+def export():
+    """the two stills: 1x, 3x nearest, the palette as JSON, and the hero's mask for the gate"""
+    OUT.mkdir(exist_ok=True)
+    for name, (turn, stage, phase) in (('07-a', (0, 1, 'dawn')), ('07-b', (3, 4, 'night'))):
+        Y, slots, pal = render(turn, stage, phase)
+        im = to_image(slots, pal)
+        im.save(OUT / ('%s@1x.png' % name))
+        im.resize((W * 3, H * 3), Image.NEAREST).save(OUT / ('%s.png' % name))
+        used = sorted(set(slots.ravel()))
+        json.dump({k: pal[k] for k in sorted(pal)}, open(OUT / ('%s-palette.json' % name), 'w'), indent=1)
+        hero = np.isin(Y.s.obj, list(Y.hero))
+        Image.fromarray((hero * 255).astype(np.uint8), 'L').save(OUT / ('%s-hero.png' % name))
+        print(name, 'hero bbox', hero_bbox(Y), 'slots used', len(used), 'of', len(pal))
+
 if __name__ == '__main__':
     import time
     t0 = time.time()
     which = sys.argv[1] if len(sys.argv) > 1 else 'a'
+    if which == 'export':
+        export(); sys.exit(0)
     if which == 'a':
         Y, slots, pal = render(0, 1, 'dawn')
     else:

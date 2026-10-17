@@ -37,9 +37,15 @@ def blockin(moment):
     L = np.full((G.H, G.W), GREY['dark'])
     yy, xx = np.mgrid[0:G.H, 0:G.W] + 0.5
     mx, my, mr = G.MOON
-    # the moonlit sky: a wide dome round the moon down to the horizon
-    dome = (((xx - mx) / 230.0) ** 2 + ((yy - my - 40) / 96.0) ** 2 <= 1) & (yy < G.HORIZON)
-    L[dome] = GREY['mid']
+    # the moonlit sky: the moon's glow (the halo's size) and the bright band over the horizon
+    import scene
+    glow = ((xx - mx) ** 2 + (yy - my) ** 2 <= 36 ** 2)
+    L[glow] = GREY['mid']
+    edge = 176 + np.round(3 * np.sin(xx / 53.0) + 2 * np.sin(xx / 17.0)).astype(int)
+    L[(yy >= edge) & (yy < G.HORIZON)] = GREY['mid']
+    # the cloud bank with its break, a dark mass
+    bank, wisps = scene.cloud_masks(moment)
+    L[bank] = GREY['darkest']
     # far headland breaks the horizon on the left (hazed, dark band)
     head = G.mask_poly([(118, 207), (140, 201), (176, 198), (214, 196), (252, 199), (288, 203), (306, 207)])
     L[head] = GREY['dark']
@@ -47,9 +53,9 @@ def blockin(moment):
     L[shaft_mask(G.SHAFT[moment]) & (yy < G.HORIZON)] = GREY['mid']
     # the moon and its bright aura
     L[G.disc(mx, my, mr)] = GREY['brightest']
-    # pools on the flats
-    for x0, x1, y0, y1 in G.POOLS:
-        L[y0:y1, x0:x1] = GREY['mid']
+    # the shallows beside the causeway (mid); the channel behind them stays dark
+    lag, deep = scene.water_masks(moment)
+    L[lag] = GREY['mid']
     # island and monastery
     L[G.island_mask()] = GREY['darkest']
     # the causeway: a dark road across the lit flats

@@ -58,7 +58,8 @@ def blockin(moment):
         top, face = G.road_th(x)
         L[y:y + top + face, x] = GREY['darkest']
     # pilgrims
-    for fx, h, kind, fr in G.PILGRIMS[moment]:
+    for spec in G.PILGRIMS[moment]:
+        fx, h = spec[0], spec[1]
         fy = G.feet_y(fx, moment)
         L[fy - h:fy, fx - 3:fx + 4] = GREY['darkest']
     # the shaft's footprint on the far sea round the leaders (the moon's one repeat): one light
@@ -66,7 +67,7 @@ def blockin(moment):
     sh = G.SHAFT[moment]
     a = math.radians(sh['angle'])
     ex = sh['x'] + math.cos(a) * sh['length']
-    foot = (((xx - ex) / 30.0) ** 2 + ((yy - 225) / 13.0) ** 2 <= 1) & (yy > G.HORIZON) & (yy < 240)
+    foot = (((xx - ex) / 36.0) ** 2 + ((yy - 230) / 14.0) ** 2 <= 1) & (yy > G.HORIZON) & (yy < 246)
     L[foot] = GREY['brightest']
     # near plane: bank, pine, boat, posts
     bank = G.mask_poly(G.BANK + [(640, 360), (0, 360)])

@@ -5,8 +5,8 @@ const SCENE = {
   phases: [
     { name: 'town', bpm: 76 }
   ],
-  bars: 8,
-  cycle: 28,                             // check.py prints the right value
+  bars: 18,
+  cycle: 60,                             // 19 bars at 76 bpm (18 + the turnaround) = 60 s exactly
   grand: 1,
   slots: ['BG0', 'BG1', 'B0', 'B1', 'B2', 'B3']
 };

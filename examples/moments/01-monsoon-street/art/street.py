@@ -531,8 +531,13 @@ class Street:
         gh = gw + 1
         gy = r0 + 3
         k = 0
+        seen = set()
         while gy + gh <= r1 - 3:
-            g = rune(seed * 7 + k, gw, gh, seed % 5)
+            for rr in range(30):                       # no rune twice on one sign
+                g = rune(seed * 7 + k + rr * 101, gw, gh, (seed + rr // 6) % 5)
+                if g.tobytes() not in seen:
+                    break
+            seen.add(g.tobytes())
             self.stamp(g, x0 + (x1 - x0 - gw) // 2, gy, ink, base)
             gy += gh + 2 + (k % 2)
             k += 1
@@ -815,7 +820,7 @@ class Street:
         self.rect(sxa + 1, syb - 2, sxb - 1, syb - 1, 'hs1', base=row(Z))
         self.rect(sxa + 9, syb - 2, sxa + 16, syb - 1, 'win3', base=row(Z))         # the dead tube
         gx = sxa + 7
-        for i, sd in enumerate((3, 18, 7, 29)):
+        for i, sd in enumerate((10, 16, 17, 2)):
             gg = rune(sd, 7, 9, 0)
             self.stamp(gg, gx, sya + 2, 'gl0', row(Z))
             gx += 7 + (11 if i != 1 else 14)
@@ -890,7 +895,7 @@ class Street:
         self.light((sxa + sxb) / 2, (sya + syb) / 2, (34, 13), (1.0, 0.88, 0.66), 1.15)
         self.light(col(4.5, Z), yh(1.3, Z), (30, 22), (1.0, 0.74, 0.44), 1.0)
         self.light(col(4.6, 11.5), row(11.5), (44, 11), (1.0, 0.72, 0.42), 0.6)
-        self.spill([(377, 212), (457, 212), (478, 266), (346, 266)], 0.6, blur=3.0)
+        self.spill([(377, 212), (457, 212), (480, 268), (344, 268)], 0.8, blur=3.0)
         self.gspill(X0, Z + 0.2, Zb - 0.4, 1.3, 0.32)
         self.light(lx + 6.5, ly + 6, 11, (1.0, 0.32, 0.2), 0.6)
         self.light(col(X0 - 0.3, 15.5), yh(1.3, 15.5), (9, 14), (1.0, 0.74, 0.44), 0.5)
@@ -937,7 +942,7 @@ class Street:
         self.light(hx + 4.5, hy + 6, (24, 30), (1.0, 0.78, 0.45), 0.85)
         pool = [(128, 223), (140, 217), (158, 214), (176, 213), (196, 215), (211, 219), (221, 225),
                 (214, 230), (196, 234), (170, 235), (149, 232), (134, 228)]
-        self.spill(pool, 0.7, (1.0, 0.78, 0.48), blur=3.0)
+        self.spill(pool, 1.0, (1.0, 0.78, 0.48), blur=3.0)
         pm = self.c.mask_poly(pool) & (self.GR > 0) & np.isnan(self.B)
         lift = {'rd0': 'rd1', 'void': 'rd0', 'rd1': 'rd2', 'con1': 'con2', 'con0': 'con1'}
         for k_, v_ in lift.items():
@@ -1210,7 +1215,7 @@ class Street:
             self.px(x0 + 38 + k, cyw - 2 + (k % 2), 'cool4', base)
 
     def cat(self):
-        self.light(366, 229, (36, 8), (1.0, 0.72, 0.42), 0.8)                       # the shop's light across the road
+        self.light(400, 228, (30, 7), (1.0, 0.72, 0.42), 1.0)                       # the shop's light where it walks
         """one cat crossing the road in the shop's light pool, walking left: pointed ears, an
         arched back, the tail up in a hook; dark body with a warm rim on the shop side"""
         art = parse("""
@@ -1225,7 +1230,7 @@ class Street:
 ..###..........####...
 ..#.#..........#..#...
 .#..#.........#...#...""")
-        cx, by = 352, 231
+        cx, by = 398, 232
         h_, w_ = art.shape
         x0, y0 = cx - w_ // 2, by - h_
         for j in range(h_):
@@ -1251,10 +1256,11 @@ class Street:
         """one vent breathes a hand-shaped plume that leans right and thins as it rises"""
         vx, vy = self.vent
         self.light(vx + 6, vy - 18, (12, 18), (0.85, 0.85, 0.9), 0.3)               # the plume scatters lamp light
-        puffs = [(0, -4, 0.15, 3), (2, -11, 0.35, 5), (5, -19, 0.55, 6), (9, -28, 0.72, 7), (14, -37, 0.86, 7)]
+        puffs = [(0, -3, 0.08, 3), (1, -8, 0.25, 5), (3, -14, 0.42, 6), (6, -21, 0.58, 7), (10, -28, 0.72, 2),
+                 (15, -35, 0.85, 9), (21, -41, 0.95, 4)]
         for k, (dx, dy, age, seed) in enumerate(puffs):
-            fx.smoke_puff(self.c, vx + dx, vy + dy, age, seed=seed + 11, r=(2.0, 5.6),
-                          ramp=['rd2', 'rd3', 'stm0', 'stm0', 'stm1', 'stm1'], lobes=6, rise=0, sway=0.5)
+            fx.smoke_puff(self.c, vx + dx, vy + dy, age, seed=seed + 11, r=(1.4, 5.0),
+                          ramp=['rd1', 'rd2', 'stm0', 'stm0', 'stm1', 'stm1'], lobes=6, rise=0, sway=0.4)
 
     # ------------------------------------------------------------ weather (A)
     def rain(self):

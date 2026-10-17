@@ -67,7 +67,7 @@ def dawn_palette():
 def night_palette():
     """turn 4: moonlight from the right in cool greys; warm lantern slots are the only chroma"""
     p = {'void': _L(0.060, 0.012, 275), 'ol': '#040306'}
-    _ramp(p, 'stone', (.10, .135, .18, .225, .28), (.012, .013, .014, .016, .018), (268, 262, 256, 250, 244))
+    _ramp(p, 'stone', (.10, .14, .19, .245, .30), (.012, .013, .014, .016, .018), (268, 262, 256, 250, 244))
     _ramp(p, 'stoneW', (.16, .21, .27, .33, .40), (.040, .050, .060, .065, .065), (55, 58, 62, 66, 70))
     _ramp(p, 'soil', (.06, .075, .095, .115, .135), (.012, .012, .012, .013, .013), (275, 272, 270, 265, 260))
     _ramp(p, 'oak', (.15, .22, .31, .41, .52), (.022, .028, .033, .036, .034), (55, 62, 70, 82, 95))
@@ -194,7 +194,7 @@ class Beam(sdf.Node):
 # ================================================================ the ship's lines
 class Ship:
     """the hull as functions of station u (0 transom .. 1 stem head) and height z"""
-    def __init__(self, x0=15.0, L=87.0, yc=47.0, zk=-4.0, B=11.0, D=18.0, sa=5.5, sf=9.0, wl=6.5):
+    def __init__(self, x0=15.0, L=87.0, yc=47.0, zk=-4.0, B=11.0, D=18.0, sa=5.5, sf=9.0, wl=8.6):
         self.x0, self.L, self.yc, self.zk, self.B, self.D, self.sa, self.sf = x0, L, yc, zk, B, D, sa, sf
         self.keel = 2.2 if L > 30 else 0.6
         self.zwl = zk + wl                       # the painted waterline
@@ -221,7 +221,7 @@ class Ship:
     def hb(self, u, z):
         e = np.clip(self.eta(u, z), 0, 1)
         end = np.clip(np.abs(np.asarray(u, float) - 0.5) / 0.5, 0, 1) ** 2
-        sc = np.sin(np.clip(e / (0.62 + 0.30 * end), 0, 1) * np.pi / 2) ** (0.8 + 0.6 * end)
+        sc = np.sin(np.clip(e / (0.42 + 0.40 * end), 0, 1) * np.pi / 2) ** (0.7 + 0.7 * end)
         sc = sc * (1 - 0.05 * np.clip((e - 0.8) / 0.2, 0, 1))
         k = 0.9 if self.L > 30 else 0.35
         return k + np.maximum(self.bm(u) - k, 0) * sc
@@ -453,11 +453,11 @@ def tex_hull(mx, my, mz, n, st):
     S = SHIP
     u = float(S.u(mx)); uc = min(max(u, 0.0), 1.0)
     zs = float(S.zs(uc))
-    if n[2] > 0.9 and mz > zs - 0.7:                       # the deck
-        k = int((my - S.yc + 30) // 1.45)
-        if (my - S.yc + 30) % 1.45 < 0.3 or _seam(mx + k * 3.1, k % 12, 0.2):
-            return 'oak%d' % max(0, st - 1)
-        return 'oak%d' % st
+    if n[2] > 0.9 and mz > zs - 0.7:                       # the deck: calm, a step under the lit side
+        k = int((my - S.yc + 30) // 2.9)
+        if (my - S.yc + 30) % 2.9 < 0.35:
+            return 'oak%d' % max(0, st - 2)
+        return 'oak%d' % max(0, st - 1)
     if n[0] < -0.7 and u < 0.06:                            # the transom: lit stern windows
         if zs - 4.2 < mz < zs - 2.2:
             for wy in (-5.2, -1.6, 2.0):
@@ -733,7 +733,8 @@ def build_ship(Y, stage):
                      mat=M('timber', tex_endgrain, bias=1)), tag='shore')
     if stage >= 3:
         Y.solid(Field(S.bulwark_d, S.bbox(top=3), M('oak', tex_hull)), hero=True, tag='ship', maxit=200)
-        Y.solid(Field(S.cap_d, S.bbox(top=4), M('oak', bias=1)), hero=True, tag='ship', maxit=200)
+        oid = Y.solid(Field(S.cap_d, S.bbox(top=4), M('oak', bias=1)), hero=True, tag='ship', maxit=200)
+        Y.tag.setdefault('cap', set()).add(oid)
         z0 = float(S.zs(0.1))
         Y.box(S.x0 + 5, S.yc - 3.6, z0 - 0.5, 9, 7.2, 4.4, 'oak', tex=tex_house, hero=True, tag='ship')   # deckhouse
         Y.box(S.x0 + 4.6, S.yc - 4.0, z0 + 3.9, 9.8, 8.0, 0.7, 'oak', bias=1, hero=True, tag='ship')
@@ -890,8 +891,8 @@ def build_props(Y, stage, phase):
                       mat=M('timber', tex_boards)), tag='hut')
     Y.solid(sdf.Cyl(hx + 7.6, hy + 4.0, 11.0, 0.6, hi=17.4, mat=M('stone', bias=-1)), tag='hut', lines=False)
     Y.stovepipe = (hx + 7.6, hy + 4.0, 17.4)
-    b(CANAL[1] - 3.6, hy + 2.5, -1.2, 3.8, 7.0, 0.6, 'timber', tex=tex_endgrain, tag='hut')           # landing stage
-    for (px, py) in ((CANAL[1] - 3.4, hy + 2.7), (CANAL[1] - 3.4, hy + 8.6)):
+    b(CANAL[1] - 3.6, hy + 11.5, -1.2, 3.8, 6.0, 0.6, 'timber', tex=tex_endgrain, tag='hut')          # landing stage
+    for (px, py) in ((CANAL[1] - 3.4, hy + 11.7), (CANAL[1] - 3.4, hy + 16.6)):
         b(px, py, -6.0, 0.8, 0.8, 7.6, 'timber', tag='hut', lines=False)
     for (bx_, by_, r) in ((hx + 8.2, hy + hd + 1.6, 1.1), (hx + 6.0, hy + hd + 2.1, 1.0)):
         Y.solid(sdf.Cyl(bx_, by_, 0.0, r, hi=2.7, mat=M('timber', tex_endgrain)), tag='hut')
@@ -949,14 +950,14 @@ def night_lights(Y, slots):
     s = Y.s
     ok = set(Y.pal.keys())
     head = float(S.zs(1.0))
-    lamps = [((S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 6.2), 'H', 7.5, 5.0),          # stern lantern on its post
-             ((S.x0 + S.L - 2.6, S.yc - 0.6, head + 4.4), 'H', 6.5, 4.5),          # bow lantern on the stem head
-             ((CRANE['x'] + CRANE['w'] / 2, CRANE['y'] + CRANE['w'] + 0.7, 21.0), 'A', 8.0, 5.5)]  # crane
+    lamps = [((S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 6.2), 'H', 6.0, 4.0),          # stern lantern on its post
+             ((S.x0 + S.L - 2.6, S.yc - 0.6, head + 4.4), 'H', 5.0, 3.5),          # bow lantern on the stem head
+             ((CRANE['x'] + CRANE['w'] / 2, CRANE['y'] + CRANE['w'] + 0.7, 9.0), 'A', 6.5, 4.5)]  # crane
     # the stern lantern's post and the bow lantern's crook
     line3(Y, slots, (S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 2.6), (S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 5.0), 'oak1')
     # pools: warm steps on whatever lies under each lantern, an irregular lobed outline
     W_, H_ = s.W, s.H
-    m = s.obj >= 0
+    m = (s.obj >= 0) & (s.face == 1)
     ys, xs = np.nonzero(m)
     wx, wy, wz = s.world[ys, xs, 0], s.world[ys, xs, 1], s.world[ys, xs, 2]
     mx, my = TURN.inv(wx, wy)
@@ -965,7 +966,7 @@ def night_lights(Y, slots):
         ang = np.arctan2(dy, dx)
         lobe = 1.0 + 0.18 * np.sin(3 * ang + 1.3) + 0.12 * np.sin(5 * ang + 0.4)
         r = np.sqrt((dx / rx) ** 2 + (dy / ry) ** 2) / lobe
-        near = (wz <= p[2] + 0.5) & (wz >= p[2] - 26)
+        near = (wz <= p[2] - 1.0) & (wz >= p[2] - 26)
         for k in np.nonzero((r < 1.0) & near)[0]:
             v = slots[ys[k], xs[k]]
             if not isinstance(v, str) or not v[-1:].isdigit():
@@ -980,23 +981,22 @@ def night_lights(Y, slots):
         sx, sy = Y.to_screen(*p)
         key = {'o': 'ol', 'H': 'lamp%s2' % kind, 'h': 'lamp%s' % kind}
         stamp(Y, slots, LANTERN, key, sx, sy, (1, 3), depth=Y.depth_of(*p) + 0.5)
-    # the shop window's broken reflection on the high water in front of it
+    # the shop window's broken reflection: a column of short dashes on the high water below it
     hx, hy, hw, hd = HUT
-    for wy_ in (hy + 6.2, hy + 9.2):
-        sx, sy = Y.to_screen(hx - 0.1, wy_, 2 * WATER - 5.2)
-        rows = [(0, 3, 'refl1'), (2, 2, 'refl1'), (3, 4, 'refl0'), (5, 2, 'refl1'), (7, 3, 'refl0'), (9, 2, 'refl0'),
-                (12, 1, 'refl0')]
-        for j, (dyy, wd, sl) in enumerate(rows):
-            X0 = int(sx) - wd // 2 + (1 if j % 3 == 1 else 0) - 2
+    for wy_, seed in ((hy + 6.4, 0), (hy + 9.0, 1)):
+        sx, sy = Y.to_screen(hx - 0.1, wy_, WATER)
+        for j, (wd, sl) in enumerate(((3, 'refl1'), (2, 'refl1'), (3, 'refl0'), (2, 'refl1'), (2, 'refl0'),
+                                      (1, 'refl0'), (2, 'refl0'))):
+            Yy = int(sy) + 1 + 2 * j
+            X0 = int(sx) - 1 - (1 if (j + seed) % 3 == 0 else 0)
             for X in range(X0, X0 + wd):
-                Yy = int(sy) + dyy - 6
                 if 0 <= X < W and 0 <= Yy < H and isinstance(slots[Yy, X], str) and slots[Yy, X].startswith('water'):
                     slots[Yy, X] = sl
     # the landing stage catches the window spill
     for (yy, xx) in zip(*np.nonzero(np.isin(s.obj, list(Y.tag.get('hut', ()))))):
         v = slots[yy, xx]
         P = s.world[yy, xx]; qx, qy = TURN.inv(float(P[0]), float(P[1]))
-        if isinstance(v, str) and v.startswith('timber') and v[-1:].isdigit() and qx < hx - 0.2 and hy + 3 < qy < hy + 12 and P[2] < 0.5:
+        if isinstance(v, str) and v.startswith('timber') and v[-1:].isdigit() and qx < hx - 0.2 and hy + 10 < qy < hy + 18 and P[2] < 0.5:
             slots[yy, xx] = 'timberW%s' % min(4, int(v[-1]) + 1)
 
 PEN_TOP = ["oPPPPPPPPp", "oPPPPp...."]
@@ -1036,15 +1036,18 @@ def finish(Y, slots, phase):
     for yy, xx in zip(*np.nonzero(m)):
         slots[yy, xx] = _shade_slot(slots[yy, xx], 1, ok)
     # spec strokes: 1 px white on the hero's upper edges and the edges toward the light
-    isl = np.vectorize(lambda v: isinstance(v, str) and v in ('oak4', 'oak3') )(slots) & hero
-    up = np.zeros_like(isl); up[1:] = ~isl[:-1]
-    sd = np.zeros_like(isl)
+    isl = np.vectorize(lambda v: isinstance(v, str) and v in ('oak4', 'oak3', 'oak2'))(slots) & hero
+    top4 = np.vectorize(lambda v: v in ('oak4', 'oak3'))(slots) & hero
+    up = np.zeros_like(hero); up[1:] = ~hero[:-1]
+    sd = np.zeros_like(hero)
     if lit_left:
-        sd[:, 1:] = ~isl[:, :-1]
+        sd[:, 1:] = ~hero[:, :-1]
     else:
-        sd[:, :-1] = ~isl[:, 1:]
-    top4 = np.vectorize(lambda v: v == 'oak4')(slots)
-    m = isl & (up | (sd & top4))
+        sd[:, :-1] = ~hero[:, 1:]
+    m = (isl & up) | (top4 & sd)
+    cap = np.isin(s.obj, list(Y.tag.get('cap', ())))
+    capu = np.zeros_like(cap); capu[1:] = ~cap[:-1]
+    m |= cap & capu & (s.face == 1)
     slots[m] = 'spec'
     # the crane's hoist: rope from the sheave head to the block, a back rope to the winch
     tip = Y.jib

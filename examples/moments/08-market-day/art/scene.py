@@ -15,7 +15,7 @@ import town as L
 W, H = L.W, L.H
 
 # ---------------------------------------------------------------- block-in
-BLOCK = {'B1': '#5b5b5b', 'B2': '#ababab', 'B3': '#868686', 'B4': '#f5f5f5'}   # roofs .47, facades .74, paving .62, hero .97
+BLOCK = {'B1': '#555555', 'B2': '#717171', 'B3': '#929292', 'B4': '#f5f5f5'}   # masses at cell level: roofs .45, facades .55, paving .66, hero .97
 ROOF_M = ('terra', 'brown', 'tile', 'slate')
 
 def block_grey(slot):

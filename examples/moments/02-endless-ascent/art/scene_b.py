@@ -16,7 +16,7 @@ import gondola as GD
 
 RAMPS = {
     'sky': [(.125, .040, 275), (.15, .046, 278), (.18, .050, 282), (.21, .052, 286), (.24, .052, 292)],
-    'aur': [(.225, .040, 205), (.28, .050, 185), (.335, .064, 166), (.41, .078, 152)],
+    'aur': [(.225, .038, 205), (.275, .048, 185), (.33, .060, 166), (.40, .072, 152)],
     'auv': [(.215, .045, 325), (.25, .050, 335)],
     'st': [(.33, .030, 262), (.50, .030, 252), (.66, .030, 242), (.82, .025, 95)],
     'cl': [(.22, .035, 290), (.28, .040, 284), (.335, .042, 276), (.39, .040, 262), (.44, .036, 240), (.48, .030, 225)],
@@ -50,8 +50,10 @@ def aurora(g):
     def curtain(x0, x1, hem, env, top, seed, fold=None):
         for x in range(x0, x1):
             yh = hem(x)
-            Lx = env(x) * (0.86 + 0.28 * hsh(x // 3, seed))        # rays: a little uneven, never gapped
+            grp = (x + int(3 * noise1(x / 7, seed))) // 3
+            Lx = env(x) * (0.72 + 0.38 * hsh(grp, seed))           # rays: groups of uneven height, no gaps
             Lx = int(Lx)
+            seam = hsh(grp, seed + 5) < 0.3 and (x % 3 == 0)      # a darker seam between some rays
             for k in range(0, Lx + 6):
                 y = yh - k
                 if not 0 <= y < H:
@@ -65,7 +67,10 @@ def aurora(g):
                     if u > 0.92 and Lx > 40 and th < 0.3 and k <= Lx + 3:
                         put(g, x, y, 'auv1' if th < 0.12 else 'auv0')   # magenta on the tallest tips
                     continue
-                put(g, x, y, 'aur%d' % max(0, min(top, int(round(lv)))))
+                lvl = max(0, min(top, int(round(lv))))
+                if seam and k > 2 and lvl > 0:
+                    lvl -= 1
+                put(g, x, y, 'aur%d' % lvl)
             # the hem's lower lip: a darker row under it where the curtain hangs toward us
             if hsh(x // 5, seed + 1) < 0.55:
                 put(g, x, yh + 1, 'aur%d' % max(0, top - 2))
@@ -127,7 +132,7 @@ def stars(g, intent):
 import shapes as SH
 
 
-def cloud_mass(g, x0, x1, top, lobes, seed, dim=0, body=11, ends=12):
+def cloud_mass(g, x0, x1, top, lobes, seed, dim=0, body=11, ends=12, height=44):
     """one mass: a long flat top (walked in flat runs with 1 px steps) from x0 to x1 with rounded ends,
     a few lobes of very different radius rising from it; shaded by depth under each column's top: a
     1 px rim, a lit top tier, the mid body, then a belly that dissolves downward through a wide Bayer
@@ -142,7 +147,8 @@ def cloud_mass(g, x0, x1, top, lobes, seed, dim=0, body=11, ends=12):
             e = min(xx - x0, x1 - 1 - xx)
             lift = 0 if e >= ends else int(round(ends - math.sqrt(max(0, ends * ends - (ends - e) ** 2))))
             if 0 <= xx < W:
-                m[max(0, y + lift):, xx] = True
+                lb = 0 if e >= ends * 2 else int(round((ends * 2 - e) ** 1.5 / (ends * 0.9)))
+                m[max(0, y + lift):max(0, min(H, top + height - lb)), xx] = True
         y = top + (1 if hsh(x, seed + 1) < 0.35 else 0) - (1 if hsh(x, seed + 2) < 0.2 else 0)
         x += run
     lob = np.zeros((H, W), bool)
@@ -168,6 +174,10 @@ def cloud_mass(g, x0, x1, top, lobes, seed, dim=0, body=11, ends=12):
     lv = 3 - (YY - yb) / 12.0 + (th - 0.5) * 1.3
     tone = np.where((YY > yb) & (depth > 3), np.minimum(tone, np.round(lv).astype(int)), tone)
     tone = np.clip(tone, 0, 5)
+    # the last rows of the belly dissolve into whatever lies behind (a wide ordered dither, no edge)
+    yb2 = top + height
+    keep = th < np.clip((yb2 - YY) / 12.0, 0, 1)
+    m &= keep | (depth <= 3)
     for k in range(6):
         g[m & (tone == k)] = D(k)
     return m
@@ -181,12 +191,15 @@ def strata(g, layers, seed):
     subtle lit upper edge and a long Bayer seam into the next"""
     for i, (top, slot_rim, slot_body, slot_low) in enumerate(layers):
         for x in range(W):
-            yt = top + int(round(2 * noise1(x / 29, seed + i) + 1.2 * noise1(x / 9, seed + 10 + i)))
+            lump = max(0.0, noise1(x / 23, seed + 20 + i)) * 7 + max(0.0, noise1(x / 61, seed + 30 + i)) * 6
+            yt = top - int(round(lump)) + int(round(1.2 * noise1(x / 9, seed + 10 + i)))
             for y in range(max(0, yt), H):
                 d = y - yt
                 th = (bayer(x, y) + 0.5) / 16
                 if d == 0:
-                    v = slot_rim if hsh(x // 4, seed + i) < 0.7 else slot_body
+                    v = slot_rim
+                elif d <= 2 and th < 0.6:
+                    v = slot_rim
                 elif d < 10 + th * 4:
                     v = slot_body
                 else:
@@ -214,16 +227,16 @@ def cloud_sea(g):
     global BAY
     BAY = np.vectorize(lambda x, y: bayer(x, y))(XX, YY)
     # the bank's lower layers first (they sit behind the masses' bellies)
-    strata(g, [(372, 'cl2', 'cl2', 'cl1'), (410, 'cl2', 'cl1', 'cl0'), (446, 'cl1', 'cl0', 'cl0')], 41)
+    strata(g, [(366, 'cl3', 'cl2', 'cl1'), (404, 'cl4', 'cl3', 'cl2'), (444, 'cl4', 'cl3', 'cl2')], 41)
     # far small mass: about 15% of the width, high on the right, one step dimmer
-    cloud_mass(g, 206, 248, 304, [(222, 6, 0.8)], seed=31, dim=1, body=7, ends=8)
+    cloud_mass(g, 206, 248, 304, [(222, 6, 0.8)], seed=31, dim=1, body=7, ends=8, height=22)
     # mid mass: about 30%, right, one big lobe and one small
-    cloud_mass(g, 176, 262, 322, [(200, 13, 0.85), (243, 5, 0.9)], seed=32, body=10, ends=11)
+    cloud_mass(g, 172, 266, 322, [(200, 13, 0.85), (243, 5, 0.9)], seed=32, body=10, ends=11, height=40)
     # near huge mass: about 60%, left of centre; its biggest lobe rises under the gondola
-    cloud_mass(g, -8, 160, 340, [(132, 22, 0.75), (70, 10, 0.9), (20, 5, 0.9)], seed=33, body=14, ends=14)
+    cloud_mass(g, -10, 164, 340, [(132, 22, 0.75), (70, 10, 0.9), (20, 5, 0.9)], seed=33, body=14, ends=14, height=58)
     # torn wisps off the big lobe, toward the gondola's floor and trailing right with the wind
-    wisp(g, [(122, 312), (130, 302), (140, 294), (151, 290), (163, 291)], 4, 'cl4', 'cl3')
-    wisp(g, [(150, 300), (162, 297), (174, 298), (184, 302)], 3, 'cl4', 'cl3')
+    wisp(g, [(116, 304), (128, 300), (142, 298), (156, 298), (168, 300)], 3, 'cl4', 'cl3')
+    wisp(g, [(146, 289), (156, 287), (167, 287), (176, 289)], 2, 'cl3', 'cl2')
     wisp(g, [(186, 316), (198, 312), (210, 313)], 2, 'cl4', 'cl3')
 
 

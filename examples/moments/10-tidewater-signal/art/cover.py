@@ -150,30 +150,45 @@ class Cover:
                 if abs(u) < 1:
                     y = min(y, base - hg * math.sqrt(1 - u * u))
             return int(round(y))
-        # two flat banks: a back bank with big heads of very different size, a lower front bank
-        back = [(46, 20, 12), (90, 12, 6), (142, 34, 21), (199, 10, 4), (231, 21, 13)]
-        front = [(66, 31, 17), (119, 11, 5), (172, 25, 14), (238, 13, 6)]
+        # three storm masses of very different width in the upper pane: billowed tops with lobes of
+        # very different radius, long flat undersides, one lit edge on the beam side (right)
+        masses = [  # x0, x1, underside, top base, heads (cx, rx, height)
+            (24, 170, 146, 131, [(50, 15, 12), (86, 27, 25), (123, 9, 6), (148, 17, 12)]),
+            (181, 253, 124, 113, [(199, 8, 6), (228, 19, 16)]),
+            (134, 160, 88, 86, [(143, 7, 5), (153, 4, 2)])]
+        cl_ = np.zeros((H, W), bool)
+        for mi, (x0, x1, und, tb, heads) in enumerate(masses):
+            mk = np.zeros((H, W), bool)
+            for x in range(max(GX0, x0), min(GX1, x1) + 1):
+                top = prof(x, tb + 1.5 * vn(x, 23, 40 + mi), heads)
+                if x1 - x < 7 and x1 < GX1:                    # a rounded end
+                    top = max(top, und - int(round(math.sqrt(max(0, 49 - (x - x1 + 7) ** 2)) * 1.4)))
+                if x - x0 < 5 and x0 > GX0:
+                    top = max(top, und - int(round(math.sqrt(max(0, 25 - (x0 + 5 - x) ** 2)) * 1.2)))
+                u = und + (1 if (mi == 0 and x > 101) else 0)  # a 1 px step in the long underside
+                if top <= u:
+                    mk[top:u + 1, x] = True
+            g[mk] = 'S1'
+            g[edge_px(mk, (0, 1))] = 'S0'
+            g[np.roll(edge_px(mk, (0, 1)), -1, 0) & mk & (vn(XX, 9, 44 + mi) > -0.3)] = 'S0'
+            lit = edge_px(mk, (1, 0)) | (edge_px(mk, (0, -1)) & edge_px(np.roll(mk, -1, 1), (0, -1)) & ~np.roll(mk, -1, 1))
+            lit &= ~edge_px(mk, (0, 1))
+            g[lit] = 'S3'
+            g[(np.roll(lit, -1, 1) | np.roll(lit, 1, 0)) & mk & ~lit & ~edge_px(mk, (0, 1))] = 'S2'
+            cl_ |= mk
+        # the storm's low ragged base in the lower pane, lying over the pale gap
         bot = [int(round(181 + 5 * vn(x, 27, 5) + 2.5 * vn(x, 9, 6))) for x in range(W)]
         deck = np.zeros((H, W), bool)
-        fr = np.zeros((H, W), bool)
         for x in range(GX0, GX1 + 1):
-            tb = prof(x, 101 + 3 * vn(x, 40, 1), back)
-            tf = prof(x, 146 + 3 * vn(x, 35, 2), front)
-            deck[tb:bot[x] + 1, x] = True
-            fr[tf:bot[x] + 1, x] = True
-            g[tb:bot[x] + 1, x] = 'S2'
-            tier_b = 3 + int(round(2 * (1 + vn(x, 19, 31)))) + (2 if tb < 92 else 0)
-            g[tb:tb + tier_b, x] = 'S3'
-            tier_f = 3 + int(round(1.6 * (1 + vn(x, 17, 37)))) + (1 if tf < 136 else 0)
-            g[tf:tf + tier_f, x] = 'S3'
-            t = 6 + int(round(2.5 * (1 + vn(x, 21, 33))))
-            g[bot[x] - t:bot[x] + 1, x] = 'S1'
+            deck[171:bot[x] + 1, x] = True
+            g[171:bot[x] + 1, x] = 'S1'
             g[bot[x], x] = 'S0'
             if vn(x, 7, 35) > 0.15:
                 g[bot[x] - 1, x] = 'S0'
-        # three long folds inside the banks
-        for x0, x1, y in [(98, 126, 121), (186, 212, 128), (40, 58, 160)]:
-            g[y, x0:x1] = 'S1'
+            t = 3 + int(round(1.5 * (1 + vn(x, 21, 33))))
+            if bot[x] - t > 172:
+                g[171:bot[x] - t, x] = 'S2'
+        deck |= cl_
         # torn scud: long thin streaks under the deck, tapered, darker underside
         scud = np.zeros((H, W), bool)
         for x0, x1, y, th in []:
@@ -396,8 +411,10 @@ class Cover:
                     continue
                 if self.f == 'b':
                     v = 'N2' if near else 'N1'
+                elif beam[py, px] and bg.startswith('B'):
+                    v = {'B1': 'B2', 'B2': 'B3', 'B3': 'LP'}[bg]
                 elif beam[py, px]:
-                    v = 'B3' if near else 'B2'
+                    v = lift(bg, 1, 5) if bg.startswith('S') else bg
                 elif bg in light_bg:
                     v = 'N2' if near else 'N1'
                 else:
@@ -586,6 +603,24 @@ kkkkkkkkkk
             xx = 191 + (1 if y > 428 else 0) + (1 if y > 446 else 0)
             g[y, xx] = 'T1'; g[y, xx - 1] = 'T0' if y > 446 else g[y, xx - 1]
             g[y, xx + 1] = 'T0'
+        case = """
+....kkkkkkkkkkkk
+...kssssssssssk.
+...kspppppppppsk
+..kspppppppppsk.
+..kspkkpkpkppsk.
+..ksppppppppps k
+.ksppkpkkpkppsk.
+.kspppppppppsk..
+.ksTTTTTTTTTTsk.
+kssTkkTTTTkkTsk.
+ksTTkkTTTTkkTk..
+ksTTTTTTTTTTsk..
+kssssssssssssk..
+kTTTTTTTTTTTsk..
+""".replace(' ', 's')
+        stamp(c, case, {'k': 'K0', 's': 'T2', 'p': 'P0', 'T': 'T1'}, 34, 466)
+        g[470:480, 33] = 'K0'
         self.m['wainscot'] = YY >= 410
 
     # ---------------------------------------------------------- the radio (hero)

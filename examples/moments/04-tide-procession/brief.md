@@ -73,14 +73,16 @@ light down the steps; the tide floods back. Two stills of the best moments and a
   to the island landing (x 418, y 238), so the road is the leading line ending at the island.
 - Hero: 116,204,418,268 (native px); peak value: the moon disc and its halo ring (444,84,492,132); peak chroma: the lead pilgrim's lantern
 - Hero B: see brief-b.md (the open portal and its spill, 440,158,536,244).
-- Planes: near plane 14% (band 1), island and monastery 8% (band 1), causeway and pilgrims 2% (band 1), night sky and clouds 30% (band 2), far sea 5% (band 2), wet sand flats 16% (band 2), moonlit sky round the moon 18% (band 3), pools 6% (band 3), moon and the shaft's footprint 1% (band 4: brightest)
+- Planes: near plane 13% (band 1), cloud bank 6% (band 1), island and monastery 7% (band 1), causeway and pilgrims 2% (band 1), night sky 36% (band 2), far sea 6% (band 2), deep channel 14% (band 2), moon glow and horizon band 7% (band 3), shallows beside the causeway 7% (band 3), moon and the shaft's pool on the causeway 1% (band 4: brightest)
 - Layout: sky 0-205 (calm: clouds, stars, the moon, the shaft only); island x 408-634, y 58-239;
   causeway x 22-418; flats and pools y 240-340; near bank y 296-360 with the pine at x 0-200 rising
   to y 30; boat x 168-252, y 312-334; posts x 497-592, y 280-340.
-- Masses: clouds: one dominant bank x 96-418 (50% of the width), a second x 506-640 (21%), a sliver
-  x 10-70 (9%); pools: a long road-front lagoon (40%), an outer pool (33%), three small ones; pine
-  pads 140, 112, 60 px wide.
-- Value plan: near plane, monastery and pilgrims L .10-.14 (darkest); night sky, clouds, far sea and wet sand L .18-.26 (dark); moonlit sky dome, pools, shaft body and wet stone rims L .30-.42 (mid); brightest only at the moon (peak L .95) and its one repeat, the shaft's footprint on the water behind the lead pilgrims (L .5-.6); lantern cores L .86 are 1-2 px dots
+- Masses: sky: one cloud bank x 214-640 (67% of the width) with a ragged break at x 418-442 over the
+  moon's west limb (the shaft's source), two small filled wisps low over the horizon; water: the
+  shallows beside the causeway (lighter) and the deep channel (darker) with ten mismatched glints;
+  pine pads 118, 76, 60 and 30 px wide; pilgrims: the leader ahead, a tight pair, one, a loose trio,
+  a wide gap, one, a straggler.
+- Value plan: near plane, cloud bank, monastery and pilgrims L .10-.14 (darkest); night sky, far sea and the deep channel L .17-.26 (dark); the moon's glow, the horizon band, the shallows beside the causeway and the shaft body L .27-.40 (mid); brightest only at the moon (peak L .95) and its one repeat, the shaft's pool on the causeway round the leaders (L .4-.55); lantern cores L .88 are 1-2 px points
 - Objects (maximums): 1 island with 1 church, 1 bell tower, 1 apse, 1 dormitory, 1 house,
   1 boathouse, 1 stair flight of 13 treads, 1 bent tree; 1 causeway; 9 pilgrims; 1 moon; 3 cloud
   masses; about 70 stars; 1 far headland; 1 boat, 4 posts, 1 pine.
@@ -114,8 +116,8 @@ light down the steps; the tide floods back. Two stills of the best moments and a
 
 ## 7. Light list
 
-- Moon: cold silver #e9eef1 disc at (468, 108), radius 22 px, hidden by the bell tower (opaque); halo Post.light radius 44 px, #c8d6e0, strength .30, at the sky depth, so the island in front stays flat.
-- Shaft: cold #b9c9d6 Post.shaft, width 13 to 46 px, length 178 px, from the cloud gap (446, 50), angle 106 (A) / 110 (B), strength .30, blocked by the island and moon masks (behind=); it lands on the far sea behind the lead pilgrims; crests inside its ray mask step up a slot.
+- Moon: cold silver #e9eef1 disc at (468, 108), radius 22 px, with a one-slot halo ring 2 px wide, hidden by the bell tower (opaque); a soft Post.light halo radius 38 px, #c8d6e0, strength .26, at the sky depth, so the island in front stays flat.
+- Shaft: cold #b9c9d6 Post.shaft, width 8 to 38 px, length 185 px, from the break in the bank (430, 61), angle 102 (A) / 106 (B), strength .22, at the middle depth so it lands on the causeway round the leaders, blocked by the island, the moon and the figures (behind=: the pilgrims stay flat silhouettes inside it); a cold Post.light pool, radius 34 px, where it lands.
 - Nine lanterns: warm amber #ffb860 pools, radius 9 px, squash .55, strength .30, at the middle depth, hidden by the near plane (never lit); each is a 1-2 px lamp3 core with a one-slot lamp1 ring, flicker held 4 frames in the loop.
 - Door (B): gold #ffc070 Post.lightmap, sigma (30, 24), gain 2.4, one light low inside the portal at (509, 192), blocked by the facade wall round the portal (opaque) and by the door leaf (opaque, a moving occluder in 4 held drawings; B uses the open one), so the spill is a wedge through the threshold down the steps; a small Post.light glow, radius 8 px, in the opening, hidden by nothing.
 - Ambient: none (not a light); the near plane takes no light. Ops used: light, shaft, glow, plus lightmap (the deviation in section 0).

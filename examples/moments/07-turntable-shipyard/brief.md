@@ -19,7 +19,7 @@ night with lanterns lit). Two stills of the best moments and a 5 s work-song sam
 - No loop is delivered; the four turns are described so the model is complete, two are rendered.
 
 ## 2. Style and light regime
-- Style `tactics`; light regime none: every face is a palette step chosen from N.L of the key light (lstep: shade 1, glancing 2, lit 3, face-on 4), cast shadows two steps down from iso.cast_shadows, no light layer, no post ops.
+- Style `tactics`; light regime none: every face is a palette step chosen from N.L of the key light (lstep: shade 1, glancing 2, lit 3, face-on 4), cast shadows two steps down from iso.Iso.cast_shadows, no light layer, no post ops.
 - Ramps: five near-neutral stone greys carry the stage; warm ramps only for the ship (oak, trim) and, at night, for lantern-lit wood and ground (oakW, timberW, stoneW).
 - Outline: black (`ol`) where shapes meet the void; one step darker between near and far objects; 1 px white spec strokes on the hero's upper edges and its edges toward the light.
 - Learn the grammar only: no game's units, boards, UI or palettes are copied. No text and no UI on the frame.
@@ -44,16 +44,17 @@ night with lanterns lit). Two stills of the best moments and a 5 s work-song sam
 - Plank stack x 47-80, y 78-86 on three bearers: four stickered layers at dawn, two at night; the sprung plank on top; a patched canvas tarp over the far end.
 - Chandlery hut on the far bank x 123.6-135, y 57-75, walls 9, shingle roof ridge along y to z 15, a stovepipe; shop window on the canal side, door and small window on the front; a landing stage, two barrels, a crate, a coil of rope; a 14-unit dory moored in the canal.
 - Turn: k quarter-turns about (68, 50); A is k 0 (the canal and hut on the right, the dock head upper left), B is k 3 (the stern toward the viewer, the moonlit starboard side facing right, the canal and hut at the back right).
-- Hero: 223,119,389,209 (native px); peak value: the ship's sunlit frames and their spec strokes; peak chroma: the ship's sunlit frames
-- Planes: void 72% (darkest), dock pit and canal 6% (dark), slab cut faces 4% (dark), yard ground 12% (mid), crane, sawpit, plank stack, hut 4% (mid), ship 2% (brightest)
+- Hero: 213,108,394,210 (native px); peak value: the ship's sunlit frames and their spec strokes; peak chroma: the ship's sunlit frames
+- Planes: void 72% (1), dock pit and canal 7% (2), slab cut faces 4% (2), yard ground 12% (3), crane, sawpit, plank stack, hut 4% (3), ship 2% (4)
 - Layout: the slab occupies x 85-555, y 75-335; the ship and dock own the centre (x 170-450, y 100-240); the crane rises upper centre-right (x 330-380, y 75-180); the sawpit and plank stack sit lower left (x 150-300, y 150-235); the canal, gate and hut take the right third (x 380-555). The void is the calm area: nothing sits in it but the slab and the chimney smoke.
 - Masses: the yard's things are three sizes: the ship and dock (about 45% of the slab's width), the crane and the plank stack (about 15% each), the hut, sawpit and logs (about 8% each); never a row of equal boxes.
+- Value budget: at least 70% of the frame below L .30 (the void alone is 72%), at most 2.5% above C .08 (the ship's lit frames by day, the lanterns and pennants by night), median C under .02; L above .75 only on the hero's spec strokes and lantern cores.
 - Value plan (A): darkest, the void (L .085) and black outlines; dark, the dock pit, the canal and the cut faces in shadow (L .16-.23); mid, the sunlit yard and its props (L .31-.47); brightest, only the ship's sunlit frames (L .60-.74) with spec strokes (L .93). (B): darkest, the void (L .06); dark, the yard in moonshade (L .10-.18); mid, moonlit tops and faces (L .22-.28) and the moonlit hull (L .31-.52); brightest, the ship's deck lanterns (L .95) and its warm-lit wood.
 
 ## 5. Lived-in details
 - A: the next frame lies on two blocks waiting to be raised (about 30 x 14 px, one step above the ground); the log on the trestles with the pit saw standing in it (44 x 12 px); an off-cut pile of five different ends (10 x 6 px); the tar pot on its tripod by the coping (6 x 10 px); the hanging block (5 x 11 px, black-outlined against the far altars); smoke from the chandler's stovepipe (15 x 13 px, L .53 against darker ground).
-- Both: the moored dory, the coil of rope and the barrels by the hut, the wet tongue under the gate, the worn patches along the front coping, sawdust and chips round the pit.
-- B: the sawn boards, a lower plank stack (two layers), the lit stern windows and deckhouse window, a lantern on the crane mast, the leaning saw.
+- Both: the moored dory in the canal (28 x 8 px, one step under the water's edge); two barrels and a crate by the hut door (5 x 6 px each); the wet tongue under the stop-logs (20 x 6 px, the wet slot two steps under the floor); worn patches along the front coping (16-22 x 5 px, one step lighter); sawdust heap and chips round the pit (14 x 6 px, one step lighter).
+- B: three sawn boards on the trestles (44 x 6 px); the plank stack down to two layers (60 x 14 px); three lit stern windows (10 x 3 px, win); the lantern hung low on the crane mast (3 x 6 px, lampA) with its ground pool; the pit saw leaning on the trestle (4 x 12 px).
 
 ## 6. Phases
 - Accent ration: amber oak (C .08-.10) only on the ship's sunlit frames by day; at night lantern amber (lampH, lampA, win, oakW, timberW, stoneW, refl) only at the three lit places and their pools and reflections; the pennant red (C .16) only on the ship's two pennants. Together under 2.5% of the frame above C .08.
@@ -68,13 +69,22 @@ night with lanterns lit). Two stills of the best moments and a 5 s work-song sam
 - B: moon (palette steps and cast shadows); stern lantern on a post at the taffrail and a bow lantern (cores lampH, L .95; pools on deck in oakW, about 8 x 5 units, irregular); crane lantern on the mast at z 21 (lampA; a ground pool in stoneW about 9 x 6 units, cut by the mast's shadow side); the shop window over the canal (win; a spill on the landing stage and a broken reflection on the water below it). No flicker in a still.
 
 ## 8. Motion table
-- Stills only: no motion. If animated later: the turntable advances one quarter-turn in 6 held key drawings with a 1 px settle, the block sways 2 frames at 2 fps, smoke 3 drawings at 4 fps.
+- Stills only: no motion is delivered. If animated later (loop 96 frames at 12 fps):
+- turntable: one quarter-turn in 6 held key drawings (holds 24, 8, 8, 8, 8, 40 frames), a 1 px settle when it locks.
+- block: sways 2 drawings at 2 fps (period 12 frames).
+- smoke: 3 plume drawings at 4 fps (period 9 frames, held to 12).
+- lantern cores: flicker between lampH and lampH2 on a hold table of 4 steps at 10 fps (period 24 frames).
+- pennants: 2 drawings at 3 fps (period 8 frames).
 
 ## 9. Particles
 - None. The smoke is one hand-typed plume (15 x 13 px); no rain, dust or stars, so the darkness stays calm.
 
 ## 10. Never
-- No light layer, glow, bloom, fog, vignette or soft shadows; no dither; no stars or texture in the void; no saturated scenery; no symmetry or stamped rows; no text; no figures.
+- No light layer, glow, bloom, fog, vignette or soft shadows (tactics bans every post op).
+- No dither, no stars or texture in the void: the darkness stays calm.
+- No saturated scenery: the yard stays on its five greys; warm only on the ship and the three lit places.
+- No symmetry or stamped rows: frames, blocks, boards and logs are hand-spaced and mismatched.
+- No text, UI or figures.
 
 ## 11. Technical
 - Native 640x360, 3x nearest to 1920x1080; every cell flat; one palette per image (about 50 slots each), exported as JSON.

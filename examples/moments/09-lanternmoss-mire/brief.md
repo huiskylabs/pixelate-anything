@@ -10,8 +10,10 @@
 - **Delivery:** `out/09-a.png` day and `out/09-b.png` glowing night, 1280x768 (the 320x192 map at
   4x, nearest), 1x copies `out/09-a@1x.png`, `out/09-b@1x.png`; the export's `contact.png`,
   `silhouettes.png`, strips, JSON and GIFs; `sound/09-sample.wav` + `.mp3` (5.0 s SFX reel).
-- **Palette:** 31 slots + `ol` + `wh`, day (`palette.json`) and glowing night
-  (`palette-night.json`), identical slot names. Both ship as .json/.gpl/.hex/.png.
+- **Palette:** 38 slots + `ol` + `wh`, day (`palette.json`) and glowing night
+  (`palette-night.json`), identical slot names. Both ship as .json/.gpl/.hex/.png. Seven slots were
+  added after the art director's notes: `glow`, `lap`, `shallow` and four `lamp_*` slots. The lamp
+  slots equal the plank and water colours by day, so the lantern pool only shows at night.
 
 ## Palette by role (day -> glowing night)
 
@@ -27,7 +29,10 @@
 | skin0-1 | face, hands | warm | lantern-lit face |
 | gold0-2, flame | brass, coin, key, bell; lantern core | gold | **flame + gold2 = the one warm peak** |
 | lum0-2 | glow caps, moth lantern, tonic | pale sage | **bioluminescent cyan-green** |
-| mist0-2 | heron, iron, glass, scarf | blue-grey | deep blue-violet |
+| mist0-2 | heron, iron, glass, beard | blue-grey | deep blue-violet |
+| glow | moth bodies and wing edges | dull dusty beige | **brightest cool point** |
+| lap, shallow | shore laps, shallows band | light teal | **laps glow**, shallows sink |
+| lamp_w1-2, lamp_q1-2 | lantern pool on planks and water (map mask) | = wood1-2, water1-2 | **warm** |
 
 ## Sprites and parts
 
@@ -45,11 +50,12 @@
 - **Items (12):** coin (spin: face, 3/4, edge, mirrored 3/4), key (same spin), glow tonic potion
   (full / half / low), glow cap, peat brick, marsh berries, brass bell, bog eel, reed bundle, moth
   scale, rope coil, map scroll.
-- **Tiles:** moss-on-peat corner autotiles (16 x 3 variants), peat-bank-over-water corner set (16,
-  water transparent so the animated water shows), bog water (2 variants x 4 frames, ripples move
-  4 px per frame: an exact wrap), boardwalk (H straight x2, broken plank, ends, V straight x2,
-  V ends, landing).
-- **Props:** cattails (2-frame sway), sunken cart, shrine post, glow mushrooms (two clumps).
+- **Tiles:** moss-on-peat corner autotiles (16 x 3 variants); peat bank over water (16 x 3
+  variants, with a shallows band and laps; the water stays transparent so the animated water shows
+  through); deep-water corner set (16); bog water (4 variants x 4 frames, ripples move 4 px per frame,
+  an exact wrap); boardwalk (H straight x2, broken plank, ends, V straight x2, V ends, landing).
+- **Props:** cattails (2-frame sway), sunken cart, shrine post, glow mushrooms (two clumps), lily
+  pads and a 4-pad lily cluster.
 
 ## Map plan (20x12 tiles, 320x192)
 
@@ -59,7 +65,12 @@ water (one broken plank, a coin beyond it) and turns north to the shrine. Vignet
 boardwalk with two moths at the lantern (focal, left of centre); heron wading in cattails (north-
 west); eye stump watching with glow caps and the toad inflating (west island); shrine post with
 caps, a moth and the key (north-east); sunken cart with the bell snail and a potion on the bank
-(south); mud-crab on the south-east bank. Day and night use the same tile indices and frames.
+(south); mud-crab on the south-east bank. Two deep channels, two lily clusters, and a hand-drawn
+lantern-pool mask around the hero (its core swaps every plank and water slot to a lamp slot, its
+rim only the light ones). Day and night use the same tile indices and frames.
+
+Rebuild: `./pixelate assets examples/moments/09-lanternmoss-mire`, then
+`python3 examples/moments/09-lanternmoss-mire/maps/render_map.py --gif`.
 
 ## Sound plan (sound/09-sample.wav, 5.0 s)
 

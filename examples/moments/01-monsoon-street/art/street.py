@@ -942,7 +942,7 @@ class Street:
         self.light(hx + 4.5, hy + 6, (24, 30), (1.0, 0.78, 0.45), 0.85)
         pool = [(128, 223), (140, 217), (158, 214), (176, 213), (196, 215), (211, 219), (221, 225),
                 (214, 230), (196, 234), (170, 235), (149, 232), (134, 228)]
-        self.spill(pool, 1.0, (1.0, 0.78, 0.48), blur=3.0)
+        self.spill(pool, 1.5, (1.0, 0.78, 0.48), blur=3.0)
         pm = self.c.mask_poly(pool) & (self.GR > 0) & np.isnan(self.B)
         lift = {'rd0': 'rd1', 'void': 'rd0', 'rd1': 'rd2', 'con1': 'con2', 'con0': 'con1'}
         for k_, v_ in lift.items():

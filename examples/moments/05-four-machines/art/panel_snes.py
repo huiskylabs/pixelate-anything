@@ -21,11 +21,11 @@ PAL = {k: q15(v) for k, v in {
     # sky, top to horizon
     'sk0': '#2c2a6a', 'sk1': '#433888', 'sk2': '#62479c', 'sk3': '#8c55a6', 'sk4': '#b8649e',
     'sk5': '#dc7c8e', 'sk6': '#f09c80', 'sk7': '#f6bc7c',
-    'halo': '#f6c884', 'sun': '#f8d48a', 'sunc': '#fadc90',
+    'halo': '#f2be7e', 'sun': '#f0c47e', 'sunc': '#f4ca84',
     # cloud bank, lit from below
     'cl0': '#6e4a8e', 'cl1': '#9a5e9c', 'cl2': '#c87c98', 'cl3': '#f2ae8a', 'cl4': '#f8cc96',
     # crag (contre-jour plum) and its warm rim
-    'cr0': '#1c1834', 'cr1': '#29213f', 'cr2': '#372a4f', 'cr3': '#4a3460', 'rim0': '#a85a62', 'rim1': '#e88e6a',
+    'crh': '#4e3c6c', 'crh2': '#3c2e58', 'cr0': '#1c1834', 'cr1': '#29213f', 'cr2': '#372a4f', 'cr3': '#4a3460', 'rim0': '#a85a62', 'rim1': '#e88e6a',
     # near cliff rock (ochre, lit from the right) and grass
     'nc0': '#2e2034', 'nc1': '#4a2e3e', 'nc2': '#6c4248', 'nc3': '#935a52', 'nc4': '#c27c5c', 'nc5': '#e8a46c',
     'gr0': '#2a3038', 'gr1': '#465440', 'gr2': '#76764a', 'gr3': '#b8a25c',
@@ -225,6 +225,11 @@ def crag_rock(c, cm):
         for k in range(1, 5 + (x - 133) // 18):
             if y + k < H_ and cm[y + k, x] and c.g[y + k, x] in ('cr1', 'cr2'):
                 c.g[y + k, x] = 'cr3' if k < 3 else 'cr2'
+    # haze: the far crag's upper slopes take a value step toward the sky
+    for y, x in zip(*np.nonzero(cm)):
+        dd = y - top[x]
+        if dd < 12 and c.g[y, x] in ('cr0', 'cr1', 'cr2', 'cr3'):
+            c.g[y, x] = 'crh' if dd < 8 else ('crh2' if c.g[y, x] != 'cr0' else 'cr1')
     # the warm rim on right-facing crest pixels
     for x in range(W_ - 1):
         y = top[x]
@@ -581,7 +586,7 @@ def glider(c):
     """a shallow delta canvas wing seen slightly from below: a dark leading-edge spar from the nose to
     two clean points, four battens a side showing through the cloth, the left (shade) panel darker,
     the right panel glowing with the sun behind it, a billowing hem; an A-frame under the keel"""
-    Lt, Nz, Rt = (104, 91), (147, 77), (181, 82)
+    Lt, Nz, Rt = (104, 91), (148, 72), (181, 82)
     edge = lambda x: Lt[1] + (Rt[1] - Lt[1]) * (x - Lt[0]) / (Rt[0] - Lt[0])     # the trailing edge line
     keel_x = Nz[0]
     tri = c.mask_poly([(Lt[0], Lt[1] + 0.5), (Nz[0] + 0.5, Nz[1]), (Rt[0] + 1, Rt[1] + 0.5)])
@@ -600,10 +605,11 @@ def glider(c):
     for y, x in zip(ys, xs):
         depth = y - (Nz[1] + (abs(x - keel_x) / (keel_x - Lt[0] if x < keel_x else Rt[0] - keel_x)) * ((Lt[1] if x < keel_x else Rt[1]) - Nz[1]))
         low = y >= edge(x) - 1
-        if x < keel_x:                                              # the shade panel
-            s_ = 'cv1' if low else ('cv2' if depth > 3.5 else 'cv3')
+        hem = y >= edge(x) - 3
+        if x < keel_x:                                              # the shade panel: darker toward the hem
+            s_ = 'cv1' if low else ('cv2' if hem else ('cv4' if depth > 1.5 and x > keel_x - 26 else 'cv3'))
         else:                                                        # the sunlit panel
-            s_ = 'cv2' if low else ('cv4' if depth > 0.8 else 'cv3')
+            s_ = 'cv2' if low else ('cv3' if hem and x > Rt[0] - 12 else 'cv4' if depth > 0.8 else 'cv3')
         c.g[y, x] = s_
     for bx in bat:                                                   # battens through the cloth
         col = np.nonzero(tri[:, bx])[0]

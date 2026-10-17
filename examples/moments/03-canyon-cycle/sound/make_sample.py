@@ -64,7 +64,7 @@ def thunder(seed=7):
         e = np.exp(-np.arange(n) / (0.012 * SR)) * (1.0 if k == 0 else 0.55 ** k)
         crack[i0:i0 + n] += rng.standard_normal(n) * e
     crack = sosfilt(butter(2, 600, 'highpass', fs=SR, output='sos'), crack)
-    crack = sosfilt(butter(2, 7000, 'lowpass', fs=SR, output='sos'), crack)
+    crack = sosfilt(butter(2, 10000, 'lowpass', fs=SR, output='sos'), crack)
     # the rumble: low-passed noise per channel (decorrelated), a cutoff that sinks as it rolls
     env = np.clip((t - 0.12) / 0.35, 0, 1) ** 1.5 * np.exp(-np.clip(t - 0.55, 0, None) / 1.25)
     roll = 1 + 0.35 * np.sin(2 * np.pi * 3.1 * t + 0.6) * np.sin(2 * np.pi * 0.7 * t)
@@ -126,7 +126,10 @@ def main():
     # tuck the music a little under the thunder's first second, then let it answer
     t = np.arange(N) / SR
     duck = 1 - 0.35 * np.clip(1 - np.abs(t - 0.6) / 0.6, 0, 1)
-    mix = music * duck[:, None] * 0.9 + th * 0.42
+    # lift the music box's register (2-6 kHz) so the top is not thin under the rumble
+    bright = sosfilt(butter(2, [2200, 7000], 'bandpass', fs=SR, output='sos'), music, axis=0)
+    music = music + 1.6 * bright
+    mix = music * duck[:, None] * 0.9 + th * 0.34
     gain = 10 ** ((-14.0 - lufs(mix)) / 20)
     mix = limit(mix * gain)
     fade_in = np.clip(t / 0.020, 0, 1)

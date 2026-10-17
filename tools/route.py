@@ -337,8 +337,9 @@ def _hits(text, words):
 
 def camera_intent(request):
     """-> (stated camera or None, request without explicitly negated camera phrases)."""
-    t = ' ' + request.lower() + ' '
+    t = ' ' + request.lower().replace('’', "'") + ' '
     positive = set()
+    excluded = set()
     negated = []
     for label, phrases in CAMERA_INTENTS.items():
         for phrase in phrases:
@@ -348,13 +349,15 @@ def camera_intent(request):
             for match in re.finditer(pattern, t):
                 if re.match(r'-(?:looking|inspired|like)\b', t[match.end():]):
                     continue
-                if re.search(r'\b(?:not|no|without|avoid|instead of|rather than|over)\s+'
-                             r'(?:(?:longer|use|draw|choose|in|an?|the)\s+){0,3}$', t[:match.start()]):
+                if re.search(r"\b(?:not|no|without|avoid|don't|do not|instead of|rather than|over)\s+"
+                             r'(?:(?:longer|use|using|draw|choose|in|an?|the)\s+){0,3}$', t[:match.start()]):
+                    excluded.add(label)
                     negated.append(match.span())
                 else:
                     positive.add(label)
     for start, end in reversed(sorted(set(negated))):
         t = t[:start] + ' ' * (end - start) + t[end:]
+    positive -= excluded
     return next(iter(positive)) if len(positive) == 1 else None, t
 
 def route(request, n=3):
@@ -1994,6 +1997,7 @@ CAMERA_CASES = [
     ('Rebuild this photo in two-point perspective instead of one-point perspective.', 'two-point perspective'),
     ('Rebuild this photo in two-point perspective rather than one-point perspective.', 'two-point perspective'),
     ('Rebuild this photo in two-point perspective; avoid one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective; avoid using one-point perspective.', 'two-point perspective'),
     ('Rebuild this photo in two-point perspective, not in one-point perspective.', 'two-point perspective'),
     ('Rebuild this photo using two-point perspective over one-point perspective.', 'two-point perspective'),
     ('Rebuild this photo; do not use one-point perspective; choose two-point perspective.', 'two-point perspective'),
@@ -2016,6 +2020,9 @@ CAMERA_DEFAULT_CASES = [
     ('Rebuild this photo, not isometric.', 'inspect reference'),
     ('Rebuild this photo, without an isometric view.', 'inspect reference'),
     ('Rebuild this photo of a city; do not use one-point perspective.', 'inspect reference'),
+    ("Rebuild this photo; don't use one-point perspective.", 'inspect reference'),
+    ('Rebuild this photo; avoid using one-point perspective.', 'inspect reference'),
+    ('Rebuild this isometric city; do not use isometric projection.', 'inspect reference'),
     ('Rebuild this photo, no longer in one-point perspective.', 'inspect reference'),
     ('Rebuild this photo in one-point perspective or two-point perspective.', 'inspect reference'),
 ]

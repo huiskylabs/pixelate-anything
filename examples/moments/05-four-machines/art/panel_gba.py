@@ -328,6 +328,7 @@ def office(c):
     c.rect(24, 40, 31, 41, 'wl0'); c.put(28, 45, 'win')
     c.rect(23, 35, 33, 39, 'wd1'); c.rect(23, 38, 33, 39, 'wd0')
     stamp(c, """
+wwwwww
 dwwwwd
 wdwwdw
 wwddww
@@ -371,7 +372,7 @@ def flag(c):
     c.rect(55, 7, 57, 9, 'win')
     stamp(c, """
 FFFFFFFFFFFF
-.FFFFFFFFFFF
+.FFwwwwwwFFF
 ..FfwwwwfFFF
 ...wfwwfwFFF
 ..FwwffwwFFF

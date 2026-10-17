@@ -20,7 +20,7 @@ Run: python3 art/panel_nes.py -> out/panel-nes.png, out/panel-nes-bg.png (+ @4x)
 import math, sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import numpy as np
-from common import Canvas, stamp, image, over, save, OUT, attr_report
+from common import Canvas, stamp, image, over, save, OUT, attr_report, torus_cells
 
 W, H = 256, 224
 HZ = 119
@@ -127,6 +127,10 @@ def near_cliff(c):
     for yy, v in jogs[1:]:                                       # each jog is a lit ledge
         p = edge[yy - 1]
         c.rect(p - 6, yy, v, yy + 1, 'O'); c.rect(p - 6, yy + 1, v - 1, yy + 2, 'N')
+    for x0, x1, y in ((8, 40, 120), (48, 72, 152), (16, 48, 184)):
+        c.rect(x0, y, x1, y + 1, 'O'); c.rect(x0, y + 1, x1, y + 2, 'K')
+        for tx in range(x0 + 3, x1 - 2, 9):
+            c.rect(tx, y - 2, tx + 2, y, 'N'); c.put(tx + 1, y - 3, 'O')
     # plateau grass on the block line, sunlit gold on a 16 px rhythm
     c.rect(0, PL, 90, PL + 4, 'N')
     for x in range(0, 90):
@@ -139,26 +143,23 @@ def near_cliff(c):
         c.rect(x, PL + 4, x + 1, PL + 4 + h, 'N')
     return edge
 
+ROCK_IDS = torus_cells(32, 32, [(5, 4), (19, 9), (28, 22), (11, 20), (23, 31), (2, 28)], aspect=2.0)
+
 def rock(x, y):
-    """one 32x32 rock metatile (two strata of blocks, cracks black, sun-side rims rust), shifted by
-    16 rows in every other 32 px column so the grid does not read"""
+    """one 32x32 metatile of angular facets (periodic, so the pattern table holds it in 16 tiles),
+    shifted 16 rows in every other 32 px column: planes dark brown or rust, a lit sun-side edge on
+    each, fractures black, lips orange"""
     u = x % 32
     v = (y + (16 if (x // 32) % 2 else 0)) % 32
-    top = v < 16
-    vv = v if top else v - 16
-    splits = (11, 26) if top else (4, 19)
-    if vv == 15:
-        return 'K'
-    for sx in splits:
-        if u == sx:
-            return 'K'
-        if sx - 2 <= u < sx:
-            return 'N'
-    if vv == 0 and (u % 16) > 8:
-        return 'N'
-    if (u, vv) in ((6, 5), (7, 5), (8, 5), (21, 9), (22, 9), (15, 3), (29, 11), (30, 11), (2, 9)):
-        return 'N'
-    return 'D'
+    i = ROCK_IDS[v, u]
+    if i == 0:
+        l_, r_ = ROCK_IDS[v, (u - 1) % 32], ROCK_IDS[v, (u + 1) % 32]
+        up, dn = ROCK_IDS[(v - 1) % 32, u], ROCK_IDS[(v + 1) % 32, u]
+        return 'O' if (up > 0 and dn > 0 and up != dn and (l_ == 0 or r_ == 0)) else 'K'
+    lit_plane = i in (2, 5)
+    if ROCK_IDS[v, (u + 1) % 32] != i:
+        return 'O' if lit_plane else 'N'
+    return 'N' if lit_plane else 'D'
 
 def office(c):
     x0, x1, wt, base = 16, 58, 52, 80
@@ -224,7 +225,7 @@ def rail(c):
     c.rect(77, 84, 79, 92, 'N')
 
 def town(c):
-    def house(x0, base, w, wh, roof, rh, lit, dark, door):
+    def house(x0, base, w, wh, roof, rh, lit, dark, door, chim=None):
         top = base - wh
         c.rect(x0 - 1, top - 1, x0 + w + 1, base + 1, 'K')
         c.rect(x0, top, x0 + w, base, 'C')
@@ -245,6 +246,13 @@ def town(c):
             for k in range(rh):
                 c.rect(x0 - 2, top - k - 2, x0 + w + 2 - k * w // rh, top - k - 1, 'K')
                 c.rect(x0 - 1, top - k - 1, x0 + w + 1 - k * w // rh, top - k, 'R')
+        elif roof == 'flat':                                      # parapet with a cream coping
+            c.rect(x0 - 1, top - 3, x0 + w + 1, top, 'K'); c.rect(x0, top - 2, x0 + w, top, 'C')
+            c.rect(x0, top - 1, x0 + w, top, 'R')
+        if chim:
+            cx, ch = chim
+            yb = top - (rh if roof != 'flat' else 2)
+            c.rect(x0 + cx - 1, yb - ch - 1, x0 + cx + 3, yb + 1, 'K'); c.rect(x0 + cx, yb - ch, x0 + cx + 2, yb + 1, 'R')
         for (wx, wy) in lit:
             c.rect(x0 + wx, top + wy, x0 + wx + 3, top + wy + 3, 'Y')
         for (wx, wy) in dark:
@@ -255,16 +263,16 @@ def town(c):
     c.rect(112, 161, 202, 164, 'R'); c.rect(112, 161, 202, 162, 'C')     # the terrace wall
     for x in range(115, 202, 8):
         c.put(x, 163, 'K')
-    house(114, 159, 18, 11, 'gable', 6, [(3, 3)], [(11, 3)], 7)
-    house(137, 158, 12, 15, 'lean', 5, [(3, 3)], [(6, 9)], None)
-    house(154, 160, 22, 10, 'hip', 5, [(3, 3), (15, 3)], [(9, 3)], 10)
-    house(182, 158, 14, 12, 'gable', 6, [], [(3, 3), (8, 3)], 5)
-    house(117, 186, 20, 12, 'hip', 6, [(3, 4)], [(13, 4)], 8)
-    house(141, 187, 15, 9, 'shed', 3, [], [], 6)
-    house(161, 186, 26, 14, 'gable', 8, [(4, 4), (18, 4)], [(11, 9)], 12)
+    house(114, 160, 11, 21, 'gable', 8, [(2, 3), (2, 11)], [(6, 11)], 6, chim=(7, 3))   # tall and narrow
+    house(130, 157, 19, 8, 'hip', 3, [(3, 3)], [], 11)                                   # squat cottage
+    house(155, 160, 15, 13, 'flat', 0, [(2, 3)], [(9, 3), (2, 8)], 9)                    # flat roof
+    house(176, 158, 14, 11, 'gable', 9, [], [(3, 4), (8, 4)], 5)                         # steep gable
+    house(116, 187, 18, 9, 'shed', 3, [], [(4, 3)], 10)                                  # the net shed
+    house(139, 187, 13, 16, 'hip', 5, [(2, 4)], [(8, 4), (2, 10)], 8, chim=(9, 3))      # two storeys
+    house(160, 186, 27, 12, 'hip', 5, [(3, 3), (10, 3), (17, 3)], [(23, 3)], 14)         # the harbour inn
     c.rect(199, 149, 200, 161, 'C'); c.rect(198, 147, 201, 150, 'Y')    # the lamp post
-    c.line(146, 145, 152, 147, 'C')                                       # washing line between houses
-    c.rect(147, 146, 149, 149, 'C'); c.rect(150, 147, 152, 150, 'Y')
+    c.line(148, 147, 154, 149, 'C')                                       # washing line
+    c.rect(149, 148, 151, 151, 'C'); c.rect(152, 148, 154, 151, 'Y')
     # quay and mole, a chipped end, lobster pots
     c.rect(112, 188, 208, 192, 'R'); c.rect(112, 188, 208, 189, 'C')
     for x in range(116, 208, 8):
@@ -310,36 +318,33 @@ def clean_blocks(c):
 
 # ---------------------------------------------------------------- sprites
 def wing(c):
-    xa, ya, xb, yb = 112, 89, 175, 83
-    lead = lambda x: ya + (yb - ya) * (x - xa) / (xb - xa)
-    chord = lambda x: max(5.0, 9.0 - 4.0 * abs(x - 141) / 34.0)
-    ribs = (118, 125, 133, 141, 149, 157, 164, 170)
-    for x in range(xa, xb + 1):
-        y0 = int(round(lead(x))); n = int(round(chord(x)))
-        scal = 1 if any(r + 2 < x < r2 - 1 for r, r2 in zip((xa,) + ribs, ribs + (xb,))) and n > 5 else 0
-        c.put(x, y0 - 1, 'K')
-        for y in range(y0, y0 + n - scal):
-            c.put(x, y, 'Wt')
-        c.put(x, y0 + n - scal, 'O')
-        if x in ribs:
-            for y in range(y0 + 1, y0 + n - scal):
-                c.put(x, y, 'O')
-    for x in (xa, xb):
-        y0 = int(round(lead(x)))
-        c.rect(x, y0 - 1, x + 1, y0 + 6, 'K')
-    c.line(137, 97, 136, 101, 'K'); c.line(148, 96, 150, 101, 'K')       # struts
-    c.rect(132, 101, 156, 102, 'K')                                       # control bar
-    c.line(111, 98, 137, 104, 'O'); c.line(111, 99, 137, 105, 'K')       # boom
+    """the delta in three sprite colours: a black spar from the nose to two clean points, white cloth,
+    orange battens, the shade panel's underside band in orange; the A-frame and bar under the keel"""
+    Lt, Nz, Rt = (112, 92), (146, 76), (175, 85)
+    edge = lambda x: Lt[1] + (Rt[1] - Lt[1]) * (x - Lt[0]) / (Rt[0] - Lt[0])
+    kx = Nz[0]
+    tri = c.mask_poly([(Lt[0], Lt[1] + 0.5), (Nz[0] + 0.5, Nz[1]), (Rt[0] + 1, Rt[1] + 0.5)])
+    bat = [121, 130, 138, 154, 161, 168]
+    stops = [Lt[0]] + bat[:3] + [kx] + bat[3:] + [Rt[0]]
+    for a, b in zip(stops, stops[1:]):
+        for x in range(a + 1, b):
+            f = (x - a) / max(1, b - a)
+            if 0.2 < f < 0.8:
+                tri[int(math.floor(edge(x))) + 1, x] = True
+    for y, x in zip(*np.nonzero(tri)):
+        band = y >= edge(x) - (2.5 if x < kx else 0.5)
+        c.g[y, x] = 'O' if band else 'Wt'
+    for bx in bat:
+        for y in np.nonzero(tri[:, bx])[0][1:]:
+            c.g[y, bx] = 'K' if c.g[y, bx] == 'O' else 'O'
+    for y in np.nonzero(tri[:, kx])[0]:
+        c.g[y, kx] = 'O'
+    c.line(Lt[0], Lt[1], Nz[0], Nz[1], 'K'); c.line(Nz[0], Nz[1], Rt[0], Rt[1], 'K')
+    c.line(kx, 88, 136, 100, 'K'); c.line(kx + 1, 88, 157, 100, 'K')       # A-frame
+    c.rect(134, 100, 159, 101, 'K')                                       # control bar
 
 def tail(c):
-    stamp(c, """
-...K......
-..KWK.....
-..KWWK....
-KKKWWKKKK.
-KWWWWWWWWK
-.KKKKKKKK.
-""", {'K': 'K', 'W': 'Wt'}, 101, 93)
+    pass
 
 PILOT = """
 ...kkkk.....
@@ -431,7 +436,6 @@ def sprite_layer():
     def new():
         return Canvas(W, H)
     o = new(); wing(o); objs['wing'] = o
-    o = new(); tail(o); objs['tail'] = o
     o = new(); pilot(o, 138, 103); objs['pilot'] = o
     o = new(); overlay(o, 138, 103); objs['overlay'] = o
     o = new(); sun(o, 220, HZ, 11); objs['sun'] = o
@@ -449,7 +453,7 @@ def sprite_layer():
 def render():
     bg = background()
     objs = sprite_layer()
-    order = ['sun', 'boat', 'gull_l', 'gull_m', 'gull_s', 'flag', 'window', 'tail', 'wing', 'pilot', 'overlay']
+    order = ['sun', 'boat', 'gull_l', 'gull_m', 'gull_s', 'flag', 'window', 'wing', 'pilot', 'overlay']
     full = over(bg, *[objs[k] for k in order])
     return bg, objs, full
 

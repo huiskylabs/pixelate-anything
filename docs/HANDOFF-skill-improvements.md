@@ -38,7 +38,7 @@ The gate proved that drafts were legal, not that they were good. These failures 
 
 | Failure | Where it appeared | Why the gate missed it | Detector to add |
 |---|---|---|---|
-| Natural material drawn as masonry: canyon walls, cliffs and quarry benches with long straight grid seams | 03 (twice), 05, 06 | nothing measures seam geometry inside rock | In `tools/craftcheck.py`: inside masks of dark seam slots, measure the share of seam length in straight horizontal or vertical runs longer than N px, plus T-junction density (a grid signature). Fail for `rock`, `cliff`, `stone` objects named in the brief. |
+| Natural material drawn as masonry: canyon walls, cliffs and quarry benches with long straight grid seams | 03 (twice), 05, 06 | nothing measures seam geometry inside rock | First supply a mask for each named rock/cliff/stone object from the art code; the current `check` path does not derive those masks from brief nouns. Then, inside each mask, measure long straight horizontal/vertical dark seams and T-junction density. Calibrate thresholds on good and bad rock before failing. |
 | Rows of near-identical units: pebble clouds, scalloped cloud bands, identical house "cards", identical ship ribs, evenly spaced drips | 02, 10, 07, 06, 08 (dormers) | the `repeat` line only warns | Make `repeat` able to fail, with per-style calibration. Add a spacing-regularity test: the coefficient of variation of gaps between same-slot clusters along a line. |
 | Outline loops instead of filled masses (clouds drawn as 1 px light loops) | 04 | not measured | Detect closed 1 px rings of slot A that separate the same slot B on both sides. `drawing.md` already forbids this; the gate should enforce it. |
 | Silhouette misreads: glider wing as a tube, hull as a canoe, toad as a bowl, waterfalls as pillars | 05, 07, 09, 03 | numbers can't judge a misread | Vision check (section 2.2): render the object's mask as a flat black shape and ask the critic model whether it reads as X or as the nearest misread named in the brief's "Silhouette keys" line. |
@@ -55,11 +55,10 @@ What made the outputs good was the coordinator's notes. They followed one format
 
 **Change:**
 
-- Add `pixelate critique --run` (and an MCP tool `art_director`) that calls a fresh model itself with the rubric, the brief and the images. It should return the existing format: grade, 12 scores, ranked fixes with place and change, and what to keep.
-- Bound the rounds (default 2; #22 started this).
-- Store each critique next to the frame (`out/critique-a-r1.md`) so the next round's `--prev` works automatically.
-- Seed the critic with the failure catalogue in 2.1 as a checklist; those were exactly the fixes that mattered.
-- Make `check` report "critique missing" for a delivered frame that has no critique file.
+- Design an opt-in `pixelate critique --run` (and MCP equivalent) around the existing lead and specialist prompts. A fresh model must receive the brief and actual images; the caller must choose an available model and authorise its cost. Define model access, image transfer, independent-review separation and failure handling before making this a default. A model call alone does not reproduce the coordinator's briefs, references and decisions.
+- Keep #22's default of three graded lead rounds per full brief and still stage, with at most two optional specialist consults per artifact from #23. Stop and ask after a third non-A grade unless the user explicitly allows more; an automated runner must share that budget rather than start another loop.
+- Save the lead critique, stage, grade and a hash of the exact brief and frame next to the artifact (`out/critique-a-r1.md` plus metadata), so `--prev` names the prior lead result and stale critiques cannot count for a new render. Seed the critic with the failure catalogue in 2.1 as a checklist.
+- Add a separate release/workflow status check for a **final** frame: verify a matching A critique exists. Keep `pixelate check` focused on pixel legality; it also checks block-ins and drafts, which may have no critique yet.
 
 ### 2.3 The kit is too thin, and what exists is hard to find
 
@@ -96,8 +95,8 @@ Painters rebuilt the same primitives by hand, sometimes badly enough to need fix
 - **One Hero line per brief:** two-moment jobs invented `brief-b.md` files. Support per-image sections (`## Image B` with its own Hero, Planes and overrides) and `--image b`.
 - **Post-op overrides only help lint:** contre-jour bans `Post.lightmap`, yet a door spill is that style's natural use, and the gate can't take an override for a post op. Either allow per-brief op overrides in the gate, or document `Post.light` as the substitute in the style card.
 - **Sticker-iso focus bounds** fight dense full-bleed crowds (08 needed `focus_rival <= 3.2`). Add a `--scene crowd` variant like `cosy-lightmap --scene exterior`.
-- **Screen-light gating** needs `--pre` and `--used` assembled by hand. Have art modules write a sidecar `frame.json` (style, scale, pre path, ops used, actor mask) that `check` reads automatically.
-- **The 10 steps assume a human at three checkpoints.** Add a `--mode render` (autonomous) path to `SKILL.md`: keep the brief, block-in, gates and art director; drop the waits; deliver the stills with their critique lines.
+- **Screen-light gating** needs `--pre` and `--used` assembled by hand. Have art modules write a sidecar `frame.json` (style, scale, pre path, ops used, actor mask, named object masks) that `check` reads automatically; require an explicit mask before object-specific detectors run.
+- **The 10 steps assume a human at three checkpoints.** Add an explicitly requested autonomous render path to `SKILL.md` for pre-authorised runs. Keep the brief, block-in, gates and art director. Preserve the brief, still and animation confirmations for ordinary users; skip a wait only when the user has delegated that decision in advance.
 - **Intake and route are hints only.** Briefs were well formed, but each agent spent many tokens reading guides first. Put the per-mode essentials into the generated brief skeleton, so reading the guides becomes optional.
 
 ### 2.6 Speed and cost (the "faster" half of the claim)
@@ -120,10 +119,10 @@ Most of each painter's budget went to reading guides, writing scaffolding from s
 
 | # | Change | Files | Why first |
 |---|---|---|---|
-| P0 | `critique --run` / MCP `art_director` that calls a fresh model, with bounded rounds, critique files on disk and a "critique missing" gate line | `tools/critique.py`, `tools/mcp_server.py`, `tools/check.py` | It replaces the coordinator, which was the main source of quality |
-| P0 | Four detectors: masonry seams, regular spacing (repeat can fail), outline loops, real-glyph match | `tools/craftcheck.py`, `tools/check.py` | They catch the failures that recurred most in the run |
-| P0 | Autonomous `--mode render` path in `SKILL.md` | `SKILL.md`, `references/delivery.md` | Showcase and benchmark runs need it |
-| P1 | Per-image brief sections and a gate sidecar `frame.json` | `tools/route.py`, `tools/check.py` | Removes the workaround files and hand-built flags |
+| P0 | Design an opt-in model-backed lead run over the existing prompts, with explicit model/cost choice, three-round budget, artifact-bound critique records and a separate final-release status check | `tools/critique.py`, `tools/mcp_server.py`, release workflow | Make the independent critique usable without confusing drafts with final delivery |
+| P0 | Add a `frame.json` sidecar carrying gate inputs and named object masks; then calibrate masonry, spacing, outline-loop and real-glyph detectors against good and bad examples | art modules, `tools/check.py`, `tools/craftcheck.py` | Object-specific failures need trustworthy regions before thresholds can fail a frame |
+| P0 | Explicitly opt-in autonomous render path, preserving normal user approvals | `SKILL.md`, `references/delivery.md` | Benchmarks can pre-authorise decisions without silently bypassing user checkpoints |
+| P1 | Per-image brief sections that can consume sidecar metadata | `tools/route.py`, `tools/check.py` | Removes the workaround brief files |
 | P1 | Recipes in `pixelate tools TOPIC`, plus `persp.py`, waterfall, rock face, aurora, light pools | `tools/route.py` (catalogue), `tools/persp.py`, `tools/water.py`, `tools/sky.py`, `tools/light.py` | Less code from scratch, so faster and more consistent |
 | P1 | Music engine: motif field, one-shot events, bell and FM voices; `musiccheck --use excerpt` | `engine/audio.js`, `tools/musiccheck.py`, `guides/music.md` | Half the samples bypassed the engine |
 | P2 | Mode templates and `pixelate render DIR` | `templates/`, `tools/cli.py` | Speed |
@@ -149,14 +148,14 @@ Most of each painter's budget went to reading guides, writing scaffolding from s
 
 ## 5. How to prove the claim later (the benchmark)
 
-1. **Prompts:** the ten briefs' request sections, used verbatim and long.
+1. **Prompts and inputs:** freeze the ten briefs' request sections as prompts. Give both arms the same reference photos, requested outputs (two stills and a 5-second sample where asked), machine and time budget. Neither arm receives the coordinator's extra instructions or fixes.
 2. **Arms:**
-   - (a) a bare model with the prompt and a Python sandbox (Pillow and numpy);
-   - (b) the same model with the skill installed via `pixelate setup`.
-   - No human coaching in either arm, and the same token cap.
-3. **Measure:** wall time, tokens, and tool calls to first deliverable; whether it delivered at all; gate pass rate (scored by the repo's gate in both arms).
-4. **Judge:** a blind art-director grade from a separate model with the rubric in `references/art-director.md`, plus optional human pairwise preference.
-5. **Win condition:** arm (b) grades higher at the same or lower time and tokens.
-6. **Cheap pilot:** 3 prompts × 2 arms × 1 run, then scale up.
+   - (a) the same model with the prompt and a Python sandbox (Pillow and numpy);
+   - (b) that model with the skill and kit installed via `pixelate setup`.
+   - No human coaching in either arm; use the same token cap and record any extra tool or model-review calls. This compares the installed bundle, not the skill text alone.
+3. **Measure:** wall time, tokens and tool calls to the first deliverable **and** the first acceptable deliverable under a predeclared quality threshold; record failures and gate pass rates for both arms.
+4. **Judge:** blind pairwise preference and a quality rubric neutral to the kit's house style. The `references/art-director.md` scores can be a secondary diagnostic, but its Lantern Isle bar should not decide a comparison against a bare model.
+5. **Win condition:** arm (b) reaches a better result at the same or lower time and tokens; report the quality/cost trade-off per prompt rather than hiding failures in an average.
+6. **Cheap pilot:** 3 prompts × 2 arms × 1 run for feasibility, then repeat enough runs before claiming a win.
 
 Run it before and after the P0 items; the difference is the measured value of the work in section 3.

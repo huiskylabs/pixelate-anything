@@ -276,6 +276,7 @@ ROUTE = {
 
 MODES = [
     ('rebuild', 3, ['photo', 'picture of', 'my photo', 'aerial', 'rebuild', 'this image', 'from this',
+                    'reference image', 'reference photo',
                     '照片', '这张图', '航拍', '重建']),
     ('era', 3, ['nes', 'game boy', 'gameboy', '8-bit', '8 bit', '16-bit', '16 bit', 'snes', 'genesis', 'mega drive',
                 'gba', 'pico-8', 'pico8', '红白机', '8位', '16位', '掌机', '四色绿', '超任', 'famicom',
@@ -306,9 +307,18 @@ def era_of(request):
 GUIDE = {'scene': 'guides/scenes.md', 'rebuild': 'guides/rebuild.md', 'era': 'guides/eras.md',
          'assets': 'guides/assets.md', 'music': 'guides/music.md'}
 
-PROJECTION = [('2:1 iso', ['isometric', 'iso ', 'iso-', '等距', '2:1']),
-              ('3/4 top-down', ['top-down', 'top down', 'from above', 'overhead', 'bird', '俯视', '鸟瞰', '顶视']),
-              ('side', ['side view', 'side-on', 'side on', 'profile', 'platformer', '侧视', '横版'])]
+CAMERA_INTENTS = {
+    'one-point perspective': ['one-point perspective', 'one point perspective', '1-point perspective',
+                              '1 point perspective', 'single vanishing point', '一点透视'],
+    'two-point perspective': ['two-point perspective', 'two point perspective', '2-point perspective',
+                              '2 point perspective', 'two vanishing points', '两点透视'],
+    '2:1 iso': ['isometric', 'iso ', 'iso-', '等距', '2:1'],
+    '3/4 top-down': ['top-down', 'top down', 'from above', 'overhead', 'bird', '俯视', '鸟瞰', '顶视'],
+    'side': ['side view', 'side-on', 'side on', 'profile', 'platformer', '侧视', '横版'],
+    'oblique': ['oblique projection', 'oblique view', '斜投影'],
+    'military': ['military projection', 'military view', '军事投影'],
+}
+
 
 DARK = ['night', 'dark', 'midnight', 'underground', 'cave', '夜', '暗', '深夜', '地下']
 BRIGHT = ['day', 'noon', 'sunny', 'morning', 'bright', '白天', '中午', '晴', '早晨', '明亮']
@@ -345,11 +355,7 @@ def route(request, n=3):
             scores[name][0] -= 2
         if bright and name in DARK_STYLES:
             scores[name][0] -= 2
-    proj = None
-    for p, words in PROJECTION:
-        if _hits(t, words):
-            proj = p
-            break
+    proj = next((label for label, phrases in CAMERA_INTENTS.items() if _hits(t, phrases)), None)
     if proj:                                         # a stated projection favours the styles drawn in it
         for name in scores:
             if ROUTE[name]['projection'] == proj:
@@ -364,18 +370,19 @@ def route(request, n=3):
             if styles.get(name)['res'] != 'none':
                 scores[name][0] -= 3
     order = sorted(scores, key=lambda k: (-scores[k][0], list(ROUTE).index(k)))
+    camera = proj or ('inspect reference' if mode == 'rebuild' else None)
     picks = []
     for name in order[:n]:
         s, why = scores[name]
         r = ROUTE[name]
         picks.append(dict(style=name, score=s, why=why or ['no signal in the request'],
-                          projection=proj or r['projection'], pick_if=r['pick_if'], example=r['example']))
+                          projection=camera or r['projection'], pick_if=r['pick_if'], example=r['example']))
     if picks[0]['score'] <= 0:                       # nothing matched: the toolkit's own look first
         lofi = next((p for p in picks if p['style'] == 'lofi'), None)
         if lofi is None:
             r = ROUTE['lofi']
             lofi = dict(style='lofi', score=0, why=['no strong signal: the default for a calm scene'],
-                        projection=proj or r['projection'], pick_if=r['pick_if'], example=r['example'])
+                        projection=camera or r['projection'], pick_if=r['pick_if'], example=r['example'])
         picks = [lofi] + [p for p in picks if p['style'] != 'lofi'][:n - 1]
     if mode != 'scene' and picks[0]['score'] <= 0:
         picks[0]['why'] = ['no style signal: follow %s first; pick the finish style from the %s' % (
@@ -890,10 +897,14 @@ def gaps(request, r=None, delivered=None, native_h=None):
         h = _hits(t, words) if words else []
         out.append(dict(topic=topic, stated='/'.join(h[:3]) if h else '', default=default))
     margin = p['score'] - (r['picks'][1]['score'] if len(r['picks']) > 1 else 0)
+    camera_override = p['projection'] in ('one-point perspective', 'two-point perspective', 'inspect reference')
     out.append(dict(topic='style', stated='/'.join(p['why'][:2]) if p['score'] > 3 and margin >= 3 else '',
-                    default='`%s` (%s); the runners-up are %s' % (
-                        st['name'], st['what'], ', '.join('`%s`' % q['style'] for q in r['picks'][1:]))))
-    out.append(dict(topic='projection', stated=r['projection'] or '', default=p['projection']))
+                    default='`%s` (%s); the runners-up are %s%s' % (
+                        st['name'], st['what'], ', '.join('`%s`' % q['style'] for q in r['picks'][1:]),
+                        '; this style sets the finish, not the camera' if camera_override else '')))
+    out.append(dict(topic='projection', stated=r['projection'] or '', default=(
+        'inspect the reference camera before choosing a projection' if p['projection'] == 'inspect reference'
+        else p['projection'])))
     tw, said = time_weather(request, st['name'])
     out.append(dict(topic='time and weather', stated=said, default=tw))
     add('phases', WORDS['phases'],
@@ -903,7 +914,9 @@ def gaps(request, r=None, delivered=None, native_h=None):
     named = _hits(t, WORDS['figures'] + ['slime', 'robot', 'samurai', '史莱姆', '武士', '机器人'])
     add('figures', WORDS['figures'],
         'only the actors the request names, nobody added' if named else
-        'one or two small figures doing a quiet, specific task (%s)' % _as_example(figure_size(st, native_h)[0]))
+        'one or two small figures doing a quiet, specific task (%s)' % (
+            _as_example(figure_size(st, native_h)[0]).replace('iso people', 'figures sized for the camera')
+            if camera_override else _as_example(figure_size(st, native_h)[0])))
     loop = ('the engine\'s 30-tick clock, sprites at 10, 5 or 2 fps; the loop is the music\'s length'
             if st['name'] == 'lofi' else loop_default(st['name']))
     excerpt = 'a GIF excerpt' if st['res'] == 'none' else 'an APNG excerpt (a GIF bands soft light)'
@@ -1072,7 +1085,7 @@ PLANE_MIN = {'topdown': (('ground', 'street', 'floor', 'road', 'plaza', 'yard', 
                          'seen from above')}
 
 def _proj_key(proj):
-    return 'topdown' if re.search(r'top[\s-]*down|俯视|from above', proj or '', re.I) else ''
+    return 'topdown' if re.fullmatch(r'(?:3/4\s+)?top[\s-]*down|俯视|from above', (proj or '').strip(), re.I) else ''
 
 def _planes(line):
     """the `NAME NN%` pairs of a Planes line (check.parse_planes): [(name, share, band tag or None)]"""
@@ -1559,7 +1572,10 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         import era as eramod
         E = eramod.ERAS[era]
     frames, fps = r['frames'][0], st['fps']
-    proj = projection or r['projection']
+    rebuild = bool(_hits(' ' + request.lower() + ' ', MODES[0][2]))
+    proj = projection or (route(request)['projection'] if request else None) or (
+        'inspect reference' if rebuild else r['projection'])
+    screen_camera = proj in ('one-point perspective', 'two-point perspective', 'inspect reference')
     light = {'none': 'no light layer: light is palette steps (warm slots, rims, a few highlight pixels)',
              'native': 'a light layer computed per art pixel from the scene\'s masks, scaled up last (post.Post(res="native"))',
              'screen': 'a light layer smooth inside each art pixel, composited at delivery size (post.Post(res="screen"))'}[st['res']]
@@ -1586,7 +1602,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                      if st['res'] == 'screen' else ' Excerpts as APNG (soft light bands in a GIF).'
                      if st['res'] == 'native' else ''))
     L.append('\n## 2. Style and light regime')
-    L.append('- Style `%s`: %s.' % (st['name'], st['what']))
+    L.append('- Style `%s`: %s.%s' % (
+        st['name'], st['what'], ' Use its finish, not its geometry; the camera below controls the drawing.'
+        if screen_camera else ''))
     L.append('- Light: %s; blend %s.' % (light, ', '.join(st['blend']) or 'none'))
     if E:
         L.append('- Ramps: 3-4 steps picked by hand from the %s palette. Palette: at most %d colours%s.' % (
@@ -1603,7 +1621,7 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              '(see references/brief.md#2-style-and-light-regime; run `pixelate style %s`).' % st['name'])
     L.append('\n## 3. Art direction rules')
     for x in r['rules']:
-        L.append('- ' + x)
+        L.append('- ' + (x.replace('3.3-head iso figures', 'figures scaled for depth') if screen_camera else x))
     L.append('- TODO 3-5 rules for this scene: which silhouettes must read, where rims fall, the built-in imperfections '
              '(a lean, a sag, a missing plank, a mismatched part) (see references/drawing.md#drawing-objects; run '
              '`pixelate style %s` for the style\'s rules).' % st['name'])
@@ -1616,6 +1634,17 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'is a slot map. references/assets has finished examples to study, never to call.')
     L.append('\n## 4. The scene')
     L.append('- Projection: %s. Canvas %dx%d.' % (proj, w, h))
+    if screen_camera:
+        vanishing = ('the vanishing point in native px' if proj == 'one-point perspective' else
+                     'both vanishing points in native px' if proj == 'two-point perspective' else
+                     'the reference vanishing point(s) in native px, if visible')
+        construction = ('Decide from the reference whether edges converge; if they do, draw them on the '
+                        'screen-space native-pixel grid.' if proj == 'inspect reference' else
+                        'Draw converging edges and receding spacing on the screen-space native-pixel grid.')
+        L.append('- Camera: TODO inspect the reference if one was supplied; route reads the request, not the image. '
+                 f'Record the horizon in native px (or say it is outside the frame), {vanishing}, the crop and '
+                 f'focal framing, and the near/far scale changes. {construction} Adapt figure sizes to depth, '
+                 'not iso.Iso geometry (see guides/rebuild.md#2-pick-the-camera).')
     L.append('- Hero: TODO x0,y0,x1,y1 (native px); peak value: TODO the object that alone holds the brightest '
              'values; peak chroma: TODO the object that alone holds the top chroma%s. A figure stays at least %d px '
              'tall at the delivered cell; no other mass over 0.6x the hero\'s area or within 0.1 L of its peak '
@@ -1700,7 +1729,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
             w, h, N, DW, DH,
             'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
-    L += _figure_lines(st, h, N)
+    L += [line.replace('iso people', 'figures adapted to the camera') if screen_camera else line
+          for line in _figure_lines(st, h, N)]
     if E:
         L.append('- Budget: the %s checks replace the style\'s value budget in the gate (`--era %s`): screen size, '
                  'colour count, palette, colours per block, unique tiles; the style still sets the craft limits.' % (
@@ -1721,7 +1751,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              '(see references/delivery.md#art-director).')
     L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
              '(see references/delivery.md#still and references/delivery.md#animation-plan).')
-    L.append('\nTechniques for this style: ' + '; '.join(r['tools']) + '.')
+    style_tools = [x for x in r['tools'] if not screen_camera or not re.search(
+        r'\biso\b|iso_|compose\.(?:populate|strips)', x, re.I)]
+    L.append('\nTechniques for this style: ' + '; '.join(style_tools) + '.')
     tt = topic_tools(request, st['name'], proj)
     if tt:
         L.append('Techniques for this subject (more: `pixelate tools TOPIC --style %s`; signatures: '
@@ -1729,7 +1761,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         L += ['- ' + x + '.' for x in tt]
     L.append('Always: ' + ALWAYS_TOOLS + '.')
     if r['example']:
-        L.append('Closest example in the repo: %s.' % r['example'])
+        L.append('Closest example in the repo: %s.%s' % (
+            r['example'], ' Study its finish, not its camera.' if screen_camera else ''))
     return '\n'.join(L) + '\n'
 
 # ---------------------------------------------------------------- the short brief, for small asks
@@ -1787,6 +1820,8 @@ def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, s
           'the game it is for, what would disappoint them; see references/brief.md#read-the-intent)']
     if 'style' in g:
         L.append('- **style**: %s' % g['style']['default'])
+    if kind == 'photo' and 'projection' in g:
+        L.append('- **camera**: %s' % g['projection']['default'])
     size = {'palette': 'about %d colours in `%s` ramps, 4-6 steps per role' % (st['colours'], ', '.join(st['ramp'])),
             'icons': '12 icons at 16x16 on one shared palette, lit from the upper left',
             'photo': 'native %dx%d, %dx nearest to %dx%d, about %d colours' % (w, h, N, DW, DH, st['colours']),
@@ -1826,8 +1861,8 @@ def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, s
                     '(see references/drawing.md#drawing-objects).',
                     '- One ramp set, one outline rule and one light direction across the set.',
                     '- Each icon is a slot map in code; for a small readable mark, study references/assets/glyphs.py stamp.'],
-          'photo': ['- TODO what the photo shows and what must survive: the subject, the light, the one detail people look for '
-                    '(see guides/pixelate.md).',
+          'photo': ['- TODO what the photo shows and what must survive: the subject, camera and framing, the light, '
+                    'the one detail people look for (inspect the reference; route reads only the request).',
                     '- First pass `pixelate image IMG -o out.png` (guides/pixelate.md), then fix by hand what it gets '
                     'wrong: the subject\'s edges, orphan pixels, outlines.',
                     '- A rebuilt, moving scene is a full brief: `pixelate route "..." --brief --full` with guides/rebuild.md.'],
@@ -1919,6 +1954,25 @@ CASES = [
     ('a lighthouse in a storm', 'scene', {'lofi', 'pastel-cell', 'contre-jour'}),
     ('a cosy coffee shop interior in the morning', 'scene', {'lofi', 'cosy-lightmap'}),
     ('a sunny harbour town with boats and gulls', 'scene', {'hd-overworld', 'sticker-iso'}),
+    ('Rebuild this photo of a street in one-point perspective.', 'rebuild', None),
+    ('Rebuild this photo of a corner in two-point perspective.', 'rebuild', None),
+]
+
+CAMERA_CASES = [
+    ('A street seen in one-point perspective, not isometric.', 'one-point perspective'),
+    ('Rebuild this two-point perspective photo of an isometric-looking city.', 'two-point perspective'),
+    ('A corridor with a single vanishing point.', 'one-point perspective'),
+    ('A corner with two vanishing points.', 'two-point perspective'),
+    ('An isometric castle siege.', '2:1 iso'),
+    ('A village from above.', '3/4 top-down'),
+    ('A side view of a street.', 'side'),
+    ('An oblique projection of a house.', 'oblique'),
+    ('A military projection of a town.', 'military'),
+]
+CAMERA_DEFAULT_CASES = [
+    ('a cosy farm at night', '3/4 top-down'),
+    ('make a pixel island', 'side'),
+    ('Rebuild this reference image of a street.', 'inspect reference'),
 ]
 
 # (request, size, scale, text the long brief must hold): delivery size, scene variants and era gates
@@ -1936,6 +1990,21 @@ BRIEF_CASES = [
     ('A busy canal market at noon in isometric.', (1920, 1080), 3, ['Canvas 640x360', 'Figures: 20-22 px iso people', 'x0.60 by native height']),
     ('A busy canal market at noon in isometric.', (1280, 720), None, ['Canvas 640x360', '2x nearest to 1280x720']),
     ('A busy canal market at noon in isometric.', None, None, ['- Music: an accordion-like lead', 'TRACK.wav']),
+    ('Rebuild this photo of a street in one-point perspective.', None, None,
+     ['- Projection: one-point perspective.', 'the vanishing point in native px',
+      'route reads the request, not the image', 'screen-space native-pixel grid',
+      'Use its finish, not its geometry']),
+    ('Rebuild this photo of a corner in two-point perspective.', None, None,
+     ['- Projection: two-point perspective.', 'both vanishing points in native px']),
+    ('Rebuild this photo of a street.', None, None,
+     ['- Projection: inspect reference.', '- Camera: TODO inspect the reference',
+      'reference vanishing point(s) in native px', 'Use its finish, not its geometry']),
+]
+
+BRIEF_AVOID_CASES = [
+    ('Rebuild this photo of a street in one-point perspective.', ['iso boxes', 'iso_person']),
+    ('Rebuild this photo of a corner in two-point perspective.', ['iso boxes', 'iso_person']),
+    ('Rebuild this photo of a street.', ['- Projection: 2:1 iso.', 'iso boxes']),
 ]
 
 # (request, gaps topic, text its default must hold, text it must not hold, stated must be empty): defaults
@@ -1963,6 +2032,9 @@ GAP_CASES = [
     ('A Game Boy style lighthouse on a stormy night.', 'figures', ['one or two small figures'], [], True),
     ('A busy canal market at noon in isometric.', 'purpose and outputs', ['story beats', 'every period divides'],
      [], False),
+    ('Rebuild this photo of a street in one-point perspective.', 'style', ['finish, not the camera'], [], False),
+    ('Rebuild this photo of a street in one-point perspective.', 'figures', ['sized for the camera'],
+     ['iso people'], True),
 ]
 # (function, argument, expect a problem): the lint's false positives stay fixed and its substance checks fire
 LINT_CASES = [
@@ -1994,6 +2066,10 @@ LINT_CASES = [
     ('plan', '- Projection: 3/4 top-down.\n- Hero: 128,34,512,262 (native px); peak value: the door wedge; peak '
              'chroma: the cat\n- Planes: street 40% (mid, the canal bank), canal 15% (mid), sky 10% [light] because '
              'it is open, houses 25% (dark), wedge 10% (brightest)\n- Layout: shop x 128-512\n'
+             '- Masses: roof 384 px, neighbours 112 and 112 px\n- Value plan: void L .05, walls .15; brightest at '
+             'the door, 2%', 0),
+    ('plan', '- Projection: two-point perspective from above.\n- Hero: 128,34,512,262 (native px); peak value: the door wedge; peak '
+             'chroma: the cat\n- Planes: roof 40%, street 27%, back row 10%, walls 23%\n- Layout: shop x 128-512\n'
              '- Masses: roof 384 px, neighbours 112 and 112 px\n- Value plan: void L .05, walls .15; brightest at '
              'the door, 2%', 0),
     ('oneline', '- Light direction: upper right\n- Wind: from the left\n- Light direction: the lamp', 1),
@@ -2051,17 +2127,37 @@ def selftest(verbose=False):
             print('%s lint    %-16s %s  (got %r)' % ('XX' if wrong else '  ', fn, str(arg)[:56].replace('\n', ' '), got))
     for q, size, scale, want in BRIEF_CASES:
         r = route(q)
-        text = brief(r['picks'][0]['style'], q, era=r.get('era'), size=size or size_of(q), scale=scale)
+        text = brief(r['picks'][0]['style'], q, projection=r['picks'][0]['projection'], era=r.get('era'),
+                     size=size or size_of(q), scale=scale)
         miss = [w for w in want if w not in text]
         bad += bool(miss)
         if miss or verbose:
             print('%s brief   %-14s %s%s' % ('XX' if miss else '  ', r['picks'][0]['style'], q[:60],
                                             ('  missing: %s' % miss) if miss else ''))
+    for q, avoid in BRIEF_AVOID_CASES:
+        r = route(q)
+        text = brief(r['picks'][0]['style'], q)
+        found = [phrase for phrase in avoid if phrase in text]
+        bad += bool(found)
+        if found or verbose:
+            print(f"{'XX' if found else '  '} camera brief {q[:48]}" + (f'  unexpected: {found}' if found else ''))
+    for q, projection in CAMERA_DEFAULT_CASES:
+        r = route(q)
+        wrong = r['picks'][0]['projection'] != projection or r['projection'] is not None
+        bad += wrong
+        if wrong or verbose:
+            print(f"{'XX' if wrong else '  '} camera default {projection:<22} {q[:50]}")
     for neg in ('Post.shaft' in brief('pastel-cell', 'sun rays over the clouds'),
                 '(shapes.ray, canvas.Canvas.fill)' in brief('contre-jour', 'a beam of light')):
         bad += neg
         if neg:
             print('XX the light-beams topic gives a style the wrong ray')
+    for q, projection in CAMERA_CASES:
+        r = route(q)
+        wrong = r['picks'][0]['projection'] != projection or r['projection'] != projection
+        bad += wrong
+        if wrong or verbose:
+            print(f"{'XX' if wrong else '  '} camera  {projection:<22} {q[:70]}")
     for q, mode, ok in CASES:
         r = route(q)
         top = r['picks'][0]['style']
@@ -2069,7 +2165,8 @@ def selftest(verbose=False):
         bad += wrong
         if wrong or verbose:
             print('%s %-7s %-14s %s' % ('XX' if wrong else '  ', r['mode'], top, q[:70]))
-    n = len(CASES) + len(BRIEF_CASES) + len(GAP_CASES) + len(LINT_CASES) + 4
+    n = (len(CASES) + len(CAMERA_CASES) + len(CAMERA_DEFAULT_CASES) + len(BRIEF_CASES) +
+         len(BRIEF_AVOID_CASES) + len(GAP_CASES) + len(LINT_CASES) + 4)
     print('%d/%d cases route as expected' % (n - bad, n))
     return bad
 
@@ -2118,7 +2215,8 @@ def main(a):
         if style != r['picks'][0]['style']:            # a named style leads section 0 too
             rt = ROUTE[style]
             pick = next((q for q in r['picks'] if q['style'] == style), None) or dict(
-                style=style, score=0, why=['named with --brief'], projection=r['projection'] or rt['projection'],
+                style=style, score=0, why=['named with --brief'],
+                projection=r['projection'] or ('inspect reference' if r['mode'] == 'rebuild' else rt['projection']),
                 pick_if=rt['pick_if'], example=rt['example'])
             r['picks'] = [pick] + [q for q in r['picks'] if q['style'] != style][:2]
         kind = None if full else small_kind(req, r)
@@ -2126,7 +2224,8 @@ def main(a):
         if kind:
             text = short_brief(style, req, kind, r, era=r.get('era'), size=size, scale=scale)
         else:
-            text = brief(style, req, choices=gaps(req, r, (DW, DH) if size or scale else None, NH), era=r.get('era'),
+            text = brief(style, req, projection=r['picks'][0]['projection'],
+                         choices=gaps(req, r, (DW, DH) if size or scale else None, NH), era=r.get('era'),
                          size=size, scale=scale)
         if out:
             pathlib.Path(out).write_text(text); print('wrote', out)

@@ -1,6 +1,6 @@
 ---
 name: pixelate-anything
-description: Hand-crafted pixel art of any kind. Use it to rebuild a photo or a place as real pixel art (side view, 3/4 top-down or isometric), convert images, build palettes, draw sprites, characters, items and tilesets with sheets and GIFs, make pixel scenes and seamless animated loops with a generative soundtrack (lofi, chiptune, ambient) as a live page, MP4 or GIF, or make loopable game music.
+description: Hand-crafted pixel art of any kind. Use it to rebuild a photo or a place as real pixel art while preserving its camera, convert images, build palettes, draw sprites, characters, items and tilesets with sheets and GIFs, make pixel scenes and seamless animated loops with a generative soundtrack (lofi, chiptune, ambient) as a live page, MP4 or GIF, or make loopable game music.
 ---
 
 # pixelate-anything
@@ -37,7 +37,7 @@ A quick image conversion: `guides/pixelate.md`. A palette: `guides/palettes.md`.
 ## Hard rules
 
 - Draw everything yourself in code. `references/assets/` holds read-only examples: read them, never call them.
-- Pixel-art projections only: side, 3/4 top-down, 2:1 iso, oblique, military.
-- Originals only: no existing characters, places, logos or UI.
+- The five views (side, 3/4 top-down, 2:1 iso, oblique, military) are presets, not limits. Keep a reference's camera or an explicit one- or two-point perspective when it matters; construct it on the native-pixel grid (guides/rebuild.md#2-pick-the-camera).
+- Original scenes only: no borrowed characters, logos or UI. A rebuild may depict the supplied place and camera.
 - Rebuild, don't convert: `pixelate image` is a first pass at most.
 - Every effect is done in code: light, particles, weather, never painted or filtered.

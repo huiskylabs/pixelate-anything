@@ -15,7 +15,7 @@ draft. You judge what numbers can't.
 2. The greyscale thumbnail: are there three or four clear value groups, is the brightest one the hero.
 3. The full frame at delivered size: composition, colour, light, depth.
 4. Native crops of the focal area enlarged 4x: surface, edges, wear, pixel craft.
-5. The brief's intent and signature elements: does the picture deliver the moment it promised.
+5. The brief's intent, camera and signature elements: does the picture deliver the moment it promised? For a rebuild, compare the source reference with the still when it is available; do not infer its camera from the request alone.
 
 ## The 12 points (score each 1 to 5)
 
@@ -40,8 +40,11 @@ draft. You judge what numbers can't.
 8. **Hand-made, not procedural.** Shingle widths differ in every course, one shingle is missing and
    one patched; one shutter hangs crooked; boulders are individual shapes of varied size that
    overlap. No uniform textures, no even repeats, no visible noise, no rows of identical lobes.
-9. **Depth in planes.** Far (horizon haze, lighthouse, aurora), middle (island), near (water and
-   reflections), each with its own value range.
+9. **Depth and camera fidelity.** Far (horizon haze, lighthouse, aurora), middle (island), near
+   (water and reflections), each with its own value range. For a rebuild, compare horizon, crop,
+   vanishing point(s), near/far scale and landmark placement against the reference. For an explicit
+   perspective request, check that converging edges and shrinking repeats follow its one or two
+   points rather than an unrelated iso grid.
 10. **Grounding.** The island sits in water with a wet band, foam and reflections; the boat is moored
     by a rope. Nothing floats without a reason.
 11. **Lived-in story.** Three to six small signs of a life: a cat asleep on the sill with a lamp rim
@@ -50,8 +53,9 @@ draft. You judge what numbers can't.
 12. **Clean pixel craft.** Clean clusters, no stray single pixels, no pillow shading, no mush; dither
     only as deliberate texture; one pixel scale everywhere, at least 2x at delivery.
 
-**Originality** is a pass or fail, not a score: any existing character, logo, place or layout copied
-from a reference makes it C whatever the scores.
+**Originality** is a pass or fail, not a score: copying an existing character, logo or UI layout
+makes it C whatever the scores. In a rebuild, the supplied place and camera are the subject to
+recreate; do not penalize fidelity to that reference.
 
 ## Grading a brief
 
@@ -76,8 +80,10 @@ must fix for each point:
    every signature element visible at 480 px in the chosen still frame.
 8. Masses: every big field (cloud sea, roofs, crowd) as three or four masses of very different
    size, with sizes, never even rows; repeated units varied; imperfections named.
-9. Far, middle and near planes with their own value ranges; a projection that shows the subject
-   (3/4 top-down sees roofs from above and gives the ground 40% or more).
+9. Far, middle and near planes with their own value ranges; a camera that shows the subject
+   (3/4 top-down sees roofs from above and gives the ground 40% or more). For a rebuild, the brief
+   records the reference's horizon, visible vanishing point(s), crop and near/far scale after
+   inspection; for one- or two-point perspective it plans screen-space native-pixel construction.
 10. What every object stands on.
 11. Three to six story beats, and what moves in stepped frames.
 12. At least 2x at delivery; dither zones and outlines per object class; objects as primitives or

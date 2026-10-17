@@ -14,7 +14,7 @@ It ships three ways:
 **Rebuild, don't convert.** Give it a photo of a place, and the agent does what a pixel artist would:
 - keeps the photo's composition and camera,
 - reads the place's shape language,
-- redraws it in a projection pixel art actually uses,
+- keeps the reference's perspective when it matters, or chooses a stylized projection,
 - picks the palette,
 - adds the life the photo doesn't have.
 
@@ -28,7 +28,7 @@ It ships three ways:
 |---|---|---|
 | ![Rooftop Run](docs/rooftop-run.gif) | ![Island Village](docs/island-village.gif) | ![Pixel Harbor](docs/title-screen.gif) |
 
-![One scene in the five pixel-art projections](docs/projections.png)
+![One scene in five orthographic projection presets](docs/projections.png)
 
 **Scenes that loop forever.** Lantern Isle turns through four seasons with its own generative lofi soundtrack, as a seamless 1080p or 4K video.
 
@@ -36,7 +36,7 @@ It ships three ways:
 
 | mode | what you get |
 |---|---|
-| **Rebuild** | a photo of a place rebuilt as pixel art in side view, 3/4 top-down, 2:1 isometric, oblique or military projection. Boxes and curved solids (rounded boxes, vaults, domes, arches, terrain), cast shadows, palette swaps from day to night, and palette-cycled water |
+| **Rebuild** | a photo of a place rebuilt with its camera or one of five orthographic presets (side, 3/4 top-down, 2:1 iso, oblique, military). Vanishing-point views are drawn on the native-pixel canvas; the orthographic renderer handles boxes and curved solids (rounded boxes, vaults, domes, arches, terrain), cast shadows, palette swaps from day to night, and palette-cycled water |
 | **Eras** | original screens under real console limits: 8-bit NES-style (master palette, 4-colour blocks, 3-colour sprites), Game Boy-style 4 shades, 16-bit; a checker, retargeting, pixel fonts for HUDs and dialogue, including Chinese and Japanese |
 | **Convert** | a quick mode for logos, screenshots and bold photos: palette fitting, majority sampling, despeckle, flattening, grading, cut-out sprites with outlines |
 | **Palettes** | hue-shifted ramps from a few base colours, extraction from references, presets, and export to Aseprite/GIMP/hex/JSON/PNG |

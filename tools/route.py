@@ -4,6 +4,7 @@
 usage:
   pixelate route "a cosy rainy village at night"   the top 3 styles, with reasons, and what the
                                                    request leaves open (with defaults)
+  pixelate route --intake "REQUEST"              JSON plan: optional scene questions and the route result
   pixelate route "..." --brief [STYLE] [-o FILE]   the 11-section brief, pre-filled for the top style
                                                    (or STYLE), to finish by hand; a small ask (a
                                                    palette, one sprite, an icon set, a photo, assets,
@@ -52,7 +53,11 @@ brief using those defaults, runs lint() on it as a self-critique, and shows the 
 the list of choices it made. If the user says OK, one round turns the one line into a Lantern Isle
 level brief; if not, they change what they want and the brief is revised, a round at a time.
 """
-import re, sys, pathlib
+import json
+import pathlib
+import re
+import sys
+from typing import Literal, TypedDict
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import styles
@@ -383,6 +388,41 @@ def route(request, n=3):
                           'assets': 'game the assets are for', 'music': 'scene the music goes with'}[mode])]
     return dict(request=request, picks=picks, mode=mode, guide=GUIDE[mode], projection=proj,
                 era=era_of(request) if mode == 'era' else None)
+
+class IntakePlan(TypedDict):
+    disposition: Literal['offer', 'direct']
+    questions: list[str]
+    route: dict
+
+
+_GENERIC_SCENE_EN = re.compile(
+    r'(?:(?:please\s+)?(?:make|create|draw)(?:\s+me)?|i\s+want)\s+(?:a\s+)?'
+    r'(?:pixel(?:[- ]art)?\s+scene|pixel\s+art|pixel\s+scene)(?:\s+for\s+me)?[.!?]?',
+    re.IGNORECASE,
+)
+_GENERIC_SCENE_ZH = re.compile(
+    r'(?:我想要|(?:请)?(?:帮我)?(?:做|画|制作|创作|生成))(?:一[张幅个])?'
+    r'(?:像素(?:画|场景|艺术)|像素风(?:格)?(?:的)?(?:画|场景|图片))(?:吧|好吗|可以吗)?[。！？!?]?'
+)
+
+
+def intake_plan(request: str) -> IntakePlan:
+    """Offer optional questions only when the entire request is a generic scene ask."""
+    text = request.strip()
+    if _GENERIC_SCENE_ZH.fullmatch(text):
+        questions = [
+            '你想画什么场景？比如小岛、集市，或用自己的话描述；也可以跳过。',
+            '想要什么视觉方向或用途？比如温馨夜景循环、明亮的游戏背景，或用自己的话描述；也可以跳过。',
+        ]
+    elif _GENERIC_SCENE_EN.fullmatch(text):
+        questions = [
+            'What should the scene show? For example, an island, a market, or anything in your own words. You can skip this.',
+            'What visual direction or use do you want? For example, a cozy night loop, a bright game backdrop, or your own words. You can skip this.',
+        ]
+    else:
+        questions = []
+    return {'disposition': 'offer' if questions else 'direct', 'questions': questions, 'route': route(request)}
+
 
 # ---------------------------------------------------------------- techniques by subject, whatever the style
 # The style decides how things are shaded; the subject decides what gets drawn. Each entry: the words
@@ -2078,6 +2118,11 @@ def main(a):
         print(__doc__); return 1
     if a[0] == '--selftest':
         return 1 if selftest('-v' in a) else 0
+    if a[0] == '--intake':
+        if len(a) < 2:
+            raise SystemExit('--intake requires a request')
+        print(json.dumps(intake_plan(' '.join(a[1:])), ensure_ascii=False))
+        return 0
     if a[0] == '--catalog':
         dest = pathlib.Path(__file__).resolve().parent.parent / 'guides' / 'toolkit.md'
         dest.write_text(catalog()); print('wrote', dest)

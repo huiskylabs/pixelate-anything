@@ -28,7 +28,9 @@ GUIDES.update({'brief': KIT / 'references' / 'brief.md', 'drawing': KIT / 'refer
                'art-director': KIT / 'references' / 'art-director.md'})
 
 INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read only what each step needs.
-1. Read the intent: one line on what the user wants but did not say (guide('brief')).
+1. intake_request: if disposition is offer, optionally ask its two questions. Accept answers in the user's
+   own words, or skip; combine explicit answers with the original request before writing the brief.
+   If direct, proceed without intake questions. Read the intent (guide('brief')).
 2. route_request: ranks styles and names the mode; a hint, not the decision. Read the mode's guide:
    scenes (+ music), rebuild, eras, assets, music; a quick conversion is pixelate, a palette is palettes.
 3. write_brief (a short brief for a small ask), fill every TODO (each names its section and command),
@@ -80,6 +82,13 @@ def thumb(path, max_w=1400):
     return Image(path=str(tp))
 
 # ---------------------------------------------------------------- one line to a brief, and the gate
+@server.tool()
+def intake_request(request: str) -> str:
+    """JSON intake plan: optional questions for a generic scene ask, plus the route result.
+    For direct requests, proceed without questions. Answers are free text; skipping is fine."""
+    import route
+    return json.dumps(route.intake_plan(request), ensure_ascii=False)
+
 @server.tool()
 def route_request(request: str) -> str:
     """Rank the style presets for a plain request, with reasons, the mode, technique hints for the

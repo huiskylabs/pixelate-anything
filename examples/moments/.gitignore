@@ -1,0 +1,5 @@
+# Regenerable or heavy intermediates: the art and sound scripts rebuild them.
+**/sound/*.wav
+**/music/dist/
+**/*.mp4
+**/__pycache__/

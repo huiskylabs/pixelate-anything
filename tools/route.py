@@ -129,8 +129,9 @@ ROUTE = {
                       '大地图', '世界地图', '冒险', '海岸', '小队', '角色扮演']),
                  (2, ['day', 'sunny', 'bright', 'clouds', 'village', 'tide', 'bridge', 'waterfall',
                       '白天', '晴', '明亮', '云', '村', '潮', '桥', '瀑布'])],
-        rules=['Sun and shade are palette steps, not a light layer: light.Light.mask / apply for pools, '
-               "iso.Iso(camera='topdown').cast_shadows for hard cast shadows; post.over only for translucent clouds.",
+        rules=['Sun and shade are palette steps, not a light layer: light.Light.mask / apply for pools; '
+               'post.over only for translucent clouds.',
+               ("Hard cast shadows from iso.Iso(camera='topdown').cast_shadows.", 'topdown'),
                'A sunny read comes from contrast inside the low-key budget: a few bright lit faces and sparkle on '
                'the water against deep shade, not from lifting everything.',
                'Ramps of 5-9 steps at about 0.05 L, chroma rising toward the light (ramp style rise).',
@@ -334,10 +335,30 @@ def _hit(text, w):
 def _hits(text, words):
     return [w for w in words if _hit(text, w)]
 
+def camera_intent(request):
+    """-> (stated camera or None, request without explicitly negated camera phrases)."""
+    t = ' ' + request.lower() + ' '
+    positive = set()
+    negated = []
+    for label, phrases in CAMERA_INTENTS.items():
+        for phrase in phrases:
+            word = phrase.strip()
+            pattern = (r'(?<![a-z0-9])' + re.escape(word) +
+                       (r'(?:e?s|y)?(?![a-z0-9])' if word[:1].isascii() and word[:1].isalnum() and word[-1:].isalnum() else ''))
+            for match in re.finditer(pattern, t):
+                if re.search(r'\b(?:not|no|without)\s+(?:an?\s+)?$', t[:match.start()]):
+                    negated.append(match.span())
+                else:
+                    positive.add(label)
+    for start, end in reversed(sorted(set(negated))):
+        t = t[:start] + ' ' * (end - start) + t[end:]
+    return next((label for label in CAMERA_INTENTS if label in positive), None), t
+
 def route(request, n=3):
     """-> {'picks': [{style, score, why, projection, pick_if, example}], 'mode', 'guide', 'projection'}"""
     t0 = ' ' + request.lower() + ' '
-    t = _no_era(t0)                                  # 'Game Boy' names an era, not a boy or a game level
+    proj, camera_text = camera_intent(request)
+    t = _no_era(camera_text)                          # 'Game Boy' names an era, not a boy or a game level
     scores = {}
     for name, r in ROUTE.items():
         s, why = 0, []
@@ -355,7 +376,6 @@ def route(request, n=3):
             scores[name][0] -= 2
         if bright and name in DARK_STYLES:
             scores[name][0] -= 2
-    proj = next((label for label, phrases in CAMERA_INTENTS.items() if _hits(t, phrases)), None)
     if proj:                                         # a stated projection favours the styles drawn in it
         for name in scores:
             if ROUTE[name]['projection'] == proj:
@@ -1620,7 +1640,13 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'on or any game the request names. TODO name anything else to avoid '
              '(see references/brief.md#2-style-and-light-regime; run `pixelate style %s`).' % st['name'])
     L.append('\n## 3. Art direction rules')
-    for x in r['rules']:
+    for rule in r['rules']:
+        if isinstance(rule, tuple):
+            x, condition = rule
+            if not _fits(condition, st['name'], proj):
+                continue
+        else:
+            x = rule
         L.append('- ' + (x.replace('3.3-head iso figures', 'figures scaled for depth') if screen_camera else x))
     L.append('- TODO 3-5 rules for this scene: which silhouettes must read, where rims fall, the built-in imperfections '
              '(a lean, a sag, a missing plank, a mismatched part) (see references/drawing.md#drawing-objects; run '
@@ -1877,7 +1903,8 @@ def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, s
                      'similar finished thing, study references/assets/ and draw your own.'],
           'music': ['- Start from `pixelate new music DIR` (guides/music.md).',
                     '- TODO what changes over the loop, and where the loop seam falls (see guides/music.md).']}[kind]
-    tt = topic_tools(request, S)
+    projection = r['picks'][0]['projection'] if r else None
+    tt = topic_tools(request, S, projection)
     if tt and kind != 'music':
         L.append('- Techniques for this subject (more: `pixelate tools TOPIC --style %s`):' % S)
         L += ['  - ' + x + '.' for x in tt]
@@ -1960,6 +1987,8 @@ CASES = [
 
 CAMERA_CASES = [
     ('A street seen in one-point perspective, not isometric.', 'one-point perspective'),
+    ('Rebuild this photo in two-point perspective, not one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in one-point perspective, not two-point perspective.', 'one-point perspective'),
     ('Rebuild this two-point perspective photo of an isometric-looking city.', 'two-point perspective'),
     ('A corridor with a single vanishing point.', 'one-point perspective'),
     ('A corner with two vanishing points.', 'two-point perspective'),
@@ -1973,6 +2002,8 @@ CAMERA_DEFAULT_CASES = [
     ('a cosy farm at night', '3/4 top-down'),
     ('make a pixel island', 'side'),
     ('Rebuild this reference image of a street.', 'inspect reference'),
+    ('Rebuild this photo, not one-point perspective.', 'inspect reference'),
+    ('Rebuild this photo, not isometric.', 'inspect reference'),
 ]
 
 # (request, size, scale, text the long brief must hold): delivery size, scene variants and era gates
@@ -1999,12 +2030,22 @@ BRIEF_CASES = [
     ('Rebuild this photo of a street.', None, None,
      ['- Projection: inspect reference.', '- Camera: TODO inspect the reference',
       'reference vanishing point(s) in native px', 'Use its finish, not its geometry']),
+    ('A sunny coast in two-point perspective.', None, None,
+     ['- Projection: two-point perspective.', 'Sun and shade are palette steps']),
+    ('A sunny coast from above.', None, None,
+     ["iso.Iso(camera='topdown').cast_shadows"]),
 ]
 
 BRIEF_AVOID_CASES = [
     ('Rebuild this photo of a street in one-point perspective.', ['iso boxes', 'iso_person']),
     ('Rebuild this photo of a corner in two-point perspective.', ['iso boxes', 'iso_person']),
     ('Rebuild this photo of a street.', ['- Projection: 2:1 iso.', 'iso boxes']),
+    ('A sunny coast in two-point perspective.', ["iso.Iso(camera='topdown').cast_shadows"]),
+]
+
+SHORT_BRIEF_CASES = [
+    ('pixelate this reference photo of a street in two-point perspective',
+     ['**camera**: two-point perspective'], ['iso.Iso.box', '2:1 slope']),
 ]
 
 # (request, gaps topic, text its default must hold, text it must not hold, stated must be empty): defaults
@@ -2141,6 +2182,15 @@ def selftest(verbose=False):
         bad += bool(found)
         if found or verbose:
             print(f"{'XX' if found else '  '} camera brief {q[:48]}" + (f'  unexpected: {found}' if found else ''))
+    for q, want, avoid in SHORT_BRIEF_CASES:
+        r = route(q)
+        text = short_brief(r['picks'][0]['style'], q, 'photo', r)
+        missing = [phrase for phrase in want if phrase not in text]
+        found = [phrase for phrase in avoid if phrase in text]
+        bad += bool(missing or found)
+        if missing or found or verbose:
+            print(f"{'XX' if missing or found else '  '} short camera {q[:48]}" +
+                  (f' missing: {missing}; unexpected: {found}' if missing or found else ''))
     for q, projection in CAMERA_DEFAULT_CASES:
         r = route(q)
         wrong = r['picks'][0]['projection'] != projection or r['projection'] is not None
@@ -2166,7 +2216,7 @@ def selftest(verbose=False):
         if wrong or verbose:
             print('%s %-7s %-14s %s' % ('XX' if wrong else '  ', r['mode'], top, q[:70]))
     n = (len(CASES) + len(CAMERA_CASES) + len(CAMERA_DEFAULT_CASES) + len(BRIEF_CASES) +
-         len(BRIEF_AVOID_CASES) + len(GAP_CASES) + len(LINT_CASES) + 4)
+         len(BRIEF_AVOID_CASES) + len(SHORT_BRIEF_CASES) + len(GAP_CASES) + len(LINT_CASES) + 4)
     print('%d/%d cases route as expected' % (n - bad, n))
     return bad
 

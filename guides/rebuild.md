@@ -74,6 +74,8 @@ Then place them:
 
 ## 4. Shapes (tools/iso.py, tools/sdf.py)
 
+For the five orthographic cameras, use the shapes recipe below. For one- or two-point perspective, draw converging edges on the native-pixel canvas as in section 2. `Iso` does not render vanishing points.
+
 ```python
 from iso import Iso, frustum, windows, clone
 s = Iso(W, H, origin=(ox, oy), camera='topdown', depth=0.62, slots=palette.keys())

@@ -11,7 +11,7 @@ Run: python3 art/panel_gb.py -> out/panel-gb.png, out/panel-gb-bg.png (+ @4x)
 import math, sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import numpy as np
-from common import Canvas, stamp, image, over, save, OUT, torus_cells
+from common import Canvas, stamp, image, over, save, OUT, torus_cells, rock_facets
 
 W, H = 160, 144
 HZ = 76
@@ -51,7 +51,7 @@ def background():
         for x in range(W):
             if row[x % 16] == '2':
                 c.g[y, x] = 'g2'
-    glit = ["33...3..", "........", "...33...", "........", ".3....33", "........", "....3...", "........"]
+    glit = ["33......", "........", "....3...", "........", "......33", "........", ".3......", "........"]
     for ty in range(HZ // 8, 18):
         half = int(round(1 + 1.6 * (ty - HZ // 8) / 8.0))
         for tx in range(17 - half, 18 + half):
@@ -128,21 +128,24 @@ def town(c):
     c.rect(99, 126, 140, 129, 'g2'); c.rect(99, 126, 139, 127, 'g3'); c.rect(99, 129, 140, 130, 'g0')
     c.put(139, 126, 'g1')
 
-ROCK = torus_cells(32, 32, [(6, 5), (21, 9), (29, 23), (12, 20), (3, 29)], aspect=1.4)
+ROCK = torus_cells(64, 64, [(8, 6), (30, 3), (50, 12), (19, 27), (42, 33), (60, 44), (9, 50), (31, 57)], aspect=1.6)
 
 def near_cliff(c):
     PL = 49
     edges = [(PL, 56), (96, 62)]
     for y in range(PL, H):
         e = max(v for yy, v in edges if yy <= y)
+        tile = np.tile(ROCK, (1, 2))[y % 64]
         for x in range(e):
-            i = ROCK[y % 32, x % 32]
+            i = tile[x]
             if i == 0:
-                s = 'g0'
-            elif ROCK[y % 32, (x + 1) % 32] != i:
+                l_, r_ = tile[x - 1] if x else 0, tile[x + 1]
+                u_, d_ = ROCK[(y - 1) % 64, x % 64], ROCK[(y + 1) % 64, x % 64]
+                s = 'g2' if (u_ > 0 and d_ > 0 and u_ != d_ and (l_ == 0 or r_ == 0)) else 'g0'
+            elif tile[x + 1] != i:
                 s = 'g2'
             else:
-                s = 'g1'
+                s = 'g2' if i in (3, 7) else 'g1'
             c.g[y, x] = s
         for x in range(e - 6, e):                                  # the sunlit face, shade 3 at the edge
             c.g[y, x] = 'g3' if x >= e - 2 else ('g0' if x == e - 6 else 'g2')
@@ -200,7 +203,7 @@ kkkkkkkkk
 
 # ---------------------------------------------------------------- sprites
 def wing(c):
-    Lt, Nz, Rt = (65, 60), (92, 48), (112, 53)
+    Lt, Nz, Rt = (65, 60), (92, 45), (112, 53)
     edge = lambda x: Lt[1] + (Rt[1] - Lt[1]) * (x - Lt[0]) / (Rt[0] - Lt[0])
     kx = Nz[0]
     tri = c.mask_poly([(Lt[0], Lt[1] + 0.5), (Nz[0] + 0.5, Nz[1]), (Rt[0] + 1, Rt[1] + 0.5)])
@@ -235,8 +238,8 @@ kcccccccck
 """
 
 def pilot(c, x, y):
-    stamp(c, PILOT.replace('c', 'C'), {'k': 'g0', 'C': 'g1', '3': 'g3'}, x, y)
-    c.line(x + 1, y + 5, x - 1, y, 'g1'); c.line(x + 7, y + 5, x + 9, y, 'g1')
+    stamp(c, PILOT.replace('c', 'C'), {'k': 'g0', 'C': 'g2', '3': 'g3'}, x, y)
+    c.line(x + 1, y + 5, x - 1, y, 'g2'); c.line(x + 7, y + 5, x + 9, y, 'g2')
     c.put(x - 1, y - 1, 'g3'); c.put(x + 9, y - 1, 'g3')
     for i, (sx, sy) in enumerate([(x + 1, y + 5), (x - 1, y + 5), (x - 3, y + 6), (x - 5, y + 5), (x - 7, y + 6)]):
         c.put(sx, sy, 'g3'); c.put(sx - 1, sy, 'g3')              # the scarf, light, streaming left

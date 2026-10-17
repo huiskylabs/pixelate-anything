@@ -261,7 +261,7 @@ def final():
     put(mfig.person(302, 'out', 'se'), 143.0, 34.5)
     put(mfig.person(303, 'back', 'se'), 150.5, 36.0)
     # (3) kids chasing pigeons, the flock bursting up, a parent calling after them
-    kx, ky = 180.0, 42.0
+    kx, ky = 153.0, 10.0
     put(mfig.kid(214, 'run', 'se'), kx, ky)
     put(mfig.kid(215, 'reach', 'se'), kx - 3.0, ky + 2.5)
     put(mfig.kid(216, 'run', 'se', t='fruit2'), kx - 1.5, ky - 3.0)

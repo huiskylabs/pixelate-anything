@@ -358,12 +358,12 @@ def camera_intent(request):
     for start, end in reversed(sorted(set(negated))):
         t = t[:start] + ' ' * (end - start) + t[end:]
     positive -= excluded
-    return next(iter(positive)) if len(positive) == 1 else None, t
+    return next(iter(positive)) if len(positive) == 1 else None, t, excluded
 
 def route(request, n=3):
     """-> {'picks': [{style, score, why, projection, pick_if, example}], 'mode', 'guide', 'projection'}"""
     t0 = ' ' + request.lower() + ' '
-    proj, camera_text = camera_intent(request)
+    proj, camera_text, excluded = camera_intent(request)
     t = _no_era(camera_text)                          # 'Game Boy' names an era, not a boy or a game level
     scores = {}
     for name, r in ROUTE.items():
@@ -397,24 +397,28 @@ def route(request, n=3):
                 scores[name][0] -= 3
     order = sorted(scores, key=lambda k: (-scores[k][0], list(ROUTE).index(k)))
     camera = proj or ('inspect reference' if mode == 'rebuild' else None)
+    def pick_camera(style):
+        default = ROUTE[style]['projection']
+        return camera or ('choose camera' if default in excluded else default)
     picks = []
     for name in order[:n]:
         s, why = scores[name]
         r = ROUTE[name]
         picks.append(dict(style=name, score=s, why=why or ['no signal in the request'],
-                          projection=camera or r['projection'], pick_if=r['pick_if'], example=r['example']))
+                          projection=pick_camera(name), pick_if=r['pick_if'], example=r['example']))
     if picks[0]['score'] <= 0:                       # nothing matched: the toolkit's own look first
         lofi = next((p for p in picks if p['style'] == 'lofi'), None)
         if lofi is None:
             r = ROUTE['lofi']
             lofi = dict(style='lofi', score=0, why=['no strong signal: the default for a calm scene'],
-                        projection=camera or r['projection'], pick_if=r['pick_if'], example=r['example'])
+                        projection=pick_camera('lofi'), pick_if=r['pick_if'], example=r['example'])
         picks = [lofi] + [p for p in picks if p['style'] != 'lofi'][:n - 1]
     if mode != 'scene' and picks[0]['score'] <= 0:
         picks[0]['why'] = ['no style signal: follow %s first; pick the finish style from the %s' % (
             GUIDE[mode], {'rebuild': "photo's light and subject", 'era': "console's limits",
                           'assets': 'game the assets are for', 'music': 'scene the music goes with'}[mode])]
     return dict(request=request, picks=picks, mode=mode, guide=GUIDE[mode], projection=proj,
+                excluded_cameras=[label for label in CAMERA_INTENTS if label in excluded],
                 era=era_of(request) if mode == 'era' else None)
 
 # ---------------------------------------------------------------- techniques by subject, whatever the style
@@ -923,14 +927,16 @@ def gaps(request, r=None, delivered=None, native_h=None):
         h = _hits(t, words) if words else []
         out.append(dict(topic=topic, stated='/'.join(h[:3]) if h else '', default=default))
     margin = p['score'] - (r['picks'][1]['score'] if len(r['picks']) > 1 else 0)
-    camera_override = p['projection'] in ('one-point perspective', 'two-point perspective', 'inspect reference')
+    camera_override = p['projection'] in ('one-point perspective', 'two-point perspective',
+                                           'inspect reference', 'choose camera')
     out.append(dict(topic='style', stated='/'.join(p['why'][:2]) if p['score'] > 3 and margin >= 3 else '',
                     default='`%s` (%s); the runners-up are %s%s' % (
                         st['name'], st['what'], ', '.join('`%s`' % q['style'] for q in r['picks'][1:]),
                         '; this style sets the finish, not the camera' if camera_override else '')))
     out.append(dict(topic='projection', stated=r['projection'] or '', default=(
         'inspect the reference camera before choosing a projection' if p['projection'] == 'inspect reference'
-        else p['projection'])))
+        else 'choose a camera other than %s' % ', '.join(r['excluded_cameras'])
+        if p['projection'] == 'choose camera' else p['projection'])))
     tw, said = time_weather(request, st['name'])
     out.append(dict(topic='time and weather', stated=said, default=tw))
     add('phases', WORDS['phases'],
@@ -1599,9 +1605,10 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         E = eramod.ERAS[era]
     frames, fps = r['frames'][0], st['fps']
     rebuild = bool(_hits(' ' + request.lower() + ' ', MODES[0][2]))
-    proj = projection or (route(request)['projection'] if request else None) or (
-        'inspect reference' if rebuild else r['projection'])
-    screen_camera = proj in ('one-point perspective', 'two-point perspective', 'inspect reference')
+    stated, _, excluded = camera_intent(request)
+    proj = projection or stated or ('inspect reference' if rebuild else
+                                   'choose camera' if r['projection'] in excluded else r['projection'])
+    screen_camera = proj in ('one-point perspective', 'two-point perspective', 'inspect reference', 'choose camera')
     light = {'none': 'no light layer: light is palette steps (warm slots, rims, a few highlight pixels)',
              'native': 'a light layer computed per art pixel from the scene\'s masks, scaled up last (post.Post(res="native"))',
              'screen': 'a light layer smooth inside each art pixel, composited at delivery size (post.Post(res="screen"))'}[st['res']]
@@ -1666,7 +1673,10 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'is a slot map. references/assets has finished examples to study, never to call.')
     L.append('\n## 4. The scene')
     L.append('- Projection: %s. Canvas %dx%d.' % (proj, w, h))
-    if screen_camera:
+    if proj == 'choose camera':
+        L.append('- Camera: TODO choose a view other than the one the request excludes. Record its framing and '
+                 'construction at native-pixel size before drawing (see guides/rebuild.md#2-pick-the-camera).')
+    elif screen_camera:
         vanishing = ('the vanishing point in native px' if proj == 'one-point perspective' else
                      'both vanishing points in native px' if proj == 'two-point perspective' else
                      'the reference vanishing point(s) in native px, if visible')
@@ -2023,6 +2033,8 @@ CAMERA_DEFAULT_CASES = [
     ("Rebuild this photo; don't use one-point perspective.", 'inspect reference'),
     ('Rebuild this photo; avoid using one-point perspective.', 'inspect reference'),
     ('Rebuild this isometric city; do not use isometric projection.', 'inspect reference'),
+    ('A city, do not use isometric projection.', 'choose camera'),
+    ('Make a full HD overworld, not top-down.', 'choose camera'),
     ('Rebuild this photo, no longer in one-point perspective.', 'inspect reference'),
     ('Rebuild this photo in one-point perspective or two-point perspective.', 'inspect reference'),
 ]
@@ -2059,6 +2071,8 @@ BRIEF_CASES = [
      ['- Projection: two-point perspective.', 'Sun and shade are palette steps']),
     ('A sunny coast from above.', None, None,
      ["iso.Iso(camera='topdown').cast_shadows"]),
+    ('Make a full HD overworld, not top-down.', None, None,
+     ['- Projection: choose camera.', 'choose a view other than the one the request excludes']),
 ]
 
 BRIEF_AVOID_CASES = [
@@ -2066,6 +2080,7 @@ BRIEF_AVOID_CASES = [
     ('Rebuild this photo of a corner in two-point perspective.', ['iso boxes', 'iso_person']),
     ('Rebuild this photo of a street.', ['- Projection: 2:1 iso.', 'iso boxes']),
     ('A sunny coast in two-point perspective.', ["iso.Iso(camera='topdown').cast_shadows"]),
+    ('Make a full HD overworld, not top-down.', ["iso.Iso(camera='topdown').cast_shadows"]),
 ]
 
 SHORT_BRIEF_CASES = [
@@ -2291,7 +2306,9 @@ def main(a):
             rt = ROUTE[style]
             pick = next((q for q in r['picks'] if q['style'] == style), None) or dict(
                 style=style, score=0, why=['named with --brief'],
-                projection=r['projection'] or ('inspect reference' if r['mode'] == 'rebuild' else rt['projection']),
+                projection=r['projection'] or ('inspect reference' if r['mode'] == 'rebuild' else
+                                               'choose camera' if rt['projection'] in r['excluded_cameras']
+                                               else rt['projection']),
                 pick_if=rt['pick_if'], example=rt['example'])
             r['picks'] = [pick] + [q for q in r['picks'] if q['style'] != style][:2]
         kind = None if full else small_kind(req, r)

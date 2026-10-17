@@ -108,6 +108,10 @@ until it passes (`guides/music.md`).
 The gate passes weak drafts; an outside eye catches what it can't. A full brief is reviewed before
 drawing ([brief.md](brief.md#art-director-on-the-brief)); a short brief skips brief-stage review.
 The still is reviewed after it passes the gate. Run
+`pixelate judge FRAME.png --overlay judge.png` first: it boxes what the gate passes and an art director
+rejects (masonry-like rock, rows of identical units, scalloped edges, masses drawn as 1 px outlines,
+murky values), each with a fix; fix each box or say why it stays. `--log` keeps the run in
+`.pixelate/judge-log.jsonl`, the corpus the detectors are calibrated on. Then
 `pixelate critique FRAME.png --brief brief.md [--style S]`: it writes a 480 px thumbnail and its
 greyscale next to the frame and prints a ready prompt (the rubric in
 [art-director.md](art-director.md), the brief's section 0, signature elements, rules, scene and

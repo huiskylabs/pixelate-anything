@@ -160,3 +160,25 @@ Most of each painter's budget went to reading guides, writing scaffolding from s
 6. **Cheap pilot:** 3 prompts × 2 arms × 1 run, then scale up.
 
 Run it before and after the P0 items; the difference is the measured value of the work in section 3.
+
+---
+
+## 6. Lessons from REA (morluto/rea)
+
+[REA](https://github.com/morluto/rea) is a reverse-engineering skill plus MCP server whose skill is hard to replace with a long prompt. These notes come from reading its README, `AGENTS.md`, its main and maintainer skills (`.agents/skills/`), `docs/tool-design.md`, and its evaluation harness. REA was not benchmarked against a bare model; the points below are design differences, not measured results.
+
+| REA practice | What we do now | What to change |
+|---|---|---|
+| **Tools do what the model can't.** REA wraps Ghidra, Hopper, IDA, JADX and tshark; a model cannot decompile with a prompt. | Most of the kit is drawing primitives a model can rewrite in numpy, and painters did exactly that. | Invest in what a model can't do alone: quality judgment (critic and detectors), defect location, and proven starting assets (templates and recipes). |
+| **Evidence, not verdicts.** Each result carries source locations, coverage, limitations and explicit unknowns ("missing coverage is unknown, not absence"). | The gate prints PASS/FAIL with numbers. | Gate and critic return located defects: region, failure type, fix recipe (for example "masonry seams at x 40–120, y 30–90: redraw as strata"). |
+| **The skill is a router.** "Route the target first": target type → first tool. Then work summary-first and follow up only on a specific open question. | A 10-step process that sends agents into five guides; about 400k tokens per piece. | Make `SKILL.md` a routing table: request type → template → first command → done condition. Guides become optional depth. |
+| **Workflow tools for recurring outcomes** (for example `trace_application_feature`), added only once repeated use shows the need. | About ten manual commands per draw/gate/critique round. | `pixelate render DIR`: draw, export, gate and critique in one call, returning compact defects first and details on request. |
+| **Agent tokens first.** `AGENTS.md` ranks agent tokens above analysis time and CPU, and counts the whole task (schemas, retries, extra calls). | Never measured. | Track the tokens, calls and time a standard task costs, and report the change with any skill change. |
+| **Claims need real runs.** `tests/evaluation/model-evals/` (including known-answer evals) and `experiments/analysis-efficiency/agent-trial.py` run real agent tasks with an isolated install, pinned revisions and digests, an oracle independent of the implementation, and failed attempts kept. | No evaluation harness. | Add `evals/`: the ten moment briefs as the corpus, skill arm against bare-model arm, recording tokens, time, gate results and blind art-director grades (section 5). |
+| **Maintainer skills.** `rea-tool-design`, `rea-analysis-optimization` and `rea-ci-tests-audit` encode how to improve REA itself: start from the user's question, find the earliest unnecessary work, prove correctness with an oracle, measure before and after. | None. | Add `pixelate-tool-design` (when a recurring hand-built object becomes a kit tool, and how to test it) and `pixelate-eval` (how to run and read the benchmark). |
+| **Setup and recovery are first class.** `setup --dry-run` with approval and backups, a client-specific `doctor`, a reconnect workflow, and a versioned skill (`version: "42"`) that warns when it is newer than the installed server. | `doctor` misreported Playwright as missing when only the pip package was; the skill has no version. | A client-aware `doctor`, dry-run setup, and a skill version checked against the installed CLI/MCP. |
+| **One owner per interpretation.** Facts are normalized once at the producer; CLI and MCP share one implementation and a generated contract catalog. | Style rules, the gate and the critique prompt each restate style facts. | Make the style card the single source; generate the gate limits and the critic's checklist from it. |
+
+**Order to adopt:** evidence-style gate output (with the P0 detectors) → routing `SKILL.md` → `pixelate render` with the built-in critic → `evals/` harness → token accounting → maintainer skills → setup hardening.
+
+**Takeaway.** REA's value is verified facts the model can't produce, proven with measured agent runs. For pixel art, the verified facts we can offer are quality judgment, defect location and proven starting assets; that is where pixelate-anything should invest.

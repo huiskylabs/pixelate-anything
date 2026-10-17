@@ -28,6 +28,18 @@ CONDITIONS = {'lofi': 'lofi style only', 'iso': '2:1 iso projection', 'topdown':
               '!iso': 'side and 3/4 top-down projections', 'nodither': 'styles without dither',
               'bayer': 'styles with Bayer dither'}
 
+# composed generators (tools/recipes.py) offered for a topic before its primitives
+RECIPES = {
+    'rock': [('rock_face', 'strata ledges, lit lips, recesses, flakes and a frayed edge, never a masonry grid')],
+    'water': [('pouring_fall', 'a waterfall that curls over its lip, widens raggedly and breaks into spray')],
+    'sky': [('cloud_bank', 'three masses of very different width, flat undersides, lit top tier, no scallop row')],
+    'buildings': [('Perspective', 'one- or two-point scaffold: receding edges, shrinking repeats, boxes')],
+    'stairs and steps': [('Perspective', 'step edges and repeats that shrink toward the vanishing point')],
+    'crowds': [('crowd_vignettes', 'people as groups (ring, line, cluster) with poses and open ground between')],
+    'figures': [('crowd_vignettes', 'place several figures as small scenes, not confetti')],
+    'procession': [('crowd_vignettes', "a 'line' group: a file of walkers facing one way, unevenly spaced")],
+}
+
 # ---------------------------------------------------------------- source
 def _path(mod):
     for d in (TOOLS, EXAMPLES_DIR):
@@ -129,8 +141,11 @@ def topic(q, style=None):
                     L.append('- %s  [%s]' % (text, why))
             else:
                 L.append('- ' + it)
+        for name, line in RECIPES.get(label, ()):
+            L.append('- recipe `recipes.%s`: %s' % (name, line))
         L.append('')
-    L.append('Signatures: `pixelate tools MODULE.func`. Rules for drawing it: references/drawing.md. '
+    L.append('Signatures: `pixelate tools MODULE.func` (recipes: `pixelate tools recipes`). Check the result with '
+             '`pixelate judge FRAME.png`. Rules for drawing it: references/drawing.md. '
              'Always: ' + route.ALWAYS_TOOLS + '.')
     return '\n'.join(L) + '\n'
 

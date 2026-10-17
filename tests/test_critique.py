@@ -1,3 +1,5 @@
+import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -108,6 +110,57 @@ class CritiqueTest(unittest.TestCase):
                 self.assertIn(str(external), mcp_server.music_critique_prompt('track.wav', str(external)))
                 with self.assertRaisesRegex(ValueError, 'inside the workspace'):
                     mcp_server.critique_prompt('brief.md', frame=str(ROOT / 'docs/lantern-isle-winter.png'))
+
+
+class CritiqueJudgeTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.work = pathlib.Path(self.tmp.name)
+        self.brief = self.work / 'brief.md'
+        self.brief.write_text('Request: a wall\n## 0. Choices\nBricks.\n## 4. The scene\n- Hero: wall\n')
+        self.frame = self.work / 'wall.png'
+        im = Image.new('RGB', (160, 96), '#7a4a3f')
+        px = im.load()
+        for y in range(0, 96, 6):
+            for x in range(160):
+                px[x, y] = (42, 31, 46)
+            for x in range(0 if (y // 6) % 2 == 0 else 6, 160, 12):
+                for yy in range(y, min(96, y + 6)):
+                    px[x, yy] = (42, 31, 46)
+        im.save(self.frame)
+
+    def test_prompt_carries_detector_findings_and_overlay(self):
+        text = critique.prompt(str(self.frame), str(self.brief))
+        self.assertIn('## Detector findings (pixelate judge)', text)
+        self.assertIn('masonry', text)
+        self.assertTrue((self.work / 'wall.judge.png').exists())
+        flat = self.work / 'flat.png'
+        im = Image.new('RGB', (40, 30), '#223344')
+        im.paste((220, 200, 160), (0, 15, 20, 30))
+        im.paste((120, 130, 150), (20, 0, 40, 15))
+        im.save(flat)
+        self.assertIn('found nothing', critique.prompt(str(flat), str(self.brief)))
+
+    def test_run_saves_numbered_critiques_and_logs(self):
+        fake = self.work / 'critic.py'
+        fake.write_text('import sys\nsys.stdin.read()\nprint("GRADE: B\\nFIXES: 1. wall: strata")\n')
+        env = dict(os.environ, PIXELATE_CRITIC_CMD='%s %s' % (sys.executable, fake))
+        args = [sys.executable, str(ROOT / 'pixelate'), 'critique', str(self.frame), '--brief', str(self.brief),
+                '--run', '--log', str(self.work / 'log.jsonl')]
+        for n in (1, 2):
+            r = subprocess.run(args, capture_output=True, text=True, env=env, cwd=self.work)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertTrue((self.work / ('critique-wall-lead-r%d.md' % n)).exists())
+        rec = json.loads((self.work / 'log.jsonl').read_text().splitlines()[-1])
+        self.assertEqual((rec['type'], rec['grade']), ('critique', 'B'))
+
+    def test_run_reports_a_missing_critic(self):
+        env = dict(os.environ, PIXELATE_CRITIC_CMD='no-such-critic-binary')
+        r = subprocess.run([sys.executable, str(ROOT / 'pixelate'), 'critique', str(self.frame), '--brief',
+                            str(self.brief), '--run'], capture_output=True, text=True, env=env, cwd=self.work)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn('critic command not found', r.stderr)
 
 
 if __name__ == '__main__':

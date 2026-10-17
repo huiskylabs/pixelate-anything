@@ -40,6 +40,8 @@ rain and wet, snow and ice, fog, water, foliage, sky, rock, buildings, structure
 - `iso`: 2:1 isometric boxes and scenes
 - `stats`: measuring a frame against a style budget
 - `craftcheck`: pixel craft by numbers: orphans, jaggies, stripes, doubled outlines, pillow shading, clusters, limits per style
+- `judge`: the defects the gate passes, located with a fix: masonry, repeated units, scallops, outline loops, murky values
+- `recipes`: composed generators that work on the first try: Perspective, rock_face, pouring_fall, cloud_bank, crowd_vignettes
 - `styles`: the 11 style presets, their budgets and checks
 - `artlib`: slot-map sprites for the lofi JS engine: Grid, stamping, orphan checks, export to sprites.js
 - `era`: console-era limits (NES, Game Boy, SNES, Genesis, GBA, PICO-8, Neo Geo): check and force

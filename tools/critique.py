@@ -6,11 +6,17 @@ Prints one visual review prompt. The default lead art director grades a full bri
 set or character with --role for scoped observations without a grade. A later lead call may receive
 up to two specialist notes with --consult, distinct from --prev. The prompt names the brief and bar;
 for a still it writes a nearest-neighbour thumbnail and greyscale next to the frame. Send it to a
-separate agent that did not write or draw the work. The caller tracks the three graded rounds and
-total specialist consults per artifact (references/delivery.md#art-director); this command does
-not invoke agents or enforce a session budget.
+separate agent that did not write or draw the work. For a still, the prompt carries the judge's
+detector findings (`pixelate judge`) and an overlay of their boxes as a checklist. --run sends the
+prompt to a separate model process itself (the `claude` CLI, or the command in PIXELATE_CRITIC_CMD,
+which reads the prompt on stdin) and saves the critique as critique-<frame>-<role>-rN.md for the next
+round's --prev; --log adds it to the judge's corpus log. The caller tracks the three graded rounds
+and total specialist consults per artifact (references/delivery.md#art-director); this command does
+not enforce a session budget.
 """
-import argparse, os, pathlib, re, sys
+import argparse, os, pathlib, re, shlex, shutil, subprocess, sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 RUBRIC = KIT / 'references' / 'art-director.md'
@@ -92,6 +98,9 @@ def prompt(frame, brief, style='', width=480, out=None, prev=None, block=None, r
              '- Frame at delivered size (%dx%d): %s' % (size[0], size[1], frame),
              '- The bar, Lantern Isle winter: %s' % BAR,
              '- The brief: %s' % bp]
+        found, ov = findings(frame, out)
+        if ov:
+            L.append('- Detector overlay, numbered boxes from `pixelate judge`: %s' % ov)
         L += ['', 'The painter\'s own report or grade is not evidence: judge only what you see.']
     else:
         L = ['You are the independent art director for one pixel-art brief, before anything is drawn. You did not '
@@ -123,6 +132,14 @@ def prompt(frame, brief, style='', width=480, out=None, prev=None, block=None, r
         more = sections(text, ['Art direction', 'The scene', 'Light list'])
         if more:
             L += ['', 'The brief\'s rules, scene and lights:', '', more]
+    if frame and found is not None:
+        L += ['', '## Detector findings (pixelate judge)', '',
+              'The detectors point at failures the gate passes. Look at each box: a confirmed one is a fix '
+              '(name it and its box in your fixes), a false one you dismiss in one line. They do not replace '
+              'your own look.' if found else 'The detectors (masonry, repeat_units, scallops, outline_loop, '
+              'murky) found nothing; look for what they cannot see.', '']
+        import judge
+        L.append(judge.report(found).strip()) if found else None
     L += ['', 'Every fix you propose must agree with the brief\'s light direction, wind and physics.']
     if role == 'lead':
         if prev:
@@ -145,6 +162,42 @@ def prompt(frame, brief, style='', width=480, out=None, prev=None, block=None, r
               'consistent with the brief. No grade, scores, ranking of final fixes or final verdict; '
               'the lead art director owns those.' % role]
     return '\n'.join(L) + '\n'
+
+def findings(frame, out=None):
+    """the judge's defects for a frame and the path of their overlay (None when nothing was found or
+    the judge could not read the frame)"""
+    try:
+        import judge
+        found = judge.detect(frame)
+    except Exception:                                   # never let a detector break the review prompt
+        return None, None
+    if not found:
+        return found, None
+    d = pathlib.Path(out) if out else pathlib.Path(frame).parent
+    return found, judge.overlay(frame, found, d / (pathlib.Path(frame).stem + '.judge.png'))
+
+def run_critic(text, cmd=None, timeout=1800):
+    """send a prompt to a separate model process on stdin and return its reply. cmd: a shell-style
+    command, default $PIXELATE_CRITIC_CMD or `claude -p --allowedTools Read` (it must be able to read
+    the image files the prompt names)"""
+    argv = shlex.split(cmd or os.environ.get('PIXELATE_CRITIC_CMD') or 'claude -p --allowedTools Read')
+    if not shutil.which(argv[0]):
+        raise FileNotFoundError('critic command not found: %s (install the Claude CLI or set '
+                                'PIXELATE_CRITIC_CMD to a command that reads a prompt on stdin)' % argv[0])
+    r = subprocess.run(argv, input=text, capture_output=True, text=True, timeout=timeout)
+    if r.returncode != 0 or not r.stdout.strip():
+        raise RuntimeError('critic failed (exit %d): %s' % (r.returncode, (r.stderr or r.stdout).strip()[-1500:]))
+    return r.stdout.strip() + '\n'
+
+def save_path(frame, brief, role='lead', out=None):
+    """the next free critique-<frame or brief>-<role>-rN.md beside the frame (or the brief)"""
+    src = pathlib.Path(frame) if frame else pathlib.Path(brief)
+    d = pathlib.Path(out) if out else src.parent
+    d.mkdir(parents=True, exist_ok=True)
+    n = 1
+    while (d / ('critique-%s-%s-r%d.md' % (src.stem, role, n))).exists():
+        n += 1
+    return d / ('critique-%s-%s-r%d.md' % (src.stem, role, n))
 
 def music_prompt(track, brief, prev=None):
     """Prompt for a separate listening agent, not an audio analysis or an automatic review."""
@@ -178,6 +231,11 @@ def main(argv=None):
     ap.add_argument('--style', default='')
     ap.add_argument('--width', type=int, default=480, help='thumbnail width (default 480)')
     ap.add_argument('--out', default=None, help='folder for the thumbnails (default: next to the frame)')
+    ap.add_argument('--run', action='store_true',
+                    help='run the review with a separate model process and save the critique (see PIXELATE_CRITIC_CMD)')
+    ap.add_argument('--save', default=None, help='with --run: where to save the critique (default critique-*-rN.md)')
+    ap.add_argument('--log', nargs='?', const='', default=None,
+                    help='with --run: add the critique to the judge corpus log (default .pixelate/judge-log.jsonl)')
     a = ap.parse_args(argv)
     if a.brief_only:
         a.frame = ''
@@ -185,10 +243,27 @@ def main(argv=None):
         if p and not pathlib.Path(p).exists():
             sys.exit(f'no such file: {p}')
     try:
-        sys.stdout.write(prompt(a.frame, a.brief, a.style, a.width, a.out, a.prev, a.block,
-                                a.role, a.consult))
+        text = prompt(a.frame, a.brief, a.style, a.width, a.out, a.prev, a.block, a.role, a.consult)
     except ValueError as e:
         ap.error(str(e))
+    if not a.run:
+        sys.stdout.write(text)
+        return
+    try:
+        reply = run_critic(text)
+    except (FileNotFoundError, RuntimeError, subprocess.TimeoutExpired) as e:
+        sys.exit(str(e))
+    dest = pathlib.Path(a.save) if a.save else save_path(a.frame, a.brief, a.role, a.out)
+    dest.write_text(reply, encoding='utf-8')
+    if a.log is not None:
+        import judge
+        grade = re.search(r'^GRADE:\s*([ABC])', reply, re.M)
+        judge.log({'type': 'critique', 'role': a.role, 'frame': os.path.abspath(a.frame) if a.frame else None,
+                   'sha256': judge.digest(a.frame) if a.frame else None, 'brief': os.path.abspath(a.brief),
+                   'critique': str(dest.resolve()), 'grade': grade.group(1) if grade else None,
+                   'prev': os.path.abspath(a.prev) if a.prev else None}, a.log or None)
+    sys.stdout.write(reply)
+    print('saved: %s' % dest)
 
 def music_main(argv=None):
     ap = argparse.ArgumentParser(prog='pixelate critique-music',

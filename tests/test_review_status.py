@@ -8,6 +8,7 @@ import types
 import unittest
 from unittest.mock import patch
 
+from tools import route
 review_status = importlib.import_module('tools.review_status')
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -108,8 +109,17 @@ class ReviewStatusTest(unittest.TestCase):
 
     def test_full_brief_with_gate_without_motion_table_is_not_short(self):
         self.brief.write_text('# Full brief\n## Gate\nCheck the still.\n')
+        self.assertFalse(route._is_short(self.brief.read_text()))
         self.assertIn('RECORDED A', review_status.record(self.brief, self.report))
         self.assertTrue(review_status.status(self.brief)[0])
+
+    def test_unmarked_short_brief_skips_brief_stage(self):
+        self.brief.write_text('# Lantern\n## 4. Gate\ncheck\n## 5. Show the user\nshow still\n')
+        self.assertTrue(route._is_short(self.brief.read_text()))
+        self.assertIn('short brief skips', review_status.status(self.brief)[1])
+        with self.assertRaisesRegex(review_status.ReviewError, 'short brief skips'):
+            review_status.record(self.brief, self.report)
+        self.assertIn('RECORDED A', review_status.record(self.brief, self.report, self.frame))
 
     def test_short_brief_size_and_unsafe_manifest(self):
         self.brief.write_text('# Lantern (short brief: sprite)\n## Gate\ncheck\n')
@@ -137,6 +147,8 @@ class ReviewStatusTest(unittest.TestCase):
         with patch.dict(sys.modules, {'mcp': types.ModuleType('mcp'), 'mcp.server': types.ModuleType('mcp.server'),
                                       'mcp.server.fastmcp': stub}):
             from tools import mcp_server
+            self.assertIn('record_visual_review(brief, report)', mcp_server.INSTRUCTIONS)
+            self.assertIn('visual_review_status(brief, frame)', mcp_server.INSTRUCTIONS)
             with patch.object(mcp_server, 'WORK', self.work):
                 external_dir = tempfile.TemporaryDirectory()
                 self.addCleanup(external_dir.cleanup)

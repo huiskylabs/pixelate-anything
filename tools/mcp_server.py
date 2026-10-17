@@ -41,8 +41,9 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
    `pixelate check BLOCKIN.png --blockin --brief brief.md`), then critique_prompt(brief, block=...):
    send the prompt to a separate agent that did not write the brief, apply its changes, lint_brief
    again within the stage's review budget (guide('delivery'), Art director). A short brief skips
-   brief-stage review. If the budget ends below A, report grade and unresolved ranked fixes and ask
-   whether to continue or change the brief; do not ask for approval yet.
+   brief-stage review. Save the external lead report, call record_visual_review(brief, report),
+   and require visual_review_status(brief) to return READY for an A full brief. If the budget ends
+   below A, report grade and unresolved ranked fixes and ask whether to continue or change the brief.
 5. Show the user an A full brief (or a short brief, which skips brief-stage review)
    with section 0 and wait for OK.
 6. Draw everything yourself in code (guide('drawing')). kit_tools() lists topics and modules,
@@ -52,9 +53,11 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
 8. critique_prompt(brief, frame, prev=last lead critique): the same for the still; optional
    role=composition|lighting|set|character consults observe only; pass at most two notes total
    via consults to a later lead round. The lead alone grades and reconciles notes. Apply its fixes,
-   check_frame again within the stage's review budget (guide('delivery'), Art director). If the budget
-   ends below A, stop automatic review, report grade and unresolved ranked fixes and ask whether to
-   continue or change the brief. Passing the gate means legal, not good: never self-grade.
+   check_frame again within the stage's review budget (guide('delivery'), Art director). Save the
+   lead report, call record_visual_review(brief, report, frame), and require
+   visual_review_status(brief, frame) to return READY for this still. If the budget ends below A,
+   stop automatic review, report grade and unresolved ranked fixes and ask whether to continue or
+   change the brief. Passing the gate means legal, not good: never self-grade.
 9. Show one still for go/no-go only once it is graded A; never present a below-A still as finished.
 10. Confirm the animation plan (loop length, what moves, rates), then animate.
 Hard rules: the five orthographic views (side, 3/4 top-down, 2:1 iso, oblique, military) are

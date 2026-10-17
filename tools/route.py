@@ -1241,8 +1241,10 @@ SHORT_SECTIONS = ['Style', ('Palette and size', 'Length and sound'), 'The work',
 
 def _is_short(text):
     first = text.lstrip().split('\n', 1)[0]
-    return 'short brief' in first.lower() or (re.search(r'^##\s+(?:\d+\.\s*)?Gate\b', text, re.M) is not None
-                                              and 'Motion table' not in text)
+    gate = re.search(r'^##\s+(?:\d+\.\s*)?Gate\s*$', text, re.M | re.I)
+    show = re.search(r'^##\s+(?:\d+\.\s*)?Show the user\s*$', text, re.M | re.I)
+    later = re.search(r'^##\s+(?:[6-9]|1[01])\.', text, re.M)
+    return 'short brief' in first.lower() or bool(gate and show and not later)
 
 def lint_short(text):
     """the light lint for a short brief: TODOs, its six sections, section 0 intent, vague words, a size,

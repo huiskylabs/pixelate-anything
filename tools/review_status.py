@@ -47,7 +47,10 @@ def _short(brief_bytes):
     except UnicodeDecodeError as exc:
         raise ReviewError('brief is not UTF-8') from exc
     first = text.lstrip().split('\n', 1)[0]
-    return 'short brief' in first.lower()
+    gate = re.search(r'^##\s+(?:\d+\.\s*)?Gate\s*$', text, re.M | re.I)
+    show = re.search(r'^##\s+(?:\d+\.\s*)?Show the user\s*$', text, re.M | re.I)
+    later = re.search(r'^##\s+(?:[6-9]|1[01])\.', text, re.M)
+    return 'short brief' in first.lower() or bool(gate and show and not later)
 
 
 def _report(data):

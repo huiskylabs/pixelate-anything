@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""pixelate critique [FRAME.png] --brief brief.md [--block BLOCKIN.png] [--prev PREV.md] [--style S]
+"""pixelate critique [FRAME.png] --brief brief.md [--role ROLE] [--consult NOTE.md] [--prev LEAD.md]
 
-Prints the prompt for an independent art director: a separate agent (or model) that did not write
-the brief or draw the frame. With no FRAME (or --brief-only) it grades the brief before anything is
-drawn, with the greyscale block-in if --block names one; with a FRAME it grades the still. --prev
-hands it the previous critique, so it first checks each earlier fix as fixed, partly or not. The
-prompt holds references/art-director.md (the part for that stage), the brief's request, section 0,
-signature elements and, for a still, its rules, scene and light list; and the paths to read: the
-brief, the bar (docs/lantern-isle-winter.png and its brief) and, for a still, the frame plus a 480 px
-nearest-neighbour thumbnail and its greyscale written next to it. Send the printed text to a fresh
-agent, then follow the brief or still review budget in references/delivery.md#art-director. This
-command generates one prompt per call; it does not orchestrate or cap the review loop.
+Prints one visual review prompt. The default lead art director grades a full brief (with an optional
+--block) or still; --prev supplies only its previous graded critique. Choose composition, lighting,
+set or character with --role for scoped observations without a grade. A later lead call may receive
+up to two specialist notes with --consult, distinct from --prev. The prompt names the brief and bar;
+for a still it writes a nearest-neighbour thumbnail and greyscale next to the frame. Send it to a
+separate agent that did not write or draw the work. The caller tracks the three graded rounds and
+total specialist consults per artifact (references/delivery.md#art-director); this command does
+not invoke agents or enforce a session budget.
 """
 import argparse, os, pathlib, re, sys
 

@@ -1,0 +1,281 @@
+# Lanternmoss Mire items, 7-12 px. Light from the upper left: lit edge top-left, shade bottom-right.
+# Outline in ol. Glints (wh) and dark holes are the only lone pixels.
+
+# a mire penny: round with a square hole; spin = face, 3/4, edge, mirrored 3/4 (the hole slides)
+sprite: coin
+anchor: 4 7
+fps: 8
+tags: spin 0-3
+key: o=ol Y=gold2 G=gold1 d=gold0 w=wh
+frame
+..oooo..
+.oYYGGo.
+oYwYGGdo
+oYGooGdo
+oYGooGdo
+oGGGGddo
+.oGGddo.
+..oooo..
+frame
+..oooo..
+.oYGGdo.
+.oYGGdo.
+.oYGoGo.
+.oYGoGo.
+.oGGGdo.
+.oGGddo.
+..oooo..
+frame
+...oo...
+..oYGo..
+..oYGo..
+..oYdo..
+..oYdo..
+..oGdo..
+..oGdo..
+...oo...
+frame
+..oooo..
+.oYGGdo.
+.oYGGdo.
+.oGoGdo.
+.oGoGdo.
+.oGGGdo.
+.oGGddo.
+..oooo..
+
+# a ferry key: ring bow, shaft, two-tooth bit; spin = face, 3/4, edge, mirrored 3/4
+sprite: key
+anchor: 3 12
+fps: 8
+tags: spin 0-3
+key: o=ol Y=gold2 G=gold1 d=gold0 w=wh
+frame
+.oooo..
+oYwGGo.
+oYooGo.
+oYooGo.
+oGGGdo.
+.oGdo..
+..oGo..
+..oGo..
+..oGooo
+..oGddo
+..oGoo.
+..oGddo
+..oooo.
+frame
+..ooo..
+.oYGdo.
+.oYoGo.
+.oYoGo.
+.oGGdo.
+..oGo..
+..oGo..
+..oGo..
+..oGoo.
+..oGdo.
+..oGo..
+..oGdo.
+..ooo..
+frame
+...oo..
+..oYGo.
+..oYGo.
+..oYdo.
+..oGdo.
+..oGdo.
+...oGo.
+...oGo.
+...oGo.
+...oGo.
+...oGo.
+...oGo.
+...oo..
+frame
+..ooo..
+.oYGdo.
+.oGoGo.
+.oGoGo.
+.oGGdo.
+..oGo..
+..oGo..
+..oGo..
+.ooGo..
+.odGo..
+..oGo..
+.odGo..
+..ooo..
+
+# glow tonic in three fill levels: full, half, low (the tonic is lum: it glows at night)
+sprite: potion
+anchor: 5 11
+durations: 900 900 900
+tags: full 0-0
+tags: half 1-1
+tags: low 2-2
+key: o=ol c=wood1 C=wood2 g=mist1 G=mist2 w=wh L=lum2 l=lum1 q=lum0
+frame
+...oooo...
+...oCco...
+...oGgo...
+..oGwggo..
+.oLLLLlqo.
+oLwLLLllqo
+oLLLLllqqo
+oLLLlllqqo
+oqLllllqqo
+.oqqqqqqo.
+..oooooo..
+frame
+...oooo...
+...oCco...
+...oGgo...
+..oGwggo..
+.oGwggggo.
+oGwgggggGo
+oLLLLllqqo
+oLLLlllqqo
+oqLllllqqo
+.oqqqqqqo.
+..oooooo..
+frame
+...oooo...
+...oCco...
+...oGgo...
+..oGwggo..
+.oGwggggo.
+oGwgggggGo
+oGggggggGo
+oGgggggggo
+oLLLlllqqo
+.oqqqqqqo.
+..oooooo..
+
+# a glow cap mushroom, picked
+sprite: glow_cap
+anchor: 4 8
+key: o=ol L=lum2 l=lum1 q=lum0 S=reed2 s=reed1
+frame
+..oooo..
+.oLLllo.
+oLLlllqo
+oLllllqo
+.ooooqo.
+...oSo..
+...oSs..
+..oSsso.
+...ooo..
+
+# a cut peat brick for the lantern fire
+sprite: peat_brick
+anchor: 5 7
+key: o=ol P=peat2 p=peat1 d=peat0 G=moss3 g=moss2
+frame
+..oooooo...
+.oPgGPPPo..
+oPPPPPPPdo.
+oppppppddo.
+opppdppddo.
+oppppppddo.
+.oooooooo..
+
+# marsh berries on a sprig
+sprite: berries
+anchor: 4 8
+key: o=ol R=coat2 r=coat1 k=coat0 w=wh G=moss2 g=moss1
+frame
+....oo...
+...oGgo..
+.oooogo..
+oRwroo...
+oRrkoRro.
+.ookoRwro
+..oRrorko
+..oRrko..
+...ooo...
+
+# a small brass bell
+sprite: brass_bell
+anchor: 4 8
+key: o=ol Y=gold2 G=gold1 d=gold0 w=wh
+frame
+...oo...
+..oGdo..
+..oooo..
+.oYwGdo.
+.oYGGdo.
+.oYGGdo.
+oYGGGddo
+oddddddo
+.ooodoo.
+
+# a bog eel, caught
+sprite: bog_eel
+anchor: 6 6
+key: o=ol M=moss1 m=moss0 Y=reed2 y=reed1 e=ol w=wh
+frame
+.......oooo.
+..oo..oMMMeo
+.oMMooMmyyo.
+oMmmMMmyoo..
+oMyyymyo....
+.oyoooo.....
+..o.........
+
+# a bound bundle of reeds
+sprite: reed_bundle
+anchor: 4 10
+key: o=ol Y=reed2 y=reed1 d=reed0 b=wood0
+frame
+.o.o.o..
+oYoyoyo.
+oYoyody.
+.oYyydo.
+.oYyydo.
+.obbbbo.
+.oYyydo.
+.oYyydo.
+oYYyyddo
+oYyoyddo
+.oo.oo..
+
+# a moth-wing scale, iridescent
+sprite: moth_scale
+anchor: 4 7
+key: o=ol W=mist2 w=mist1 v=mist0 L=lum2 l=lum1
+frame
+..ooo...
+.oWWwo..
+oWLlwvo.
+oWlwwvo.
+.oWwvvo.
+.owwvo..
+..owvo..
+...oo...
+
+# a coil of tarred rope
+sprite: rope_coil
+anchor: 5 7
+key: o=ol Y=reed2 y=reed1 d=reed0
+frame
+..oooooo..
+.oYyyyyyo.
+oYooooooyo
+oYo.oo.oyo
+oyoooooodo
+.oyyyyddo.
+..oooooo..
+
+# a rolled map of the mire, tied
+sprite: map_scroll
+anchor: 5 7
+key: o=ol S=reed2 s=reed1 d=reed0 R=coat1 r=coat0 w=wh
+frame
+.oooooooo..
+oSwSSSSsso.
+oSSSSRSsdo.
+oSsssRrsdoo
+oSSsssssdod
+.oddddddoo.
+..oooooo...

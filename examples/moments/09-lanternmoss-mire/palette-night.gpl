@@ -1,0 +1,48 @@
+GIMP Palette
+Name: lanternmoss glowing night
+Columns: 8
+#
+  7   6  26	ol
+200 247 230	wh
+  9  11  36	water0
+ 18  23  58	water1
+ 28  43  87	water2
+ 11  10  29	peat0
+ 25  20  49	peat1
+ 40  32  70	peat2
+ 10  19  48	moss0
+ 14  27  54	moss1
+ 18  38  62	moss2
+ 70 220 166	moss3
+ 14  12  35	wood0
+ 36  31  66	wood1
+ 58  52  95	wood2
+ 20  21  48	reed0
+ 44  46  86	reed1
+ 74  75 124	reed2
+ 27  11  37	coat0
+ 94  36  64	coat1
+168  72  62	coat2
+ 60  32  52	skin0
+196 122  82	skin1
+ 36  20  42	gold0
+ 92  54  48	gold1
+176 108  56	gold2
+255 242 180	flame
+ 16  76  82	lum0
+ 41 201 156	lum1
+162 242 210	lum2
+ 18  22  52	mist0
+ 32  40  79	mist1
+ 52  63 118	mist2
+228 255 246	glow
+ 31 207 164	lap
+ 22  29  70	shallow
+ 94  54  47	lamp_w1
+216 135  63	lamp_w2
+ 49  32  58	lamp_q1
+224 154  74	lamp_q2
+ 27  60  80	fringe
+ 54 190 150	spore
+196 112  58	lamp_hot1
+232 162  76	lamp_rim

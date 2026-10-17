@@ -1,0 +1,14 @@
+# Regenerable or heavy intermediates: the art and sound scripts rebuild them.
+**/sound/*.wav
+**/music/dist/
+**/*.mp4
+**/__pycache__/
+# Scratch renders made while looking (crops, zooms, drafts): regenerable.
+**/out/crop-*
+**/out/view-*
+**/out/native-*
+**/out/draft-*
+**/out/_look*
+**/out/look*
+**/out/zoom*
+**/_look*/

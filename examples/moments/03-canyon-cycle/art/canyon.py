@@ -127,9 +127,12 @@ def mesa(c):
     cap = m & (YY < 77)
     talus = m & (YY >= 77)
     # the caprock cliff: lit left third, shadowed right, two strata seams; talus split by gullies
-    c.fill(cap, 'M1')
-    c.fill(cap & (XX < 149), 'M2')
-    c.fill(cap & (XX > 182), 'M0')
+    # three strata bands of uneven thickness, told apart by tone (no seam lines, no joints)
+    band_of = lambda x, y: 0 if y < 66 + (x // 9) % 2 else 1 if y < 71 + (x // 13) % 2 else 2
+    for y, x in zip(*np.nonzero(cap)):
+        b_ = band_of(x, y)
+        side = 0 if x < 149 + 2 * b_ else 1 if x < 183 - b_ else 2
+        c.put(x, y, [['M2', 'M1', 'M2'], ['M1', 'M0', 'M1'], ['M0', 'M0', 'M0']][side][b_])
     c.fill(talus, 'M1')
     c.fill(talus & (XX < 141), 'M2')
     c.fill(talus & (XX > 178), 'M0')
@@ -139,22 +142,10 @@ def mesa(c):
             c.put(x, col.min(), 'M3' if x < 176 else 'M2')
             if x < 150:
                 c.put(x, col.min() + 1, 'M3' if x < 140 else 'M2')
-    for (x0, x1, y) in ((131, 140, 68), (151, 163, 67), (176, 190, 69), (143, 171, 72)):
-        for x in range(x0, x1):
-            if m[y, x]:
-                v = c.get(x, y)
-                c.put(x, y, {'M2': 'M1', 'M1': 'M0', 'M0': 'M0', 'M3': 'M1'}[v])
     # the overhang shadow where the talus starts
     for x in range(127, 196):
-        if m[77, x]:
+        if m[77, x] and hsh(x // 4, 77) > 0.3:
             c.put(x, 77, 'M0' if x > 136 else 'M1')
-    # vertical joints in the caprock face, lit lip to their right on the sunny side
-    for jx, y0, y1 in ((136, 64, 75), (145, 66, 76), (184, 65, 74)):
-        for y in range(y0, y1):
-            if m[y, jx]:
-                c.put(jx, y, 'M0')
-                if jx < 150 and m[y, jx + 1]:
-                    c.put(jx + 1, y, 'M3')
     gullies = [(130, 78, 10, -1), (136, 78, 14, -1), (143, 78, 7, -1), (153, 78, 18, 0), (162, 78, 9, 0),
                (170, 78, 15, 1), (179, 78, 8, 1), (187, 78, 13, 1), (196, 84, 8, 1), (124, 86, 6, -1)]
     for gx, gy, ln, lean in gullies:
@@ -254,48 +245,81 @@ def rock_step(c):
 
 
 def fall(c, f, rng_name, hi_edge, lo_edge, flare, seed, foot=True, lip=True):
-    """a fall in a 6-slot cycling range: each column keeps its own phase and streak length, so the
-    rotation makes streaks fall at 10 fps. Edges bulge a pixel here and there; hi_edge / lo_edge
-    are static edge slots (broken, never a ruled line)."""
+    """a fall in a 6-slot cycling range (each column keeps its own phase and streak length, so the
+    rotation makes streaks fall at 10 fps). It pours: a domed curl over the lip with shoulders that
+    overhang it and a shadow under them; ragged sides that step out unevenly as it widens; a few
+    detached streaks beside it; a spray cloud at the base, wider than the fall, that dissolves at
+    its edges. hi_edge / lo_edge are kept for the call signature (unused: no cylinder edges)."""
     x0, x1, y0, y1 = f['x0'], f['x1'], f['y0'], f['y1']
-    col_phase = {x: int(24 * hsh(x, seed)) for x in range(x0 - 8, x1 + 9)}
-    col_seg = {x: 3 + int(3 * hsh(x, seed + 1)) for x in range(x0 - 8, x1 + 9)}
+    col_phase = {x: int(24 * hsh(x, seed)) for x in range(x0 - 16, x1 + 17)}
+    col_seg = {x: 3 + int(3 * hsh(x, seed + 1)) for x in range(x0 - 16, x1 + 17)}
+
+    def slot(x, y):
+        ph = col_phase[x] + (7 if hsh(x, y // 9, seed + 2) < 0.25 else 0)
+        return '%s%d' % (rng_name, ((y + ph) // col_seg[x]) % 6)
+
+    def jitter(side):
+        out, y = {}, y0
+        while y < y1:
+            run = 3 + int(5 * hsh(y, side, seed + 20))
+            j = int(3 * hsh(y, side, seed + 21) * min(1.0, 0.3 + (y - y0) / 12.0))
+            for yy in range(y, min(y1, y + run)):
+                out[yy] = j
+            y += run
+        return out
+    jl, jr = jitter(0), jitter(1)
     m = np.zeros((H, W), bool)
+    edges = {}
     for y in range(y0, y1):
         k = (y - y0) / max(1, y1 - y0)
-        grow = int(k * k * flare + 0.5)
-        a, b = x0 - grow, x1 - 1 + grow
-        seg = (y - y0) // 6
-        if hsh(seg, seed + 3) < 0.3:
-            a -= 1
-        if hsh(seg, seed + 4) < 0.3:
-            b += 1
+        grow = flare * k ** 1.2
+        a = int(round(x0 - grow)) - jl[y]
+        b = int(round(x1 - 1 + grow)) + jr[y]
+        r = y - y0
+        if lip and r < 4:
+            a, b = [(x0 + 1, x1 - 2), (x0, x1 - 1), (x0 - 1, x1), (x0 - 1, x1)][r]
         for x in range(a, b + 1):
-            ph = col_phase[x] + (7 if hsh(x, y // 9, seed + 2) < 0.25 else 0)
-            s = '%s%d' % (rng_name, ((y + ph) // col_seg[x]) % 6)
-            if x == a and hi_edge and hsh(x, y, seed + 7) < 0.75:
-                s = hi_edge
-            elif x == b and lo_edge and hsh(x, y, seed + 8) < 0.8:
-                s = lo_edge
+            s = slot(x, y)
+            if lip and r < 3:                                 # the curl: bright, shimmering sideways
+                s = 'N1' if (r == 0 or (r == 1 and hsh(x, seed + 12) < 0.4)) else '%s%d' % (rng_name, (x + r) % 6)
             c.put(x, y, s)
             m[y, x] = True
-    if lip:
-        for kk, y in enumerate((y0, y0 + 1)):
-            for x in range(x0 - 1, x1 + 1):
-                c.put(x, y, 'N1' if (kk == 0 and hsh(x, seed + 12) < 0.45) else '%s%d' % (rng_name, (x + 2 * kk) % 6))
+        if lip and 2 <= r <= 5:                               # shadow under the overhanging shoulders
+            for x in (a - 1, b + 1):
+                c.put(x, y, 'K0' if rng_name == 'WA' else 'H0')
+        edges[y] = (a, b)
+    # detached streaks beside the fall: 2-4 px, 1-2 px off the edge, mismatched spacing
+    for side in (0, 1):
+        y = y0 + 7 + int(5 * hsh(side, seed + 30))
+        while y < y1 - 5:
+            a, b = edges[y]
+            off = 2 + int(2 * hsh(y, side, seed + 31))
+            x = a - off if side == 0 else b + off
+            for yy in range(y, y + 2 + int(3 * hsh(y, side, seed + 32))):
+                if yy < y1:
+                    c.put(x, yy, slot(x, yy))
+            y += 6 + int(9 * hsh(y, side, seed + 33))
     if foot:
-        # a churning crown, wider than the fall, taller in the middle; foam at its skirts
-        grow = flare
-        a, b = x0 - grow - 4, x1 + grow + 3
-        mid = (a + b) / 2.0
-        for x in range(a, b + 1):
-            hgt = int(6 - 4.5 * abs(x - mid) / ((b - a) / 2.0) + 2 * hsh(x, seed + 5))
-            for y in range(y1 - hgt, y1 + 2):
-                s = '%s%d' % (rng_name, int(6 * hsh(x, y, seed + 6)))
-                if (x in (a, b) or y == y1 - hgt) and hsh(x, y, seed + 9) < 0.5:
-                    s = 'N0'
-                c.put(x, y, s)
+        a, b = edges[y1 - 1]
+        spray(c, (a + b) / 2.0, y1, (b - a) / 2.0 + 7, 7, rng_name, seed + 40)
     return m
+
+
+def spray(c, cx, y, half, hgt, rng_name, seed):
+    """a splash crown / spray cloud: dense and churning in the middle (range slots and foam), thinning
+    to loose pixels at its edges and top, with droplets thrown above it"""
+    for x in range(int(cx - half), int(cx + half) + 1):
+        d = min(1.0, abs(x - cx) / half)
+        h = int(hgt * (1 - d ** 1.4) + 2 * hsh(x, seed))
+        for yy in range(y - h, y + 2):
+            up = (y - yy) / max(1.0, h)
+            if hsh(x, yy, seed + 1) < 1.1 - 0.75 * d - 0.35 * up:
+                k = hsh(x, yy, seed + 2)
+                c.put(x, yy, 'N1' if k < 0.12 else 'N0' if k < 0.3 else '%s%d' % (rng_name, int(6 * hsh(x, yy, seed + 3))))
+    for i in range(9):                                        # droplets above and beside the crown
+        x = int(cx - half + 2 * half * hsh(i, seed + 4))
+        yy = y - hgt - 1 - int(4 * hsh(i, seed + 5)) + int(abs(x - cx) / half * 4)
+        c.put(x, yy, 'N0')
 
 
 # ================================================================ water
@@ -367,23 +391,55 @@ def foam(c, w):
                 c.put(x + k, y, s)
 
 
+FORGE_REFL = """
+.hhhhh.hhh.hhh.
+..hhh.hhhhh.h..
+h.hh....hhh.hh.
+...............
+..wwhh..hhw.w..
+.w....hhh...ww.
+....www...ww...
+.ww..w.........
+...............
+..ww..wwww.....
+.....ww..w.....
+...www.........
+.......ww......
+....w...www....
+...............
+......ww.......
+....w..........
+"""
+LANTERN_REFL = """
+.hhh.h.
+..hhh..
+.h..hh.
+.......
+..ww...
+...ww..
+.w..w..
+.......
+...ww..
+..w....
+.......
+...w...
+"""
+
+
 def reflections(c, w):
-    """warm columns reflected under the forge and the lantern: stacked horizontal dashes with ripple
-    gaps, narrowing and wobbling with depth, the hot colour only near the waterline (flicker slots,
-    so they flicker with their source)"""
-    for (cx, half, y0, y1, hot, warm, sd) in ((229, 6, 124, 141, 'F1', 'F0', 62), (198, 2, 124, 137, 'L1', 'L0', 66)):
-        for y in range(y0, y1):
-            k = (y - y0) / float(y1 - y0)
-            if (y - y0) % 2 == 1 and k > 0.15:
-                continue                                  # every other row is a ripple gap
-            hw = max(1, int(round(half * (1 - 0.6 * k))))
-            x = cx - hw + int(round(2 * hsh(y, sd) - 1))
-            while x <= cx + hw:
-                ln = 2 + int(3 * hsh(x, y, sd + 1))
-                for xx in range(x, min(x + ln, cx + hw + 1)):
-                    if inb(xx, y) and w[y, xx]:
-                        c.put(xx, y, hot if k < 0.25 else warm)
-                x += ln + 1 + int(2 * hsh(x, y, sd + 2))
+    """warm columns reflected under the forge and the lantern: broken, stepped dashes of irregular
+    length and spacing that taper and thin out with depth, hand-typed; the empty rows are where the
+    far reach's current streaks cross (flicker slots, so they flicker with their source)"""
+    for art, x0, y0, hot, warm in ((FORGE_REFL, 222, 124, 'F1', 'F0'), (LANTERN_REFL, 195, 124, 'L1', 'L0')):
+        for j, row in enumerate(art.strip().split('\n')):
+            for i, ch in enumerate(row.strip()):
+                x, y = x0 + i, y0 + j
+                if ch != '.' and inb(x, y) and w[y, x]:
+                    c.put(x, y, hot if ch == 'h' else warm)
+    for (xa, xb, y) in ((221, 231, 127), (226, 236, 132), (194, 201, 127), (196, 201, 131)):   # the crossings
+        for x in range(xa, xb):
+            if w[y, x]:
+                c.put(x, y, 'RA%d' % ((-x) // 2 % 5))
 
 
 # ================================================================ near banks
@@ -590,27 +646,16 @@ def left_fall_setting(c):
     beside it and moss in the spray"""
     f, f2 = G.LEFT_FALL, G.LEFT_FALL2
     notch = """
-...kkkkkkkkkk...
-.kkKKKKKKKKKKkk.
-kKKKKKKKKKKKKKKk
+...kkkkkkkkk...
+.kkKKKKKKKKKkk.
+kKKKKKKKKKKKKKk
 """
-    stamp(c, notch, {'k': 'R0', 'K': 'K0'}, f['x0'] - 3, f['y0'] - 3)
+    stamp(c, notch, {'k': 'R0', 'K': 'K0'}, f['x0'] - 3, f['y0'] - 5)
     lip = """
-..RRRRRRRRRR..
-.rrrrrrrrrrrr.
-rrrrrrrrrrrrrk
-.kkrrrrrrkkk..
-...kkkkkk.....
+..RRRRRRRRRRR.
+.RrrrrrrrrrrrR
 """
-    stamp(c, lip, {'R': 'R2', 'r': 'R1', 'k': 'K0'}, f['x0'] - 3, f['y0'] + 1)
-    brk = """
-...RRRRRR....
-.RRrrrrrrRR..
-krrrrrrrrrrrk
-.kkrrrrrrrkk.
-...kkkkkk....
-"""
-    stamp(c, brk, {'R': 'R2', 'r': 'R1', 'k': 'K0'}, f['x0'] - 1, f['y1'] - 1)
+    stamp(c, lip, {'R': 'R2', 'r': 'R1'}, f['x0'] - 3, f['y0'] - 2)
     for ff in (f, f2):
         for y in range(ff['y0'] + 3, ff['y1']):
             k = (y - ff['y0']) / max(1, ff['y1'] - ff['y0'])
@@ -977,23 +1022,12 @@ def build():
     river_glints(c, w)
     reflections(c, w)
     banks(c, w)
-    right_fall_break(c)
     fall(c, G.RIGHT_FALL, 'WB', hi_edge=None, lo_edge=None, flare=1, seed=17, foot=False)
-    fall(c, G.RIGHT_FALL2, 'WB', hi_edge=None, lo_edge=None, flare=2, seed=23)
+    fall(c, G.RIGHT_FALL2, 'WB', hi_edge=None, lo_edge=None, flare=2, seed=23, lip=False)
     fall(c, G.LEFT_FALL, 'WA', hi_edge=None, lo_edge=None, flare=2, seed=5, foot=False)
-    fall(c, G.LEFT_FALL2, 'WA', hi_edge=None, lo_edge=None, flare=4, seed=9)
-    for f, rng, sd in ((G.LEFT_FALL, 'WA', 95), (G.RIGHT_FALL, 'WB', 98)):   # spray on each break
-        mid = (f['x0'] + f['x1']) // 2
-        for x in range(f['x0'] - 6, f['x1'] + 6):
-            hgt = 4 - abs(x - mid) // 3 + int(2 * hsh(x, sd))
-            for y in range(f['y1'] - hgt, f['y1'] + 2):
-                if hgt > 0:
-                    c.put(x, y, '%s%d' % (rng, int(6 * hsh(x, y, sd + 1))) if hsh(x, y, sd + 2) < 0.75 else 'N0')
-        for k in range(7):                                    # droplets thrown off the break
-            x = mid - 9 + int(18 * hsh(k, sd + 3))
-            y = f['y1'] - 6 + int(4 * hsh(k, sd + 4))
-            if abs(x - mid) > 5:
-                c.put(x, y, 'N0')
+    fall(c, G.LEFT_FALL2, 'WA', hi_edge=None, lo_edge=None, flare=4, seed=9, lip=False)
+    spray(c, 96.5, 72, 10, 6, 'WA', 141)            # the left fall breaks on its ledge: a crown, not a step
+    spray(c, 129.5, 100, 8, 5, 'WB', 151)
     foam(c, w)
     ferns(c)
     ledge(c)

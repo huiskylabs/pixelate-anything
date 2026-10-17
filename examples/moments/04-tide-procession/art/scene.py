@@ -303,10 +303,33 @@ def draw_island(c, moment):
         if m[G.TERRACE_Y, x]:
             c.g[G.TERRACE_Y, x] = 'mon1'
     door = portal_mask()
+    x0, x1, ytop, yth = G.PORTAL
     if moment == 'a':
-        x0, x1, ytop, yth = G.PORTAL
         c.g[door] = 'leaf0'
         c.g[yth - 1, x0 + 3:x1 - 2] = 'lamp0'      # a thread of light under the shut door
+    else:
+        opening, leaf, occ, wedge = door_setup()
+        c.g[opening] = 'door2'
+        c.g[opening & (yy >= yth - 7)] = 'door3'   # the lit floor inside, brightest at the threshold
+        c.g[opening & (yy < ytop + 5)] = 'door1'   # the arch head in shadow
+        c.g[opening & (xx >= x1 - 2) & (yy < yth - 7)] = 'door1'   # an inner pillar's edge
+        c.g[leaf] = 'leaf0'
+        c.g[leaf & (xx == x0 + 2)] = 'door0'       # the leaf's open edge catches a little
+        c.put(x1 + 1, ytop + 12, 'lamp1')          # a lantern hook on the jamb, lit
+        c.put(x1 + 1, ytop + 11, 'mon0')
+        # tread edges and the terrace lip inside the wedge take the door's colour, stepping down
+        lx, ly = DOOR_LIGHT
+        vis = post.visibility(occ, lx, ly, 160)
+        for i, (sx, sy) in enumerate(G.STEPS):
+            nxt = G.STEPS[i + 1][0] if i + 1 < len(G.STEPS) else 477
+            for x in range(sx, nxt):
+                if wedge[sy, x] and vis[sy, x] > 0.5:
+                    d = math.hypot(x - lx, sy - ly)
+                    c.g[sy, x] = 'door2' if d < 34 else 'door1' if d < 70 else 'door0'
+        for x in range(477, 532):
+            if wedge[G.TERRACE_Y, x] and vis[G.TERRACE_Y, x] > 0.5:
+                d = abs(x - lx)
+                c.g[G.TERRACE_Y, x] = 'door3' if d < 8 else 'door2' if d < 20 else 'door1'
     # cold rims on the silhouette edges that face the moon
     mx, my, mr = G.MOON
     nx, ny = morph.normals(m, blur=1)
@@ -321,6 +344,28 @@ def draw_island(c, moment):
     c.g[mid] = 'mrim0'
     c.g[near] = 'mrim1'
     return m
+
+
+DOOR_OP = 'lightmap'          # 'lightmap' (as the request asks) or 'light' (the allowed-op twin)
+DOOR_LIGHT = (511.0, 198.4)   # low inside the portal by the right jamb: the light skims the floor
+
+
+def door_setup():
+    """the open portal: (opening, leaf, occluder, wedge weight). The occluder is the facade above the
+    terrace round the opening plus the leaf (opened inward against the left jamb); the wedge is the
+    lit ground, hand-shaped from the threshold down the stair flight, widening as it goes."""
+    opening = portal_mask()
+    x0, x1, ytop, yth = G.PORTAL
+    leaf = np.zeros((H, W), bool)
+    for y in range(ytop + 3, yth):
+        leaf[y, x0:x0 + 3] = True
+    leaf &= opening
+    isl = G.island_mask()
+    yy, xx = np.mgrid[0:H, 0:W]
+    occ = (isl & (yy < yth) & ~opening) | leaf
+    wedge = G.mask_poly([(515, 199), (499, 199), (470, 200), (440, 216), (404, 238), (404, 246),
+                         (436, 246), (470, 236), (500, 214), (518, 203)])
+    return opening, leaf, occ, wedge
 
 
 def portal_mask():
@@ -469,6 +514,15 @@ def draw_middle(moment):
                     actor[Y, X] = True
         LX, LY = lx + ox, ly + oy
         lamps.append((LX, LY, i))
+        if moment == 'b' and i in (0, 1):
+            m = ~np.equal(g, None)
+            rows = np.nonzero(m.any(1))[0]
+            for y in rows[: (12 if i == 0 else 9)]:
+                xs = np.nonzero(m[y])[0]
+                for xg in ((xs.min(), xs.max()) if i == 0 else (xs.max(),)):
+                    X, Y = xg + ox, y + oy
+                    if 0 <= X < W and 0 <= Y < H and str(c.g[Y, X]).startswith('fig'):
+                        c.g[Y, X] = 'figw'
         if fx <= 418:
             reflect_pilgrim(c, g, ox, oy, lag, intent, LX, LY, i)
     return c, intent, actor, lamps, road
@@ -516,6 +570,15 @@ def draw_causeway(c, moment, intent):
             if under:
                 for r in range(0, top):
                     c.g[y + r, x] = 'pool2' if (x + r) % 7 else 'pool3'
+    if flooded:
+        for x in range(176, 196):                    # foam and ripple lines at the flood's front
+            y = G.road_y(x)
+            if hh(x, 3, 43) < 0.7:
+                c.g[y - 1, x] = 'pool4' if x > 183 else 'pool3'
+        for x in range(26, 186, 1):
+            y = G.road_y(x)
+            if (x // 7) % 3 == 0:
+                c.g[y + 1, x] = 'pool4'
     # glints: bright wet points on the stones, most where the shaft lands
     sh = G.SHAFT[moment]
     ang = math.radians(sh['angle'])
@@ -734,6 +797,22 @@ def render(moment):
                     falloff=1.3, behind=figs | lampmask)
         p.glow(mask=lampmask, kernel='gauss', radius=(1.0, 2.5), weights=(0.6, 0.4), strength=0.26,
                tint=LIGHT['lamp'])
+        if moment == 'b':
+            opening, leaf, occ, wedge = door_setup()
+            lx, ly = DOOR_LIGHT
+            geo = np.where(wedge, 1.0, 0.0)
+            geo = np.where(wedge & figs, 0.55, geo)          # figures in the wedge take some of it
+            col = (1.0, 0.70, 0.36)
+            if DOOR_OP == 'lightmap':
+                p.lightmap(ambient=1.0, lights=[(lx, ly, (40, 30), col, 5.0, 0.0)], cap=8.0, geo=geo,
+                           occlude=occ, keep=opening | leaf)
+            else:                                           # the same model through Post.light
+                vis = post.visibility(occ, lx, ly, 160)
+                p.light(lx, ly, 40, col, strength=5.0, profile='gauss', squash=0.75, blend='multiply',
+                        mask=geo * vis, behind=opening | leaf)
+            p.light(lx - 4, ly - 14, 10, LIGHT['door'], strength=0.22, behind=occ)
+            p.glow(mask=opening & ~leaf, kernel='gauss', radius=(1.5, 4.0), weights=(0.6, 0.4),
+                   strength=0.22, tint=LIGHT['door'])
     s.light(mid_light, depth=2)
     s.plane(rgba(near_c), depth=0)
     p = s.render()

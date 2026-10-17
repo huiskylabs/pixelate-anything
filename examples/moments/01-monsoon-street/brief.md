@@ -41,6 +41,7 @@ lofi sample of the downpour phase.
   tram; everything between the pools sinks to the cool plum dark, never grey.
 - Wet ground reflects in screen columns: each object mirrored about its own base row in darker
   slots; lights stay bright and stretch into stepped dash columns toward the viewer.
+- Signs carry invented glyphs only: blocky mirror-symmetric stroke clusters from my own primitives, one dialect per sign, never a letter of any script (no bare T, I or pi).
 - Imperfections: a sagging awning lip on the left, one sign hanging askew, a dead tube in the
   hero sign's border, mismatched shutter slats, a patched slab on the right pavement.
 - Silhouette keys: tram = long box with a window strip, pantograph diamond and overhead wire (not a
@@ -64,6 +65,7 @@ lofi sample of the downpour phase.
   (5.5x); the tram is 40 px tall, a far window 10 px, a near puddle ring 20 px.
 - Hero: 344,120,462,210 (native px); peak value: the hero shop's lit fascia sign; peak chroma: the red paper lantern at its corner.
 - Planes: hoarding 8% (1), far building and sky 13% (2), left corner block and street wall 27% (2), right street wall, hero upper floors and glass 20% (2), road and puddle 15% (3), pavements 8% (3), hero shopfront 8% (4)
+- Puddle: x 244-462, y 229-269 across the gutter and the curb; it mirrors each column from the base row of the nearest thing standing in it, compressed 2.3x so the tram strip and the hero sign fit (an authored mirror, not the physical one used on the rest of the road).
 - Layout: sky strip x 225-316, y 0-30 (calm: wires only); far building x 225-316, y 26-183 (few lit
   windows, traffic signal at 300,120); tram on the cross street x 225-316, y 138-186 (A only);
   puddle x 246-392, y 234-262; bicycle at the left lamp post x 104-140, y 204-222.
@@ -108,6 +110,7 @@ lofi sample of the downpour phase.
 - Tram (A): window strip (270,163) warm, sigma (40,8), gain 0.6; lights the cross street; hidden by the street walls at the opening edges (they sit outside its sigma).
 - Left shop windows, the corner shop strip under the shutter (B), far windows: small warm pools, sigma 6-14, gain 0.2-0.4; hidden by nothing.
 - Signal: (300,124) green (A) / amber (B), sigma 4, gain 0.25; hidden by nothing.
+- Ambient field spills (not a point light): each lit opening throws a soft warm trapezoid on the ground (mask_poly, blurred 2.5-3 px, added to the lamp map's ambient field); the hero's is the largest (gain 0.8); the street lamp's pool is a hand-shaped mask (gain 1.5) that also lifts the wet ground a step; the sky strip is kept at albedo as a cool glow one value step above the roofs.
 - Allowed light ops: lightmap, motes, sprite, from_world; used: lightmap.
 
 ## 8. Motion table

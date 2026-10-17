@@ -57,7 +57,7 @@ def pick_start(a):
 def bell(t0, f0, amp, n):
     """one struck strike of the bell at t0 seconds, fundamental f0"""
     ratios = (1.0, 2.41, 3.93, 5.36, 7.05)
-    gains = (1.0, 0.42, 0.22, 0.11, 0.05)
+    gains = (1.0, 0.36, 0.15, 0.06, 0.02)
     taus = (0.62, 0.30, 0.17, 0.10, 0.06)
     t = np.arange(n) / SR - t0
     on = t >= 0
@@ -68,7 +68,7 @@ def bell(t0, f0, amp, n):
         y += g * np.sin(2 * np.pi * f0 * r * tt) * np.exp(-tt / tau)
     y += 0.35 * np.sin(2 * np.pi * (f0 + 1.7) * tt) * np.exp(-tt / 0.5)       # detuned twin: shimmer
     rng = np.random.default_rng(int(f0))
-    click = band(rng.standard_normal(n), 2500, 7000) * np.exp(-tt / 0.004) * 0.25
+    click = band(rng.standard_normal(n), 2000, 5000) * np.exp(-tt / 0.004) * 0.08
     return amp * on * att * (y + click)
 
 
@@ -95,6 +95,10 @@ def main():
     pan = 0.15
     clip[:, 0] += b * (1 - pan)
     clip[:, 1] += b * (1 + pan)
+    # a gentle high shelf (about -2.5 dB above 5 kHz): the rain hiss and the bell's top stay soft
+    sos = butter(1, 5000, btype='high', fs=SR, output='sos')
+    for ch in range(2):
+        clip[:, ch] -= 0.25 * sosfilt(sos, clip[:, ch])
     # fades: 20 ms in, 400 ms out (raised cosine)
     fi, fo = int(0.02 * SR), int(0.4 * SR)
     env = np.ones(n)

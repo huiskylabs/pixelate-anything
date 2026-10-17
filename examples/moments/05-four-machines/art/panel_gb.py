@@ -187,12 +187,13 @@ def office(c):
     stamp(c, ".k...k.\nkkkkkkk\nk.k.k.k\n.k...k.", {'k': 'g0'}, 1, base - 4)   # bicycle
     c.rect(43, 11, 45, base + 1, 'g0'); c.rect(44, 12, 45, base, 'g3')   # flag pole
     stamp(c, """
-kkkkkkkkk
-.kk33333k
-..k3k3k3k
-.kk33k33k
-kkkkkkkkk
-""".replace('3', 'w'), {'k': 'g0', 'w': 'g3'}, 34, 12)
+kkkkkkkkkk
+.kwwwwwwwk
+..kkkkkkkk
+.kwwwwwwwk
+kwwwwwwwwk
+kkkkkkkkkk
+""", {'k': 'g0', 'w': 'g3'}, 33, 12)
     # the launching rail: a sloping beam, a trestle, a strut braced on the cliff face
     xa, ya, xb, yb = 43, 46, 67, 52
     for i in range(xb - xa + 1):

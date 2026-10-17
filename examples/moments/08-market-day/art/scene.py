@@ -178,7 +178,7 @@ def final():
     for i, (x, y, z, k) in enumerate(((-12, -45, 9, 'up'), (-9.5, -44, 14, 'down'), (-14.5, -43, 18, 'glide'), (-7, -46, 22, 'up'),
                                         (-11, -48, 27, 'down'), (-5.5, -42.5, 12, 'glide'), (-13, -49, 32, 'up'), (-8, -45, 31, 'glide'))):
         put(mfig.pigeon(k, 'se' if i % 3 else 'sw', 'g4' if i % 2 else 'g3'), x, y, z, kind='pigeon')
-    jx, jy = -28.0, 8.0
+    jx, jy = -30.0, 12.0
     put(mfig.story('juggler', 23, 'se'), jx, jy)
     ring = [(-5.5, -0.5, 'se', 'stand'), (-4.0, 4.5, 'se', 'skirt'), (1.0, 5.6, 'sw', 'up'), (5.4, 3.0, 'sw', 'stand'),
             (5.2, -4.4, 'sw', 'back'), (-3.6, -5.4, 'se', 'back')]
@@ -225,9 +225,9 @@ def final():
     cafes = []
     paints = ['terra', 'plaster', 'plaster', 'brown', 'plaster', 'terra', 'plaster', 'brown']
     k = 0
-    for col, x0 in enumerate((128.5, 137.0, 145.5)):
+    for col, x0 in enumerate((128.5, 137.0, 145.5, 154.0)):
         y = 52.0 + col * 4.0 + hash2(col, 1, 7) * 3
-        while y < 150 - col * 8:
+        while y < (150 - col * 8 if col < 3 else 82):
             if hash2(int(y), col, 8) > 0.18 or col == 0:
                 cafes.append((x0 + hash2(int(y), col, 9) * 1.8, y, paints[k % len(paints)]))
                 k += 1
@@ -243,7 +243,7 @@ def final():
     put(mprops.flower_cart(), 133.0, 40.0, kind='cart')
     put(mfig.person(132, 'stand', 'se', t='leaf2'), 130.5, 43.0)
     # (2) a tour group trailing its guide, who holds an umbrella up, heading for the cathedral
-    gx, gy = 172.0, 16.0
+    gx, gy = 167.0, 21.0
     put(mfig.person(200, 'up', 'se', t='slate2'), gx, gy)
     put(mfig.umbrella('mint2'), gx + 1.4, gy - 0.3, 14, kind='umbrella')
     for i in range(14):
@@ -261,7 +261,7 @@ def final():
     put(mfig.person(302, 'out', 'se'), 143.0, 34.5)
     put(mfig.person(303, 'back', 'se'), 150.5, 36.0)
     # (3) kids chasing pigeons, the flock bursting up, a parent calling after them
-    kx, ky = 153.0, 10.0
+    kx, ky = 137.0, 13.0
     put(mfig.kid(214, 'run', 'se'), kx, ky)
     put(mfig.kid(215, 'reach', 'se'), kx - 3.0, ky + 2.5)
     put(mfig.kid(216, 'run', 'se', t='fruit2'), kx - 1.5, ky - 3.0)
@@ -272,7 +272,7 @@ def final():
                                          (3.0, 1.0, 25, 'down'), (9.5, 2.0, 28, 'glide'), (6.0, -3.0, 33, 'up'))):
         put(mfig.pigeon(k, 'se' if i % 3 else 'sw', 'g4' if i % 2 else 'g3'), kx + dx, ky + dy, z, kind='pigeon')
     # (4) a small ring round a street accordionist, his hat on the paving
-    mx, my = 196.0, 76.0
+    mx, my = 181.0, 55.0
     put(mfig.accordionist(230, 'se'), mx, my)
     put(mfig.hat(), mx + 1.8, my + 1.8, kind='hat')
     for i, (dx, dy, f, pose) in enumerate(((-5.0, 0.5, 'se', 'stand'), (-3.6, 4.6, 'se', 'skirt'), (1.0, 5.8, 'sw', 'stand'),
@@ -280,10 +280,18 @@ def final():
                                             (-3.4, -4.4, 'se', 'back'))):
         put(mfig.person(231 + i, pose, f), mx + dx, my + dy)
     put(mfig.kid(238, 'stand', 'sw'), mx + 3.4, my + 7.6)
+    # a little drinks kiosk with three parasol tables in the corner (part of the cafe life)
+    s.box(203.0, 78.0, 0, 4, 4, 10, 'cream', top='terra3')
+    objs.append({'kind': 'kiosk', 'box': sbox(203, 78, 0, 4, 4, 10)})
+    for i, (x, y, paint) in enumerate(((199.0, 86.0, 'terra'), (208.5, 88.5, 'plaster'), (196.5, 76.5, 'brown'))):
+        put(mprops.cafe_table(), x, y, kind='table')
+        put(mfig.story('sitter', 320 + i, 'se'), x - 1.6, y + 1.2)
+        put(mfig.story('sitter', 330 + i, 'sw'), x + 1.8, y - 1.0)
+        put(mprops.parasol(paint), x + 0.2, y - 0.2, kind='parasol')
     # between them: open paving, two pairs walking, three trees and lamps at the edges
     put(mprops.tree(11, 20, 15), 188.0, 34.0, kind='tree')
     put(mprops.tree(9, 20, 15), 160.0, 150.0, kind='tree')
-    put(mprops.tree(5, 24, 17), 212.0, 74.0, kind='tree')
+    put(mprops.tree(5, 24, 17), 214.0, 70.0, kind='tree')
     put(mprops.tree(3, 22, 16), 204.0, 99.0, kind='tree')
     put(mprops.tree(15, 20, 15), 170.0, 104.0, kind='tree')
     for (x, y) in ((150.0, 70.0), (186.0, 60.0), (126.0, 46.0)):
@@ -348,10 +356,10 @@ def export(outdir):
                 for y in range(0, 481, 20) for x in range(0, 481, 20))
     print('worst road window %.0f%% at x %d y %d' % (100 * worst[0], worst[1], worst[2]))
     print('check_density:', 'PASS' if not fails else fails, '| objects', len(objs), '| bare paving %.1f%%' % (100 * road.mean()))
-    # image B: a 150 x 150 native crop around the wedding at 8x
+    # image B: a 140 x 140 native crop around the wedding at 8x
     bx0, by0 = int(sys.argv[3]) if len(sys.argv) > 3 else 128, int(sys.argv[4]) if len(sys.argv) > 4 else 128
-    crop = im.crop((bx0, by0, bx0 + 150, by0 + 150))
-    crop.resize((1200, 1200), Image.NEAREST).save(out / '08-b.png')
+    crop = im.crop((bx0, by0, bx0 + 140, by0 + 140))      # a 140 px native square at 8x
+    crop.resize((1120, 1120), Image.NEAREST).save(out / '08-b.png')
     return slots
 
 def to_rgb(slots, pal):

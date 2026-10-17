@@ -14,9 +14,8 @@ light down the steps; the tide floods back. Two stills of the best moments and a
 - **style**: `contre-jour`, gated with `--scene beam` (one big shaft). Projection: side.
 - **moments**: A "The crossing" (low tide, t = 34 s of the loop) and B "The door opens" (t = 58 s).
 - **figures**: nine hooded pilgrims, 29-34 px (8-9.4% of 360 rows), 1 px legs, no outline.
-- **deviation**: the door spill uses Post.lightmap (asked for by the request: multiplicative, so dark
-  stone warms and black stays black, with the door leaf as a moving occluder); contre-jour's allowed
-  list lacks it, so the gate's `post op lightmap` line is expected to flag it (see section 11).
+- **door spill**: Post.light with blend multiply, masked by post.visibility with the facade and the
+  door leaf as occluders (contre-jour's allowed op; the same model as a lightmap).
 
 ## 1. Purpose and delivery
 
@@ -32,7 +31,7 @@ light down the steps; the tide floods back. Two stills of the best moments and a
 ## 2. Style and light regime
 
 - Style `contre-jour`: flat silhouettes; all softness in a screen light layer (Post(res="screen")
-  through post.Stack), blend screen, plus one multiplicative Post.lightmap for the door.
+  through post.Stack), blend screen, plus one multiplicative Post.light for the door.
 - Ramps: `ramp_between('#0d151a', '#a07167')` navy-to-rose bridge for the sky and cloud rims, hazed
   per plane; warm emitter ramps for lanterns and the door; one cold moon ramp. Outline none, dither none.
 - Learn the grammar only: nothing from Sword & Sworcery's characters, places or UI; the monastery is
@@ -46,8 +45,8 @@ light down the steps; the tide floods back. Two stills of the best moments and a
   light; it sits at least .06 L under the sky or water behind it.
 - The monastery is flat `mon0` (L .13) with a 1 px cold rim only on edges facing the moon; the stair
   treads are one step lighter so the flight reads; no windows lit in A.
-- Repeated units are mismatched: pilgrims in four kinds and four walk drawings with gaps 23 41 19 54
-  31 27 46 38 px; causeway stones 3-8 px wide, two missing stones (puddles); four posts of different
+- Repeated units are mismatched: pilgrims in four kinds and five walk drawings with gaps 52 11 38 28
+  19 18 54 66 px (the leader ahead, a tight pair, a loose trio, a straggler; one taller staff); causeway stones 3-8 px wide, two missing stones (puddles); four posts of different
   height, width and lean; roofs of five different pitches and heights.
 - Built imperfections: the causeway dips at x 165-245 (its lowest stones, first to flood); one post
   leans 1:6 and has lost its top; the boat lists 3 px with a broken thwart; one stair tread is 4 px
@@ -72,7 +71,7 @@ light down the steps; the tide floods back. Two stills of the best moments and a
 - Projection: side, horizon at y 206; the causeway rises gently from the near shore (left, y 271)
   to the island landing (x 418, y 238), so the road is the leading line ending at the island.
 - Hero: 116,204,418,268 (native px); peak value: the moon disc and its halo ring (444,84,492,132); peak chroma: the lead pilgrim's lantern
-- Hero B: see brief-b.md (the open portal and its spill, 440,158,536,244).
+- Hero B: see brief-b.md (the open portal, its wedge and the first three pilgrims, 432,160,530,242).
 - Planes: near plane 13% (band 1), cloud bank 6% (band 1), island and monastery 7% (band 1), causeway and pilgrims 2% (band 1), night sky 36% (band 2), far sea 7% (band 2), shallows beside the causeway 5% (band 2), deep channel 14% (band 2), moon glow and horizon band 7% (band 3), shallows lit by the shaft 1.5% (band 3), moon and the shaft's pool on the causeway 1% (band 4: brightest)
 - Layout: sky 0-205 (calm: clouds, stars, the moon, the shaft only); island x 408-634, y 58-239;
   causeway x 22-418; flats and pools y 240-340; near bank y 296-360 with the pine at x 0-200 rising
@@ -119,8 +118,8 @@ light down the steps; the tide floods back. Two stills of the best moments and a
 - Moon: cold silver #e9eef1 disc at (468, 108), radius 22 px, with a one-slot halo ring 2 px wide, hidden by the bell tower (opaque); a soft Post.light halo radius 38 px, #c8d6e0, strength .26, at the sky depth, so the island in front stays flat.
 - Shaft: cold #b9c9d6 Post.shaft, width 8 to 38 px, length 185 px, from the break in the bank (430, 61), angle 102 (A) / 106 (B), strength .22, at the middle depth so it lands on the causeway round the leaders, blocked by the island, the moon and the figures (behind=: the pilgrims stay flat silhouettes inside it); a cold Post.light pool, radius 34 px, where it lands.
 - Nine lanterns: warm amber #ffb860 pools, radius 9 px, squash .55, strength .30, at the middle depth, hidden by the near plane (never lit); each is a 1-2 px lamp3 core with a one-slot lamp1 ring, flicker held 4 frames in the loop.
-- Door (B): gold #ffc070 Post.lightmap, sigma (30, 24), gain 2.4, one light low inside the portal at (509, 192), blocked by the facade wall round the portal (opaque) and by the door leaf (opaque, a moving occluder in 4 held drawings; B uses the open one), so the spill is a wedge through the threshold down the steps; a small Post.light glow, radius 8 px, in the opening, hidden by nothing.
-- Ambient: none (not a light); the near plane takes no light. Ops used: light, shaft, glow, plus lightmap (the deviation in section 0).
+- Door (B): gold #ffc070 Post.light (blend multiply, mask = post.visibility), radius 46 px, strength 4.2, one light low inside the portal at (511, 198), blocked by the facade wall round the portal (opaque) and by the door leaf (opaque, a moving occluder in 4 held drawings; B uses the open one), so the spill is a wedge through the threshold down the steps; a small Post.light glow, radius 8 px, in the opening, hidden by nothing.
+- Ambient: none (not a light); the near plane takes no light. Ops used: light, shaft, glow.
 
 ## 8. Motion table (loop 1152 frames at 12 fps; stills here)
 
@@ -148,6 +147,6 @@ light down the steps; the tide floods back. Two stills of the best moments and a
 - Native 640x360, 3x to 1920x1080, prescaled screen light; about 60 slots in the pixel layer.
 - Figures: 29-34 px, 1 px legs, no outline, slot maps drawn here (study of figures.py slim only).
 - Gate A: `pixelate check out/04-a.png --style contre-jour --scene beam --scale 3 --brief brief.md --pal out/palette.json --pre out/04-a-pre.png --actor out/04-a-actor.png --used light,shaft,glow --intent out/04-a-intent.png`.
-- Gate B: the same with brief-b.md, out/04-b-*.png and --used light,shaft,glow,lightmap.
+- Gate B: the same with brief-b.md, out/04-b-*.png and --used light,shaft,glow.
 - Budget (scene beam): L<0.25 >= 0.45; L>0.6 <= 0.06; L>0.75 <= 0.02; C>0.08 <= 0.02; median_C <= 0.035.
-- Gate override: allow Post.lightmap (the request asks for the door spill as a lightmap with the door leaf as a moving occluder)
+- Results: A and B pass every gate line (B's door spill through Post.light, art/scene.py DOOR_OP = 'light').

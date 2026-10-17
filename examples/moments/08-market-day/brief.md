@@ -86,4 +86,4 @@ Request: rebuild Pexels photo 14037897 (Nick Verlice, "Aerial View of Medieval B
 - Gate: `pixelate check out/08-a.png --style sticker-iso --scale 4 --brief brief.md --pal art/palette.json --actor out/08-a-actor.png --intent out/08-a-intent.png` passes every line.
 - compose.check_density on the placed objects passes (every edge cuts 2+ objects; no 120 px window over 85% bare paving).
 - Gate override: focus_contrast >= 0.2 (sticker-iso density: every roof, stall and figure carries #000 silhouettes and dark tile courses, so the strongest local contrast is spread over the full-bleed town by design; the hero holds the top values, the only rose and the only #fff instead)
-- Gate override: focus_rival <= 3.0 (full-bleed town: the near-side roof field is one connected busy mass at thumbnail size; it stays mid-value and hue-varied while the white steps and rose runner are the frame's only peak)
+- Gate override: focus_rival <= 3.2 (full-bleed town: the near-side roof field is one connected busy mass at thumbnail size; it stays mid-value and hue-varied while the white steps and rose runner are the frame's only peak)

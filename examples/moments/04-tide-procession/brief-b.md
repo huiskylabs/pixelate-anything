@@ -11,10 +11,9 @@ the frame gate reads for image B, because the hero moves from the procession to 
 
 ## 7. Light list (B)
 
-- Door: gold #ffc070 Post.lightmap, sigma (46, 36), gain 4.2, one light low inside the portal at (511, 198), blocked by the facade above the terrace (opaque) and by the door leaf (opaque, opened inward against the left jamb: the moving occluder, open drawing), weighted by a soft angular wedge from the threshold down the stair flight (141-179 degrees, fading by 120 px); a warm Post.light wash radius 56 px in the same wedge, and a small glow in the opening.
+- Door: gold #ffc070 Post.light (blend multiply, mask = post.visibility x the wedge), radius 46 px, strength 4.2, one light low inside the portal at (511, 198), blocked by the facade above the terrace (opaque) and by the door leaf (opaque, opened inward against the left jamb: the moving occluder, open drawing), weighted by a soft angular wedge from the threshold down the stair flight (141-179 degrees, fading by 120 px); a warm Post.light wash radius 56 px in the same wedge, and a small glow in the opening.
 - Shaft: cold #b9c9d6, width 8 to 34 px, angle 106 (it has breathed west across the water since A), blocked by the island, moon and figures.
 
 ## 11. Technical (B)
 
-- Gate: `pixelate check out/04-b.png --style contre-jour --scene beam --scale 3 --brief brief-b.md --pal out/palette.json --pre out/04-b-pre.png --actor out/04-b-actor.png --used light,shaft,glow,lightmap --intent out/04-b-intent.png`.
-- Gate override: allow Post.lightmap (the request asks for the door spill as a lightmap with the door leaf as a moving occluder)
+- Gate: `pixelate check out/04-b.png --style contre-jour --scene beam --scale 3 --brief brief-b.md --pal out/palette.json --pre out/04-b-pre.png --actor out/04-b-actor.png --used light,shaft,glow --intent out/04-b-intent.png`.

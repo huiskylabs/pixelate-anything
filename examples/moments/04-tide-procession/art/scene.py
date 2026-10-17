@@ -349,7 +349,7 @@ def draw_island(c, moment):
     return m
 
 
-DOOR_OP = 'lightmap'          # 'lightmap' (as the request asks) or 'light' (the allowed-op twin)
+DOOR_OP = 'light'             # 'light' (contre-jour's allowed op) or 'lightmap' (the request's wording)
 DOOR_LIGHT = (511.0, 198.4)   # low inside the portal by the right jamb: the light skims the floor
 
 

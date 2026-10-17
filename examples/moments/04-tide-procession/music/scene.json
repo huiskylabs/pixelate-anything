@@ -1,6 +1,6 @@
 {
   "title": "Pixel Radio",
-  "description": "A generative soundtrack that moves from a chiptune overworld theme into an ambient drift and back.",
+  "description": "The 5 s door-opens sample of Tide Procession: a D Dorian ambient bed at 60 bpm with a bronze bell.",
   "alt": "A small pixel-art equaliser that changes colour with the music.",
   "files": ["palettes.js", "scene.js"]
 }

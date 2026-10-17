@@ -2,9 +2,9 @@
 
 Contrast does everything: shade 3 is rationed to the glider's cloth, the sun, its glitter, the crag's
 rim, a few windows and the post office's sunlit gable; the crag behind the glider is shade 0. The sky
-is shade 2 with 2-row checkers into shade 1 at the top and shade 3 round the sun. Sprites use the two
-object palettes: OBP0 (0, 2, 3) for the wing, the satchel, gulls and the boat; OBP1 (0, 1, 3) for the
-postmaster. The rock is one 32x32 metatile (periodic) so the 360 screen tiles fit the 256-tile table.
+is shade 2 with 2-row checkers into shade 1 at the top and shade 3 round the sun. Sprites are 3 shades
+plus transparent on object palette OBP0 (0, 2, 3): the wing, the postmaster (a shade 2 jacket so he
+reads on the shade 0 crag), the satchel, gulls and the boat; 24 hardware sprites, at most 10 a line. The rock is one 32x32 metatile (periodic) so the 360 screen tiles fit the 256-tile table.
 
 Run: python3 art/panel_gb.py -> out/panel-gb.png, out/panel-gb-bg.png (+ @4x)
 """

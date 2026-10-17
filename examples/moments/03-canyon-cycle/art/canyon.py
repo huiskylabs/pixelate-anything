@@ -219,13 +219,6 @@ def rock_step(c):
             c.put(jx, y, 'H0')
             if m[y, jx + 1] and hsh(jx, y) < 0.8:
                 c.put(jx + 1, y, 'H2')
-    for (x0, x1, y) in ((97, 126, 104), (131, 152, 101), (156, 172, 103), (192, 212, 106),
-                        (99, 118, 114), (124, 141, 112), (148, 168, 115), (194, 206, 113)):
-        for x in range(x0, x1):
-            if m[y, x]:
-                c.put(x, y, 'H0')
-                if m[y - 1, x] and c.get(x, y - 1) == 'H1' and hsh(x, y, 2) < 0.5:
-                    c.put(x, y - 1, 'H2')
     for x in range(96, 215):
         top = next((y for y in range(85, 124) if m[y, x]), None)
         if top is not None:

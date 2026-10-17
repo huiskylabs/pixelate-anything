@@ -71,6 +71,7 @@ PAL['wisp0'] = P.from_lch(.318, .020, 300)
 PAL['pool4'] = P.from_lch(.380, .016, 240)
 PAL.update(_r('deep', [(.176, .020, 236), (.200, .020, 236)]))
 PAL['refl0'] = P.from_lch(.140, .016, 240)
+PAL.update(_r('wst', [(.150, .026, 48), (.185, .030, 52)]))
 PAL['leaf0'] = P.from_lch(.138, .012, 60)
 PAL['sil0'] = P.from_lch(.112, .012, 246)
 
@@ -320,14 +321,16 @@ def draw_island(c, moment):
         # tread edges and the terrace lip inside the wedge take the door's colour, stepping down
         lx, ly = DOOR_LIGHT
         vis = post.visibility(occ, lx, ly, 160)
+        warm = (wedge > 0.35) & m & (c.g == 'mon0') & (vis > 0.5)
+        c.g[warm] = 'wst0'
         for i, (sx, sy) in enumerate(G.STEPS):
             nxt = G.STEPS[i + 1][0] if i + 1 < len(G.STEPS) else 477
             for x in range(sx, nxt):
-                if wedge[sy, x] and vis[sy, x] > 0.5:
+                if wedge[sy, x] > 0.2 and vis[sy, x] > 0.5:
                     d = math.hypot(x - lx, sy - ly)
                     c.g[sy, x] = 'door2' if d < 34 else 'door1' if d < 70 else 'door0'
         for x in range(477, 532):
-            if wedge[G.TERRACE_Y, x] and vis[G.TERRACE_Y, x] > 0.5:
+            if (wedge[G.TERRACE_Y, x] > 0.2 or abs(x - lx) < 9) and vis[G.TERRACE_Y, x] > 0.5:
                 d = abs(x - lx)
                 c.g[G.TERRACE_Y, x] = 'door3' if d < 8 else 'door2' if d < 20 else 'door1'
     # cold rims on the silhouette edges that face the moon
@@ -363,8 +366,13 @@ def door_setup():
     isl = G.island_mask()
     yy, xx = np.mgrid[0:H, 0:W]
     occ = (isl & (yy < yth) & ~opening) | leaf
-    wedge = G.mask_poly([(515, 199), (499, 199), (470, 200), (440, 216), (404, 238), (404, 246),
-                         (436, 246), (470, 236), (500, 214), (518, 203)])
+    lx, ly = DOOR_LIGHT
+    ang = np.degrees(np.arctan2(yy + 0.5 - ly, xx + 0.5 - lx)) % 360
+    dist = np.hypot(xx + 0.5 - lx, yy + 0.5 - ly)
+    lo, hi, taper = 141.0, 179.0, 7.0                    # the flight spans 158-178 deg from the door
+    a = np.clip(np.minimum(ang - lo, hi - ang) / taper, 0, 1)
+    wedge = (np.sin(a * math.pi / 2) ** 1.5) * np.clip(1.15 - dist / 120.0, 0, 1)
+    wedge[yy < yth] = 0.0
     return opening, leaf, occ, wedge
 
 
@@ -800,15 +808,14 @@ def render(moment):
         if moment == 'b':
             opening, leaf, occ, wedge = door_setup()
             lx, ly = DOOR_LIGHT
-            geo = np.where(wedge, 1.0, 0.0)
-            geo = np.where(wedge & figs, 0.55, geo)          # figures in the wedge take some of it
+            geo = np.where(figs, 0.5 * wedge, wedge)          # figures in the wedge take some of it
             col = (1.0, 0.70, 0.36)
             if DOOR_OP == 'lightmap':
-                p.lightmap(ambient=1.0, lights=[(lx, ly, (40, 30), col, 5.0, 0.0)], cap=8.0, geo=geo,
+                p.lightmap(ambient=1.0, lights=[(lx, ly, (46, 36), col, 4.2, 0.0)], cap=8.0, geo=geo,
                            occlude=occ, keep=opening | leaf)
             else:                                           # the same model through Post.light
                 vis = post.visibility(occ, lx, ly, 160)
-                p.light(lx, ly, 40, col, strength=5.0, profile='gauss', squash=0.75, blend='multiply',
+                p.light(lx, ly, 46, col, strength=4.2, profile='gauss', squash=0.78, blend='multiply',
                         mask=geo * vis, behind=opening | leaf)
             p.light(lx - 4, ly - 14, 10, LIGHT['door'], strength=0.22, behind=occ)
             p.glow(mask=opening & ~leaf, kernel='gauss', radius=(1.5, 4.0), weights=(0.6, 0.4),

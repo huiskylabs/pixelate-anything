@@ -71,6 +71,9 @@ Then ask your agent for anything pixel art:
 ## CLI
 
 ```
+pixelate route --intake "make a pixel scene"          # JSON plan with optional questions for a generic scene
+pixelate route "a rainy town" --brief -o brief.md    # pre-filled scene brief
+pixelate route --lint brief.md                       # check the completed brief
 pixelate image photo.jpg -o out.png --width 96 --palette sweetie-16
 pixelate era screen.png --era gameboy               # does it obey the console's limits?
 pixelate palette ramps sky=#3b5dc9 leaf=#5aa04a --steps 5 -o pal/mine
@@ -84,10 +87,13 @@ pixelate critique --brief brief.md                  # an independent art directo
 pixelate critique still.png --brief brief.md        # ... and then the still
 ```
 
+Intake offers two optional questions for a generic scene request. A specific request goes straight to routing. The brief records camera choices; for a photo without a named view, inspect the reference before choosing one.
+
 ## MCP tools
 
 The server's tools:
 - **Guides and projects:** `guide`, `new_project`.
+- **Intake and briefs:** `intake_request`, `route_request`, `write_brief`, `lint_brief`. The same routing and brief steps are available without a shell.
 - **Styles and the kit on demand:** `style_card`, `kit_tools` (the same as `pixelate style NAME` and `pixelate tools [QUERY]`).
 - **Files:** `write_file`, `read_file`, `list_files`. Writes stay inside the workspace.
 - **Image, palette, assets:** `pixelate_image`, `palette`, `export_assets`, `generate_sprites`.
@@ -103,7 +109,8 @@ Tools that make pictures return them as images, so the agent can judge its own w
 | `SKILL.md` | lean entry point: the ten steps, each naming one command and one file to read |
 | `guides/` | one guide per mode: rebuild, eras, pixelate, palettes, assets, scenes, music |
 | `references/` | `brief.md` (intent to approved brief), `drawing.md` (how to draw), `delivery.md` (gate, art director, still, animation plan), `art-director.md` (the critique rubric); the scene engine API |
-| `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: projections and boxes; `sdf.py`: curved solids) |
+| `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: orthographic projections and boxes; `sdf.py`: curved solids) |
+| `tools/route_regression_cases.py`, `tests/` | routing examples and intake tests |
 | `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
 | `templates/` | `scene`, `music` and `assets` starting points |
 | `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `retro` (original 8-bit and Game Boy-style screens), `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (what the demos make) |

@@ -131,6 +131,31 @@ def moss_tile(mask, var):
             near = any(not moss(x + dx, y + dy) for dx in range(-3, 4) for dy in range(-3, 4))
             if near and h32(x, y, seed + 77) < 0.16:
                 g.set(x, y, 'moss3'); n += 1
+    # break the glowing fringe into clusters: runs of glow (moss3) with uneven dark gaps (fringe:
+    # the same colour by day, the plain moss edge at night). Denser on the south-facing lip.
+    edge = {(x, y) for y in range(T) for x in range(T)
+            if g.a[y][x] == 'moss3' and moss(x, y) and not inner(x, y)}
+    glow = set()
+    for (x, y) in edge:
+        lip = not moss(x, y + 1)
+        thr = 0.40 if lip else 0.58
+        if _vnoise(x, y, seed + 300, 3) > thr:
+            glow.add((x, y))
+    for (x, y) in list(glow):                  # no lone glow pixels on the fringe
+        if not any((x + dx, y + dy) in glow for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy):
+            glow.discard((x, y))
+    for (x, y) in edge - glow:
+        g.a[y][x] = 'fringe'
+    # a 2x2 spore patch just inside the edge (moss body by day), on about half the tiles
+    if h32(seed, 21, 91) < 0.55:
+        cands = [(x, y) for y in range(2, T - 3) for x in range(2, T - 3)
+                 if all(g.a[y + j][x + i] == 'moss2' and inner(x + i, y + j) for i in (0, 1) for j in (0, 1))
+                 and any(not moss(x + dx, y + dy) for dx in range(-3, 5) for dy in range(-3, 5))]
+        if cands:
+            x, y = cands[int(h32(seed, 22, 93) * len(cands))]
+            for i in (0, 1):
+                for j in (0, 1):
+                    g.a[y + j][x + i] = 'spore'
     return g
 
 

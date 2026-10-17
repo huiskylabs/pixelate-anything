@@ -38,5 +38,9 @@
  "lamp_w1": "#86705a",
  "lamp_w2": "#b8a07a",
  "lamp_q1": "#2b5652",
- "lamp_q2": "#4d7b6b"
+ "lamp_q2": "#4d7b6b",
+ "fringe": "#b0b95c",
+ "spore": "#6a9238",
+ "lamp_hot1": "#86705a",
+ "lamp_rim": "#2b5652"
 }

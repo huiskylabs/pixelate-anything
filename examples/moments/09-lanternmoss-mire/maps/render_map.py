@@ -57,6 +57,8 @@ def parse(path):
 POOL_CORE = {'wood1': 'lamp_w1', 'wood2': 'lamp_w2', 'water1': 'lamp_q1', 'water2': 'lamp_q2',
              'shallow': 'lamp_q1', 'lap': 'lamp_q2'}
 POOL_RIM = {'wood2': 'lamp_w2', 'water2': 'lamp_q2', 'lap': 'lamp_q2'}
+POOL_HOT = {'wood1': 'lamp_hot1', 'wood2': 'lamp_w2', 'water1': 'lamp_q1', 'water2': 'lamp_q2',
+            'shallow': 'lamp_q1', 'lap': 'lamp_q2'}          # the warmer step right under the lantern
 
 
 def check_corners(corners):
@@ -117,6 +119,7 @@ def compose(sprites, d, pool_at, k=0):
                 var = ('moss_peat', 'moss_peat_b', 'moss_peat_c')[int(h(tx, ty, 11) * 3)]
                 stamp(g, S[var]['frames'][idx], tx * T, ty * T)
     bw = S['boardwalk']['frames']
+    deckmask = set()
     for ty, row in enumerate(deck):
         for tx, ch in enumerate(row):
             if ch == '.':
@@ -127,14 +130,24 @@ def compose(sprites, d, pool_at, k=0):
                 name = 'v_a' if (tx + ty) % 2 else 'v_b'
             else:
                 name = DECK[ch]
-            stamp(g, bw[DECK_FRAMES.index(name)], tx * T, ty * T)
+            f = bw[DECK_FRAMES.index(name)]
+            stamp(g, f, tx * T, ty * T)
+            deckmask |= {(tx * T + x, ty * T + y) for y in range(T) for x in range(T) if f.a[y][x] is not None}
     px, py = pool_at
+    inpool = {(px + i, py + j) for j, row in enumerate(d['pool']) for i, ch in enumerate(row) if ch in '#+@'}
+    for (X, Y) in sorted(inpool):                # a 1 px warm rim where the water meets the boardwalk
+        if (X, Y) in deckmask or not (0 <= X < g.w and 0 <= Y < g.h):
+            continue
+        top = (X, Y + 1) in deckmask and g.a[Y + 1][X] == 'ol'
+        bottom = (X, Y - 1) in deckmask and g.a[Y - 1][X] == 'water0' and (X, Y + 1) not in deckmask
+        if (top or bottom) and g.a[Y][X] in ('water1', 'water2'):
+            g.a[Y][X] = 'lamp_rim' if g.a[Y][X] == 'water1' else 'lamp_q2'
     for j, row in enumerate(d['pool']):
         for i, ch in enumerate(row):
             X, Y = px + i, py + j
-            if ch in '#+' and 0 <= X < g.w and 0 <= Y < g.h:
+            if ch in '#+@' and 0 <= X < g.w and 0 <= Y < g.h:
                 v = g.a[Y][X]
-                g.a[Y][X] = (POOL_CORE if ch == '#' else POOL_RIM).get(v, v)
+                g.a[Y][X] = {'#': POOL_CORE, '+': POOL_RIM, '@': POOL_HOT}[ch].get(v, v)
     for name, x, y, fi, fl in sorted(props, key=lambda p: p[2]):
         if name not in S:
             print('map: unknown prop', name)

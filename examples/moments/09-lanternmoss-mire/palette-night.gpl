@@ -42,3 +42,7 @@ Columns: 8
 216 135  63	lamp_w2
  49  32  58	lamp_q1
 224 154  74	lamp_q2
+ 27  60  80	fringe
+ 54 190 150	spore
+196 112  58	lamp_hot1
+232 162  76	lamp_rim

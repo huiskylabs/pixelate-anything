@@ -348,8 +348,8 @@ def camera_intent(request):
             for match in re.finditer(pattern, t):
                 if re.match(r'-(?:looking|inspired|like)\b', t[match.end():]):
                     continue
-                if re.search(r'\b(?:not|no|without|avoid|instead of|rather than)\s+'
-                             r'(?:(?:in|an?|the)\s+)?$', t[:match.start()]):
+                if re.search(r'\b(?:not|no|without|avoid|instead of|rather than|over)\s+'
+                             r'(?:(?:longer|use|draw|choose|in|an?|the)\s+){0,3}$', t[:match.start()]):
                     negated.append(match.span())
                 else:
                     positive.add(label)
@@ -1995,6 +1995,8 @@ CAMERA_CASES = [
     ('Rebuild this photo in two-point perspective rather than one-point perspective.', 'two-point perspective'),
     ('Rebuild this photo in two-point perspective; avoid one-point perspective.', 'two-point perspective'),
     ('Rebuild this photo in two-point perspective, not in one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo using two-point perspective over one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo; do not use one-point perspective; choose two-point perspective.', 'two-point perspective'),
     ('Rebuild this photo in one-point perspective, not two-point perspective.', 'one-point perspective'),
     ('Rebuild this photo in one-point perspective instead of two-point perspective.', 'one-point perspective'),
     ('Rebuild this two-point perspective photo of an isometric-looking city.', 'two-point perspective'),
@@ -2013,6 +2015,8 @@ CAMERA_DEFAULT_CASES = [
     ('Rebuild this photo, not one-point perspective.', 'inspect reference'),
     ('Rebuild this photo, not isometric.', 'inspect reference'),
     ('Rebuild this photo, without an isometric view.', 'inspect reference'),
+    ('Rebuild this photo of a city; do not use one-point perspective.', 'inspect reference'),
+    ('Rebuild this photo, no longer in one-point perspective.', 'inspect reference'),
     ('Rebuild this photo in one-point perspective or two-point perspective.', 'inspect reference'),
 ]
 
@@ -2038,6 +2042,8 @@ BRIEF_CASES = [
     ('Rebuild this photo of a corner in two-point perspective.', None, None,
      ['- Projection: two-point perspective.', 'both vanishing points in native px']),
     ('Rebuild this photo in two-point perspective instead of one-point perspective.', None, None,
+     ['- Projection: two-point perspective.', 'both vanishing points in native px']),
+    ('Rebuild this photo using two-point perspective over one-point perspective.', None, None,
      ['- Projection: two-point perspective.', 'both vanishing points in native px']),
     ('Rebuild this photo of a street.', None, None,
      ['- Projection: inspect reference.', '- Camera: TODO inspect the reference',

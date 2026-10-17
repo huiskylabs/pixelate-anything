@@ -121,6 +121,20 @@ class ReviewStatusTest(unittest.TestCase):
             review_status.record(self.brief, self.report)
         self.assertIn('RECORDED A', review_status.record(self.brief, self.report, self.frame))
 
+    def test_generated_short_brief_without_title_marker_still_skips_brief_review(self):
+        result = subprocess.run([sys.executable, str(ROOT / 'pixelate'), 'route',
+                                 'pixelate this reference photo of a street in two-point perspective',
+                                 '--brief', '-o', str(self.brief)], cwd=self.work,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        text = self.brief.read_text()
+        self.assertIn('Show the user (see references/delivery.md#still)', text)
+        self.brief.write_text(text.replace('(short brief: photo)', '', 1))
+        self.assertTrue(route._is_short(self.brief.read_text()))
+        self.assertIn('short brief skips', review_status.status(self.brief)[1])
+        self.assertNotEqual(self.cli('record', '--critique', self.report).returncode, 0)
+        self.assertIn('RECORDED A', review_status.record(self.brief, self.report, self.frame))
+
     def test_short_brief_size_and_unsafe_manifest(self):
         self.brief.write_text('# Lantern (short brief: sprite)\n## Gate\ncheck\n')
         self.assertIn('short brief skips', review_status.status(self.brief)[1])

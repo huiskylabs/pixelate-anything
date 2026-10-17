@@ -115,7 +115,9 @@ def write_brief(request: str, out: str, style: str = '', size: str = '', scale: 
 @server.tool()
 def lint_brief(path: str) -> str:
     """Self-critique a filled brief: TODOs left, thin or missing sections, vague words, motion periods
-    that don't divide the loop, kit names that don't exist. Fix until it says ready, then show the user."""
+    that don't divide the loop, kit names that don't exist. Fix until it says ready; a full brief
+    needs an independent A within the review budget before asking the user to approve it. A short
+    brief skips brief-stage review."""
     return cli('route', '--lint', P(path))[1]
 
 @server.tool()

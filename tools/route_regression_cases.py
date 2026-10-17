@@ -214,5 +214,6 @@ BRIEF_AVOID_CASES = [
 
 SHORT_BRIEF_CASES = [
     ('pixelate this reference photo of a street in two-point perspective',
-     ['**camera**: two-point perspective'], ['iso.Iso.box', '2:1 slope']),
+     ['**camera**: two-point perspective', '`pixelate critique out.png --brief brief.md`',
+      'at most three critique rounds by default'], ['iso.Iso.box', '2:1 slope']),
 ]

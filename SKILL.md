@@ -14,11 +14,11 @@ Copy these 10 steps into your todo list first; a skipped step stays as `skip: <r
 1. **Check intake, then read the intent.** Run `pixelate route --intake "REQUEST"` (or MCP `intake_request`). Only when disposition is `offer`, optionally ask its two questions. Accept answers in the user's own words, proceed if they skip, and combine explicit answers with the original request before the brief. For `direct`, proceed without intake questions. Read `references/brief.md#read-the-intent`.
 2. **Route as a hint, in the same call as the brief.** Run `pixelate route "CLARIFIED REQUEST" --brief [STYLE] -o brief.md` (`--full` forces all 11 sections). Section 0 shows the style, runners-up and defaults; if your intent read disagrees, rerun with that STYLE. Skip plain `pixelate route` and `pixelate style --list` unless no runner-up fits.
 3. **Expand into a brief.** Fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md`, `examples/lantern-isle/BRIEF.md` (the bar) and, in era mode, `guides/eras.md` (the limits); each TODO names the `references/drawing.md` section and command it needs.
-4. **Block-in, then art director on the brief.** Draw the brief's boxes as a greyscale block-in; pass `pixelate check BLOCKIN.png --blockin --brief brief.md`. Give a separate agent the prompt from `pixelate critique --brief brief.md --block BLOCKIN.png`, apply its changes and lint within the review budget (`references/delivery.md#art-director`); a short brief skips this review.
+4. **Block-in, then art director on the brief.** Draw the brief's boxes as a greyscale block-in; pass `pixelate check BLOCKIN.png --blockin --brief brief.md`. Give a separate lead agent the prompt from `pixelate critique --brief brief.md --block BLOCKIN.png`, apply its changes and lint within the review budget (`references/delivery.md#art-director`); a short brief skips this review. After its first round, optional scoped specialists (`--role composition|lighting|set|character`) observe without grading; pass up to two notes total to the lead via `--consult`.
 5. **The user confirms the brief.** Read `references/brief.md#confirm`.
 6. **Draw everything from scratch in code.** Read the mode's guide (below), run `pixelate tools TOPIC` or `MODULE`, and read the `references/drawing.md` section for what you draw.
 7. **Pass the gate.** Run `pixelate check FRAME.png --style S --scale N`; redraw until every line passes: that means legal, not good. Read `references/delivery.md#gate`.
-8. **Art director on the still.** As in step 4, with `pixelate critique FRAME.png --brief brief.md --prev LAST.md`, gating again after each fix. Stop automatic review after the third non-A grade by default; report the grade and unresolved ranked fixes and ask the user whether to continue or change the brief (`references/delivery.md#art-director`).
+8. **Art director on the still.** As in step 4, with `pixelate critique FRAME.png --brief brief.md --prev LAST-LEAD.md`, gating again after each fix; `--prev` is never specialist notes. Stop automatic review after the third non-A grade by default; report the grade and unresolved ranked fixes and ask the user whether to continue or change the brief (`references/delivery.md#art-director`).
 9. **One still to the user** for go/no-go. Read `references/delivery.md#still`.
 10. **Confirm the animation plan, then animate.** Read `references/delivery.md#animation-plan`.
 
@@ -32,7 +32,7 @@ Copy these 10 steps into your todo list first; a skipped step stays as `skip: <r
 | assets | sprites, a character, items, icons, tiles to reuse | the figure is part of one scene (scene) | `guides/assets.md` |
 | music | a lofi, chiptune or ambient loop alone | it scores a scene (scene + `guides/music.md`) | `guides/music.md` |
 
-A quick image conversion: `guides/pixelate.md`. A palette: `guides/palettes.md`.
+A quick image conversion: `guides/pixelate.md`. A palette: `guides/palettes.md`. For music, after rendering and passing the music gate, optional `pixelate critique-music TRACK.wav --brief brief.md` prints a prompt for a separate agent that can actually listen (`guides/music.md`; review budget in `references/delivery.md#art-director`).
 
 ## Hard rules
 

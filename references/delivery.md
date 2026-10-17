@@ -116,15 +116,32 @@ returns a grade, 12 scores and up to 5 ranked fixes. Your own report of a fix is
 means legal, not good: never grade your own still. Don't argue with a fix; if the brief causes it,
 change the brief.
 
-Each stage (full brief and still) has a default budget of **at most three art-director critique
-calls**, counting the initial critique as round 1. After a non-A grade, apply its ranked fixes,
-re-lint the brief or pass the frame gate again, and request the next critique with `--prev LAST.md`;
-the art director checks earlier fixes as fixed, partly or not. Stop on an A. If round 3 is still
-below A, stop automatic revision and review for that stage: report the grade and unresolved ranked
-fixes to the user, and ask whether to continue reviewing or change the brief. Only a user who
-explicitly allows more rounds may extend that stage's budget. A below-A brief is not ready for
-approval or drawing; a below-A still is not a finished still for go/no-go or delivery. `pixelate
-critique` generates one prompt per call; the caller tracks the stage's rounds.
+**Review budget (visual and music).** Each full-brief and still stage allows at most three graded lead
+calls by default (including round 1); an A ends review sooner. After the first broad lead
+round, when needed, consult at most **two visual specialists total per artifact**, chosen from
+`composition`, `lighting`, `set` (architecture, props and story of place) and `character`:
+`pixelate critique FRAME.png --brief brief.md --role composition` (or use the full brief and block-in).
+Each sees the same artifact and brief and gives concrete observations, no grade. Feed their saved
+notes into a subsequent lead round using repeatable `--consult NOTE.md` (at most two); the lead
+reconciles disagreements and remains the sole A/B/C grader, 12-score rubric user and author of up
+to five ranked fixes. Specialists do not add graded rounds. `--prev LAST.md` is only the prior
+**lead** critique, never specialist notes. After a non-A lead grade, apply its ranked fixes, re-lint
+the brief or pass the frame gate again, then request the next lead critique with `--prev`; it checks
+earlier fixes as fixed, partly or not.
+
+Music review is separate and opt-in after rendering and passing `pixelate check TRACK.wav` (MCP
+`check_music`). `pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]` (MCP
+`music_critique_prompt`) prints a prompt for a separate agent to actually listen to the rendered
+audio and read the brief. The tool does not listen or invoke an agent. If the reviewer cannot hear
+the audio, it returns `NOT REVIEWED`, never a grade. Music has its own default three graded review
+calls, counting the initial call; `--prev` is the previous music critique.
+
+Stop on an A. If round 3 is still below A, stop automatic revision and review for that stage:
+report the grade and unresolved ranked fixes to the user, and ask whether to continue reviewing
+or change the brief. Only a user who explicitly allows more rounds may extend that stage's budget.
+A below-A brief is not ready for approval or drawing; a below-A still is not a finished still for
+go/no-go or delivery. Prompt commands generate one prompt per call; the caller tracks rounds and
+specialist consults.
 
 ## Still
 

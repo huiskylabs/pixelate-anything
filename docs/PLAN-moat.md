@@ -2,6 +2,8 @@
 
 Why the skill should beat a bare model given the same long prompt, and what to build so it does. The background is in `docs/HANDOFF-skill-improvements.md` (sections 2 and 6). Instructions are not a moat: models absorb them and anyone can copy `SKILL.md`. These four can be.
 
+Round-two review of this plan, after phase 1 landed: `docs/REVIEW-moat.md`.
+
 | # | Workstream | What a bare model lacks | Status |
 |---|---|---|---|
 | 1 | **The judge**: detectors that locate defects, a built-in critic, and a corpus of draft → critique → fix | It can't reliably see its own pixel-art failures, and it starts from zero every time | phase 1 implemented |

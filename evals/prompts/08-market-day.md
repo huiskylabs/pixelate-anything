@@ -1,0 +1,5 @@
+Rebuild the reference aerial photo of a historic town (a long pedestrian street from a cathedral square up to a square with a large arcaded hall, steep tiled roofs with stacked dormers, half-timbered fronts) as full-bleed 2:1 isometric pixel art at 600x600, delivered at 4x: noon, flat bright paint, black outlines, no light or shadow. Keep the real footprint: the long street, its mouths, both squares and the hall.
+
+Fill it with a market (striped awnings in four paint colours rationed by stall type, crates, a flower cart) and with life as small stories, never confetti: a wedding party on the hall's steps throwing petals (the hero, with the top chroma), a dog stealing a fish, a juggler with a ring of watchers, kids chasing pigeons, a brass band snaking through the stalls, a vendor arguing over a melon, a cyclist with a crate of bread, a kite stuck on the hall roof.
+
+Deliver two images: A, the full frame, and B, an 8x crop around the wedding. Also a 5-second sound sample: a brass-band oom-pah march in B-flat at about 112 bpm over a soft crowd murmur.

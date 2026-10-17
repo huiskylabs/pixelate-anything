@@ -6,8 +6,8 @@ Why the skill should beat a bare model given the same long prompt, and what to b
 |---|---|---|---|
 | 1 | **The judge**: detectors that locate defects, a built-in critic, and a corpus of draft → critique → fix | It can't reliably see its own pixel-art failures, and it starts from zero every time | phase 1 implemented |
 | 2 | **Recipes**: composed generators that work on the first try | It rewrites the same hard parts (rock, water, clouds, perspective, crowds) in hundreds of lines and gets them wrong | phase 1 implemented |
-| 3 | **Exactness by construction**: one command from art to verified deliverables | It is sloppy about seams, era limits, export formats and whole-pixel scaling | planned |
-| 4 | **Proof**: a benchmark of skill against bare model | Without numbers, the other three are claims | planned |
+| 3 | **Exactness by construction**: one command from art to verified deliverables | It is sloppy about seams, era limits, export formats and whole-pixel scaling | phase 1 implemented |
+| 4 | **Proof**: a benchmark of skill against bare model | Without numbers, the other three are claims | phase 1 implemented (harness only; not yet run) |
 
 ## 1. The judge
 
@@ -56,6 +56,10 @@ Every recipe uses the caller's palette slots, is deterministic for a seed, and i
 
 ## 3. Exactness by construction
 
+**Phase 1 (implemented).** `pixelate render DIR` reads `DIR/render.json` (one entry per image: draw command, frame, style or era, scale, brief, palette, pre-light frame, actor) and for each image runs the command, gates it with that image's brief lines, era-checks era images, judges it (overlay plus corpus log) and, with `--critique`, runs the art director. It prints one line per image, writes `render-report.json` and exits 1 on a failed command or gate. `pixelate check --brief brief.md --image b` reads a `## Image B` section (its Hero, Planes and Gate override lines, plus the Technical section's overrides). The doctor now tells a missing Playwright pip package apart from a browser that won't launch. Example: `examples/moments/06-quarry-wakes/render.json`.
+
+**Phase 2.** The rest of the list below: a sidecar `frame.json`, seam and export checks on every render, a skill version check, and starter templates.
+
 - `pixelate render DIR`: run the art module, export at a whole scale, write a sidecar `frame.json` (style, scale, pre-light frame, post ops, actor mask), gate, judge, and optionally critique, in one call. It returns compact defects first, with details on request.
 - Allow per-image sections in one brief (`## Image B` with its own Hero, Planes and overrides), plus `--image b`.
 - Make loops, era legality and export formats verified by default on every render: seam checks, `era` checks for era briefs, and Aseprite JSON, atlas and gapless OGG validation.
@@ -63,6 +67,8 @@ Every recipe uses the caller's palette slots, is deterministic for a seed, and i
 - Add starter templates per mode (perspective rebuild, era panel, iso diorama, vertical cover) that pass the gate empty.
 
 ## 4. Proof
+
+**Phase 1 (implemented, not yet run).** `evals/` holds the ten prompts, `evals/run.py` (two arms, the same prompt, contract and timeout; a dry run unless `--go`) and `evals/score.py` (deliverables, judge defects, sample checks, optional blind grades, a per-arm summary). See `evals/README.md`. The pilot below is the next step, and it costs tokens.
 
 - Add `evals/` with the ten `examples/moments` requests as the corpus.
 - Run two arms with the same model, prompt and token cap, and no human coaching: a bare model with a Python sandbox, and the model with the skill installed.

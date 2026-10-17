@@ -1,0 +1,7 @@
+Rebuild the reference photo of a narrow street at night after rain (a street-level, one-point-perspective shot of a shopping street with overhead signs, wires and awnings going back to a vanishing point). Record its horizon, vanishing point, crop and how much things shrink with distance, and keep that camera; don't convert it to iso. Work at 480x270 and deliver at 4x. Every moment is dim, so the warm lights always win against the cool world.
+
+The hero is a corner shopfront in the right third, about 120x90 px: its lit sign holds the peak value and one red paper lantern holds the peak chroma. The signature moment is a lit tram crossing the far end of the street: its windows slide past as a strip of warm cells, and stepped reflection columns run all the way down the wet road toward the viewer. In the foreground, a puddle about 140 px wide mirrors the street upside down.
+
+Draw the signs as invented glyphs with no readable text or brands. Include lived-in details: a folded stool under the awning, a bicycle chained to a pole, a bucket catching a leak, laundry being pulled in, a shutter half-down.
+
+Deliver two stills: A, "Downpour: the tram crosses" (rain in two depth layers, dripping awnings, the puddle broken into rings) and B, "2 a.m.: the mirror" (the street empty and still, the puddle glass-smooth and mirroring the shop, steam from one vent, a cat crossing the light pool). Also a 5-second sound sample: lofi felt piano and brushes in B minor at about 66 bpm with a heavy rain bed and one soft tram bell.

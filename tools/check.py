@@ -4,8 +4,10 @@
 usage: check.py SCENE_DIR [--page]
        check.py FRAME.png --style S --scale N [--pal palette.json] [--pre prelight.png]
                 [--actor actor_mask.png] [--used op,op] [--intent mask.png]
-                [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
-       check.py BLOCKIN.png --blockin [--scale N] [--brief brief.md] [--style S]
+                [--scene NAME] [--era ERA] [--brief brief.md [--image B]] [--budget 'RULE BOUND (reason)']
+       check.py BLOCKIN.png --blockin [--scale N] [--brief brief.md [--image B]] [--style S]
+       (--image B: a brief that serves several images reads the Hero, Planes and Gate override
+        lines under its `## Image B` heading first, then its own)
        check.py TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]
                 (the music gate: see musiccheck.py)
 
@@ -57,7 +59,7 @@ Frame mode (FRAME is an image: any scene, Python or engine, at its delivered N x
 Each check prints PASS, FAIL, WARN or SKIP with the measured value and the limit; WARN never fails.
 Exit status 1 if anything fails.
 """
-import asyncio, pathlib, re, sys
+import asyncio, os, pathlib, re, sys
 import numpy as np
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
@@ -195,6 +197,33 @@ def parse_override(text):
         v = _num(b.group('v'))
         return (key, '<=', None, v, reason) if b.group('op') == '<=' else (key, '>=', v, None, reason)
     return key, '..', _num(b.group('lo')), _num(b.group('hi')), reason
+
+IMAGE_HEAD = r'^#{2,4}\s*Image\s+%s\b.*$'
+
+def brief_for_image(path, image):
+    """a brief that serves several images can give each its own lines under `## Image B` (its Hero,
+    Planes and `- Gate override:` lines). Returns the path of a derived brief in which that section's
+    lines come first and its overrides join the Technical section's, or the brief itself when it has
+    no such section."""
+    text = pathlib.Path(path).read_text()
+    m = re.search(IMAGE_HEAD % re.escape(str(image)), text, re.M | re.I)
+    if not m:
+        return path
+    body = text[m.end():]
+    nxt = re.search(r'^#{1,4}\s', body, re.M)
+    body = body[:nxt.start()] if nxt else body
+    tech = ''
+    t = re.search(r'^#+\s*(?:\d+\.\s*)?Technical.*$', text, re.M | re.I)
+    if t:
+        tech = text[t.end():]
+        n2 = re.search(r'^#{1,2}\s', tech, re.M)
+        tech = tech[:n2.start()] if n2 else tech
+    inherited = [l for l in tech.splitlines() if OVERRIDE_LINE.match(l)]
+    import tempfile
+    fd, out = tempfile.mkstemp(prefix='brief-%s-' % image, suffix='.md')
+    with os.fdopen(fd, 'w') as f:
+        f.write('## Technical (image %s)\n%s\n%s\n\n%s' % (image, body.strip(), '\n'.join(inherited), text))
+    return out
 
 def brief_overrides(path):
     """the `- Gate override:` lines of a brief (its Technical section when it has one)"""
@@ -699,7 +728,9 @@ def frame_main(a):
     ovr = []
     while '--budget' in a:
         ovr.append(parse_override(opt('--budget')))
-    brief = opt('--brief')
+    brief, image = opt('--brief'), opt('--image')
+    if brief and image:
+        brief = brief_for_image(brief, image)
     if brief:
         ovr = brief_overrides(brief) + ovr
     if '--blockin' in a:

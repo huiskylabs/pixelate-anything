@@ -1,0 +1,93 @@
+import json
+import pathlib
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tools'))
+import check  # noqa: E402
+import render  # noqa: E402
+
+ART = '''import sys
+from PIL import Image
+im = Image.new('RGB', (64, 48), '#1b2233')
+im.paste((122, 74, 63), (0, 30, 64, 48))
+im.paste((232, 216, 160), (24, 8, 40, 20))
+im.resize((256, 192), Image.NEAREST).save('out/%s.png' % sys.argv[1])
+'''
+
+
+class BriefForImageTest(unittest.TestCase):
+    def test_image_section_comes_first_and_inherits_overrides(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = pathlib.Path(tmp) / 'brief.md'
+            p.write_text('Request: x\n## 4. The scene\n- Hero: tower\n## Image B\n- Hero: harbour\n'
+                         '- Gate override: palette, two ramps on purpose\n## 9. Technical\n'
+                         '- Gate override: focal, wide shot\n')
+            out = check.brief_for_image(str(p), 'b')
+            self.assertNotEqual(out, str(p))
+            text = pathlib.Path(out).read_text()
+            head = text.split('\n\n')[0]
+            self.assertIn('- Hero: harbour', head)
+            self.assertIn('palette, two ramps', head)
+            self.assertIn('focal, wide shot', head)
+            self.assertIn('Request: x', text)
+            self.assertEqual(check.brief_for_image(str(p), 'c'), str(p))
+
+
+class RenderTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.d = pathlib.Path(self.tmp.name)
+        (self.d / 'out').mkdir()
+        (self.d / 'art.py').write_text(ART)
+
+    def spec(self, images):
+        (self.d / 'render.json').write_text(json.dumps({'images': images}))
+
+    def cli(self, *args):
+        return subprocess.run([sys.executable, str(ROOT / 'pixelate'), 'render', str(self.d), *args],
+                              capture_output=True, text=True)
+
+    def test_runs_gates_judges_and_reports(self):
+        self.spec([{'name': 'a', 'run': '%s art.py a' % sys.executable, 'frame': 'out/a.png', 'style': 'arcade',
+                    'scale': 4},
+                   {'name': 'b', 'run': '%s art.py b' % sys.executable, 'frame': 'out/b.png', 'style': 'arcade',
+                    'scale': 4}])
+        r = self.cli('--json')
+        recs = json.loads(r.stdout)
+        self.assertEqual([x['name'] for x in recs], ['a', 'b'])
+        for rec in recs:
+            self.assertTrue(rec['run']['ok'])
+            self.assertIn('gate', rec)
+            self.assertIn('defects', rec['judge'])
+        self.assertEqual(r.returncode, 0 if all(render.ok(x) for x in recs) else 1)
+        self.assertTrue((self.d / 'render-report.json').exists())
+        one = json.loads(self.cli('--image', 'b', '--no-run', '--json').stdout)
+        self.assertEqual([x['name'] for x in one], ['b'])
+        self.assertNotIn('run', one[0])
+
+    def test_failed_command_fails_the_render(self):
+        self.spec([{'name': 'a', 'run': '%s -c "raise SystemExit(\'boom\')"' % sys.executable, 'frame': 'out/a.png',
+                    'style': 'arcade'}])
+        r = self.cli()
+        self.assertEqual(r.returncode, 1)
+        self.assertIn('RUN FAILED', r.stdout)
+
+    def test_spec_needs_a_gate_style(self):
+        self.spec([{'name': 'a', 'frame': 'out/a.png'}])
+        r = self.cli()
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn('style', r.stderr)
+
+    def test_gate_args_pass_brief_and_image(self):
+        args = render.gate_args({'name': 'b', 'frame': 'f.png', 'style': 'arcade', 'scale': 3, 'brief': 'brief.md'})
+        self.assertEqual(args[-4:], ['--brief', 'brief.md', '--image', 'b'])
+        self.assertIn('--style', args)
+
+
+if __name__ == '__main__':
+    unittest.main()

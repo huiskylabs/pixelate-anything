@@ -9,3 +9,5 @@ __pycache__/
 examples/gallery/mcp/*.gif
 .pixelate/
 *.judge.png
+render-report.json
+evals/runs/

@@ -10,6 +10,15 @@ drawn ([drawing.md](drawing.md)). Nothing is shown or delivered before the gate 
 post ops you ran) and `--intent mask.png` (flecks placed on purpose) when they apply. Engine scenes
 also run `pixelate check SCENE`. Redraw until every line passes.
 
+A brief that serves several images can give each one a `## Image B` section with its own Hero,
+Planes and `- Gate override:` lines; `--brief brief.md --image b` gates still B against them (the
+Technical section's overrides still apply). `pixelate render DIR` does the whole loop for every image
+listed in `DIR/render.json` (draw command, frame, style or era, scale, brief, palette, pre-light
+frame, actor): it runs the command, gates, era-checks era images, judges (overlay beside the frame)
+and, with `--critique`, runs the art director, then prints one line per image and writes
+`render-report.json`. `pixelate render --help` shows the format; `examples/moments/06-quarry-wakes`
+has one.
+
 The frame gate checks budget, square pixels, palette (`--pal`, `--pre`), readability (`--actor`),
 allowed post ops (`--used`), pixel craft (`--intent` marks deliberate flecks) and composition. `pixelate style S`
 prints the style's value budget and craft limits the gate holds the frame to.

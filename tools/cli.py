@@ -21,6 +21,7 @@
   pixelate check BLOCKIN.png --blockin --brief brief.md [--scale N]   the greyscale block-in, before drawing
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
   pixelate judge FRAME.png [--overlay OUT.png] [--json] [--log]   locate what the gate passes and an art director rejects
+  pixelate render DIR [--image NAME] [--critique]   draw, gate, era-check and judge every image in DIR/render.json
   pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review (--run: run it and save the critique)
   pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]   prompt an independent listening agent after the music gate
   pixelate review record --brief B [--frame F] --critique REPORT   bind external lead critique to artifact
@@ -44,7 +45,7 @@ KIT = TOOLS.parent
 SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
            'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py', 'critique-music': 'critique_music.py',
-           'judge': 'judge.py'}
+           'judge': 'judge.py', 'render': 'render.py'}
 TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
 
 def run(script, args):
@@ -81,11 +82,20 @@ def doctor():
     line('libx264' in enc, 'ffmpeg with libx264 (MP4, GIF, audio formats)', 'install ffmpeg (e.g. brew install ffmpeg)')
     try:
         from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            b = p.chromium.launch(); b.close()
-        line(True, 'playwright chromium (soundtrack render, page check)')
-    except Exception:
-        line(False, 'playwright chromium (only for music and page checks)', 'pip install playwright && playwright install chromium')
+    except ImportError:
+        have = os.environ.get('PLAYWRIGHT_BROWSERS_PATH') or str(pathlib.Path.home() / '.cache' / 'ms-playwright')
+        found = pathlib.Path(have).is_dir() and any(pathlib.Path(have).glob('chromium*'))
+        line(False, 'python: playwright (only for music and page checks)',
+             'pip install playwright' + ('   (Chromium is already in %s)' % have if found
+                                         else ' && playwright install chromium'))
+    else:
+        try:
+            with sync_playwright() as p:
+                b = p.chromium.launch(); b.close()
+            line(True, 'playwright chromium (soundtrack render, page check)')
+        except Exception as e:
+            line(False, 'playwright chromium (only for music and page checks)',
+                 'playwright install chromium   (launch failed: %s)' % str(e).splitlines()[0][:80])
     try:
         __import__('mcp'); line(True, 'python: mcp (MCP server)')
     except ImportError:

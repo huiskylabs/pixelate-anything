@@ -1829,7 +1829,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                  '; `pixelate check SCENE` for the engine scene' if st['name'] == 'lofi' else ''))
     L.append('- Gate overrides: none. If the scene cannot meet one bound, add a line `- Gate override: RULE <= V '
              '(the reason)` and pass `--brief` to the gate (see references/delivery.md#gate).')
-    L.append('- Art director: `pixelate critique FRAME.png --brief brief.md` to a separate agent until it grades A '
+    L.append('- Art director: `pixelate critique --brief brief.md --block BLOCKIN.png` for this full brief, '
+             'then `pixelate critique FRAME.png --brief brief.md` for the still; each stage allows at most '
+             'three critique rounds by default, counting the first, unless the user explicitly allows more '
              '(see references/delivery.md#art-director).')
     L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
              '(see references/delivery.md#still and references/delivery.md#animation-plan).')

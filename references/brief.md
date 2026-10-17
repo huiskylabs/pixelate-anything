@@ -68,19 +68,23 @@ The brief already shows the level the picture will reach, so it is graded before
 brief: the 12 points of [art-director.md](art-director.md) read as what the brief makes certain (a
 hero with its size, masses of different size, a value plan, a projection that shows the subject, a
 signature moment), each scored 1 to 5, and ranked changes to the brief text. Apply them, lint again
-and ask again until it grades A. A short brief skips this.
+and request another critique within the stage's review budget ([delivery.md#art-director](delivery.md#art-director)).
+A short brief skips this.
 
 Give it a block-in too: the brief's boxes drawn at native size as flat greys, one grey per value
 group, no detail (a few lines of `canvas.Canvas.rect` and `fill`). It shows in one look whether the
 hero owns the brightest value, the planes have their shares and the masses differ in size. It
 passes `pixelate check BLOCKIN.png --blockin --brief brief.md` and goes to the art director with
-`--block BLOCKIN.png`. Drawing waits for the A.
+`--block BLOCKIN.png`. Drawing waits for the A; if the budget ends below A, report the grade and
+unresolved ranked fixes and ask the user whether to continue or change the brief.
 
 ## Confirm
 
-Show the user only an A brief, with section 0 on top: "these are the choices I made; say OK, or change
-any line". One OK should be enough to build. If they change something, revise the brief and show
-only what changed. Build only from an approved brief.
+Show a full brief for approval only at A, with section 0 on top: "these are the choices I made; say
+OK, or change any line". One OK should be enough to build. If they change something, revise the
+brief and show only what changed. A below-A budget-stop report is not a brief approval request.
+Build only from an approved brief; a short brief skips brief-stage review and is confirmed as
+written below.
 
 ## Short brief
 

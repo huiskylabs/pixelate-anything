@@ -51,10 +51,10 @@ def sky(c):
             elif y < 102: s = 'O' if chk(x, y) else 'P'
             else: s = 'O'
             c.g[y, x] = s
-    for x, y in ((106, 9), (151, 4), (183, 14), (236, 7)):    # the last stars
+    for x, y in ((106, 9), (154, 1), (183, 14), (231, 6)):    # the last stars (paired in-tile, so they share tiles)
         c.g[y, x] = 'Wt'
     # cloud bars: dark blue in the violet band, violet with an orange underline in the pink band
-    for x0, x1, y in ((182, 250, 86), (196, 238, 88), (226, 255, 93)):
+    for x0, x1, y in ((182, 250, 86), (196, 238, 88)):
         c.rect(x0, y, x1, y + 2, 'V'); c.rect(x0 + 3, y + 2, x1 - 2, y + 3, 'O')
 
 WAVE = ["...PP..........VVV..............",
@@ -134,7 +134,7 @@ def near_cliff(c):
     for yy, v in jogs[1:]:                                       # each jog is a lit ledge
         p = edge[yy - 1]
         c.rect(p - 6, yy, v, yy + 1, 'O'); c.rect(p - 6, yy + 1, v - 1, yy + 2, 'N')
-    for x0, x1, y in ((8, 40, 120), (40, 72, 176)):
+    for x0, x1, y in ((8, 40, 120),):
         c.rect(x0, y, x1, y + 1, 'O'); c.rect(x0, y + 1, x1, y + 2, 'K')
         for tx in range(x0 + 3, x1 - 2, 9):
             c.rect(tx, y - 2, tx + 2, y, 'N'); c.put(tx + 1, y - 3, 'O')
@@ -183,7 +183,7 @@ def office(c):
     c.rect(x0, wt, x1, wt + 1, 'B')                              # the eave's shadow
     c.rect(24, wt - 24, 30, wt - 12, 'Wt'); c.rect(23, wt - 25, 31, wt - 23, 'K')
     c.rect(23, wt - 23, 24, wt - 12, 'K'); c.rect(30, wt - 23, 31, wt - 12, 'K'); c.rect(25, wt - 19, 30, wt - 18, 'B')
-    for (cx, cy, r) in ((27, 24, 2), (22, 21, 3), (15, 18, 3), (8, 15, 4)):     # smoke, streaming left
+    for (cx, cy, r) in ((27, 24, 2), (21, 20, 3), (12, 16, 4)):     # smoke, streaming left
         for y in range(cy - r, cy + r):
             for x in range(cx - r - 1, cx + r + 1):
                 if ((x - cx) / (r + 1.0)) ** 2 + ((y - cy + 0.5) / float(r)) ** 2 <= 1:

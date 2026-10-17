@@ -326,7 +326,7 @@ def draw_island(c, moment):
             for x in range(sx, nxt):
                 if wedge[sy, x] > 0.2 and vis[sy, x] > 0.5:
                     d = math.hypot(x - lx, sy - ly)
-                    c.g[sy, x] = 'door2' if d < 40 else 'door1' if d < 78 else 'door0'
+                    c.g[sy, x] = 'door3' if d < 22 else 'door2' if d < 46 else 'door1' if d < 82 else 'door0'
                     if m[sy + 1, x] and d < 90:
                         c.g[sy + 1, x] = 'wst1' if d < 60 else 'wst0'
         for x in range(477, 532):
@@ -576,8 +576,12 @@ def draw_causeway(c, moment, intent):
                 seam = ((x + off + int(hh(x // 6, course, 33) * 2)) % 6 == 0)
                 c.g[y + r, x] = 'st0' if seam or r == top + face - 1 else ('st1' if course % 2 else 'st2')
             if under:
-                for r in range(0, top):
+                for r in range(0, top + face):
                     c.g[y + r, x] = 'pool2' if (x + r) % 7 else 'pool3'
+                    if r >= top:
+                        c.g[y + r, x] = 'pool1' if (x // 5 + r) % 4 else 'refl0'   # the stones seen through
+                if x > 168 and (x - x0) in (1, 2) and x1 - x0 > 4:
+                    c.g[y, x] = 'st3'                         # the last stone tops still breaking the water
     if flooded:
         for x in range(176, 196):                    # foam and ripple lines at the flood's front
             y = G.road_y(x)
@@ -823,7 +827,7 @@ def render(moment):
                 vis = post.visibility(occ, lx, ly, 160)
                 p.light(lx, ly, 46, col, strength=4.2, profile='gauss', squash=0.78, blend='multiply',
                         mask=geo * vis, behind=opening | leaf)
-            p.light(lx - 30, ly + 16, 52, LIGHT['door'], strength=0.16, squash=0.7, falloff=1.2,
+            p.light(lx - 26, ly + 14, 56, LIGHT['door'], strength=0.30, squash=0.7, falloff=1.1,
                     mask=wedge, behind=figs)                 # the warm air of the spill, widening
             p.light(lx - 4, ly - 14, 10, LIGHT['door'], strength=0.22, behind=occ)
             p.glow(mask=opening & ~leaf, kernel='gauss', radius=(1.5, 4.0), weights=(0.6, 0.4),

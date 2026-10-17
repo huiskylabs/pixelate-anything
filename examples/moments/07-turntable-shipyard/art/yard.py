@@ -70,7 +70,7 @@ def night_palette():
     _ramp(p, 'stone', (.10, .14, .19, .245, .30), (.012, .013, .014, .016, .018), (268, 262, 256, 250, 244))
     _ramp(p, 'stoneW', (.16, .21, .27, .33, .40), (.040, .050, .060, .065, .065), (55, 58, 62, 66, 70))
     _ramp(p, 'soil', (.06, .075, .095, .115, .135), (.012, .012, .012, .013, .013), (275, 272, 270, 265, 260))
-    _ramp(p, 'oak', (.15, .22, .31, .41, .52), (.022, .028, .033, .036, .034), (55, 62, 70, 82, 95))
+    _ramp(p, 'oak', (.15, .22, .31, .41, .52), (.028, .036, .045, .048, .040), (40, 48, 55, 62, 75))
     _ramp(p, 'oakW', (.26, .36, .48, .61, .74), (.060, .080, .100, .110, .100), (48, 54, 60, 67, 74))
     _ramp(p, 'timber', (.10, .145, .20, .26, .33), (.010, .011, .012, .013, .015), (60, 62, 250, 245, 240))
     _ramp(p, 'timberW', (.18, .25, .33, .41, .50), (.050, .060, .070, .075, .070), (52, 56, 60, 64, 70))
@@ -278,6 +278,7 @@ class Ship:
                 float(self.zs(1.0)) + top + 1)
 
 SHIP = Ship()
+BULW = 3.1                       # bulwark height over the sheer (turns 3 and 4)
 # frames: (station u, sided width, head above the sheer); hand-spaced, a doubled pair amidships, a
 # two-frame gap aft where the next frames go in (one waits on the ground)
 _RU = [(0.105, 1.3, 0.6), (0.16, 1.2, 1.4), (0.212, 1.3, 0.2), (0.372, 1.4, 1.6), (0.398, 1.2, 1.0),
@@ -469,14 +470,17 @@ def tex_hull(mx, my, mz, n, st):
     if mz < S.zwl + 0.75:
         return 'trim%d' % st
     e = float(S.eta(uc, mz))
-    if 0.80 <= e < 0.88:
-        return 'oak%d' % max(0, st - 1) if e < 0.865 else 'oak%d' % min(4, st + 1)
-    strake = int(e * 11)
-    if (e * 11) % 1 < 0.16:
-        return 'oak%d' % max(0, st - 1)
-    if _seam(mx + strake * 4.7, strake % 12, 0.2):
-        return 'oak%d' % max(0, st - 1)
-    return 'oak%d' % st
+    side = max(1, st - 1)                                   # topsides sit a step under the moonlit face
+    if e >= 0.97:
+        return 'oak%d' % max(0, side - 2)                   # the wale strake, dark, under the cap rail
+    seams = (0.62, 0.80)
+    for sv in seams:
+        if abs(e - sv) < 0.032:
+            return 'oak%d' % max(0, side - 1)               # plank seams on the sheer, closing at the bow
+    k = sum(e > sv for sv in seams)
+    if (mx - S.x0 + 7.1 * k + 2.0 * (k % 2)) % 19.0 < 0.6:
+        return 'oak%d' % max(0, side - 1)                   # butt joints, staggered strake to strake
+    return 'oak%d' % side
 
 def tex_roof(mx, my, mz, n, st):
     """shingle courses parallel to the ridge, offset joints, two patched shingles"""
@@ -732,8 +736,10 @@ def build_ship(Y, stage):
         Y.solid(Beam((xs_ + lean, foot_y, FLOOR + 0.6), (xs_, yb, zs_), w=1.3, h=1.3,
                      mat=M('timber', tex_endgrain, bias=1)), tag='shore')
     if stage >= 3:
-        Y.solid(Field(S.bulwark_d, S.bbox(top=3), M('oak', tex_hull)), hero=True, tag='ship', maxit=200)
-        oid = Y.solid(Field(S.cap_d, S.bbox(top=4), M('oak', bias=1)), hero=True, tag='ship', maxit=200)
+        Y.solid(Field(lambda x, y, z: S.bulwark_d(x, y, z, h=BULW), S.bbox(top=4), M('oak', tex_hull)), hero=True,
+                tag='ship', maxit=200)
+        oid = Y.solid(Field(lambda x, y, z: S.cap_d(x, y, z, h=BULW), S.bbox(top=5), M('oak', bias=1)), hero=True,
+                      tag='ship', maxit=200)
         Y.tag.setdefault('cap', set()).add(oid)
         z0 = float(S.zs(0.1))
         Y.box(S.x0 + 5, S.yc - 3.6, z0 - 0.5, 9, 7.2, 4.4, 'oak', tex=tex_house, hero=True, tag='ship')   # deckhouse
@@ -954,7 +960,7 @@ def night_lights(Y, slots):
              ((S.x0 + S.L - 2.6, S.yc - 0.6, head + 4.4), 'H', 5.0, 3.5),          # bow lantern on the stem head
              ((CRANE['x'] + CRANE['w'] / 2, CRANE['y'] + CRANE['w'] + 0.7, 9.0), 'A', 6.5, 4.5)]  # crane
     # the stern lantern's post and the bow lantern's crook
-    line3(Y, slots, (S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 2.6), (S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 5.0), 'oak1')
+    line3(Y, slots, (S.x0 + 1.4, S.yc, float(S.zs(0.0)) + BULW + 0.3), (S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 5.0), 'oak1')
     # pools: warm steps on whatever lies under each lantern, an irregular lobed outline
     W_, H_ = s.W, s.H
     m = (s.obj >= 0) & (s.face == 1)
@@ -1010,10 +1016,10 @@ def rigging(Y, slots):
     top = (xm, S.yc, zd + 38.8)
     sprit = (S.x0 + S.L + 13, S.yc, head + 4.5)
     line3(Y, slots, (xm + 0.3, S.yc, zd + 49.5), sprit, 'ropeD')                       # forestay
-    line3(Y, slots, (xm - 0.3, S.yc, zd + 49.0), (S.x0 + 1.0, S.yc, float(S.zs(0.0)) + 2.6), 'ropeD')  # backstay
+    line3(Y, slots, (xm - 0.3, S.yc, zd + 49.0), (S.x0 + 1.0, S.yc, float(S.zs(0.0)) + BULW + 0.3), 'ropeD')  # backstay
     for side in (-1, 1):
         for dx in (-3.6, -1.6, 0.6):
-            u = float(S.u(xm + dx)); zr = float(S.zs(u)) + 2.5
+            u = float(S.u(xm + dx)); zr = float(S.zs(u)) + BULW + 0.2
             line3(Y, slots, top, (xm + dx, S.yc + side * (float(S.hb(u, zr - 2.5)) - 0.2), zr), 'ropeD')
     sx, sy = Y.to_screen(xm, S.yc, zd + 50.2)
     stamp(Y, slots, PEN_TOP, {'o': 'ol', 'P': 'pen', 'p': 'penD'}, sx, sy, (0, 0))

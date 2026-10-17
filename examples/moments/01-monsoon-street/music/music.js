@@ -1,17 +1,19 @@
-/* Pixel Radio: one chiptune phase and one ambient phase, with a ii-V hand-off each way.
-   style: 'chiptune' -> pulse lead, 16th-note pulse arpeggio, triangle octave bass, noise drums.
-   style: 'ambient'  -> pad with sparse voices on top, a drone bass, no drums.
-   Anything a phase sets itself overrides the style's defaults (see guides/music.md). */
+/* Monsoon Street, the downpour: felt piano lead and comp in B minor at 66 bpm, brushes, sparse
+   hats, a heavy rain bed. Close rootless voicings (3-5-7-9) between 47 and 69:
+   Bm9 (D F# A C#) - Gmaj9 (B D F# A) - Em9 (D F# G B) - F#7b9 (E G A# C#). */
 const PHASES = [
-  { name: 'overworld', style: 'chiptune',
-    chords: [[36, [55, 60, 64]], [43, [55, 59, 62]], [45, [57, 60, 64]], [41, [57, 60, 65]]],   // C G Am F
-    scale: [72, 74, 76, 79, 81, 84, 86, 88], mel: 0.9 },
-  { name: 'drift', style: 'ambient', lead: 'piano', padVoice: 'musicbox', amb: [['wind', 0.12]],
-    chords: [[33, [52, 55, 59, 62]], [29, [53, 57, 60, 64]], [36, [52, 55, 59, 64]], [31, [50, 55, 59, 62]]],  // Am9 Fmaj7 Cmaj7 G6
-    scale: [64, 67, 69, 71, 72, 74, 76, 79], mel: 0.45 }
+  { name: 'downpour', swing: 0.2,
+    lead: 'piano', comp: 'piano', bass: 'bass', drums: true, snd: 'brush',
+    amb: [['rain', 0.5]],
+    chords: [[35, [50, 54, 57, 61]], [31, [47, 50, 54, 57]], [40, [50, 54, 55, 59]], [42, [52, 55, 58, 61]]],
+    scale: [66, 69, 71, 73, 74, 76, 78, 81],
+    alter: { 3: { 69: 70, 81: 82 } },                // A -> A# over F#7b9
+    mel: 0.7,
+    kick: [[0, 0.75], [7, 0.35], [10, 0.5]],
+    snare: [[4, 0.5], [12, 0.55]],
+    hats: 8, shaker: 0, ohat: 0 }
 ];
 const TURNS = [
-  { pre: [47, [53, 57, 59, 62]], dom: [40, [56, 59, 62, 65]], approach: 44 },   // -> Am: Bm7b5, E7b9
-  { pre: [38, [53, 57, 60, 64]], dom: [43, [53, 57, 59, 64]], approach: 35 }    // -> C: Dm9, G13
+  { pre: [37, [52, 55, 59, 62]], dom: [42, [52, 55, 58, 61]], approach: 34 }   // -> Bm: C#m7b5, F#7b9, A#
 ];
-const SCENE_MUSIC = { phases: PHASES, trans: TURNS };
+const SCENE_MUSIC = { phases: PHASES, trans: TURNS, texture: { vinyl: 0.25, tape: true } };

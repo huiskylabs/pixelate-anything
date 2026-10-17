@@ -72,7 +72,7 @@ def night_palette():
     _ramp(p, 'soil', (.06, .075, .095, .115, .135), (.012, .012, .012, .013, .013), (275, 272, 270, 265, 260))
     _ramp(p, 'oak', (.15, .22, .31, .41, .52), (.022, .028, .033, .036, .034), (55, 62, 70, 82, 95))
     _ramp(p, 'oakW', (.26, .36, .48, .61, .74), (.060, .080, .100, .110, .100), (48, 54, 60, 67, 74))
-    _ramp(p, 'timber', (.10, .14, .185, .23, .285), (.010, .011, .012, .013, .015), (60, 62, 250, 245, 240))
+    _ramp(p, 'timber', (.10, .145, .20, .26, .33), (.010, .011, .012, .013, .015), (60, 62, 250, 245, 240))
     _ramp(p, 'timberW', (.18, .25, .33, .41, .50), (.050, .060, .070, .075, .070), (52, 56, 60, 64, 70))
     _ramp(p, 'water', (.055, .07, .09, .115, .15), (.016, .020, .024, .026, .028), (250, 248, 245, 240, 235))
     _ramp(p, 'canvas', (.11, .15, .19, .24, .29), (.008, .010, .011, .012, .013), (250, 250, 248, 245, 240))
@@ -550,7 +550,7 @@ class Yard:
         TURN = Turn(k)
         LIGHT = np.array(light, float) / np.linalg.norm(light)
         self.k, self.stage, self.pal, self.phase = k, stage, pal, phase
-        self.s = Iso(W, H, origin=origin(k), slots=list(pal.keys()))
+        self.s = Iso(W, H, origin=origin(k, dy=26 if k == 0 else 38), slots=list(pal.keys()))
         self.hero = set()
         self.tag = {}
         self.lamps = []                              # (model point, kind) for pools and reflections

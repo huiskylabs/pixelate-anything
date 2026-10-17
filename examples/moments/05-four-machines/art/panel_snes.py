@@ -21,7 +21,7 @@ PAL = {k: q15(v) for k, v in {
     # sky, top to horizon
     'sk0': '#2c2a6a', 'sk1': '#433888', 'sk2': '#62479c', 'sk3': '#8c55a6', 'sk4': '#b8649e',
     'sk5': '#dc7c8e', 'sk6': '#f09c80', 'sk7': '#f6bc7c',
-    'halo': '#f8d088', 'sun': '#fadc90', 'sunc': '#fce6a8',
+    'halo': '#f6c884', 'sun': '#f8d48a', 'sunc': '#fadc90',
     # cloud bank, lit from below
     'cl0': '#6e4a8e', 'cl1': '#9a5e9c', 'cl2': '#c87c98', 'cl3': '#f2ae8a', 'cl4': '#f8cc96',
     # crag (contre-jour plum) and its warm rim
@@ -415,8 +415,8 @@ def near_layer():
     sites = [(int(x + rng.integers(-5, 6)), int(y + rng.integers(-8, 9))) for y in range(84, 232, 30)
              for x in range(4 + (y // 30 % 2) * 9, 100, 19)]
     ids = torus_cells(W, H, sites, aspect=2.1)
-    rock_facets(c, rock, ids, [('nc2', 'nc3'), ('nc3', 'nc4'), ('nc1', 'nc2'), ('nc2', 'nc3'), ('nc2', 'nc4')],
-                'nc0', 'nc3')
+    rock_facets(c, rock, ids, [('nc2', 'nc3'), ('nc2', 'nc3'), ('nc3', 'nc4'), ('nc1', 'nc2'), ('nc2', 'nc3')],
+                'nc1', 'nc3')
     yy, xx = np.mgrid[0:H, 0:W]
     for y in range(PL, H):                                          # the frame edge sinks into shade
         for x in range(0, 7 - (y - PL) // 30):
@@ -601,9 +601,9 @@ def glider(c):
         depth = y - (Nz[1] + (abs(x - keel_x) / (keel_x - Lt[0] if x < keel_x else Rt[0] - keel_x)) * ((Lt[1] if x < keel_x else Rt[1]) - Nz[1]))
         low = y >= edge(x) - 1
         if x < keel_x:                                              # the shade panel
-            s_ = 'cv1' if low else ('cv2' if depth > 1 else 'cv3')
+            s_ = 'cv1' if low else ('cv2' if depth > 3.5 else 'cv3')
         else:                                                        # the sunlit panel
-            s_ = 'cv2' if low else ('cv4' if depth > 1.5 else 'cv3')
+            s_ = 'cv2' if low else ('cv4' if depth > 0.8 else 'cv3')
         c.g[y, x] = s_
     for bx in bat:                                                   # battens through the cloth
         col = np.nonzero(tri[:, bx])[0]

@@ -170,6 +170,25 @@ def critique_prompt(brief: str, frame: str = '', block: str = '', prev: str = ''
                            role=role, consults=[P(note) for note in notes])
 
 @server.tool()
+def record_visual_review(brief: str, report: str, frame: str = '') -> str:
+    """Record an existing external lead critique for this exact full brief or still. The artifact
+    and its adjacent manifest must be in the workspace; the report may be read-only outside it.
+    This validates rubric structure, not reviewer independence or authenticity."""
+    import review_status
+    artifact = P(frame or brief, write=True)
+    try:
+        return review_status.record(P(brief), P(report), artifact if frame else '')
+    except (review_status.ReviewError, OSError) as exc:
+        return f'NOT RECORDED: {exc}'
+
+@server.tool()
+def visual_review_status(brief: str, frame: str = '') -> str:
+    """Read-only artifact-bound review status. READY requires matching A evidence, not a gate pass
+    or user approval; a short brief skips brief-stage review."""
+    import review_status
+    return review_status.status(P(brief), P(frame) if frame else '')[1]
+
+@server.tool()
 def music_critique_prompt(track: str, brief: str, prev: str = '') -> str:
     """Prompt a separate listening agent after rendering and passing check_music. Does not play
     audio, check the gate, or invoke an agent. Without actual audio access the agent must return

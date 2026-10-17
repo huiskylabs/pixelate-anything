@@ -51,7 +51,7 @@ def sky(c):
             elif y < 102: s = 'O' if chk(x, y) else 'P'
             else: s = 'O'
             c.g[y, x] = s
-    for x, y in ((106, 9), (151, 4), (183, 14), (236, 7), (9, 6)):    # the last stars
+    for x, y in ((106, 9), (151, 4), (183, 14), (236, 7)):    # the last stars
         c.g[y, x] = 'Wt'
     # cloud bars: dark blue in the violet band, violet with an orange underline in the pink band
     for x0, x1, y in ((182, 250, 86), (196, 238, 88), (226, 255, 93)):
@@ -65,7 +65,8 @@ WAVE = ["...PP..........VVV..............",
         "................................",
         "...........VV...........BB......",
         "................................"]
-GLIT = ["OO...OOO", "..PO....", "...OO..O", ".O......", "OOO..OO.", "....P...", ".OO...OO", "........"]
+GLIT = ["OO....O.", "........", "...OOO..", "........", ".O....OO", "........", "....OO..", "........"]
+GLIT_SIDE = ["........", "..O.....", "........", "......OO", "........", ".OO.....", "........", "....P..."]
 
 def sea(c):
     """the sea in tiles: one 32x8 wave pattern repeated (pink near the horizon), the sun's glitter as
@@ -82,12 +83,13 @@ def sea(c):
         t = (ty - 15) / 12.0
         half = int(round(1 + 2.6 * t))                             # tiles either side of the sun's column
         for tx in range(27 - half, 28 + half):
+            pat = GLIT if abs(tx - 27) <= half // 2 else GLIT_SIDE
             for j in range(8):
                 y = ty * 8 + j
                 if y <= HZ:
                     continue
                 for i in range(8):
-                    ch = GLIT[(j + (tx % 2) * 4) % 8][i]
+                    ch = pat[j][i]
                     c.g[y, tx * 8 + i] = 'K' if ch == '.' else ch
 
 def crag(c):
@@ -155,13 +157,13 @@ def rock(x, y):
     shifted 16 rows in every other 32 px column: planes dark brown or rust, a lit sun-side edge on
     each, fractures black, lips orange"""
     u = x % 32
-    v = (y + (16 if (x // 32) % 2 else 0)) % 32
+    v = y % 32
     i = ROCK_IDS[v, u]
     if i == 0:
         l_, r_ = ROCK_IDS[v, (u - 1) % 32], ROCK_IDS[v, (u + 1) % 32]
         up, dn = ROCK_IDS[(v - 1) % 32, u], ROCK_IDS[(v + 1) % 32, u]
-        return 'O' if (up > 0 and dn > 0 and up != dn and (l_ == 0 or r_ == 0)) else 'K'
-    lit_plane = i == 2
+        return 'N' if (up > 0 and dn > 0 and up != dn and (l_ == 0 or r_ == 0)) else 'K'
+    lit_plane = False
     if ROCK_IDS[v, (u + 1) % 32] != i:
         return 'O' if lit_plane else 'N'
     return 'N' if lit_plane else 'D'

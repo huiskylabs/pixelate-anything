@@ -140,12 +140,12 @@ def final():
 
     # ---- stalls: far row and two in the middle of the street
     STALLS = [(2, 2, 'bread'), (13.5, 2, 'fruit'), (25, 2, 'flower'), (37.5, 2, 'fish'), (61, 2, 'fruit'),
-              (72, 2, 'bread'), (84.5, 2, 'flower'), (97, 2, 'fish'), (109, 2, 'fruit'), (31, 19, 'flower'), (80, 19.5, 'bread')]
+              (72, 2, 'bread'), (84.5, 2, 'flower'), (97, 2, 'fish'), (12, 20, 'fruit'), (31, 19, 'flower'), (80, 19.5, 'bread')]
     for i, (x, y, kind) in enumerate(STALLS):
         mbld.stall(s, x, y, kind, seed=i)
         objs.append({'kind': 'stall', 'box': sbox(x, y, 0, 9, 5, 19)})
     # crates and baskets by the fruit and flower stalls
-    for (x, y, goods) in ((22.6, 7.5, ['fruit2', 'fruit1']), (70.2, 7.6, ['leaf2', 'leaf1']), (118.4, 4, ['bread2', 'fruit2']),
+    for (x, y, goods) in ((22.6, 7.5, ['fruit2', 'fruit1']), (70.2, 7.6, ['leaf2', 'leaf1']), (21.4, 25.2, ['fruit2', 'bread2']),
                           (34.5, 7.4, ['flower2', 'bread2']), (93.8, 3.5, ['flower3', 'leaf2'])):
         mprops.crate(s, x, y, goods, seed=int(x))
 
@@ -178,38 +178,39 @@ def final():
     for i, (x, y, z, k) in enumerate(((-12, -45, 9, 'up'), (-9.5, -44, 14, 'down'), (-14.5, -43, 18, 'glide'), (-7, -46, 22, 'up'),
                                         (-11, -48, 27, 'down'), (-5.5, -42.5, 12, 'glide'), (-13, -49, 32, 'up'), (-8, -45, 31, 'glide'))):
         put(mfig.pigeon(k, 'se' if i % 3 else 'sw', 'g4' if i % 2 else 'g3'), x, y, z, kind='pigeon')
-    jx, jy = -14.0, 19.0
+    jx, jy = -28.0, 8.0
     put(mfig.story('juggler', 23, 'se'), jx, jy)
-    ring = [(-19.5, 18.5, 'se', 'stand'), (-18.0, 23.5, 'se', 'skirt'), (-13.0, 24.6, 'sw', 'up'), (-8.6, 22.0, 'sw', 'stand'),
-            (-8.8, 14.6, 'sw', 'back'), (-17.6, 13.6, 'se', 'back')]
-    for i, (x, y, f, pose) in enumerate(ring):
-        put(mfig.person(30 + i, pose, f), x, y)
-    put(mfig.kid(37, 'stand', 'sw'), -11.0, 25.5)
+    ring = [(-5.5, -0.5, 'se', 'stand'), (-4.0, 4.5, 'se', 'skirt'), (1.0, 5.6, 'sw', 'up'), (5.4, 3.0, 'sw', 'stand'),
+            (5.2, -4.4, 'sw', 'back'), (-3.6, -5.4, 'se', 'back')]
+    for i, (dx, dy, f, pose) in enumerate(ring):
+        put(mfig.person(30 + i, pose, f), jx + dx, jy + dy)
+    put(mfig.kid(37, 'stand', 'sw'), jx + 3.0, jy + 6.5)
     # strollers in the square: a couple, an old man, a woman with a basket
-    put(mfig.person(40, 'walk', 'sw'), -32.0, -6.0)
-    put(mfig.person(41, 'walk', 'sw', t='terra2'), -30.5, -3.5)
+    put(mfig.person(40, 'walk', 'sw'), -6.0, -8.0)
+    put(mfig.person(41, 'walk', 'sw', t='terra2'), -4.5, -5.5)
     put(mfig.person(42, 'stride', 'se', h='g5'), -36.0, 30.0)
     put(mfig.person(43, 'walk', 'se'), -22.0, -76.0)
     put(mfig.person(44, 'stand', 'sw'), -40.0, -60.0)
     put(mfig.person(45, 'skirt', 'se'), -44.0, -56.5)
     put(mfig.person(46, 'walk', 'sw'), -4.0, -28.0)
     mprops_lamp = mprops.lamp()
-    for (x, y) in ((-2.5, -20.0), (-58.5, 42.0), (126.0, 46.0)):
+    for (x, y) in ((-2.5, -20.0), (-58.5, 42.0)):
         put(mprops_lamp, x, y, kind='lamp')
     put(mprops.tree(3), -6.0, -80.0, kind='tree')
 
     # ---- the street: the band snaking through the stalls, shoppers, the melon, the dog and the fish
-    band = [('drum', 22.0, 13.5), ('cymbal', 27.5, 15.8), ('trumpet', 34.0, 15.4), ('trumpet', 40.5, 17.0),
-            ('trombone', 45.5, 21.0), ('tuba', 49.5, 26.5)]
-    for i, (n, x, y) in enumerate(band):
+    import math as _m
+    order = ['major', 'trumpet', 'trumpet', 'trombone', 'trombone', 'cymbal', 'drum', 'tuba']
+    for i, n in enumerate(order):
+        x = 5.0 + 6.5 * i
+        y = 14.6 + 2.4 * _m.sin((x - 5.0) / 7.0)
         put(mfig.band(n, 50 + i, 'sw'), x, y)
-    shoppers = [(6.0, 10.5, 'back', 'se'), (8.5, 11.0, 'stand', 'sw'), (17.0, 10.0, 'back', 'sw'), (19.5, 11.5, 'skirt', 'se'),
-                (29.0, 10.2, 'back', 'se'), (42.0, 9.8, 'back', 'sw'), (44.5, 10.6, 'stand', 'se'),
+    shoppers = [(3.5, 9.6, 'back', 'se'), (27.5, 9.4, 'back', 'sw'), (41.0, 9.2, 'back', 'se'),
                 (64.0, 10.0, 'back', 'se'), (77.0, 10.4, 'back', 'sw'), (79.5, 9.6, 'skirt', 'se'), (88.0, 10.0, 'back', 'se'),
                 (90.5, 11.0, 'walk', 'sw'), (113.0, 10.0, 'back', 'sw'), (115.5, 11.0, 'stand', 'se'),
                 (58.0, 18.0, 'walk', 'se'), (61.0, 21.5, 'walk', 'sw'), (66.5, 27.0, 'stride', 'se'), (93.0, 24.0, 'walk', 'sw'),
-                (100.5, 29.0, 'stand', 'se'), (103.0, 28.5, 'skirt', 'sw'), (12.0, 22.0, 'walk', 'se'), (8.0, 28.0, 'stride', 'sw'),
-                (73.5, 25.0, 'walk', 'se'), (36.0, 27.0, 'stand', 'sw'), (55.0, 30.0, 'walk', 'sw')]
+                (100.5, 29.0, 'stand', 'se'), (103.0, 28.5, 'skirt', 'sw'), (8.0, 28.0, 'stride', 'sw'),
+                (73.5, 25.0, 'walk', 'se'), (44.0, 27.0, 'stand', 'sw'), (55.0, 30.0, 'walk', 'sw')]
     for i, (x, y, pose, f) in enumerate(shoppers):
         put(mfig.person(60 + i, pose, f), x, y)
     put(mfig.story('melon', 90, 'se'), 70.0, 9.0)                    # the vendor holds the melon up
@@ -219,9 +220,11 @@ def final():
     put(mfig.person(93, 'up', 'sw'), 108.0, 15.5)                     # a passer-by points at the thief
     put(mprops.bike(), 116.5, 26.0, kind='bike')                       # the cyclist with the bread crate
 
-    # ---- the cathedral square: cafe terraces on the end houses, the flower cart, strollers
+    # ---- the cathedral square: four vignettes with open paving between
+    # (1) the cafe terrace along the end houses: tables, parasols, seated people, a waiter
     cafes = [(129.5, 55.0, 'terra'), (134.0, 63.5, 'plaster'), (128.0, 78.0, 'plaster'), (132.5, 86.0, 'brown'),
-             (127.0, 101.0, 'terra'), (131.0, 110.0, 'plaster'), (126.0, 125.0, 'plaster'), (130.5, 133.0, 'brown')]
+             (127.0, 101.0, 'terra'), (131.0, 110.0, 'plaster'), (126.0, 125.0, 'plaster'), (130.5, 133.0, 'brown'),
+             (127.5, 148.0, 'terra'), (131.5, 156.0, 'plaster')]
     for i, (x, y, paint) in enumerate(cafes):
         put(mprops.cafe_table(), x, y, kind='table')
         put(mfig.story('sitter', 100 + i, 'se'), x - 1.6, y + 1.2)
@@ -229,66 +232,47 @@ def final():
             put(mfig.story('sitter', 120 + i, 'sw'), x + 1.8, y - 1.0)
         put(mprops.parasol(paint), x + 0.2, y - 0.2, kind='parasol')
     put(mfig.story('waiter', 130, 'sw'), 136.5, 72.0)
-    put(mprops.flower_cart(), 140.0, 28.0, kind='cart')
-    put(mfig.person(131, 'stand', 'se', t='leaf2'), 137.0, 30.5)
-    for i, (x, y, pose, f) in enumerate(((150, 20, 'walk', 'sw'), (153, 23, 'walk', 'sw'), (162, 48, 'stride', 'se'),
-                                          (146, 92, 'stand', 'sw'), (149, 95, 'skirt', 'se'), (170, 86, 'walk', 'se'),
-                                          (158, 120, 'walk', 'sw'), (178, 60, 'back', 'se'), (144, 40, 'walk', 'se'),
-                                          (190, 40, 'stand', 'sw'), (193, 43, 'stand', 'se'))):
-        put(mfig.person(140 + i, pose, f), x, y)
-    for i, (x, y) in enumerate(((166, 70), (168, 73), (171, 69), (156, 105))):
-        put(mfig.pigeon('sit', 'se' if i % 2 else 'sw'), x, y, kind='pigeon')
-    put(mprops.tree(7), 176.0, 104.0, kind='tree')
+    put(mfig.story('waiter', 131, 'se'), 135.0, 118.0)
+    put(mprops.flower_cart(), 133.0, 40.0, kind='cart')
+    put(mfig.person(132, 'stand', 'se', t='leaf2'), 130.5, 43.0)
+    # (2) a tour group trailing its guide, who holds an umbrella up, heading for the cathedral
+    gx, gy = 170.0, 14.0
+    put(mfig.person(200, 'up', 'se', t='slate2'), gx, gy)
+    put(mfig.umbrella('mint2'), gx + 1.4, gy - 0.3, 14, kind='umbrella')
+    trail = [(-3.5, 2.0), (-5.5, 4.6), (-8.0, 3.0), (-9.5, 6.4), (-12.0, 5.0), (-13.5, 8.2), (-16.0, 7.0), (-17.5, 10.0),
+             (-20.0, 8.8), (-22.0, 11.6), (-24.5, 10.6), (-26.5, 13.2)]
+    for i, (dx, dy) in enumerate(trail):
+        pose = ['walk', 'stride', 'walk', 'skirt', 'walk', 'stride'][i % 6]
+        put(mfig.person(201 + i, pose, 'se'), gx + dx, gy + dy)
+    # (3) kids chasing pigeons, the flock bursting up, a parent calling after them
+    kx, ky = 198.0, 76.0
+    put(mfig.kid(214, 'run', 'se'), kx, ky)
+    put(mfig.kid(215, 'reach', 'se'), kx - 3.0, ky + 2.5)
+    put(mfig.kid(216, 'run', 'se', t='fruit2'), kx - 1.5, ky - 3.0)
+    put(mfig.person(217, 'out', 'se'), kx - 8.0, ky + 1.5)
+    for i, (dx, dy) in enumerate(((6.0, -1.0), (8.5, 1.5), (7.0, 3.5))):
+        put(mfig.pigeon('sit', 'se', 'g4'), kx + dx, ky + dy, kind='pigeon')
+    for i, (dx, dy, z, k) in enumerate(((4.0, -2.0, 7, 'up'), (6.5, 0.0, 12, 'down'), (5.0, 2.5, 16, 'glide'), (8.0, -1.5, 21, 'up'),
+                                         (3.0, 1.0, 25, 'down'), (9.5, 2.0, 28, 'glide'), (6.0, -3.0, 33, 'up'))):
+        put(mfig.pigeon(k, 'se' if i % 3 else 'sw', 'g4' if i % 2 else 'g3'), kx + dx, ky + dy, z, kind='pigeon')
+    # (4) a small ring round a street accordionist, his hat on the paving
+    mx, my = 164.0, 92.0
+    put(mfig.accordionist(230, 'se'), mx, my)
+    put(mfig.hat(), mx + 1.8, my + 1.8, kind='hat')
+    for i, (dx, dy, f, pose) in enumerate(((-5.0, 0.5, 'se', 'stand'), (-3.6, 4.6, 'se', 'skirt'), (1.0, 5.8, 'sw', 'stand'),
+                                            (5.2, 3.2, 'sw', 'up'), (5.6, -2.4, 'sw', 'back'), (1.4, -5.2, 'sw', 'back'),
+                                            (-3.4, -4.4, 'se', 'back'))):
+        put(mfig.person(231 + i, pose, f), mx + dx, my + dy)
+    put(mfig.kid(238, 'stand', 'sw'), mx + 3.4, my + 7.6)
+    # between them: open paving, two pairs walking, three trees and lamps at the edges
+    for i, (x, y, pose, f) in enumerate(((152, 52, 'walk', 'sw'), (154.5, 54.5, 'skirt', 'sw'), (186, 120, 'walk', 'se'),
+                                          (188.5, 122.5, 'walk', 'se'))):
+        put(mfig.person(240 + i, pose, f), x, y)
     put(mprops.tree(11, 20, 15), 196.0, 18.0, kind='tree')
-    put(mprops.tree(5, 22, 16), 214.0, 86.0, kind='tree')
     put(mprops.tree(9, 20, 15), 160.0, 150.0, kind='tree')
-    # a tour group round its guide, a family, strollers, pigeons, more cafe tables
-    gx, gy = 168.0, 62.0
-    put(mfig.person(200, 'up', 'sw', t='bread2'), gx, gy)
-    for i, (dx, dy, f, pose) in enumerate(((-4.5, 1.0, 'se', 'back'), (-3.0, 4.5, 'se', 'stand'), (1.5, 5.0, 'sw', 'skirt'),
-                                             (4.8, 2.0, 'sw', 'stand'), (4.0, -3.0, 'sw', 'back'), (-1.0, -4.6, 'se', 'back'),
-                                             (-4.6, -2.5, 'se', 'stand'))):
-        put(mfig.person(201 + i, pose, f), gx + dx, gy + dy)
-    put(mfig.person(210, 'walk', 'se', t='leaf2'), 186.0, 96.0)
-    put(mfig.kid(211, 'run', 'se'), 189.0, 98.5)
-    put(mfig.kid(212, 'stand', 'se'), 184.5, 99.5)
-    for i, (x, y, pose, f) in enumerate(((140, 104, 'walk', 'sw'), (150, 132, 'walk', 'se'), (166, 140, 'stride', 'sw'),
-                                          (186, 122, 'walk', 'se'), (200, 70, 'walk', 'sw'), (206, 102, 'stand', 'se'),
-                                          (209, 104, 'skirt', 'sw'), (214, 58, 'walk', 'se'), (176, 30, 'walk', 'sw'),
-                                          (204, 36, 'back', 'se'), (222, 112, 'walk', 'sw'), (196, 140, 'stand', 'se'))):
-        put(mfig.person(220 + i, pose, f), x, y)
-    for i, (x, y) in enumerate(((192, 80), (194, 83), (190, 84), (198, 116), (201, 118), (180, 136))):
-        put(mfig.pigeon('sit', 'se' if i % 2 else 'sw', 'g4' if i % 3 else 'g3'), x, y, kind='pigeon')
-    # the north end of the cathedral square, by the right edge: a street sweeper, two friends, a couple, pigeons
-    for i, (x, y, pose, f) in enumerate(((158, 30, 'stand', 'se'), (160.5, 32.5, 'up', 'sw'), (172, 14, 'walk', 'sw'),
-                                          (174.5, 16.5, 'walk', 'sw'), (186, 50, 'back', 'se'), (152, 46, 'stride', 'se'),
-                                          (166, 4, 'walk', 'se'), (182, 26, 'skirt', 'sw'))):
-        put(mfig.person(260 + i, pose, f), x, y)
-    for i, (x, y) in enumerate(((168, 38), (170, 40), (165, 41), (178, 34))):
-        put(mfig.pigeon('sit', 'se' if i % 2 else 'sw', 'g4'), x, y, kind='pigeon')
-    put(mprops.tree(13, 22, 16), 192.0, 60.0, kind='tree')
-    for i, (x, y, pose, f) in enumerate(((190, 100, 'stand', 'se'), (192.5, 102.5, 'skirt', 'sw'), (188, 104, 'back', 'se'),
-                                          (204, 92, 'walk', 'sw'), (200, 112, 'stride', 'se'))):
-        put(mfig.person(280 + i, pose, f), x, y)
-    put(mfig.kid(290, 'run', 'se'), 196.5, 108.0)
-    for i, (x, y) in enumerate(((199, 105), (201.5, 106.5), (197, 103.5))):
-        put(mfig.pigeon('up' if i == 1 else 'sit', 'sw', 'g3'), x, y, 5 if i == 1 else 0, kind='pigeon')
-    put(mprops.lamp(), 178.0, 92.0, kind='lamp')
-    # a fruit barrow of crates at the square's north end (crates and baskets of fruit)
-    for i, (x, y, z, goods) in enumerate(((147.0, 36.0, 0, ['fruit2', 'fruit1']), (149.2, 36.0, 0, ['leaf2', 'bread2']),
-                                           (151.4, 36.3, 0, ['fruit2', 'leaf2']), (148.0, 38.4, 0, ['bread2', 'fruit1']),
-                                           (150.5, 38.6, 0, ['leaf1', 'leaf2']), (148.2, 36.2, 2, ['fruit2', 'bread2']))):
-        mprops.crate(s, x, y, goods, seed=300 + i, z=z)
-        objs.append({'kind': 'crate', 'box': sbox(x, y, z, 2, 2, 2)})
-    put(mfig.story('melon', 301, 'sw', T='plaster2'), 154.0, 39.5)
-    put(mfig.person(302, 'out', 'se'), 145.0, 41.5)
-    for (x, y) in ((150.0, 62.0), (186.0, 132.0), (208.0, 40.0)):
+    put(mprops.tree(5, 22, 16), 222.0, 104.0, kind='tree')
+    for (x, y) in ((150.0, 70.0), (184.0, 104.0), (208.0, 44.0), (126.0, 46.0)):
         put(mprops.lamp(), x, y, kind='lamp')
-    for i, (x, y, paint) in enumerate(((127.5, 148.0, 'terra'), (131.5, 156.0, 'plaster'), (125.0, 170.0, 'brown'))):
-        put(mprops.cafe_table(), x, y, kind='table')
-        put(mfig.story('sitter', 240 + i, 'se'), x - 1.6, y + 1.2)
-        put(mfig.story('sitter', 250 + i, 'sw'), x + 1.8, y - 1.0)
-        put(mprops.parasol(paint), x + 0.2, y - 0.2, kind='parasol')
 
     # ---- the kite snagged on a hall dormer, near the ridge
     put(mprops.kite(), -73.0, -44.0, 81.0, kind='kite')

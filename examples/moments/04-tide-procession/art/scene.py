@@ -321,14 +321,14 @@ def draw_island(c, moment):
         # tread edges and the terrace lip inside the wedge take the door's colour, stepping down
         lx, ly = DOOR_LIGHT
         vis = post.visibility(occ, lx, ly, 160)
-        warm = (wedge > 0.35) & m & (c.g == 'mon0') & (vis > 0.5)
-        c.g[warm] = 'wst0'
         for i, (sx, sy) in enumerate(G.STEPS):
             nxt = G.STEPS[i + 1][0] if i + 1 < len(G.STEPS) else 477
             for x in range(sx, nxt):
                 if wedge[sy, x] > 0.2 and vis[sy, x] > 0.5:
                     d = math.hypot(x - lx, sy - ly)
-                    c.g[sy, x] = 'door2' if d < 34 else 'door1' if d < 70 else 'door0'
+                    c.g[sy, x] = 'door2' if d < 40 else 'door1' if d < 78 else 'door0'
+                    if m[sy + 1, x] and d < 90:
+                        c.g[sy + 1, x] = 'wst1' if d < 60 else 'wst0'
         for x in range(477, 532):
             if (wedge[G.TERRACE_Y, x] > 0.2 or abs(x - lx) < 9) and vis[G.TERRACE_Y, x] > 0.5:
                 d = abs(x - lx)
@@ -775,6 +775,9 @@ def render(moment):
     pre = Canvas(W, H)
     for c in (sky_c, far_c, mid_c, near_c):
         pre.paste(c)
+
+    def pre_grid():
+        return pre.g
     pre_img = to_image(pre.g, PAL, '#000000')
     s = post.Stack(scale=SCALE, res='screen', background=PAL['sky0'])
     s.plane(rgba(sky_c), depth=4)
@@ -808,7 +811,10 @@ def render(moment):
         if moment == 'b':
             opening, leaf, occ, wedge = door_setup()
             lx, ly = DOOR_LIGHT
-            geo = np.where(figs, 0.5 * wedge, wedge)          # figures in the wedge take some of it
+            pre_g = pre_grid()
+            lit_stone = np.isin(pre_g, ['door0', 'door1', 'door2', 'door3', 'wst0', 'wst1'])
+            geo = np.where(lit_stone, np.maximum(wedge, 0.35), 0.0)
+            geo = np.where(figs, 0.5 * wedge, geo)          # figures in the wedge take some of it
             col = (1.0, 0.70, 0.36)
             if DOOR_OP == 'lightmap':
                 p.lightmap(ambient=1.0, lights=[(lx, ly, (46, 36), col, 4.2, 0.0)], cap=8.0, geo=geo,
@@ -817,6 +823,8 @@ def render(moment):
                 vis = post.visibility(occ, lx, ly, 160)
                 p.light(lx, ly, 46, col, strength=4.2, profile='gauss', squash=0.78, blend='multiply',
                         mask=geo * vis, behind=opening | leaf)
+            p.light(lx - 30, ly + 16, 52, LIGHT['door'], strength=0.16, squash=0.7, falloff=1.2,
+                    mask=wedge, behind=figs)                 # the warm air of the spill, widening
             p.light(lx - 4, ly - 14, 10, LIGHT['door'], strength=0.22, behind=occ)
             p.glow(mask=opening & ~leaf, kernel='gauss', radius=(1.5, 4.0), weights=(0.6, 0.4),
                    strength=0.22, tint=LIGHT['door'])

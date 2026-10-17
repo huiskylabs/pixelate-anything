@@ -136,6 +136,28 @@ audio and read the brief. The tool does not listen or invoke an agent. If the re
 the audio, it returns `NOT REVIEWED`, never a grade. Music has its own default three graded review
 calls, counting the initial call; `--prev` is the previous music critique.
 
+Save each externally produced lead critique to a report file. To bind evidence to the exact
+artifact bytes after review, run `pixelate review record --brief brief.md --critique lead.md`
+for a full brief, or `pixelate review record --brief brief.md --frame still.png --critique lead.md`
+for a still (MCP: `record_visual_review(brief, report, frame='')`). The versioned manifest is
+adjacent to the reviewed brief or frame, separate for each still. It records SHA256 hashes of the
+brief, frame when present, and report, plus stage, grade and report location. The report must follow
+the [lead visual rubric](art-director.md#what-you-return): standalone A/B/C grade, twelve 1–5
+scores and originality, signature moment, biggest problem, up to five ranked fixes (3–5 below A),
+and KEEP. Specialist observations, music critiques, NOT REVIEWED and structurally malformed reports
+are rejected. The parser cannot judge whether a fix really names where, what and how; the independent
+reviewer must provide substantive fixes. Neither command asks a model to review or invents a grade.
+
+Run `pixelate review status --brief brief.md [--frame still.png]` (MCP:
+`visual_review_status(brief, frame='')`) before claiming an A: only matching A evidence prints
+READY with CLI exit 0. Missing evidence, changed bound brief/frame/report bytes, a malformed
+manifest or a non-A grade is not ready (nonzero with a reason). Brief status is only for the full-brief stage; still status
+is only for that particular still. Short briefs skip brief-stage review. Status catches a malformed
+manifest or changed bound files, but someone with write access can replace a valid manifest and
+report together. These hashes bind local files, **not reviewer independence or authenticity**;
+even READY does not attest that the frame passed `pixelate check` or that the user approved the
+brief, still or animation plan.
+
 Stop on an A. If round 3 is still below A, stop automatic revision and review for that stage:
 report the grade and unresolved ranked fixes to the user, and ask whether to continue reviewing
 or change the brief. Only a user who explicitly allows more rounds may extend that stage's budget.

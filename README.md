@@ -88,6 +88,10 @@ pixelate critique still.png --brief brief.md        # ... and then the still
 pixelate critique still.png --brief brief.md --role lighting  # optional observations, no grade
 pixelate critique still.png --brief brief.md --consult lighting.md  # lead reconciles notes
 pixelate critique-music track.wav --brief brief.md  # opt-in listening-agent prompt after music gate
+pixelate review record --brief brief.md --critique lead.md  # bind existing external lead brief review
+pixelate review status --brief brief.md                  # READY only for matching A evidence
+pixelate review record --brief brief.md --frame still.png --critique still-lead.md
+pixelate review status --brief brief.md --frame still.png  # still-specific A evidence
 ```
 
 Intake offers two optional questions for a generic scene request. A specific request goes straight to routing. The brief records camera choices; for a photo without a named view, inspect the reference before choosing one.
@@ -100,10 +104,10 @@ The server's tools:
 - **Styles and the kit on demand:** `style_card`, `kit_tools` (the same as `pixelate style NAME` and `pixelate tools [QUERY]`).
 - **Files:** `write_file`, `read_file`, `list_files`. Writes stay inside the workspace.
 - **Image, palette, assets:** `pixelate_image`, `palette`, `export_assets`, `generate_sprites`.
-- **Gate and critique:** `check_frame`, `check_music`, `critique_prompt` (lead or scoped visual specialist, with optional lead consult notes), `music_critique_prompt` (opt-in prompt for a separate agent to listen after the music gate).
+- **Gate and critique:** `check_frame`, `check_music`, `critique_prompt` (lead or scoped visual specialist, with optional lead consult notes), `record_visual_review`, `visual_review_status`, `music_critique_prompt` (opt-in prompt for a separate agent to listen after the music gate).
 - **Scenes and output:** `preview_scene`, `check_scene`, `build_page`, `render_audio`, `render_video`, `render_gif`.
 
-Tools that make pictures return them as images, so the agent can judge its own work. A second agent that did not draw it judges better: `critique_prompt` gives the lead the rubric, brief and images; optional specialists observe without grading. `music_critique_prompt` does not listen or invoke an agent. The workspace is the directory the agent starts the server in, or `$PIXELATE_WORKSPACE`.
+Tools that make pictures return them as images, so the agent can judge its own work. A second agent that did not draw it judges better: `critique_prompt` gives the lead the rubric, brief and images; optional specialists observe without grading. Review record/status bind exact brief, still and report bytes, but cannot prove reviewer independence/authenticity or replace gate checks and user approval (details: `references/delivery.md#art-director`). `music_critique_prompt` does not listen or invoke an agent. The workspace is the directory the agent starts the server in, or `$PIXELATE_WORKSPACE`.
 
 ## Layout
 

@@ -41,8 +41,9 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
    `pixelate check BLOCKIN.png --blockin --brief brief.md`), then critique_prompt(brief, block=...):
    send the prompt to a separate agent that did not write the brief, apply its changes, lint_brief
    again within the stage's review budget (guide('delivery'), Art director). A short brief skips
-   brief-stage review. If the budget ends below A, report grade and unresolved ranked fixes and ask
-   whether to continue or change the brief; do not ask for approval yet.
+   brief-stage review. Save the external lead report, call record_visual_review(brief, report),
+   and require visual_review_status(brief) to return READY for an A full brief. If the budget ends
+   below A, report grade and unresolved ranked fixes and ask whether to continue or change the brief.
 5. Show the user an A full brief (or a short brief, which skips brief-stage review)
    with section 0 and wait for OK.
 6. Draw everything yourself in code (guide('drawing')). kit_tools() lists topics and modules,
@@ -52,9 +53,11 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
 8. critique_prompt(brief, frame, prev=last lead critique): the same for the still; optional
    role=composition|lighting|set|character consults observe only; pass at most two notes total
    via consults to a later lead round. The lead alone grades and reconciles notes. Apply its fixes,
-   check_frame again within the stage's review budget (guide('delivery'), Art director). If the budget
-   ends below A, stop automatic review, report grade and unresolved ranked fixes and ask whether to
-   continue or change the brief. Passing the gate means legal, not good: never self-grade.
+   check_frame again within the stage's review budget (guide('delivery'), Art director). Save the
+   lead report, call record_visual_review(brief, report, frame), and require
+   visual_review_status(brief, frame) to return READY for this still. If the budget ends below A,
+   stop automatic review, report grade and unresolved ranked fixes and ask whether to continue or
+   change the brief. Passing the gate means legal, not good: never self-grade.
 9. Show one still for go/no-go only once it is graded A; never present a below-A still as finished.
 10. Confirm the animation plan (loop length, what moves, rates), then animate.
 Hard rules: the five orthographic views (side, 3/4 top-down, 2:1 iso, oblique, military) are
@@ -168,6 +171,25 @@ def critique_prompt(brief: str, frame: str = '', block: str = '', prev: str = ''
                            prev=P(prev) if prev else None,
                            block=P(block) if block else None,
                            role=role, consults=[P(note) for note in notes])
+
+@server.tool()
+def record_visual_review(brief: str, report: str, frame: str = '') -> str:
+    """Record an existing external lead critique for this exact full brief or still. The artifact
+    and its adjacent manifest must be in the workspace; the report may be read-only outside it.
+    This validates rubric structure, not reviewer independence or authenticity."""
+    import review_status
+    artifact = P(frame or brief, write=True)
+    try:
+        return review_status.record(P(brief), P(report), artifact if frame else '')
+    except (review_status.ReviewError, OSError) as exc:
+        return f'NOT RECORDED: {exc}'
+
+@server.tool()
+def visual_review_status(brief: str, frame: str = '') -> str:
+    """Read-only artifact-bound review status. READY requires matching A evidence, not a gate pass
+    or user approval; a short brief skips brief-stage review."""
+    import review_status
+    return review_status.status(P(brief), P(frame) if frame else '')[1]
 
 @server.tool()
 def music_critique_prompt(track: str, brief: str, prev: str = '') -> str:

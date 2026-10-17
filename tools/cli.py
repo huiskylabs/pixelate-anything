@@ -22,6 +22,8 @@
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
   pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review
   pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]   prompt an independent listening agent after the music gate
+  pixelate review record --brief B [--frame F] --critique REPORT   bind external lead critique to artifact
+  pixelate review status --brief B [--frame F]   READY only for matching A evidence
   pixelate check TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]   the music gate
   pixelate build SCENE [--release]       one self-contained HTML page
   pixelate audio SCENE out.{wav,ogg,flac,mp3}   one seamless loop of the music     (guides/music.md)
@@ -34,7 +36,7 @@
 What each mode needs: image, palette and assets modes need Python with pillow and numpy only;
 scenes add node; video and GIF add ffmpeg; music and the page check add Playwright Chromium.
 """
-import os, pathlib, runpy, shutil, subprocess, sys
+import argparse, os, pathlib, runpy, shutil, subprocess, sys
 
 TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
@@ -88,6 +90,28 @@ def doctor():
         line(False, 'python: mcp (only for the MCP server)', 'pip install mcp')
     print('all good' if ok else 'image, palette and asset modes need only python; scenes need node; video needs ffmpeg')
 
+def review(args):
+    import review_status
+    parser = argparse.ArgumentParser(prog='pixelate review')
+    sub = parser.add_subparsers(dest='action', required=True)
+    for action in ('record', 'status'):
+        command = sub.add_parser(action)
+        command.add_argument('--brief', required=True)
+        command.add_argument('--frame', default='')
+        if action == 'record':
+            command.add_argument('--critique', required=True)
+    options = parser.parse_args(args)
+    if options.action == 'record':
+        try:
+            print(review_status.record(options.brief, options.critique, options.frame))
+        except (review_status.ReviewError, OSError) as exc:
+            print(f'NOT RECORDED: {exc}')
+            return 1
+        return 0
+    ready, reason = review_status.status(options.brief, options.frame)
+    print(reason)
+    return 0 if ready else 1
+
 def main(argv=None):
     a = list(sys.argv[1:] if argv is None else argv)
     if not a or a[0] in ('-h', '--help', 'help'):
@@ -95,6 +119,9 @@ def main(argv=None):
     cmd, rest = a[0], a[1:]
     if cmd in SCRIPTS:
         run(SCRIPTS[cmd], rest)
+    elif cmd == 'review':
+        sys.path.insert(0, str(TOOLS))
+        sys.exit(review(rest))
     elif cmd == 'topx':
         run('assets.py', ['--topx'] + rest)
     elif cmd == 'video':

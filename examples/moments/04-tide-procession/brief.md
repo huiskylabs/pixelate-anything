@@ -71,7 +71,7 @@ light down the steps; the tide floods back. Two stills of the best moments and a
 
 - Projection: side, horizon at y 206; the causeway rises gently from the near shore (left, y 271)
   to the island landing (x 418, y 238), so the road is the leading line ending at the island.
-- Hero: 116,204,418,268 (native px); peak value: the moon disc (446,86,490,130); peak chroma: the lead pilgrim's lantern
+- Hero: 116,204,418,268 (native px); peak value: the moon disc and its halo ring (444,84,492,132); peak chroma: the lead pilgrim's lantern
 - Hero B: see brief-b.md (the open portal and its spill, 440,158,536,244).
 - Planes: near plane 14% (band 1), island and monastery 8% (band 1), causeway and pilgrims 2% (band 1), night sky and clouds 30% (band 2), far sea 5% (band 2), wet sand flats 16% (band 2), moonlit sky round the moon 18% (band 3), pools 6% (band 3), moon and the shaft's footprint 1% (band 4: brightest)
 - Layout: sky 0-205 (calm: clouds, stars, the moon, the shaft only); island x 408-634, y 58-239;

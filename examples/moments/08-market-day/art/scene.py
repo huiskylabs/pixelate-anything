@@ -15,7 +15,7 @@ import town as L
 W, H = L.W, L.H
 
 # ---------------------------------------------------------------- block-in
-BLOCK = {'B1': '#636363', 'B2': '#808080', 'B3': '#a4a4a4', 'B4': '#f5f5f5'}   # roofs .50, facades .60, paving .72, hero .97
+BLOCK = {'B1': '#5b5b5b', 'B2': '#ababab', 'B3': '#868686', 'B4': '#f5f5f5'}   # roofs .47, facades .74, paving .62, hero .97
 ROOF_M = ('terra', 'brown', 'tile', 'slate')
 
 def block_grey(slot):
@@ -60,17 +60,20 @@ def blockin():
     for b in L.buildings():
         house_mass(s, b)
     hall_mass(s)
+    # the arcade band reads dark (black arches dominate it in the final)
+    s.box(L.HALL['X'] + L.HALL['w'], L.HALL['Y'], 6, 0.3, L.HALL['d'], 14, 'stone', top='B1', left='B1', right='B1')
     steps_mass(s)
     # the wedding party: one bright mass standing on the steps (the hero)
     st = L.STEPS
-    s.box(st['x0'] + 0.5, st['y0'] + 6, st['n'] * st['rise'] + st['rise'], 3.5, st['y1'] - st['y0'] - 12, 14, 'stone',
+    s.box(st['x0'] + 0.5, st['y0'] + 2, st['n'] * st['rise'] + st['rise'], 4.5, st['y1'] - st['y0'] - 4, 15, 'stone',
           top='B4', left='B4', right='B4')
+    s.box(st['x0'] + 5, st['y0'] + 6, 0, 8, st['y1'] - st['y0'] - 14, 6, 'stone', top='B4', left='B4', right='B4')
     # stalls and crowd (mid masses) along the far side of the street and in the squares
     for x in range(4, 136, 13):
         if L.ALLEY_N[0] - 4 < x < L.ALLEY_N[1] + 2:
             continue
         s.box(x, 3, 0, 9, 6, 12, 'cream')
-    for (cx, cy, r) in ((40, 18, 5), (72, 22, 6), (110, 20, 5), (-20, -50, 5), (-30, 8, 4), (170, 70, 7)):
+    for (cx, cy, r) in ((40, 18, 5), (72, 22, 6), (110, 20, 5), (-20, -50, 5), (-30, 8, 4), (170, 70, 7), (150, 34, 5), (190, 102, 5), (132, 90, 4), (128, 130, 4), (160, 140, 4)):
         s.box(cx - r, cy - r, 0, 2 * r, 2 * r, 14, 'cream')
     g = s.render(outline=False, rim=False, between=False)
     slots = np.array(g.a, object)

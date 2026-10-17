@@ -262,7 +262,7 @@ class Street:
         gy0 = int(yh(2.8, Z))
         self.rect(226, gy0, 318, int(G.FARWALL_ROW) + 1, 'cool1', base=row(Z))
         self.rect(252, gy0 + 4, 279, int(G.FARWALL_ROW) - 1, 'win0', base=row(Z))
-        self.rect(253, gy0 + 5, 278, gy0 + 9, 'win1', base=row(Z))
+        self.rect(252, gy0 + 4, 279, gy0 + 8, 'win1', base=row(Z))
         self.rect(284, gy0 + 6, 292, int(G.FARWALL_ROW), 'void', base=row(Z))
         self.light(265, 172, (16, 7), (1.0, 0.75, 0.45), 0.3)
         self.spill([(252, 183), (280, 183), (286, 188), (246, 188)], 0.3, blur=1.2)
@@ -1210,7 +1210,7 @@ class Street:
             self.px(x0 + 38 + k, cyw - 2 + (k % 2), 'cool4', base)
 
     def cat(self):
-        self.light(372, 229, (34, 8), (1.0, 0.72, 0.42), 0.55)                      # the shop's light across the road
+        self.light(366, 229, (36, 8), (1.0, 0.72, 0.42), 0.8)                       # the shop's light across the road
         """one cat crossing the road in the shop's light pool, walking left: pointed ears, an
         arched back, the tail up in a hook; dark body with a warm rim on the shop side"""
         art = parse("""
@@ -1231,17 +1231,17 @@ class Street:
         for j in range(h_):
             for i in range(w_):
                 if art[j, i]:
-                    self.px(x0 + i, y0 + j, 'cool0', by)
+                    self.px(x0 + i, y0 + j, 'void', by)
                     self.ACT[y0 + j, x0 + i] = True
         # warm rim on the top and right (the shop is to the right), eye
         for j in range(h_):
             for i in range(w_):
                 if art[j, i] and (j == 0 or not art[j - 1, i]) and i > 4:
-                    self.px(x0 + i, y0 + j, 'win0', by)
+                    self.px(x0 + i, y0 + j, 'win1', by)
         for j in range(h_):
             for i in range(w_ - 1, -1, -1):
                 if art[j, i]:
-                    self.px(x0 + i, y0 + j, 'win0', by)
+                    self.px(x0 + i, y0 + j, 'win1', by)
                     break
         self.px(x0 + 1, y0 + 4, 'win3', by)
         self.px(x0 + 3, y0 + 1, 'cool1', by)

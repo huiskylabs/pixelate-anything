@@ -1,0 +1,6 @@
+{
+  "title": "Pixel Radio",
+  "description": "The trunk-town phase of Endless Ascent: a 76 bpm lofi loop in D for the 5 s sample.",
+  "alt": "A small pixel-art equaliser that changes colour with the music.",
+  "files": ["palettes.js", "scene.js"]
+}

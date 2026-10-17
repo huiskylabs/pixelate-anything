@@ -70,6 +70,7 @@ PAL['halo0'] = P.from_lch(.560, .016, 236)
 PAL['wisp0'] = P.from_lch(.318, .020, 300)
 PAL['pool4'] = P.from_lch(.380, .016, 240)
 PAL.update(_r('deep', [(.176, .020, 236), (.200, .020, 236)]))
+PAL['refl0'] = P.from_lch(.140, .016, 240)
 PAL['leaf0'] = P.from_lch(.138, .012, 60)
 PAL['sil0'] = P.from_lch(.112, .012, 246)
 
@@ -104,13 +105,13 @@ def cloud_masks(moment):
     bank = _bank([(214, 44), (232, 33), (256, 26), (284, 29), (312, 25), (340, 28), (368, 32),
                   (396, 29), (424, 33), (450, 36), (478, 31), (506, 25), (536, 21), (566, 19), (598, 16),
                   (642, 14)],
-                 [(642, 49), (612, 51), (584, 50), (556, 53), (528, 55), (500, 57), (476, 60), (452, 61),
-                  (424, 61), (394, 62), (364, 61), (334, 60), (304, 62), (272, 60), (246, 58), (226, 53),
+                 [(642, 57), (612, 58), (584, 58), (556, 59), (528, 60), (500, 60), (476, 61), (452, 61),
+                  (424, 61), (394, 62), (364, 61), (334, 61), (304, 62), (272, 61), (246, 59), (226, 54),
                   (214, 46)], 31)
     gx0, gy0, gx1, gy1 = G.GAP
     cx = (gx0 + gx1) / 2.0
     half = 2.5 + 9.5 * np.clip((yy - gy0) / float(gy1 - gy0), 0, 1) ** 1.3
-    tear = np.abs(xx - cx - np.round(2 * np.sin(yy / 4.0))) <= half
+    tear = np.abs(xx - cx - np.where(yy < gy0 + 12, 1, 0)) <= half
     bank &= ~(tear & (yy >= gy0))
     wisps = np.zeros((H, W), bool)
     for x0, x1, y, th in ((112, 204, 171, 3), (232, 296, 184, 2), (520, 600, 178, 2)):
@@ -160,18 +161,19 @@ def draw_sky(moment):
         y0, y1 = ys.min(), ys.max()
         c.g[int(y0 + (y1 - y0) * 0.6):y1 + 1, x] = 'cl1'
         dx = abs(x - gx)
-        if dx < 60:
+        if dx < 36:
             c.g[y1, x] = 'rim3'
             c.g[y1 - 1, x] = 'rim2'
-        elif dx < 130:
+        elif dx < 74:
             c.g[y1, x] = 'rim2'
-        elif dx < 220 and x % 2 == 0:
+        elif dx < 124 and x % 2 == 0:
             c.g[y1, x] = 'rim1'
     for y in range(G.GAP[1], G.GAP[3] + 1):
         row = bank[y]
         for x in range(G.GAP[0] - 12, G.GAP[2] + 12):
             if row[x] and (not row[x + 1] or not row[x - 1]):
-                c.g[y, x] = 'rim3' if y > G.GAP[1] + 8 else 'rim2'
+                if y > G.GAP[1] + 14:
+                    c.g[y, x] = 'rim3' if y > G.GAP[1] + 20 else 'rim2'
     for x0, x1, y in ((262, 340, 54), (286, 316, 55), (548, 600, 44), (560, 584, 45)):
         for x in range(x0, x1):
             if c.g[y, x] in ('cl0', 'cl1'):
@@ -256,9 +258,24 @@ def draw_island(c, moment):
     cx, cy = G.CAP_TIP
     m[cy - 6:cy, cx] = True                         # the cross
     m[cy - 4, cx - 1:cx + 2] = True
-    # boulders at the waterline
+    # boulders at the waterline and rocks running out into the shallows (no ruler-straight foot)
     for x0, x1, y0 in ((404, 412, 235), (406, 410, 234), (598, 609, 235), (600, 606, 234)):
         m[y0:G.WATERLINE + 1, x0:x1] = True
+    for x0, x1, dep in ((428, 436, 2), (449, 461, 3), (487, 492, 1), (514, 527, 2), (548, 552, 1),
+                        (567, 581, 3), (596, 610, 2), (618, 634, 4)):
+        for x in range(x0, x1):
+            k = min(x - x0, x1 - 1 - x)
+            m[G.WATERLINE + 1:G.WATERLINE + 1 + min(dep, 1 + k), x] = True
+    t0, t1 = G.TOWER
+    m[186:G.TERRACE_Y + 1, t0 - 2:t1 + 3] = True     # a battered plinth
+    m[185, t0 - 1:t1 + 2] = True
+    m[140, 516:536] = False                          # the ridge sags in the middle
+    m[141, 520:532] = m[141, 520:532]
+    for x in (506, 548, 566):                        # cresting
+        m[139, x] = True
+    m[133:140, 540:545] = True                       # a small bell-cote on the ridge
+    m[132, 541:544] = True
+    m[131, 542] = True
     # belfry openings: arches cut through the tower (the moon and sky show behind)
     holes = np.zeros((H, W), bool)
     for x0, y0, x1, y1 in G.BELFRY:
@@ -384,6 +401,20 @@ def draw_middle(moment):
                 elif deep[y, X] and hh(x, y, 18) < 0.45:
                     c.g[y, X] = 'deep1'
             x += ln + 8 + int(hh(x, y, 17) * 34)
+    # the near shore's wet edge: a pale strip the boat, posts and tussocks stand against
+    bank = G.mask_poly(G.BANK + [(640, 360), (0, 360)])
+    btop = np.array([np.nonzero(bank[:, x])[0].min() if bank[:, x].any() else H for x in range(W)])
+    for x in range(W):
+        y0 = btop[x] - 9 - int(round(2 * math.sin(x / 17.0) + math.sin(x / 5.0)))
+        for y in range(max(y0, 0), btop[x]):
+            if deep[y, x]:
+                c.g[y, x] = 'pool3' if (y - y0) % 4 == 1 and hh(x // 6, y, 21) < 0.6 else 'pool2'
+    # long moon glints across the dark channel, few and mismatched
+    for x0, ln, y in ((40, 22, 287), (118, 9, 293), (206, 31, 284), (262, 12, 290), (330, 18, 296),
+                      (414, 26, 288), (468, 11, 281), (512, 34, 294), (590, 15, 286), (612, 20, 279)):
+        for x in range(x0, min(W, x0 + ln)):
+            if deep[y, x] and c.g[y, x] in ('deep0', 'deep1'):
+                c.g[y, x] = 'pool4' if 3 < x - x0 < ln - 3 else 'pool3'
     # where the shaft lands, the shallows take its light in more, longer streaks
     for y in range(int(fy_) - 2, int(fy_) + 24):
         for x in range(int(fx_) - 40, int(fx_) + 40):
@@ -406,6 +437,12 @@ def draw_middle(moment):
         row = np.roll(isl[src], sh)
         put = row & lag[y] & (xx[0] > 404)
         c.g[y, put] = 'pool0'
+    # rocks along the island's foot run out into the shallows (no ruler-straight waterline)
+    for x0, x1, dep in ((428, 436, 2), (449, 461, 3), (487, 492, 1), (514, 527, 2), (548, 552, 1),
+                        (567, 581, 3), (596, 610, 2), (618, 634, 4)):
+        for x in range(x0, x1):
+            k = min(x - x0, x1 - 1 - x)
+            c.g[G.WATERLINE:G.WATERLINE + min(dep, 1 + k), x] = 'mon0'
     road = draw_causeway(c, moment, intent)
     actor = np.zeros((H, W), bool)
     lamps = []
@@ -509,7 +546,7 @@ def reflect_pilgrim(c, g, ox, oy, lag, intent, LX, LY, i):
         Y = 2 * wl - (y + oy) - 1
         X = xg + ox + (1 if (Y // 2) % 3 == 0 else 0)
         if 0 <= X < W and 0 <= Y < H and lag[Y, X] and (Y - wl) % 3 != 2:
-            c.g[Y, X] = 'pool0'
+            c.g[Y, X] = 'refl0'
     cy = 2 * wl - LY - 1
     dashes = [(-4, 1, 'lamp1'), (-2, 3, 'lamp2'), (0, 2, 'lamp1'), (1, 4, 'lamp1'), (3, 3, 'lamp0'),
               (5, 2, 'lamp0'), (6, 3, 'lamp0'), (8, 1, 'lamp0')]
@@ -669,7 +706,7 @@ def render(moment):
 
     def sky_light(p):
         p.light(mx, my + 40, 230, LIGHT['dome'], strength=0.10, squash=0.5, falloff=1.4, behind=moon)
-        p.light(mx, my, 44, LIGHT['moon'], strength=0.30, falloff=1.6, core=mr, behind=moon)
+        p.light(mx, my, 38, LIGHT['moon'], strength=0.26, falloff=1.7, core=mr, behind=moon)
     s.light(sky_light, depth=4)
     s.plane(rgba(far_c), depth=3)
     sh = G.SHAFT[moment]
@@ -683,7 +720,7 @@ def render(moment):
 
     def mid_light(p):
         p.shaft(sh['x'], sh['y'], angle=sh['angle'], length=sh['length'], width=sh['width'],
-                colour=LIGHT['shaft'], strength=0.30, floor=0.55, tail=10, head=8,
+                colour=LIGHT['shaft'], strength=0.22, floor=0.62, tail=10, head=14, soft=1.4,
                 behind=isl | moon | figs | lampmask, striate=0.03, seed=3)
         p.light(fx_, fy_ + 6, 34, LIGHT['shaft'], strength=0.20, squash=0.32, falloff=1.4,
                 behind=isl | figs | lampmask)

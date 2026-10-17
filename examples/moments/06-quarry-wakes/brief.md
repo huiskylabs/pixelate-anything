@@ -16,7 +16,7 @@ Request: arcade style at 304x224, delivered 4x, checked one layer at a time agai
 ## 1. Purpose and delivery
 - A key-art pair for the toolkit showcase, seen in a README grid at about 600 px wide and full screen; it must stop a scroll at thumbnail size.
 - Delivered at 1216x896: native 304x224, 4x nearest. Stills only (the 6 s beat sheet below poses them).
-- Beat sheet at 30 fps (180 frames): water erupts 0-24, jaw lifts 24-60, buckets cascade 48-84, three exhaust coughs at 60, 84, 108, leg rises 108-126, the slam at 132 (4.4 s), dust 132-162, hold to 180. Image A is frame 72, image B frame 136.
+- Beat sheet at 30 fps (180 frames): water erupts 0-24, jaw lifts 24-60, buckets cascade 48-84, three exhaust coughs at 60, 84, 108, leg rises 105-123, the slam at 129 (4.29 s, the downbeat of bar 4 at 168 bpm), dust 129-159, hold to 180. Image A is frame 82, image B frame 133.
 
 ## 2. Style and light regime
 - Style `arcade`: no light layer; light is palette steps (warm slots, rims, a few highlight pixels); blend palette-step; no post ops.
@@ -57,7 +57,7 @@ Request: arcade style at 304x224, delivered 4x, checked one layer at a time agai
 - Accent ration: mustard (h 80-95, C .12-.17) only on the soldier's coat; rust orange (h 35-60) only on the boss; window gold (h 70-85, L over .85) only in the cracked window and its 3 reflection dashes on the water; ember rose-amber only in the sky band (about 3% of the frame); teal-white only in the spray cells.
 - One phase, palette by named roles: deep indigo sky stepping to dusky mauve, a dim ember rose-amber band, cold slate-violet terraces, near-black blue rock, black-teal water; rust red-orange hull, warm brown iron gantry, pale brass-steel pistons, olive moss, gold-cream window; mustard coat, olive trousers and helmet, warm skin; teal-white spray, sooty grey-brown smoke, grey-tan dust.
 - Signature elements: the bucket-ladder jaw dripping weed, the cracked lit window, the white-teal water crown, the three-puff exhaust cough, the full-width dust wall of the slam.
-- Music: an FM boss sting, E minor, 168 bpm, 4/4: an 8th-note FM bass on E with a b2 (F) and b6 (C) push, brassy 3-operator stabs on the off-beats, a short menacing 7-note riff of my own (E G F# E B, Bb A), a rising tom fill from 3.6 s and a noise riser, then the slam at 4.4 s: a pitched-down FM body hit, a noise burst and a sub drop from 70 to 30 Hz, decaying into the fade. Sync point: the slam lands with image B.
+- Music: an FM boss sting, E minor, 168 bpm, 4/4: an 8th-note FM bass on E with a b2 (F) and b6 (C) push, brassy 3-operator stabs on the off-beats, a short menacing 7-note riff of my own (E G F# E B, Bb A), a rising tom fill from 3.6 s and a noise riser, then the slam at 4.29 s (the downbeat of bar 4): a pitched-down FM body hit, a noise burst and a sub drop from 70 to 30 Hz, decaying into the fade. Sync point: the slam lands with image B.
 
 ## 7. Light list
 - The ember band: palette steps in the sky only (glow0 rose, glow1 amber), no light cast into the world.
@@ -69,9 +69,9 @@ Request: arcade style at 304x224, delivered 4x, checked one layer at a time agai
 - Water crown: 3 drawings held 4, 6 and 8 frames from frame 0, then 6 frames of falling cells.
 - Jaw: 4 angle keys (-34, -27, -20, -14 degrees) held 9 frames each over frames 24-60.
 - Bucket links: a 3-link chain that lags the jaw by 2 keys (anim.lag), swinging 3 keys of 6 frames in B.
-- Smoke: 3 puffs spawned at frames 60, 84 and 108, each 36 frames of fx.smoke_puff age.
-- Leg: 3 rise keys held 6 frames (108-126), the slam key at 132 with a 6-frame anim.shake (2 px, 1 px, 0).
-- Dust: fx.burst life 30 frames from 132; debris 24 frames; the soldier: brace pose to 128, flinch pose from 132, held 2 keys of 12 frames.
+- Smoke: 3 puffs spawned at frames 60, 84 and 108, each 80 frames of fx.smoke_puff age.
+- Leg: 3 rise keys held 6 frames (105-123), the slam key at 129 with a 6-frame anim.shake (2 px, 1 px, 0).
+- Dust: fx.burst life 30 frames from 129; debris 24 frames; the soldier: brace pose to 126, flinch pose from 129, held 2 keys of 12 frames.
 
 ## 9. Particles
 - Spray: about 160 opaque cells in A in three sizes (4 px, 2-3 px, 1 px) in two layers, the large ones near the hull and young, the small ones high and old; teal at the base, white at the tips.
@@ -90,5 +90,5 @@ Request: arcade style at 304x224, delivered 4x, checked one layer at a time agai
 - Figures: soldier 30 px crouched (36 px standing at 3.6 heads), boss about 150 px tall cut by the waterline, both as slot maps drawn here.
 - Budget (`styles.check`): L<0.25 >= 0.45; L>0.75 <= 0.07; actor:median_C >= 0.06; world:median_C <= 0.03; actor/world:detail >= 1.8.
 - Gate: `pixelate check out/06-a.png --style arcade --scale 4 --brief brief.md --pal out/palette.json --actor out/06-a-actor.png` passes every line, same for 06-b; each layer passes `pixelate era out/06-a-LAYER.png --era neogeo --layer sprite`; reads at 480 px wide.
-- Gate overrides: none.
+- Gate overrides: none. Below the waterline in A the boss is drawn in three deep teal slots (sub0-sub2), with a wobbling surface row; the claws on the rim keep their own ramps.
 - Sound: sound/06-sample.wav (48 kHz, 16-bit, stereo, exactly 5.0 s, 20 ms fade-in, 400 ms fade-out) and .mp3; `pixelate check sound/06-sample.wav --style any --use song --bpm 168 --key Em`.

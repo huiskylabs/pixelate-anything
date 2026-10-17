@@ -152,7 +152,7 @@ thin air) scrolls down past it forever. This brief covers the two showcase still
 - Native 270x480, 4x nearest to 1080x1920; one strict palette per still (about 60-80 slots), every pixel a slot.
 - Gate: `pixelate check out/02-a.png --style lofi --scale 4 --brief brief.md --pal out/02-a-palette.json`
   (and the same for 02-b), plus `--intent` for the deliberate star flecks in B.
-- Block-in: `pixelate check out/blockin-a.png --blockin --brief brief.md` before drawing.
+- Block-in: `pixelate check out/blockin-a.png --blockin --brief brief.md` before drawing; B: `--brief brief-b.md` (same Hero line, B's Planes line).
 - Value budget (lofi): at most 1% of the frame below L .1, no exact black, at most 4% at L .7 or above and 2%
   above L .8 (only the lantern and its pool), median chroma .02-.1.
 - Gate overrides: none.

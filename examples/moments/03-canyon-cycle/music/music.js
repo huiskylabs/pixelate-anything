@@ -1,17 +1,16 @@
-/* Pixel Radio: one chiptune phase and one ambient phase, with a ii-V hand-off each way.
-   style: 'chiptune' -> pulse lead, 16th-note pulse arpeggio, triangle octave bass, noise drums.
-   style: 'ambient'  -> pad with sparse voices on top, a drone bass, no drums.
-   Anything a phase sets itself overrides the style's defaults (see guides/music.md). */
+/* Canyon Cycle: a dusky ambient phase in B-flat minor. A pad with music-box voices on top, a sub
+   drone, no drums, a wind and fire bed. The thunder roll is mixed on top in Python (sound/). */
 const PHASES = [
-  { name: 'overworld', style: 'chiptune',
-    chords: [[36, [55, 60, 64]], [43, [55, 59, 62]], [45, [57, 60, 64]], [41, [57, 60, 65]]],   // C G Am F
-    scale: [72, 74, 76, 79, 81, 84, 86, 88], mel: 0.9 },
-  { name: 'drift', style: 'ambient', lead: 'piano', padVoice: 'musicbox', amb: [['wind', 0.12]],
-    chords: [[33, [52, 55, 59, 62]], [29, [53, 57, 60, 64]], [36, [52, 55, 59, 64]], [31, [50, 55, 59, 62]]],  // Am9 Fmaj7 Cmaj7 G6
-    scale: [64, 67, 69, 71, 72, 74, 76, 79], mel: 0.45 }
+  { name: 'dusk', style: 'ambient', lead: 'musicbox', comp: 'pad', padVoice: 'musicbox',
+    bass: 'bass', bassMode: 'drone', drums: false,
+    amb: [['wind', 0.3], ['fire', 0.2]],
+    chords: [[34, [53, 56, 60, 61]],     // Bbm9   (F Ab C Db over Bb)
+             [30, [53, 58, 61, 66]],     // Gbmaj7 (F Bb Db Gb over Gb)
+             [37, [53, 56, 60, 63]],     // Dbmaj9 (F Ab C Eb over Db)
+             [41, [51, 56, 58, 60]]],    // Fm11   (Eb Ab Bb C over F)
+    scale: [65, 68, 70, 72, 73, 75, 77, 80], mel: 0.75 }
 ];
 const TURNS = [
-  { pre: [47, [53, 57, 59, 62]], dom: [40, [56, 59, 62, 65]], approach: 44 },   // -> Am: Bm7b5, E7b9
-  { pre: [38, [53, 57, 60, 64]], dom: [43, [53, 57, 59, 64]], approach: 35 }    // -> C: Dm9, G13
+  { pre: [36, [51, 54, 58, 60]], dom: [41, [51, 54, 57, 60]], approach: 33 }   // Cm7b5, F7b9 -> Bbm
 ];
 const SCENE_MUSIC = { phases: PHASES, trans: TURNS };

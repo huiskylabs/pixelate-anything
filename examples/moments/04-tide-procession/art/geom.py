@@ -14,12 +14,12 @@ HORIZON = 206                     # sea meets sky
 # ---------------------------------------------------------------- sky emitters
 MOON = (468, 108, 22)             # cx, cy, r: low, behind the bell tower's west face
 MOON_BOX = (446, 86, 490, 130)
-GAP = (438, 32, 464, 62)          # the ragged break in the cloud bank above the moon
+GAP = (418, 34, 442, 62)          # the ragged break in the cloud bank, over the moon's west limb
 # the shaft per moment: it breathes across the water between the two stills
 SHAFT = {
     # from the break in the bank to the causeway round the leading pilgrims (the leading line)
-    'a': dict(x=448, y=60, angle=107, length=189, width=(9, 40)),
-    'b': dict(x=446, y=60, angle=110, length=186, width=(9, 36)),
+    'a': dict(x=430, y=61, angle=102, length=185, width=(8, 38)),
+    'b': dict(x=428, y=61, angle=106, length=182, width=(8, 34)),
 }
 
 # ---------------------------------------------------------------- the island and the monastery

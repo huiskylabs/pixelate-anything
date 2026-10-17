@@ -36,6 +36,9 @@ def env_adsr(n, a, d, s, r, hold):
 
 def place(buf, x, start, gain=1.0, pan=0.0):
     """add mono x into the stereo buffer at time start (s), equal-power pan -1..1"""
+    x = x.copy()
+    k = min(len(x), int(0.005 * SR))
+    x[-k:] *= np.linspace(1, 0, k)
     i = int(round(start * SR))
     if i >= N:
         return
@@ -66,7 +69,7 @@ def onepole_lp(x, fc):
 
 # ---------------------------------------------------------------- voices
 def bass(m, length):
-    n = int(SR * length)
+    n = int(SR * (length + 0.2))
     f = mtof(m)
     t = np.arange(n) / SR
     idx = 2.6 * np.exp(-t / 0.045) + 0.5               # the slap: a bright attack that closes fast
@@ -76,7 +79,7 @@ def bass(m, length):
     return 0.8 * tone + sub
 
 def brass(notes, length, bright=1.0):
-    n = int(SR * length)
+    n = int(SR * (length + 0.45))
     out = np.zeros(n)
     t = np.arange(n) / SR
     for k, m in enumerate(notes):
@@ -91,7 +94,7 @@ def brass(notes, length, bright=1.0):
     return out / (2 * len(notes))
 
 def lead(m, length):
-    n = int(SR * length)
+    n = int(SR * (length + 0.3))
     f = mtof(m)
     t = np.arange(n) / SR
     vib = 1 + 0.004 * np.sin(2 * np.pi * 5.5 * t) * np.clip((t - 0.08) / 0.1, 0, 1)
@@ -205,6 +208,14 @@ def render():
 def finish(buf, lufs_target=-14.0):
     """gentle saturation, fades (20 ms in, 400 ms out), loudness near the target, peak <= -1 dBFS"""
     x = np.tanh(buf * 1.1) / np.tanh(1.1)
+    R = 1 - 2 * np.pi * 18.0 / SR                       # DC blocker (an 18 Hz one-pole high-pass)
+    y = np.zeros_like(x)
+    prev_x = np.zeros(2); prev_y = np.zeros(2)
+    for i in range(len(x)):
+        prev_y = x[i] - prev_x + R * prev_y
+        prev_x = x[i]
+        y[i] = prev_y
+    x = y - y.mean(0)
     fi = int(0.020 * SR)
     fo = int(0.400 * SR)
     x[:fi] *= np.linspace(0, 1, fi)[:, None]

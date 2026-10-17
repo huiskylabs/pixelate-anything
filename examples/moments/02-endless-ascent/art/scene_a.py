@@ -35,6 +35,7 @@ RAMPS = {
     'iron': [(.18, .020, 270), (.27, .025, 265), (.37, .030, 260), (.46, .030, 250)],
     'leaf': [(.28, .050, 165), (.36, .060, 150)],
     'smoke': [(.385, .020, 285), (.425, .018, 295)],
+    'rim': [(.355, .040, 282), (.395, .040, 276)],
 }
 PAL = build(RAMPS, {'eye': (.56, .080, 130)})
 
@@ -173,6 +174,9 @@ def bark_walls(g, xl, xr):
             if hsh(x, y // 5, 74) < 0.15 and x > b:
                 v = 'bark2'
             put(g, x, y, v)
+    for y in range(H):
+        put(g, xl[y] - 1, y, 'rim0' if hsh(y // 4, 75) < 0.8 else 'bark2')
+        put(g, xr[y], y, 'rim1' if hsh(y // 3, 76) < 0.85 else 'rim0')
     return wall
 
 
@@ -290,9 +294,13 @@ def window(g, x, y, kind, lit, w=6, h=8, shutters=None):
         core &= (XX >= x + w // 2 - 1) & (YY >= y + h // 2 - 1)
         g[core] = 'win3'
         if kind in ('square', 'arch') and w >= 6:
-            cx = x + w // 2 - (1 if hsh(x, y, 92) < 0.5 else 0)
-            g[m & (XX == cx)] = 'wood1'
-            if h >= 7:
+            if w >= 11:                                   # three panes
+                for cx in (x + w // 3, x + 2 * w // 3):
+                    g[m & (XX == cx)] = 'wood1'
+            else:
+                cx = x + w // 2 - (1 if hsh(x, y, 92) < 0.5 else 0)
+                g[m & (XX == cx)] = 'wood1'
+            if h >= 9 and w >= 9:
                 g[m & (YY == y + h // 2)] = 'wood1'
     else:
         g[m] = 'bark1'
@@ -309,18 +317,29 @@ def window(g, x, y, kind, lit, w=6, h=8, shutters=None):
     return m
 
 
-def door(g, x, y, w=7, h=11, lit=False):
-    """an arched plank door in a carved lintel, an iron ring and a lit step"""
+def door(g, x, y, w=7, h=11, lit=False, shape='arch'):
+    """a plank door: 'arch' in a carved lintel arc, 'square' under a timber beam, 'hatch' a round
+    door; an iron ring and a lit step"""
     m = np.zeros((H, W), bool)
-    m[y:y + h, x:x + w] = True
     r = w / 2
-    for yy in range(y, y + int(r)):
-        for xx in range(x, x + w):
-            if ((xx + 0.5 - x - r) ** 2 + (yy + 0.5 - y - r) ** 2) > r * r:
-                m[yy, xx] = False
-    lintel = nb4(nb4(m)) & ~m & (YY < y + h)
-    g[lintel & (YY < y + int(r) + 2)] = 'hw3'           # a carved arch band over the door
-    g[lintel & (YY < y + int(r) + 2) & ((XX - x - w / 2) > 1)] = 'hw2'
+    if shape == 'hatch':
+        m = ((XX + 0.5 - x - r) ** 2 + (YY + 0.5 - y - h + w - r) ** 2) <= r * r
+        y = y + h - w
+        h = w
+    else:
+        m[y:y + h, x:x + w] = True
+    if shape == 'arch':
+        for yy in range(y, y + int(r)):
+            for xx in range(x, x + w):
+                if ((xx + 0.5 - x - r) ** 2 + (yy + 0.5 - y - r) ** 2) > r * r:
+                    m[yy, xx] = False
+    if shape == 'square':
+        for xx in range(x - 2, x + w + 2):
+            put(g, xx, y - 2, 'wood3'); put(g, xx, y - 1, 'wood1')
+    if shape == 'arch':
+        lintel = nb4(nb4(m)) & ~m & (YY < y + h)
+        g[lintel & (YY < y + int(r) + 2)] = 'hw3'       # a carved arch band over the door
+        g[lintel & (YY < y + int(r) + 2) & ((XX - x - w / 2) > 1)] = 'hw2'
     g[nb4(m) & ~m] = 'wood0'
     g[m] = 'wood2'
     for xx in range(x + 2, x + w, 2):
@@ -352,18 +371,18 @@ def fronts(g):
     awning(g, 37, 52, 365)
     window(g, 40, 370, 'arch', True, 8, 13)
     window(g, 63, 380, 'boarded', False, 7, 8)
-    door(g, 30, 404, 9, 16)
+    door(g, 28, 410, 11, 16, shape='hatch')
     # R1 medium (top right)
     dwelling(g, 198, 56, 256, 106, 'arch', seed=9)
     window(g, 207, 78, 'arch', False, 7, 10)
     awning(g, 221, 238, 66)
     window(g, 224, 71, 'square', True, 11, 9)
     window(g, 246, 80, 'slit', True, 3, 9)
-    door(g, 228, 86, 8, 16)
+    door(g, 228, 88, 9, 14, shape='square')
     # R2 small
     dwelling(g, 214, 122, 250, 156, 'oval', seed=11)
     window(g, 222, 129, 'round', True, 8)
-    door(g, 236, 136, 7, 13)
+    door(g, 236, 140, 9, 9, shape='hatch')
     # R3 small: the watcher's lit window
     dwelling(g, 202, 270, 250, 302, 'rect', seed=13)
     window(g, 212, 279, 'square', True, 10, 9)
@@ -378,7 +397,7 @@ def fronts(g):
     # R5 small landing front
     dwelling(g, 196, 436, 242, 478, 'rect', seed=17)
     window(g, 204, 446, 'square', False, 7, 7)
-    door(g, 222, 452, 8, 14)
+    door(g, 222, 454, 8, 12, shape='square')
     # small windows punched straight through the bark between the fronts (no carved face)
     for (x, y, kind, lit, w, h) in ((12, 160, 'round', False, 7, 7), (26, 300, 'arch', False, 5, 8),
                                     (244, 186, 'round', False, 6, 6), (258, 248, 'slit', True, 3, 8),

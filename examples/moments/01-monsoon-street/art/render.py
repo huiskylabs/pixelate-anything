@@ -102,12 +102,18 @@ def build(phase):
     return S, near, nmask
 
 
-def ambient_fn(phase):
-    """a 1x colour field: the cool ambient, darker toward the top so wall crowns sink into the dark"""
+def ambient_fn(phase, S):
+    """the lamp map's ambient as a 1x colour field: cool, darker toward the top so wall crowns sink
+    into the dark, plus soft warm spills (trapezoids and the lamp pool) built from masks"""
     r, g, b = AMBIENT[phase]
     yy = np.mgrid[0:H, 0:W][0].astype(float)
     k = 0.4 + 0.6 * np.clip((yy - 10) / 185.0, 0, 1) ** 1.2
-    return np.stack([r * k, g * k, b * k], -1).astype(np.float32)
+    amb = np.stack([r * k, g * k, b * k], -1)
+    for pts, gain, colour, blur in S.spills:
+        m = S.c.mask_poly(pts).astype(float)
+        m = post.blur(m, blur)
+        amb += m[..., None] * gain * np.array(colour)[None, None, :]
+    return amb.astype(np.float32)
 
 
 def render(phase, save=True):
@@ -117,10 +123,10 @@ def render(phase, save=True):
     layer = S.g.copy()
     layer[nmask] = near.g[nmask]
     pre = to_image(layer, pal)
-    emit = np.isin(S.g, list(EMISSIVE))
+    emit = np.isin(S.g, list(EMISSIVE)) | (np.char.startswith(S.g.astype(str), 'sky'))
     st = post.Stack(scale=SCALE, res='screen', background='#000000')
     st.plane(main, depth=1)
-    st.light(lambda p: p.lightmap(ambient=ambient_fn(phase), lights=S.lights, cap=1.35, keep=emit), depth=1)
+    st.light(lambda p: p.lightmap(ambient=ambient_fn(phase, S), lights=S.lights, cap=1.35, keep=emit), depth=1)
     near_img = to_image(np.where(nmask, near.g, 'void'), pal)
     st.plane(near_img, mask=nmask, depth=0)
     p = st.render()

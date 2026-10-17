@@ -158,3 +158,12 @@ k.................k
 ..kpk..wk...ssk...
 ...k...k.....k....
 """
+
+POT = """
+rmr
+mrm
+.n.
+"""
+
+def pot():
+    return mkit.grid_from(POT, {'r': 'rose2', 'm': 'leaf1', 'n': 'brown1'})

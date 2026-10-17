@@ -15,10 +15,10 @@ import mkit
 from mkit import plane, roof_x, roof_y
 
 # ---------------------------------------------------------------- roofs
-def roof_fill(mat, step, z0, seed, eave=True, period=4):
+def roof_fill(mat, step, z0, seed, eave=True, period=3):
     """a tile slope: courses every `period` px of height as dashed darker lines offset row by row,
     a few patched (lighter) tiles, a black eave line on the lowest row."""
-    base, dark, lite = '%s%d' % (mat, step), '%s%d' % (mat, max(0, step - 1)), '%s%d' % (mat, min(4, step + 1))
+    base, dark, lite = '%s%d' % (mat, step), 'tilek', '%s%d' % (mat, min(4, step + 1))
     ph = int(hash2(seed, 1, 9) * period)
     def f(X, Y, Z):
         dz = Z - z0
@@ -28,8 +28,8 @@ def roof_fill(mat, step, z0, seed, eave=True, period=4):
         along = X + Y                              # runs along the course on either slope
         if (dz + ph) % period < 1.0:
             # a dashed course line: gaps every 5-9 units, offset per row
-            L = 5 + int(hash2(row, seed, 3) * 5)
-            if (along + row * 3.7) % L > 0.9:
+            L = 6 + int(hash2(row, seed, 3) * 6)
+            if (along + row * 3.7) % L > 1.2:
                 return dark
         c = int(along // 1.5)
         if hash2(c, row, seed) < 0.035 and (dz + ph) % period > 1.5:
@@ -211,9 +211,15 @@ def house(s, b, z0=0):
             gable_fill(wall, 1, X, z0 + h, (d + 0.6) / 2.0, hr, 'y', Y + d / 2.0, seed, b['timber'])
         roof_x(s, X, Y - 0.3, z0 + h, w, d + 0.6, hr, roof_fill(roof, 2, z0 + h, seed), end, hip=hip)
         rows = 1 if d < 14 else (2 if w < 11 else 3)
-        kinds = ('gable', 'gable', 'tri') if hash2(seed, 21, 1) < 0.5 else ('gable',)
+        hv = hash2(seed, 21, 1)
+        kinds = ('gable', 'gable', 'tri') if hv < 0.45 else (('tri',) if hv < 0.62 else ('gable',))
+        if hv > 0.9:
+            rows = 0                                   # an old roof with no dormers at all
+        elif hv > 0.78:
+            rows = min(rows, 1)
         dmat = 'plaster' if hash2(seed, 22, 1) < 0.6 else wall
-        dormer_rows(s, 'y', X, X + w, Y + d + 0.3, Y + d / 2.0, z0 + h, z0 + h + hr, roof, dmat, seed, rows=rows, kinds=kinds, hip=hip)
+        if rows:
+            dormer_rows(s, 'y', X, X + w, Y + d + 0.3, Y + d / 2.0, z0 + h, z0 + h + hr, roof, dmat, seed, rows=rows, kinds=kinds, hip=hip)
         # chimneys: one or two, never centred
         if hash2(seed, 23, 1) < 0.6:
             cx = X + 1.5 + hash2(seed, 24, 1) * (w - 4)
@@ -240,6 +246,8 @@ def hall(s, A, steps):
             spring = 7.5 if not portal else 8.5
             if abs(cu - c) < rr and (vv < spring or (vv - spring) ** 2 + ((cu - c) * 1.5) ** 2 < (rr * 1.5) ** 2):
                 return 'glass'
+            if 5 <= i <= 9 and 10.5 <= vv < 12.5 + (0.9 if abs(cu - bay / 2.0) < 1.6 else 0):
+                return 'leaf1' if (vv < 11.2 or int(cu * 2) % 5 == 0) else 'rose2'
             if vv >= 12.5:
                 return 'stone0'
             return 'stone2'
@@ -271,12 +279,12 @@ def hall(s, A, steps):
         if 2 <= vv % 10 < 8 and (u % 6) < 1.5 and 1 < u < W - 1:
             return 'glass'
         return 'stone2'
-    s.box(X, Y, 0, w, d, h, 'stone', right=front, left=end, top='tile3')
-    side = roof_fill('tile', 1, h, 404, period=4)
-    endf = roof_fill('tile', 2, h, 405, period=4)
+    s.box(X, Y, 0, w, d, h, 'stone', right=front, left=end, top='slate3')
+    side = roof_fill('slate', 1, h, 404, period=3)
+    endf = roof_fill('slate', 2, h, 405, period=3)
     roof_y(s, X - 0.5, Y - 0.5, h, w + 1, d + 1, hr, side, endf, hip=hip)
     # three stacked dormer rows on the +x slope, shrinking toward the ridge
-    dormer_rows(s, 'x', Y + 1, Y + d - 1, X + w + 0.5, X + w / 2.0, h, h + hr, 'tile', 'stone', 77, rows=3, hip=hip,
+    dormer_rows(s, 'x', Y + 1, Y + d - 1, X + w + 0.5, X + w / 2.0, h, h + hr, 'slate', 'stone', 77, rows=3, hip=hip,
                 kinds=('gable', 'gable', 'gable', 'tri'))
     # the steps: a white landing and treads, light-grey risers
     x0, y0, y1 = steps['x0'], steps['y0'], steps['y1']
@@ -316,7 +324,7 @@ def stall(s, x, y, kind, w=9, d=5, seed=0):
     def front(u, v, t, face_step=2, W=None, H=None):
         if v > H - 1:
             return 'brown1'
-        return 'plaster2' if int(u * 2) % 5 else 'plaster1'
+        return 'plaster1' if int(u * 2) % 5 else 'plaster0'
     s.box(x, y, 0, w, d, 5, 'plaster', top=top, left=front, right='plaster1')
     # poles at the front corners
     for px in (x + 0.1, x + w - 0.6):
@@ -325,7 +333,7 @@ def stall(s, x, y, kind, w=9, d=5, seed=0):
     zb, zf = 19, 16
     def awn(X, Y, Z):
         k = int((X - x) // 1.0)
-        return '%s2' % paint if k % 2 == 0 else 'g7'
+        return '%s2' % paint if k % 2 == 0 else 'g5'
     plane(s, [(x - 0.3, y - 0.5, zb), (x + w + 0.3, y - 0.5, zb), (x + w + 0.3, y + d + 0.3, zf), (x - 0.3, y + d + 0.3, zf)], awn, 1, True,
           out=(0, 0.2, 1))
     # valance: a front strip hanging 2 px
@@ -333,5 +341,5 @@ def stall(s, x, y, kind, w=9, d=5, seed=0):
         k = int(u // 1.0)
         if v < 1 and int(u * 2) % 2 == 0:
             return 'ol'
-        return '%s1' % paint if k % 2 == 0 else 'g6'
+        return '%s1' % paint if k % 2 == 0 else 'g4'
     s.box(x - 0.3, y + d + 0.1, zf - 2, w + 0.6, 0.2, 2, paint, left=val, right='%s0' % paint, top='%s2' % paint)

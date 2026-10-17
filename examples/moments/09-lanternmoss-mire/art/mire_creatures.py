@@ -66,50 +66,50 @@ TOAD_KEY = {'o': 'ol', 'G': 'moss2', 'g': 'moss1', 'D': 'moss0', 'w': 'moss3', '
 TOAD_REST = """
 ................
 ................
-................
-....ooo..ooo....
-...oEeGooGeEo...
-..oGGGGGGGGGgo..
-.oGwGGGGGGGggDo.
-.oGGGGGgGGGgwDo.
-oGGoooooooooogDo
-oGgooyYYYYyyogDo
-oGGgooooooooggDo
-oGoGGo....oggoDo
-oooooo....oooooo
-................
+...oo......oo...
+..oEEo....oEEo..
+.oGEeooooooeEgo.
+.oGgggDgggggggo.
+oGgDgggggDgggDgo
+oGgggggDgggggDDo
+oGgoooooooooogDo
+oggoyYYYYYYyogDo
+.oggooooooooggo.
+oGgDo......oDgDo
+oGoGo......oGoDo
+.o.o........o.o.
 """
 TOAD_HALF = """
 ................
 ................
-................
-....ooo..ooo....
-...oEeGooGeEo...
-..oGGGGGGGGGgo..
-.oGwGGGGGGGggDo.
-.oGGGGGgGGGgwDo.
-oGGoooooooooogDo
-oGoyYYYYYYYyyoDo
-oGoYYYYYYYyyyoDo
-oGooyyyyyyyyooDo
-oooooooooooooooo
-................
+...oo......oo...
+..oEEo....oEEo..
+.oGEeooooooeEgo.
+.oGgggDgggggggo.
+oGgDgggggDgggDgo
+oGgggggDgggggDDo
+oGgoooooooooogDo
+oGoyYYYYYYYYyoDo
+oGoYYYYYYYYyyoDo
+oGgooyyyyyyoogDo
+oGoGo.oooo.oGoDo
+.o.o........o.o.
 """
 TOAD_FULL = """
 ................
 ................
-....ooo..ooo....
-...oEeGooGeEo...
-..oGGGGGGGGGgo..
-.oGwGGGGGGGggDo.
-.oGoooooooooogo.
-oGoyYYYYYYYYyyoo
-oGoYYXYYYYYYyyoD
-oGoYYYYYYYYYyyoD
-oGoyYYYYYYYyyyoo
-oGooyyyyyyyyyoDo
-oooooyyyyyyyoooo
-....oooooooo....
+...oo......oo...
+..oEEo....oEEo..
+.oGEeooooooeEgo.
+.oGgggDgggggggo.
+oGgDgggggDgggDgo
+oGgoooooooooogDo
+oGoyYYYYYYYYyoDo
+oGoYYXYYYYYYyoDo
+oGoYYYYYYYYYyoDo
+oGoyYYYYYYYyyoDo
+oGooyyyyyyyyooDo
+.o.oooooooooo.o.
 """
 
 
@@ -121,8 +121,8 @@ def toad():
 
 
 # ----------------------------------------------------------------------------- moth
-MOTH_KEY = {'o': 'ol', 'A': 'lum2', 'a': 'lum1', 'q': 'lum0', 'W': 'mist2', 'w': 'mist1',
-            'v': 'mist0', 'B': 'reed1', 'b': 'reed0', 'L': 'lum2', 'l': 'lum1', 'n': 'ol'}
+MOTH_KEY = {'o': 'ol', 'A': 'lum2', 'a': 'lum1', 'q': 'lum0', 'W': 'glow', 'w': 'mist1',
+            'v': 'mist0', 'B': 'glow', 'b': 'reed0', 'L': 'glow', 'l': 'lum1', 'n': 'ol'}
 MOTH_BODY = """
 ...............
 ....n.....n....

@@ -230,10 +230,10 @@ def gondola(g, lit=True):
 
 # the lantern's pool in palette steps: timber facing the lantern climbs the gw ramp by distance
 WARM = [  # (max distance, {slot: lit slot})
-    (8.5, {'wood4': 'gw3', 'wood3': 'gw3', 'wood2': 'gw2', 'wood1': 'gw1', 'iron2': 'gw1', 'iron3': 'gw2', 'iron1': 'gw0'}),
-    (14.5, {'wood4': 'gw2', 'wood3': 'gw2', 'wood2': 'gw1', 'wood1': 'gw0', 'iron3': 'gw1', 'iron2': 'gw0'}),
-    (21.5, {'wood4': 'gw1', 'wood3': 'gw1', 'wood2': 'gw1', 'wood1': 'gw0'}),
-    (29.5, {'wood4': 'gw0', 'wood3': 'gw0', 'wood2': 'gw0'}),
+    (9.5, {'wood4': 'gw3', 'wood3': 'gw3', 'wood2': 'gw2', 'wood1': 'gw1', 'iron2': 'gw1', 'iron3': 'gw2', 'iron1': 'gw0'}),
+    (16.0, {'wood4': 'gw2', 'wood3': 'gw2', 'wood2': 'gw1', 'wood1': 'gw0', 'iron3': 'gw1', 'iron2': 'gw0'}),
+    (23.0, {'wood4': 'gw1', 'wood3': 'gw1', 'wood2': 'gw1', 'wood1': 'gw0'}),
+    (31.0, {'wood4': 'gw0', 'wood3': 'gw0', 'wood2': 'gw0'}),
 ]
 
 

@@ -42,8 +42,8 @@ class _G:
             self.put(round(x0 + (x1 - x0) * u), round(y0 + (y1 - y0) * u), v)
 
 
-def pilgrim(h=31, kind='staff', frame=0, seed=0, lead=False):
-    pad = 5                                    # headroom for staffs and raised lanterns
+def pilgrim(h=31, kind='staff', frame=0, seed=0, lead=False, tall=False):
+    pad = 10 if tall else 5                                   # headroom for staffs and raised lanterns
     Wd = 28
     P = _G(Wd, h + pad)
     cx = 11                                    # body axis column
@@ -89,7 +89,7 @@ def pilgrim(h=31, kind='staff', frame=0, seed=0, lead=False):
     lamp = None
     if kind in ('staff', 'high'):
         sx = cx - 5 - (1 if _h(seed, 4) < 0.4 else 0)
-        P.line(sx + 1, top - 3, sx, foot, 'fig1')               # a staff leaning forward a little
+        P.line(sx + 1, top - (8 if tall else 3), sx, foot, 'fig1')   # a staff leaning forward a little
         P.put(sx + 1, top + hood_h + 5, 'fig0')                 # the back hand on it
     if kind == 'staff':
         hand = (cx + 5, sh + 7)

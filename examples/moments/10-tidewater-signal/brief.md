@@ -11,7 +11,7 @@ Request: a five-cue original soundtrack for an invented coastal adventure game, 
 - **phases**: two stills of one loop: A "The radio in the storm", B "Lightning" (the flash frame).
 - **figures**: none (the keeper is implied by the mug, logbook and pencil).
 - **purpose and outputs**: cover stills 1080x1920 (270x480 at 4x), 1x copies, palette JSON; a 5.0 s sound sample (wav + mp3).
-- **music**: chiptune overworld cue at 132 bpm in A major, I-V-vi-IV, the leitmotif on a 25% pulse.
+- **music**: chiptune overworld cue at 132 bpm in A major, I-V-vi-IV, the leitmotif E5 F#5 C#6 B5 E6 on a 25% pulse.
 
 ## 1. Purpose and delivery
 - A cassette J-card cover for an invented game soundtrack ("SIGNAL FROM TIDEWATER"), seen full size and as a 270 px wide thumbnail in a showcase.
@@ -39,7 +39,7 @@ Request: a five-cue original soundtrack for an invented coastal adventure game, 
 - Planes: room near plane 33% (1), far rock and tower 1% (1), cloud deck 31% (2), sea 11% (2), sill top 6% (2), sky gap under the deck 8% (3), radio cabinet 9% (3), mug and logbook 2% (3), dial window 1.5% (4)
 - Layout: window glass x 26-251, y 0-333 (upper sash y 0-159, meeting rail y 160-169, lower sash y 170-333); left jamb x 0-25, right jamb x 252-269; bottom rail y 334-341; sill top y 342-397; nosing y 398-409; wainscot y 410-479. Radio x 56-214, y 284-386, its dial window x 66-144, y 297-320. Lighthouse x 214-227, y 182-234 on a rock x 196-250, y 228-242. Title block x 62-207, y 16-38 in the calm top band.
 - Calm areas: the top sky band y 0-58 (title only: no rain or drops inside the title box), the wainscot (board seams only), the far sea band y 236-250.
-- Masses: the cloud deck is one dominant bank (about 60% of the window width, left of centre) with a second bank about 30% wide on the right and two small torn pieces (under 10%), lobes of clearly different radius; the sea has three swell bands of different depth (14, 40 and 50 rows) with crests of 4-26 px, never even.
+- Masses: three storm masses in the upper pane, about 60%, 30% and 10% of the window width, billowed tops with lobes of radius 9-27 px, long flat undersides (one 1 px step), one lit edge on the beam side (right); under the rail the storm's low ragged base lies over the pale gap; the sea has three swell bands of different depth (14, 40 and 50 rows) with crests of 4-26 px, never even.
 - Value plan: darkest: the room near plane, L .11-.23; dark: the sea and the sill top, L .13-.31 (the sill steps up to .60 only in the dial's pool); mid: the storm sky L .17-.57 and the radio cabinet L .21-.45, the title L .70 in 21 small letters; brightest: the dial window L .80-.92, with its one repeat the lighthouse lantern (L .86, 4x3 px); the beam steps from .74 at the lantern down to .52 at its far end, so it is brightest only at its source.
 - Objects (counts are maximums): 1 radio with 1 antenna, 2 knobs, 1 dial, 1 VU meter, 1 cassette (2 spools), 1 grille; 1 lighthouse on 1 rock; 1 beam (from the lantern leftward, ending at the antenna tip: the leading line lands on the hero); 1 mug (right of the radio); 1 spare cassette case on the radio's top; 1 logbook with 1 pencil (front left); 1 sash lock; 1 taped crack; 1 power cord from the radio's right foot over the nosing to a socket on the wainscot.
 
@@ -50,6 +50,7 @@ Request: a five-cue original soundtrack for an invented coastal adventure game, 
 - Cracked lower-left pane with two crossed strips of masking tape, 4x18 px each, a step above the sea behind.
 - Cassette PLAY key held down (2 px lower than its neighbours); the spools carry uneven tape packs (left full, right thin).
 - A spare cassette case lying on the radio's top, 28x7 px (its J-card a cream step above the cabinet), breaking the cabinet's long top edge.
+- A cassette case leaning against the wainscot at bottom left, 16x14 px, cropped by the frame edge, its hand-lettered label a step off the wall.
 - Sash lock on the meeting rail, 10x5 px, a brass step above the rail.
 - Power cord from the radio's right foot across the sill and over the nosing to a socket on the wainscot, 2 px cable, socket 10x12 px; a worn notch in the nosing 6x3 px.
 
@@ -57,7 +58,7 @@ Request: a five-cue original soundtrack for an invented coastal adventure game, 
 - A "The radio in the storm": palette by roles: slate-teal storm sky, deep teal sea, pale cool rain and foam, a pale lamp-white beam, blue-violet room darks, worn blue-grey window paint, walnut radio, oak sill, cream paper, amber-to-cream dial. Signature: the beam reaching the bent antenna, rain streaks and drops on the glass, the dial glow pooling on the sill.
 - B "Lightning": palette.flash on the window slots only (sky, sea, rain, foam, beam, tape) toward a cold white-blue (#e6efff); the room, the radio and the dial keep A's colours. Signature: a forked bolt into the sea left of the lighthouse, passing behind the meeting rail; the lighthouse and its rock drop to a hard silhouette; the beam is washed out; rain streaks over the sea turn bright; cold rims on every room edge facing the glass (radio top, antenna, mug rim, logbook back edge, sill back edge, frame inner edges); the dial still warm. Same pixels as A everywhere nothing moves (the spools and the VU needle are one step on).
 - Accent ration: amber/orange (C above .10) only in the dial window and the VU meter face; dull red (C .13) only on the dial pointer and the pencil eraser; brass only on the dial bezel and the sash lock; everything else stays under C .08.
-- Music: chiptune overworld cue, 132 bpm, A major, I-V-vi-IV (A - E - F#m - D), 25% pulse lead playing the leitmotif F#5 A5 E6 D6 C#6 (la do sol fa mi: up a third, up a fifth, two steps down), a 16th-note pulse2 arpeggio, a triangle bass in octaves, a noise kit (ckick, csnare, chat); sync point: a downbeat on the strike in the animated loop.
+- Music: chiptune overworld cue, 132 bpm, A major, I-V-vi-IV (A - E - F#m - D), 25% pulse lead playing the leitmotif E5 F#5 C#6 B5 E6 (sol la mi re sol: a step up, a fifth up, a step down, a fourth up, ending open; rhythm 2-2-4-2-6 sixteenths), answered over E by E5 F#5 B5 G#5 E5 (the first idea, F#5 A5 E6 D6 C#6, was dropped: its last four notes are the opening of Moon River), a 16th-note pulse2 arpeggio, a triangle bass in octaves, a noise kit (ckick, csnare, chat); sync point: a downbeat on the strike in the animated loop.
 
 ## 7. Light list
 - Dial window (x 66-144, y 297-320): amber to cream slots Y0-Y4, a warm bezel ring (brass A1-A2), the pool on the sill in front of it as a hand-shaped mask stepping the oak ramp O2 to O5; no blur.
@@ -75,7 +76,7 @@ Request: a five-cue original soundtrack for an invented coastal adventure game, 
 - Periods 12, 30, 120, 600 and 300 (15 Hz) ticks all divide the 600-tick loop at 30 fps (anim.check_periods).
 
 ## 9. Particles
-- Rain outside the glass: about 140 streaks over the window (two layers: 90 far streaks 3-5 px in N0, 50 near streaks 6-9 px in N1), slanting left; none inside the title box. Drops on the glass: 34 drops in 5 sizes, clustered toward the bottom rail, 6 with 4-14 px trails; drops near the dial catch one warm pixel.
+- Rain outside the glass: about 140 streaks over the window (two layers: 90 far streaks 3-5 px in N0, 50 near streaks 6-9 px in N1), slanting left; none inside the title box. Drops on the glass: 34 drops in 5 sizes, clustered toward the bottom rail, 6 with 4-14 px trails.
 
 ## 10. Never
 - glow blur, bloom, lens effects, soft shadows, a light layer, vignette, grain.

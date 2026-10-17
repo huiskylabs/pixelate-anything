@@ -42,14 +42,13 @@ def inb(x, y):
 
 
 # ================================================================ far plane
-SKY_STOPS = [('S0', 0), ('S1', 23, 12), ('S2', 33, 10), ('S3', 42, 10), ('S4', 72, 14), ('S5', 88, 12)]
+SKY_STOPS = [('S0', 0), ('S1', 20, 12), ('S2', 29, 10), ('S3', 38, 10), ('S4', 72, 14), ('S5', 88, 12)]
 
 # stars: hand-placed (x, y, slot); two clusters and a loose arc, on solid S0 only (y < 17)
-STARS = [(104, 3, 'T2'), (108, 9, 'T0'), (111, 5, 'T1'), (116, 12, 'T0'), (113, 15, 'T1'),
-         (121, 2, 'T0'), (126, 7, 'T2'), (130, 4, 'T1'), (124, 13, 'T0'), (137, 10, 'T1'),
-         (141, 2, 'T0'), (147, 6, 'T1'), (183, 3, 'T0'), (189, 7, 'T1'), (192, 2, 'T2'),
-         (197, 5, 'T0'), (201, 10, 'T1'), (205, 3, 'T0'), (171, 2, 'T1'), (163, 4, 'T0'),
-         (156, 1, 'T1'), (118, 6, 'T1')]
+STARS = [(112, 8, 'T2'), (105, 9, 'T0'), (108, 2, 'T1'), (112, 6, 'T0'), (115, 11, 'T1'), (118, 3, 'T0'),
+         (103, 12, 'T1'), (110, 13, 'T0'), (170, 0, 'T2'), (130, 1, 'T0'), (142, 0, 'T1'), (150, 2, 'T0'),
+         (163, 1, 'T1'), (177, 0, 'T0'), (186, 2, 'T1'), (199, 1, 'T0'), (106, 1, 'T2'), (196, 0, 'T1'),
+         (124, 2, 'T1'), (99, 7, 'T0')]
 
 
 def sky(c):
@@ -79,43 +78,46 @@ def ell(cx, cy, rx, ry):
 
 
 def cloud(c):
-    """the storm cell at sunset: a flat anvil whose top still holds the rose light, a cauliflower
-    tower lit on its upper-left billows, a dark flat belly. Billows hand-placed, very different
-    radii; each has a lit rim, a cap, a body and a crease where it sits on an earlier one."""
+    """the storm cell at sunset: a long flat anvil whose top holds the rose light, a tower of
+    billows of very different size lit on the upper left, and a long dark flat base."""
     total = np.zeros((H, W), bool)
-    anv = c.mask_poly([(121, 12), (127, 8), (140, 6), (158, 5), (178, 6), (198, 6), (217, 7), (217, 14),
-                       (204, 14), (190, 16), (176, 18), (166, 22), (156, 23), (140, 20), (126, 17)])
+    anv = c.mask_poly([(118, 9), (124, 5), (138, 3), (158, 2), (180, 3), (200, 3), (218, 4), (218, 11),
+                       (204, 11), (190, 13), (176, 15), (166, 18), (154, 19), (138, 17), (124, 14)])
     c.fill(anv, 'C1')
     out = ~anv
-    up = np.roll(out, 1, 0) | np.roll(out, 2, 0)
-    c.fill(anv & up & (XX < 200), 'C2')
-    c.fill(anv & np.roll(out, 1, 0) & (XX < 182), 'C3')
-    c.fill(anv & (np.roll(out, -1, 0) | np.roll(out, -2, 0)) & (XX > 160), 'C0')
+    c.fill(anv & (np.roll(out, 1, 0) | np.roll(out, 2, 0)) & (XX < 204), 'C2')
+    c.fill(anv & np.roll(out, 1, 0) & (XX < 186), 'C3')
+    c.fill(anv & (np.roll(out, -1, 0) | np.roll(out, -2, 0)) & (XX > 158), 'C0')
     total |= anv
-    billows = [  # cx, cy, r (x stretch 1.25): back to front, right to left on the lit flank
-        (170, 30, 11), (160, 22, 8), (150, 15, 6), (157, 34, 10), (143, 22, 10), (134, 13, 5),
-        (138, 31, 7), (127, 25, 6), (147, 40, 9), (126, 37, 8), (119, 42, 5), (184, 37, 9),
-        (197, 41, 6)]
+    billows = [  # cx, cy, r (x stretch 1.25): back to front; radii 3..12, never two alike in a row
+        (171, 25, 11), (159, 17, 7), (150, 11, 4), (156, 29, 9), (142, 19, 10), (133, 11, 3),
+        (136, 28, 6), (126, 23, 5), (146, 33, 12), (124, 33, 7), (117, 37, 4), (184, 32, 8),
+        (198, 35, 5), (165, 35, 6)]
+    creased = {(142, 19, 10), (146, 33, 12), (171, 25, 11)}
     for cx, cy, r in billows:
-        m = (((XX - cx) / (1.25 * r)) ** 2 + ((YY - cy) / r) ** 2 < 1) & (YY < 49)
-        hi = cy < 30
-        lobe_shade(c, m, 'C3' if hi else 'C2', 'C2' if hi else 'C1', 'C1', 'C0', total)
+        m = (((XX - cx) / (1.25 * r)) ** 2 + ((YY - cy) / r) ** 2 < 1) & (YY < 41)
+        c.fill(m, 'C1')
+        if (cx, cy, r) in creased:
+            low_edge = m & ~np.roll(m, -1, 0) & total
+            c.fill(low_edge & (XX > cx - r), 'C0')
         total |= m
-    belly = c.mask_poly([(108, 47), (114, 42), (130, 41), (160, 40), (186, 41), (202, 43), (207, 47),
-                         (196, 49), (170, 49), (150, 50), (126, 49)])
-    c.fill(belly & ~total, 'C0')
-    out = ~(total | belly)
+    # the lit upper edge: only where the mass meets open sky above or up-left
+    sky_ = ~total
+    up1 = np.roll(sky_, 1, 0) | np.roll(np.roll(sky_, 1, 0), 1, 1)
+    up3 = up1 | np.roll(sky_, 2, 0) | np.roll(sky_, 3, 0)
+    c.fill(total & up3 & ~anv & (YY < 30), 'C2')
+    c.fill(total & up1 & ~anv & (YY < 26), 'C3')
+    c.fill(total & up1 & ~anv & (YY >= 26) & (XX < 150), 'C2')
+    # the long flat base: one straight-ish underside with 1 px steps, dark
+    base = c.mask_poly([(106, 40), (112, 35), (130, 33), (160, 32), (190, 33), (208, 35), (212, 40),
+                        (200, 41), (170, 41), (140, 41), (118, 41)])
+    c.fill(base & ~total, 'C0')
+    out = ~(total | base)
     low = np.zeros_like(total)
-    for s in range(1, 5):
-        low |= np.roll(out, -s, 0)
-    c.fill((total | belly) & low & (YY > 33), 'C0')
-    total |= belly
-    # a darker heart in the lower tower so the mass reads heavy, not hollow
-    heart = total & (YY > 30) & (YY < 44) & (XX > 140) & (XX < 190) & ~low
-    c.fill(heart & np.isin(c.g, ['C1']), 'C1')
-    for (x0, x1, y) in ((112, 120, 50), (127, 132, 51), (171, 178, 50), (189, 193, 50)):
-        for x in range(x0, x1):
-            c.put(x, y, 'C0')
+    for s_ in range(1, 5):
+        low |= np.roll(out, -s_, 0)
+    c.fill((total | base) & low & (YY > 26), 'C0')
+    total |= base
     return total
 
 
@@ -179,35 +181,38 @@ def mesa(c):
 
 
 def bolt(c):
-    """the strike: a jagged 1 px path with one branch, only over solid S3"""
-    path = [(142, 47), (142, 48), (141, 49), (140, 50), (140, 51), (141, 52), (142, 53), (141, 54),
-            (140, 55), (139, 56), (139, 57), (138, 58), (137, 59), (138, 60), (137, 61), (136, 62)]
-    branch = [(142, 53), (143, 54), (144, 55), (144, 56), (145, 57), (146, 58), (146, 59)]
-    for x, y in path + branch:
-        if c.get(x, y) == 'S3':
+    """the strike: a jagged main channel from the cloud base to the mesa top, 1-2 px wide (doubled
+    at the kinks), with three short branches; drawn only on the sky (S3 and its dither with S2)"""
+    main = [(156, 41), (156, 42), (155, 43), (154, 44), (154, 45), (155, 46), (157, 47), (158, 48),
+            (158, 49), (157, 50), (156, 51), (157, 52), (159, 53), (160, 54), (160, 55), (159, 56),
+            (160, 57), (162, 58), (163, 59), (163, 60), (164, 61)]
+    thick = [(155, 44), (156, 46), (159, 48), (158, 52), (161, 54), (161, 58)]
+    branches = [[(154, 45), (152, 46), (151, 47), (150, 49), (149, 50)],
+                [(158, 49), (160, 50), (162, 51), (163, 52), (165, 54)],
+                [(160, 56), (158, 58), (157, 59), (157, 60)]]
+    for x, y in main + thick + [p for br in branches for p in br]:
+        if c.get(x, y) in ('S3', 'S2'):
             c.put(x, y, 'BL')
 
 
 def rain(c):
-    """faint streaks under the storm, drawn once; visible only when the rain slots are on"""
+    """the storm's rain curtain, drawn once in switched slots under the right of the base, leaning
+    left toward the mesa: streaks of 2-5 px, denser in the curtain's heart"""
     on = {'S3': 'RS3', 'C0': 'RC0', 'M0': 'RM0', 'M1': 'RM1'}
-    n = 0
-    for i in range(500):
-        x = 110 + int(100 * hsh(i, 11))
-        y = 42 + int(56 * hsh(i, 12))
-        ln = 2 + int(3 * hsh(i, 13))
-        if hsh(i, 14) < 0.35:
+    for i in range(900):
+        x = 166 + int(44 * hsh(i, 11))
+        y = 40 + int(50 * hsh(i, 12))
+        heart = abs(x - 186) < 11
+        if hsh(i, 14) > (0.85 if heart else 0.45):
             continue
-        hit = 0
+        if y > 64 + int(26 * hsh(i, 15)):
+            continue
+        ln = 2 + int(4 * hsh(i, 13))
         for k in range(ln):
             xx, yy = x - (k + (y % 3)) // 3, y + k
             v = c.get(xx, yy) if inb(xx, yy) else None
             if v in on:
                 c.put(xx, yy, on[v])
-                hit += 1
-        n += hit > 0
-        if n >= 70:
-            break
 
 
 # ================================================================ middle plane
@@ -215,7 +220,7 @@ def rock_step(c):
     m = G.step_mask()
     c.fill(m, 'H1')
     f = G.RIGHT_FALL
-    joints = [101, 110, 118, 129, 137, 146, 158, 166, 196, 203, 209]
+    joints = [116, 144, 151, 160, 168, 177, 189, 196, 203, 209]
     for jx in joints:
         top = next((y for y in range(85, 124) if m[y, jx]), 124)
         ln = 6 + int(12 * hsh(jx, 1))
@@ -235,10 +240,16 @@ def rock_step(c):
         if top is not None:
             c.put(x, top, 'H2')
     # wet dark rock either side of the right fall, ragged
-    for y in range(f['y0'] + 2, 124):
-        for x in (f['x0'] - 1, f['x0'] - 2, f['x1'], f['x1'] + 1):
-            if m[y, x] and hsh(x, y, 9) < (0.85 if x in (f['x0'] - 1, f['x1']) else 0.4):
-                c.put(x, y, 'H0')
+    for ff in (f, G.RIGHT_FALL2):
+        for y in range(ff['y0'] + 2, ff['y1']):
+            for x in (ff['x0'] - 2, ff['x0'] - 3, ff['x1'] + 1, ff['x1'] + 2):
+                if m[y, x] and hsh(x, y, 9) < (0.7 if x in (ff['x0'] - 2, ff['x1'] + 1) else 0.3):
+                    c.put(x, y, 'H0')
+    # the pinnacle's lip the fall pours over: lit, a dark notch behind the water
+    for x in range(121, 140):
+        c.put(x, 76 if 124 <= x <= 136 else 77, 'H2')
+    for x in range(125, 135):
+        c.put(x, 75, 'H0')
     return m
 
 
@@ -293,7 +304,7 @@ def water(c):
     river = G.poly(G.RIVER)
     w = pool | river
     tmp = Canvas(W, H, None)
-    tmp.bands(118, 180, [('V2', 118), ('V1', 147, 10), ('V0', 166, 12)])
+    tmp.bands(118, 180, [('V1', 118), ('V2', 133, 10), ('V1', 150, 10), ('V0', 167, 12)])
     for y, x in zip(*np.nonzero(w)):
         c.put(x, y, tmp.get(x, y))
     # dark reflections along both banks (the banks' mirror), ragged inner edge
@@ -334,22 +345,22 @@ def river_glints(c, w):
             x = xs.min() + 4 + int(8 * hsh(y, seed))
             end = xs.max() - 4
             while x < end:
-                ln = [2, 3, 5, 3, 7, 4, 2, 6][int(8 * hsh(x, y, seed + 1))]
+                ln = [4, 6, 9, 5, 11, 7, 3, 8][int(8 * hsh(x, y, seed + 1))]
                 ph = int(5 * hsh(x, y, seed + 2))
                 for k in range(ln):
                     xx = x + k
-                    if xx < end and c.get(xx, y) in ('V0', 'V1', 'V2'):
+                    if xx < end and c.get(xx, y) in ('V0', 'V1', 'V2', 'Q0'):
                         c.put(xx, y, '%s%d' % (name, (ph + (sign * xx) // 2) % 5))
-                gap = 5 + int(16 * hsh(x, y, seed + 3)) + (9 if hsh(y, x // 30, seed + 4) < 0.3 else 0)
+                gap = 7 + int(18 * hsh(x, y, seed + 3)) + (10 if hsh(y, x // 30, seed + 4) < 0.3 else 0)
                 x += ln + gap
 
 
 def foam(c, w):
     """static foam dashes drifting from the falls' feet, mismatched lengths"""
-    dashes = [(54, 127, 4, 'N1'), (60, 129, 3, 'N0'), (73, 127, 5, 'N0'), (50, 130, 2, 'N0'),
-              (69, 131, 3, 'N1'), (79, 129, 2, 'N0'), (85, 131, 4, 'N0'), (167, 126, 4, 'N0'),
-              (173, 128, 6, 'N1'), (188, 127, 3, 'N0'), (193, 126, 5, 'N1'), (181, 130, 3, 'N0'),
-              (198, 129, 2, 'N0'), (163, 129, 2, 'N0'), (190, 132, 4, 'N0'), (175, 133, 2, 'N0')]
+    dashes = [(80, 128, 4, 'N1'), (86, 130, 3, 'N0'), (110, 127, 5, 'N0'), (76, 131, 2, 'N0'),
+              (104, 131, 3, 'N1'), (116, 129, 2, 'N0'), (95, 133, 4, 'N0'), (140, 127, 4, 'N0'),
+              (146, 129, 6, 'N1'), (153, 127, 3, 'N0'), (127, 131, 5, 'N1'), (134, 134, 3, 'N0'),
+              (158, 130, 2, 'N0'), (119, 135, 2, 'N0'), (149, 133, 4, 'N0'), (101, 136, 2, 'N0')]
     for x, y, ln, s in dashes:
         for k in range(ln):
             if w[y, x + k]:
@@ -357,15 +368,22 @@ def foam(c, w):
 
 
 def reflections(c, w):
-    """the forge and lantern in the water: broken warm dashes under them (flicker slots)"""
-    for (x0, x1, y0, y1, s1, s0) in ((222, 236, 126, 133, 'F1', 'F0'), (196, 201, 125, 132, 'L1', 'L0')):
+    """warm columns reflected under the forge and the lantern: stacked horizontal dashes with ripple
+    gaps, narrowing and wobbling with depth, the hot colour only near the waterline (flicker slots,
+    so they flicker with their source)"""
+    for (cx, half, y0, y1, hot, warm, sd) in ((229, 6, 124, 141, 'F1', 'F0', 62), (198, 2, 124, 137, 'L1', 'L0', 66)):
         for y in range(y0, y1):
-            for x in range(x0, x1):
-                if not w[y, x]:
-                    continue
-                k = hsh(x, y, 61)
-                if (y - y0) % 2 == 0 and k < 0.55:
-                    c.put(x, y, s1 if (k < 0.2 and y < y0 + 4) else s0)
+            k = (y - y0) / float(y1 - y0)
+            if (y - y0) % 2 == 1 and k > 0.15:
+                continue                                  # every other row is a ripple gap
+            hw = max(1, int(round(half * (1 - 0.6 * k))))
+            x = cx - hw + int(round(2 * hsh(y, sd) - 1))
+            while x <= cx + hw:
+                ln = 2 + int(3 * hsh(x, y, sd + 1))
+                for xx in range(x, min(x + ln, cx + hw + 1)):
+                    if inb(xx, y) and w[y, xx]:
+                        c.put(xx, y, hot if k < 0.25 else warm)
+                x += ln + 1 + int(2 * hsh(x, y, sd + 2))
 
 
 # ================================================================ near banks
@@ -464,151 +482,145 @@ def banks(c, w):
 
 
 # ================================================================ near walls
-# strata: (top y, kind) top to bottom; 'hard' bands protrude, take a lit lip and shade the band below
-LEFT_STRATA = [(0, 'soft'), (10, 'hard'), (24, 'soft'), (31, 'hard'), (49, 'soft'), (58, 'hard'),
-               (66, 'soft'), (84, 'hard'), (90, 'soft'), (108, 'hard'), (118, 'soft')]
-RIGHT_STRATA = [(0, 'hard'), (9, 'soft'), (27, 'hard'), (36, 'soft'), (46, 'hard'), (59, 'soft'),
-                (77, 'soft'), (110, 'hard'), (119, 'soft')]
-# long fissures, as distance from the inner edge; each wanders and stops at a stratum
-LEFT_FISSURES = [(12, 0, 58), (27, 10, 90), (49, 0, 49), (55, 66, 127), (78, 24, 108), (90, 84, 127)]
-RIGHT_FISSURES = [(9, 0, 46), (21, 46, 127), (38, 0, 77), (63, 9, 110), (88, 27, 127), (101, 0, 36)]
+# strata top to bottom: (top y, kind). Hard bands are ledges (7-22 px): they jut into the gap with
+# an overhanging lip, take a lit top edge and carry the flake dashes. Soft bands (4-8 px) are the
+# recesses under the lips, set back and dark.
+LEFT_BANDS = [(0, 'hard'), (12, 'soft'), (18, 'hard'), (27, 'soft'), (32, 'hard'), (50, 'soft'),
+              (56, 'hard'), (69, 'soft'), (75, 'hard'), (95, 'soft'), (100, 'hard'), (116, 'soft')]
+RIGHT_BANDS = [(0, 'hard'), (13, 'soft'), (17, 'hard'), (33, 'soft'), (39, 'hard'), (48, 'soft'),
+               (54, 'hard'), (76, 'soft'), (81, 'hard'), (110, 'hard'), (119, 'soft')]
+# a few short cracks inside hard bands (x, y, length), never spanning a band
+LEFT_CRACKS = [(70, 36, 9), (31, 59, 7), (84, 79, 11), (48, 103, 8), (16, 21, 6)]
+RIGHT_CRACKS = [(232, 20, 9), (268, 42, 6), (226, 58, 12), (296, 85, 10), (258, 113, 5)]
 
 
 def wall(c, side):
-    """canyon sandstone in planes: strata bands with wavy bounds (hard bands lighter, jutting 3-5 px
-    into the gap with a lit lip; soft bands recessed and shaded under the lip above), a few long
-    fissures with a lit right lip, varnish streaks hanging from the lips, darker toward the frame
-    edge. The right wall takes the rose sun on its inner faces; the left wall is in shadow."""
+    """canyon rock in planes: ledges of uneven thickness with frayed overhanging lips and a lit
+    top edge (sunset side), stacked flake dashes on the faces, dark recesses under the lips, darker
+    toward the frame edge. No cells, no full-length seams."""
     L = side == 'L'
-    strata = LEFT_STRATA if L else RIGHT_STRATA
-    fiss = LEFT_FISSURES if L else RIGHT_FISSURES
+    bands = LEFT_BANDS if L else RIGHT_BANDS
     knots = G.LEFT_EDGE if L else G.RIGHT_EDGE
     seed = 300 if L else 500
     xs = np.arange(W)
-    bounds = [np.zeros(W, int)] + [np.round(y + seam(xs, 'wave', (2.5, 1.0), seed + 11 * i)
-                                            ).astype(int) for i, (y, k) in enumerate(strata) if i]
+    tilt = 0.035 if L else -0.03                     # strata dip gently toward the gap
+    bounds = [np.zeros(W, int)]
+    for i, (y, k) in enumerate(bands):
+        if i:
+            wav = seam(xs, 'wave', (2.0, 1.0), seed + 11 * i)
+            bounds.append(np.round(y + wav + tilt * (xs - (100 if L else 220))).astype(int))
     band = np.zeros((H, W), int)
     for i in range(1, len(bounds)):
-        band += YY >= bounds[i][None, :]
-    kind = np.array([k == 'hard' for y, k in strata])
-    jut = np.array([(3 + int(3 * hsh(i, seed))) if k == 'hard' else -int(2 * hsh(i, seed + 1))
-                    for i, (y, k) in enumerate(strata)])
+        band = np.where(YY >= bounds[i][None, :], i, band)
+    hard = np.array([k == 'hard' for y, k in bands])
+    jut = np.array([(3 + int(4 * hsh(i, seed))) if hard[i] else -(1 + int(2 * hsh(i, seed + 1)))
+                    for i in range(len(bands))])
     edge = np.array([G.edge_x(knots, y) for y in range(H)])
     m = np.zeros((H, W), bool)
     for y in range(G.WALL_FOOT + 2):
         for x in range(W):
-            e = edge[y] + (jut[band[y, x]] if L else -jut[band[y, x]])
+            b = band[y, x]
+            depth = y - bounds[b][x]                 # rows below this band's top
+            j = jut[b] - (depth // 4 if hard[b] else 0)  # the lip juts, the face undercuts
+            e = edge[y] + (j if L else -j)
             m[y, x] = x < e if L else x >= e
-    m = shapes.fray(m, teeth=0.16, notches=0.10, islands=0.0, depth=2, seed=seed, facing=(1, 0) if L else (-1, 0))
+    m = shapes.fray(m, teeth=0.18, notches=0.12, islands=0.0, depth=2, seed=seed,
+                    facing=(1, 0) if L else (-1, 0))
     m &= YY <= G.WALL_FOOT + 1
-    e_row = np.array([np.nonzero(m[y])[0].max() if L and m[y].any() else
-                      (np.nonzero(m[y])[0].min() if m[y].any() else 0) for y in range(H)])
+    rows = [np.nonzero(m[y])[0] for y in range(H)]
+    e_row = np.array([(r.max() if L else r.min()) if len(r) else 0 for r in rows])
     dist = (e_row[:, None] - XX) if L else (XX - e_row[:, None])
-    # fissure masks (wandering lines at a distance from the edge)
-    fis = np.zeros((H, W), bool)
-    for d0, ya, yb in fiss:
-        off = 0
-        for y in range(ya, min(yb, G.WALL_FOOT + 1)):
-            if hsh(d0, y, seed + 5) < 0.16:
-                off += 1 if hsh(d0, y, seed + 6) < 0.5 else -1
-            x = (edge[y] - d0 - off) if L else (edge[y] + d0 + off)
-            if 0 <= x < W:
-                fis[y, x] = True
     for y in range(G.WALL_FOOT + 2):
         for x in range(W):
             if not m[y, x]:
                 continue
             b = band[y, x]
-            d = dist[y, x]
-            hard = kind[b]
-            # which column (between fissures) this pixel is in, counted from the gap
-            col = sum(1 for d0, ya, yb in fiss if ya <= y < yb and d > d0)
+            d = dist[y, x] + int(8 * hsh(b, x // 23, seed + 3)) - 4    # falloff edges jog per band
+            depth = y - bounds[b][x]
             if L:
-                tone = 2 if d < 5 else 1 if d < 40 else 0
-                tone += 1 if hard and d < 64 else 0
-                tone = min(2, tone)
+                tone = 2 if d < 5 else 1 if d < 42 else 0
+                if hard[b] and d < 70:
+                    tone = min(2, tone + 1)
             else:
-                tone = 3 if col == 0 else 2 if col == 1 else 1 if col <= 3 else 0
-                if not hard:
+                tone = 3 if d < 12 else 2 if d < 34 else 1 if d < 72 else 0
+                if not hard[b]:
                     tone = max(0, tone - 1)
-                if d > 96:
-                    tone = 0
             s = 'R%d' % tone
-            top = y == bounds[b][x] if b else False
-            if top and hard:
-                s = 'R%d' % min(4, tone + (2 if (not L and col == 0) else 1))
-            if b and not hard and kind[b - 1] and y == bounds[b][x]:
-                s = 'K0' if tone <= 1 else 'R%d' % (tone - 1)       # shade under the lip above
+            if hard[b] and b and depth == 0 and hsh(x // 5, b, seed + 4) > 0.14:
+                s = 'R%d' % min(4, tone + (2 if (not L and d < 30) else 1))       # lit top edge, broken
+            elif not hard[b] and b and depth < (2 if d < 36 else 1):
+                s = 'K0' if tone <= 1 else 'R%d' % (tone - 2)                    # recess under the lip
             c.put(x, y, s)
-    # fissures: dark line, lit right lip (the light comes from the left)
-    for y, x in zip(*np.nonzero(fis & m)):
-        c.put(x, y, 'K0')
-        if inb(x + 1, y) and m[y, x + 1]:
-            v = c.get(x + 1, y)
-            if v[0] == 'R' and v[1:].isdigit():
-                c.put(x + 1, y, 'R%d' % min(4, int(v[1:]) + 1))
-    # varnish streaks hanging from the hard lips: 1 px, mismatched length, sparse
-    for i in range(1, len(strata)):
-        if not kind[i]:
-            continue
-        x = int(10 * hsh(i, seed + 8))
-        while x < W:
-            yb = bounds[i][x] + 2
-            ln = 3 + int(9 * hsh(x, i, seed + 9))
-            for y in range(yb, yb + ln):
-                if inb(x, y) and m[y, x] and band[y, x] == i:
-                    v = c.get(x, y)
-                    if v[0] == 'R' and v[1:].isdigit() and int(v[1:]) > 0:
-                        c.put(x, y, 'R%d' % (int(v[1:]) - 1))
-            x += 5 + int(13 * hsh(x, i, seed + 10))
-    # grain: sparse flake dashes in the mid tones
-    body = m & np.isin(c.g, ['R1', 'R2']) & (dist > 3)
-    texture.flakes(c, body, 'R', base=1, cell=(15, 8), cluster=0.3, gate=0.4, length=(3, 6),
-                   stack=(1, 2), lit_end=1, shadow=True, steps=5, seed=seed + 1)
-    # the silhouette edge: the right wall takes the rose sun rim, the left wall a dark outline
+    # stacked flake dashes on the ledge faces
+    faces = m & np.isin(c.g, ['R1', 'R2', 'R3']) & hard[band] & (dist > 2)
+    texture.flakes(c, faces & np.isin(c.g, ['R1']), 'R', base=1, cell=(10, 5), cluster=0.7, gate=0.75,
+                   length=(3, 7), stack=(1, 3), lit_end=2, shadow=True, steps=5, seed=seed + 1)
+    texture.flakes(c, faces & np.isin(c.g, ['R2']), 'R', base=2, cell=(9, 5), cluster=0.7, gate=0.75,
+                   length=(3, 6), stack=(1, 3), lit_end=1, shadow=True, steps=5, seed=seed + 2)
+    # short cracks with a lit right lip
+    for cx, cy, ln in (LEFT_CRACKS if L else RIGHT_CRACKS):
+        x = cx
+        for k in range(ln):
+            y = cy + k
+            if k and hsh(cx, y, seed + 6) < 0.3:
+                x += 1 if hsh(cx, y, seed + 7) < 0.55 else -1
+            if inb(x, y) and m[y, x] and hard[band[y, x]]:
+                c.put(x, y, 'K0')
+                v = c.get(x + 1, y)
+                if v and v[0] == 'R' and v[1:].isdigit() and m[y, x + 1]:
+                    c.put(x + 1, y, 'R%d' % min(4, int(v[1:]) + 1))
+    # the silhouette: the right wall's ledges take the rose rim, the left wall a dark outline
     for y in range(0, G.WALL_FOOT + 1):
-        row = np.nonzero(m[y])[0]
-        if len(row) == 0:
+        r = rows[y]
+        if len(r) == 0:
             continue
-        if not L:
-            x = row.min()
-            c.put(x, y, 'R4' if kind[band[y, x]] or hsh(x, y, seed) < 0.6 else 'R3')
+        if L:
+            c.put(r.max(), y, 'K0')
         else:
-            c.put(row.max(), y, 'K0')
+            x = r.min()
+            b = band[y, x]
+            c.put(x, y, 'R4' if hard[b] else 'R1')
+            if hard[b] and inb(x + 1, y) and m[y, x + 1] and c.get(x + 1, y) in ('R1', 'R2'):
+                c.put(x + 1, y, 'R3')
     return m
 
 
 def left_fall_setting(c):
-    """the cleft the left fall leaves from, the ledge it splashes on, wet rock, moss in the spray"""
+    """the lip the left fall pours over, the notch it comes from, the ledge it breaks on, wet rock
+    beside it and moss in the spray"""
     f, f2 = G.LEFT_FALL, G.LEFT_FALL2
-    cleft = """
-...kkkkkkkk...
-.kkKKKKKKKKkk.
-kKKKKKKKKKKKKk
+    notch = """
+...kkkkkkkkkk...
+.kkKKKKKKKKKKkk.
+kKKKKKKKKKKKKKKk
 """
-    stamp(c, cleft, {'k': 'R0', 'K': 'K0'}, f['x0'] - 4, f['y0'] - 3)
-    # the ledge between the tiers: a jutting shelf with a lit lip and a shadow under it
-    bump = """
-..RRRR...
-.RrrrrRR.
-krrrrrrrk
-.kkrrrkk.
-...kkk...
+    stamp(c, notch, {'k': 'R0', 'K': 'K0'}, f['x0'] - 3, f['y0'] - 3)
+    lip = """
+..RRRRRRRRRR..
+.rrrrrrrrrrrr.
+rrrrrrrrrrrrrk
+.kkrrrrrrkkk..
+...kkkkkk.....
 """
-    stamp(c, bump, {'R': 'R2', 'r': 'R1', 'k': 'K0'}, f['x1'] - 3, f['y1'] - 1)
-    # wet rock beside both tiers: ragged, darker, not a ruled outline
+    stamp(c, lip, {'R': 'R2', 'r': 'R1', 'k': 'K0'}, f['x0'] - 3, f['y0'] + 1)
+    brk = """
+...RRRRRR....
+.RRrrrrrrRR..
+krrrrrrrrrrrk
+.kkrrrrrrrkk.
+...kkkkkk....
+"""
+    stamp(c, brk, {'R': 'R2', 'r': 'R1', 'k': 'K0'}, f['x0'] - 1, f['y1'] - 1)
     for ff in (f, f2):
-        for y in range(ff['y0'] + 2, ff['y1']):
+        for y in range(ff['y0'] + 3, ff['y1']):
             k = (y - ff['y0']) / max(1, ff['y1'] - ff['y0'])
-            grow = int(k * k * 2 + 0.5)
+            grow = int(k * k * 3 + 0.5)
             for x, p in ((ff['x0'] - grow - 2, 0.45), (ff['x0'] - grow - 3, 0.2), (ff['x1'] + grow + 1, 0.45),
                          (ff['x1'] + grow + 2, 0.2)):
                 if hsh(x, y, 91) < p:
                     c.put(x, y, 'R0')
-    # moss patches in the spray, low on the wall near the foot, mismatched
-    moss = [(f2['x0'] - 12, 108, 7, 3), (f2['x1'] + 4, 112, 5, 4), (f2['x0'] - 9, 97, 3, 2),
-            (f2['x1'] + 3, 100, 4, 2), (f2['x0'] - 15, 117, 8, 3), (f2['x1'] + 5, 119, 7, 3),
-            (f['x1'] + 3, 52, 4, 2)]
+    moss = [(f2['x0'] - 13, 108, 7, 3), (f2['x1'] + 4, 112, 5, 4), (f2['x0'] - 9, 96, 3, 2),
+            (f2['x1'] + 3, 99, 4, 2), (f2['x0'] - 16, 117, 8, 3), (f['x1'] + 3, 60, 4, 2)]
     for mx, my, mw, mh in moss:
         for yy in range(my, my + mh):
             for xx in range(mx, mx + mw):
@@ -616,6 +628,18 @@ krrrrrrrk
                 if e < 1.1 and hsh(xx, yy, 92) < 0.85:
                     c.put(xx, yy, 'G1' if yy == my or hsh(xx, yy, 93) < 0.3 else 'G0')
         c.put(mx + 1, my, 'G2')
+
+
+def right_fall_break(c):
+    """the rock the right fall breaks on, between its two tiers"""
+    f = G.RIGHT_FALL
+    brk = """
+..HHHHHHH...
+.HhhhhhhhHH.
+khhhhhhhhhhk
+.kkkkkkkkkk.
+"""
+    stamp(c, brk, {'H': 'H2', 'h': 'H1', 'k': 'H0'}, f['x0'] - 2, f['y1'] - 1)
 
 
 FERN = """
@@ -627,7 +651,7 @@ gGg.Gg
 
 
 def ferns(c):
-    for x, y in ((47, 120), (80, 119), (206, 120)):
+    for x, y in ((74, 119), (112, 120), (150, 121)):
         stamp(c, FERN, {'g': 'G0', 'G': 'G2'}, x, y)
 
 
@@ -682,21 +706,21 @@ def forge(c):
     INTERIOR = """
 000000111111100000
 000011111111111100
-0001111111kkkkk110
-0011111111kkkkkk10
-0111111112kkkkkk10
-0111111122kkkkkkk1
-1111111222kkkkkkk1
-111111222iiiiiiiii
+000111111112211110
+001111111222222110
+011111112222222211
+011111122222222221
+111111222222332222
 111112222233333322
 111122223333333332
 111222223333333332
-112222222233333322
-122222222rRrRRrRr2
-2kkkkkkkk2krrkrrk2
-22kkkkkkk2rRrrRrr1
-1222kkkk22krrkrrk1
-1122kkk22211111111
+112222222333333322
+122222222233333221
+1222222222kkkkkkkk
+2kkkkkkkk22RRRRRRR
+22kkkkkkk22rrrrrrr
+1222kkkk222kkkkkkk
+1122kkk2221rrrrrrr
 1112kkk21111111111
 111kkkkk1111111111
 11kkkkkkk111111111
@@ -815,14 +839,12 @@ def chimney(c):
     for y in range(y0 + 2, y1):
         for x in range(x0, x1):
             s = 'R3' if x == x0 else 'R0' if x == x1 - 1 else 'R2'
-            if (y - y0) % 6 == 0:
-                s = 'K0' if x < x1 - 1 else 'K0'
-            elif (y - y0) % 6 == 1 and x < x1 - 2:
-                s = 'R3' if x <= x0 + 1 else 'R2'
-            if (y // 6) % 2 and x == x0 + 4 and (y - y0) % 6 not in (0, 1):
-                s = 'K0'                                    # offset joints
-            if (y // 6) % 2 == 0 and x == x0 + 2 and (y - y0) % 6 not in (0, 1):
+            if (y - y0) % 9 == 0 or (y - y0) % 9 == 5 and x > x0 + 3:
                 s = 'K0'
+            elif (y - y0) % 9 == 1 and x < x1 - 2:
+                s = 'R3' if x <= x0 + 1 else 'R2'
+            if (y // 9) % 2 and x == x0 + 4 and (y - y0) % 9 not in (0, 1):
+                s = 'K0'                                    # offset joints
             c.put(x, y, s)
     # cap
     for x in range(x0 - 1, x1 + 1):
@@ -943,29 +965,36 @@ ooooo
 def build():
     c = Canvas(W, H, 'S0')
     sky(c)
-    cl = cloud(c)
+    cloud(c)
     bolt(c)
-    rain(c)
     mesa(c)
     rain(c)
     rock_step(c)
-    w = water(c)
-    fall(c, G.RIGHT_FALL, 'WB', hi_edge=None, lo_edge=None, flare=2, seed=17)
-    river_glints(c, w)
-    foam(c, w)
-    reflections(c, w)
-    banks(c, w)
     wall(c, 'R')
     wall(c, 'L')
     left_fall_setting(c)
-    fall(c, G.LEFT_FALL, 'WA', hi_edge=None, lo_edge=None, flare=1, seed=5, foot=False)
-    fall(c, G.LEFT_FALL2, 'WA', hi_edge=None, lo_edge=None, flare=3, seed=9)
-    # the splash on the ledge between the tiers
-    f = G.LEFT_FALL
-    for x in range(f['x0'] - 4, f['x1'] + 4):
-        hgt = 3 - abs(x - (f['x0'] + f['x1']) // 2) // 3 + int(2 * hsh(x, 95))
-        for y in range(f['y1'] - hgt, f['y1'] + 1):
-            c.put(x, y, 'WA%d' % int(6 * hsh(x, y, 96)) if hsh(x, y, 97) < 0.8 else 'N0')
+    w = water(c)
+    river_glints(c, w)
+    reflections(c, w)
+    banks(c, w)
+    right_fall_break(c)
+    fall(c, G.RIGHT_FALL, 'WB', hi_edge=None, lo_edge=None, flare=1, seed=17, foot=False)
+    fall(c, G.RIGHT_FALL2, 'WB', hi_edge=None, lo_edge=None, flare=2, seed=23)
+    fall(c, G.LEFT_FALL, 'WA', hi_edge=None, lo_edge=None, flare=2, seed=5, foot=False)
+    fall(c, G.LEFT_FALL2, 'WA', hi_edge=None, lo_edge=None, flare=4, seed=9)
+    for f, rng, sd in ((G.LEFT_FALL, 'WA', 95), (G.RIGHT_FALL, 'WB', 98)):   # spray on each break
+        mid = (f['x0'] + f['x1']) // 2
+        for x in range(f['x0'] - 6, f['x1'] + 6):
+            hgt = 4 - abs(x - mid) // 3 + int(2 * hsh(x, sd))
+            for y in range(f['y1'] - hgt, f['y1'] + 2):
+                if hgt > 0:
+                    c.put(x, y, '%s%d' % (rng, int(6 * hsh(x, y, sd + 1))) if hsh(x, y, sd + 2) < 0.75 else 'N0')
+        for k in range(7):                                    # droplets thrown off the break
+            x = mid - 9 + int(18 * hsh(k, sd + 3))
+            y = f['y1'] - 6 + int(4 * hsh(k, sd + 4))
+            if abs(x - mid) > 5:
+                c.put(x, y, 'N0')
+    foam(c, w)
     ferns(c)
     ledge(c)
     chimney(c)

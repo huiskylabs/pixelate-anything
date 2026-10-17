@@ -27,8 +27,8 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT = ROOT / 'out'
 W, H = 640, 360
-SX, SY = 136, 100                 # slab footprint, model units
-CX, CY = 68, 50                   # the lazy susan's axis (integers keep the unit grid on turns)
+SX, SY = 140, 100                 # slab footprint, model units
+CX, CY = 70, 50                   # the lazy susan's axis (integers keep the unit grid on turns)
 
 # ================================================================ palettes
 def _L(L, C, h):
@@ -194,9 +194,9 @@ class Beam(sdf.Node):
 # ================================================================ the ship's lines
 class Ship:
     """the hull as functions of station u (0 transom .. 1 stem head) and height z"""
-    def __init__(self, x0=18.0, L=80.0, yc=47.0, zk=-4.0, B=10.0, D=17.0, sa=4.0, sf=7.0, wl=6.5):
+    def __init__(self, x0=15.0, L=87.0, yc=47.0, zk=-4.0, B=11.0, D=18.0, sa=5.5, sf=9.0, wl=6.5):
         self.x0, self.L, self.yc, self.zk, self.B, self.D, self.sa, self.sf = x0, L, yc, zk, B, D, sa, sf
-        self.keel = 1.6 if L > 30 else 0.6
+        self.keel = 2.2 if L > 30 else 0.6
         self.zwl = zk + wl                       # the painted waterline
     def u(self, x):
         return (np.asarray(x, float) - self.x0) / self.L
@@ -209,17 +209,19 @@ class Ship:
         base = self.zk + self.keel
         fore = np.clip((u - 0.78) / 0.22, 0, 1)
         aft = np.clip((0.09 - u) / 0.09, 0, 1)
-        return base + (self.zs(1.0) - 0.6 - base) * fore ** 2.1 + 0.5 * self.D * aft ** 1.3
+        run = np.clip((0.24 - u) / 0.24, 0, 1) if self.L > 30 else 0.0
+        return base + (self.zs(1.0) - 0.6 - base) * fore ** 2.1 + 0.5 * self.D * aft ** 1.3 + 0.22 * self.D * run ** 1.6
     def bm(self, u):
         u = np.clip(np.asarray(u, float), 0, 1)
         uf = np.clip((u - 0.5) / 0.5, 0, 1); ua = np.clip((0.5 - u) / 0.5, 0, 1)
-        return self.B * np.where(u >= 0.5, (1 - uf ** 2.2) ** 0.75, 0.66 + 0.34 * (1 - ua ** 2))
+        return self.B * np.where(u >= 0.5, (1 - uf ** 2.0) ** 0.8, 0.62 + 0.38 * (1 - ua ** 2))
     def eta(self, u, z):
         zb, zs = self.zb(u), self.zs(u)
         return (np.asarray(z, float) - zb) / np.maximum(zs - zb, 0.5)
     def hb(self, u, z):
         e = np.clip(self.eta(u, z), 0, 1)
-        sc = np.sin(np.clip(e / 0.62, 0, 1) * np.pi / 2) ** 0.8
+        end = np.clip(np.abs(np.asarray(u, float) - 0.5) / 0.5, 0, 1) ** 2
+        sc = np.sin(np.clip(e / (0.62 + 0.30 * end), 0, 1) * np.pi / 2) ** (0.8 + 0.6 * end)
         sc = sc * (1 - 0.05 * np.clip((e - 0.8) / 0.2, 0, 1))
         k = 0.9 if self.L > 30 else 0.35
         return k + np.maximum(self.bm(u) - k, 0) * sc
@@ -276,24 +278,25 @@ class Ship:
                 float(self.zs(1.0)) + top + 1)
 
 SHIP = Ship()
-# frames: (station x, sided width, head above the sheer); hand-spaced, a doubled pair amidships,
-# the aftmost frames still to be raised (one waits on the ground)
-RIBS = [(26.5, 1.2, 0.0), (31.5, 1.2, 1.5), (35.5, 1.4, 0.5), (40.5, 1.2, 2.2), (44.5, 1.2, 0.0),
-        (49.5, 1.4, 1.0), (51.5, 1.2, 1.0), (56.5, 1.2, 2.6), (60.5, 1.4, 0.4), (65.5, 1.2, 1.4),
-        (70.5, 1.2, 0.0), (74.5, 1.2, 1.8), (79.5, 1.4, 0.6), (83.5, 1.2, 1.2), (87.5, 1.2, 0.0),
-        (91.5, 1.2, 0.8)]
+# frames: (station u, sided width, head above the sheer); hand-spaced, a doubled pair amidships, a
+# two-frame gap aft where the next frames go in (one waits on the ground)
+_RU = [(0.105, 1.3, 0.6), (0.16, 1.2, 1.4), (0.212, 1.3, 0.2), (0.372, 1.4, 1.6), (0.398, 1.2, 1.0),
+       (0.452, 1.3, 2.2), (0.503, 1.2, 0.0), (0.556, 1.4, 1.2), (0.611, 1.2, 2.0), (0.659, 1.3, 0.4),
+       (0.712, 1.2, 1.5), (0.761, 1.3, 0.0), (0.806, 1.2, 0.9), (0.851, 1.2, 0.3), (0.893, 1.2, 0.0)]
+RIBS = [(math.floor(SHIP.x0 + u * SHIP.L) + 0.5, sd, ov) for u, sd, ov in _RU]
 
 # ================================================================ layout (model units)
-DOCK = (10.0, 104.0, 28.0, 66.0)                 # x0, x1, y0, y1 of the graving dock at the coping
+DOCK = (7.0, 106.0, 27.0, 67.0)                  # x0, x1, y0, y1 of the graving dock at the coping
 STEPS = [(-1.5, 2.0), (-3.0, 2.0), (-4.5, 2.0)]  # altar treads: top z, width
 FLOOR = -6.0
-ENTR = (104.0, 112.0, 36.0, 58.0)                # the entrance, where the gate leaves stand
-GATE = dict(hx=106.0, mx=109.2)                  # leaf hinges at x hx (y 36 / 58), the mitre at mx
-CANAL = (112.0, 122.0)
-WATER = -2.6
+ENTR = (106.0, 112.0, 36.0, 58.0)                # the dock mouth, closed by stop-logs at x 108
+STOP = 108.0
+CANAL = (112.0, 126.0)
+WATER, LOW = -2.6, -4.8                          # the canal above and below the lock
+LOCK = dict(yh=85.0, ym=82.2)                    # leaf hinges at the canal walls (y yh), the mitre at y ym
 SAWPIT = (20.0, 38.0, 76.0, 82.0)
-HUT = (123.6, 57.0, 11.4, 18.0)                  # x, y, w, d on the far bank
-CRANE = dict(x=48.0, y=12.0, w=6.0, h=46.0)
+HUT = (128.4, 56.0, 10.6, 18.0)                  # x, y, w, d on the far bank
+CRANE = dict(x=48.0, y=11.0, w=6.0, h=46.0)
 
 # ================================================================ textures (model space)
 def _bounds(lo, seed, step=(2.6, 4.4)):
@@ -391,7 +394,7 @@ def tex_floor(mx, my, mz, n, st):
 
 def _puddle(mx, my):
     # below the mitre: a long irregular wet tongue running back from the gate
-    t = (GATE['hx'] - mx) / 9.0
+    t = (STOP - mx) / 10.0
     if t < -0.4 or t > 1.0:
         return False
     w = 2.2 * (1 - t) + 0.6 * math.sin(mx * 1.7)
@@ -623,17 +626,31 @@ def build_ground(Y):
         s(x0 + off, y0 + off, -10, x1 - x0 - off, wd, zt + 10, 'stone', tex=tex_floor, tag='dock')
         s(x0 + off, y1 - off - wd, -10, x1 - x0 - off, wd, zt + 10, 'stone', tex=tex_floor, tag='dock')
         s(x0 + off, y0 + off, -10, wd, y1 - y0 - 2 * off, zt + 10, 'stone', tex=tex_floor, tag='dock')
-    # the canal: water to the slab's edges
-    s(CANAL[0], 0, -10, CANAL[1] - CANAL[0], SY, 10 + WATER, 'water', tex=tex_water, cast=False, tag='water')
-    # water in the entrance, on the canal side of the leaves
-    hx, mxp = GATE['hx'], GATE['mx']
-    def wfn(x, y, z):
-        xl = hx + (mxp - hx) * (1 - np.abs(y - 47) / 11.0) + 0.8
-        return np.maximum.reduce([xl - x, x - (CANAL[0] + 0.2), np.abs(y - 47) - 11.0, z - WATER, -10 - z])
-    Y.solid(Field(wfn, (hx - 1, 36, -10, CANAL[0] + 0.2, 58, WATER), M('water', tex_water)), cast=False,
-            tag='water', lines=False)
-    # the gate sill: a timber beam across the entrance floor
-    s(hx - 0.8, ENTR[2], FLOOR, 1.2, ENTR[3] - ENTR[2], 0.7, 'timber', tag='gate')
+    # the canal: high water above the lock, low water below it, the dock mouth flooded to the stop-logs
+    def lockline(x):
+        return LOCK['ym'] + (LOCK['yh'] - LOCK['ym']) * np.abs(x - (CANAL[0] + CANAL[1]) / 2) / ((CANAL[1] - CANAL[0]) / 2)
+    def upfn(x, y, z):
+        return np.maximum.reduce([CANAL[0] - x, x - CANAL[1], -y, y - (lockline(x) - 0.9), z - WATER, -10 - z])
+    def lowfn(x, y, z):
+        return np.maximum.reduce([CANAL[0] - x, x - CANAL[1], (lockline(x) + 0.9) - y, y - SY, z - LOW, -10 - z])
+    Y.solid(Field(upfn, (CANAL[0], 0, -10, CANAL[1], LOCK['yh'], WATER), M('water', tex_water)), cast=False,
+            tag='water', lines=False, maxit=60)
+    Y.solid(Field(lowfn, (CANAL[0], LOCK['ym'], -10, CANAL[1], SY, LOW), M('water', tex_water)), cast=False,
+            tag='water', lines=False, maxit=60)
+    s(STOP + 1.0, ENTR[2], -10, CANAL[0] - STOP - 1.0, ENTR[3] - ENTR[2], 10 + WATER, 'water', tex=tex_water,
+      cast=False, tag='water')
+    # stop-logs: horizontal timbers dropped in grooves across the mouth, holding the canal out
+    s(STOP, ENTR[2], FLOOR, 1.4, ENTR[3] - ENTR[2], 0.4 - FLOOR, 'timber', tex=tex_stoplogs, tag='gate')
+
+def tex_stoplogs(mx, my, mz, n, st):
+    if n[2] > 0.5:
+        return 'timber%d' % min(4, st + 1)
+    k = int((mz - FLOOR) // 1.25)
+    if (mz - FLOOR) % 1.25 < 0.3:
+        return 'timber%d' % max(0, st - 1)
+    if mz < WATER and mx > STOP + 0.7:
+        return 'timber%d' % max(0, st - 2)
+    return 'timber%d' % (st if k % 3 else max(0, st - 1) if n[0] > 0.5 else st)
 
 def tex_chipfloor(mx, my, mz, n, st):
     if n[2] > 0.5:
@@ -645,29 +662,32 @@ def tex_chipfloor(mx, my, mz, n, st):
     return tex_boards(mx, my, mz, n, st)
 
 def build_gate(Y):
-    """two mitred leaves meeting at a point upstream, with balance beams over the coping"""
-    hx, mxp = GATE['hx'], GATE['mx']
+    """the canal lock: two mitred leaves meeting in a V that points upstream, balance beams on the banks"""
+    xc = (CANAL[0] + CANAL[1]) / 2
     for side in (-1, 1):
-        hinge = (hx, 47 + side * 11.0)
-        mitre = (mxp, 47.0)
-        Y.solid(Beam((hinge[0], hinge[1], FLOOR + 4.1), (mitre[0], mitre[1], FLOOR + 4.1), w=1.6, h=8.4,
+        hinge = np.array([xc + side * (CANAL[1] - CANAL[0]) / 2, LOCK['yh']])
+        mitre = np.array([xc, LOCK['ym']])
+        Y.solid(Beam((hinge[0], hinge[1], -4.0), (mitre[0], mitre[1], -4.0), w=1.6, h=11.4,
                      mat=M('timber', tex_gate, bias=1)), tag='gate')
-        d = np.array(hinge) - np.array(mitre); d /= np.linalg.norm(d)
-        far = np.array(hinge) + d * 8.5
-        Y.solid(Beam((mitre[0] - 0.2, mitre[1], 2.1), (far[0], far[1], 2.1), w=1.3, h=1.3,
-                     mat=M('timber', tex_endgrain)), tag='gate')
-        Y.solid(Beam((hinge[0] + 0.6, hinge[1], 1.85), (mitre[0] + 0.4, mitre[1], 1.85), w=1.2, h=0.4,
-                     mat=M('timber')), tag='gate')
-        for f in (0.08, 0.55, 0.95):
-            px_ = hinge[0] + (mitre[0] - hinge[0]) * f + 0.75; py_ = hinge[1] + (mitre[1] - hinge[1]) * f
-            Y.solid(Beam((px_, py_, 1.9), (px_, py_, 4.4), w=0.5, h=0.5, mat=M('timber')), tag='gate', lines=False)
-        Y.solid(Beam((hinge[0] + 0.8, hinge[1], 4.3), (mitre[0] + 0.7, mitre[1] + side * 0.3, 4.3), w=0.5, h=0.5,
-                     mat=M('timber', bias=1)), tag='gate', lines=False)
+        d = hinge - mitre; d /= np.linalg.norm(d)
+        far = hinge + d * 11.0
+        Y.solid(Beam((mitre[0] + 0.0, mitre[1] + 0.2, 2.6), (far[0], far[1] + 0.3, 2.6), w=1.6, h=1.6,
+                     mat=M('timber', tex_endgrain, bias=1)), tag='gate')                    # balance beam
+        Y.solid(Beam((far[0], far[1] + 0.3, 0.0), (far[0], far[1] + 0.3, 1.8), w=1.0, h=1.0, mat=M('timber')),
+                tag='gate', lines=False)                                                    # its rest post
+        Y.solid(Beam((hinge[0], hinge[1] - 0.9, 1.75), (mitre[0], mitre[1] - 0.9, 1.75), w=1.1, h=0.4,
+                     mat=M('timber')), tag='gate')                                          # walkway
+        for f in (0.1, 0.55, 0.95):
+            q = hinge + (mitre - hinge) * f
+            Y.solid(Beam((q[0], q[1] - 1.4, 1.9), (q[0], q[1] - 1.4, 4.4), w=0.5, h=0.5, mat=M('timber')), tag='gate',
+                    lines=False)
+        Y.solid(Beam((hinge[0], hinge[1] - 1.4, 4.3), (mitre[0] - side * 0.3, mitre[1] - 1.4, 4.3), w=0.5, h=0.5,
+                     mat=M('timber', bias=1)), tag='gate', lines=False)                     # handrail
 
 def tex_gate(mx, my, mz, n, st):
-    if mz < WATER and n[2] < 0.5 and mx > GATE['hx']:
-        return 'timber%d' % max(0, st - 2)                # wet below the waterline
-    if (mz - FLOOR) % 2.0 < 0.35:
+    if mz < LOW + 0.2 and n[2] < 0.5:
+        return 'timber%d' % max(0, st - 2)                # wet below the low water
+    if (mz + 10) % 2.0 < 0.35:
         return 'timber%d' % max(0, st - 1)
     return 'timber%d' % st
 
@@ -675,8 +695,8 @@ def tex_gate(mx, my, mz, n, st):
 def build_ship(Y, stage):
     S = SHIP
     # keel blocks: stacked, mismatched, hand-spaced
-    for i, (bx, bw, bh2) in enumerate(((24, 3.0, 0.9), (32.5, 2.4, 1.1), (41, 3.4, 0.8), (49.5, 2.6, 1.2),
-                                        (58, 3.0, 0.9), (66.5, 2.2, 1.0), (75, 3.2, 1.1), (83, 2.6, 0.7))):
+    for i, (bx, bw, bh2) in enumerate(((21, 3.0, 0.9), (30.5, 2.4, 1.1), (40, 3.4, 0.8), (49.5, 2.6, 1.2),
+                                        (59, 3.0, 0.9), (68.5, 2.2, 1.0), (78, 3.2, 1.1), (87, 2.6, 0.7))):
         Y.box(bx, S.yc - 2.2, FLOOR, bw, 4.4, 2.0 - bh2 * 0.6, 'timber', tag='blocks')
         Y.box(bx + 0.3, S.yc - 1.6 + 0.3 * (i % 2), FLOOR + 2.0 - bh2 * 0.6, bw - 0.6, 3.2, bh2 * 0.6,
               'timber', tag='blocks')
@@ -685,32 +705,32 @@ def build_ship(Y, stage):
     outer = [(S.x0 + S.L * u + 1.3 * (u - 0.78) / 0.22, float(S.zb(u)) - S.keel * (1 - (u - 0.78) / 0.22))
              for u in us]
     inner = [(S.x0 + S.L * u - 1.2, float(S.zb(u)) + 1.2) for u in us[::-1]]
-    aft_top = float(S.zs(0.0)) + (1.2 if stage == 1 else 0.6)
+    aft_top = float(S.zs(0.0)) + (4.5 if stage == 1 else 0.6)
     head = float(S.zs(1.0))
     pts = ([(S.x0 + 2.4, S.zk), (S.x0 + S.L * 0.78, S.zk)] + outer[1:] +
-           [(S.x0 + S.L + 1.3, head + (1.5 if stage == 1 else 0.8)), (S.x0 + S.L - 0.6, head + 1.0)] +
+           [(S.x0 + S.L + 1.6, head + (4.0 if stage == 1 else 0.8)), (S.x0 + S.L - 0.8, head + (3.4 if stage == 1 else 1.0))] +
            inner[1:] + [(S.x0 + 3.6, S.zk + S.keel), (S.x0 + 1.2, aft_top - 0.5), (S.x0 - 0.6, aft_top),
                         (S.x0 + 0.6, S.zk + 2.0)])
-    Y.solid(sdf.Plate(pts, y0=S.yc, t=0.9, mat=M('oak', tex_frame)), hero=True, tag='ship')
+    Y.solid(sdf.Plate(pts, y0=S.yc, t=1.0, mat=M('oak', tex_frame)), hero=True, tag='ship')
     if stage == 1:
         bb = S.bbox(top=3)
         Y.solid(Field(lambda x, y, z: S.frames_d(x, y, z, RIBS), bb, M('oak', tex_frame)), hero=True, tag='ship',
                 maxit=220)
-        Y.solid(Beam((S.x0 + 6, S.yc, S.zk + S.keel + 1.6), (S.x0 + S.L * 0.84, S.yc, S.zk + S.keel + 1.6),
-                     w=1.2, h=1.0, mat=M('oak')), hero=True, tag='ship')
+        Y.solid(Beam((S.x0 + 9, S.yc, S.zk + S.keel + 1.9), (S.x0 + S.L * 0.84, S.yc, S.zk + S.keel + 1.9),
+                     w=1.3, h=1.1, mat=M('oak')), hero=True, tag='ship')
         # one sheer ribband each side, fastened along part of the run (the near one stops short)
         Y.solid(Field(lambda x, y, z: S.band_d(x, y, z, 0.93, 0.14, 0.70, side=-1), bb, M('oak', bias=1)),
                 hero=True, tag='ship', maxit=200)
     else:
         Y.solid(Field(S.solid_d, S.bbox(), M('oak', tex_hull)), hero=True, tag='ship', maxit=200)
-    # shores from the altars to the bilge, hand-angled
-    for (xs_, side, zs_, lean) in ((30, 1, 3.5, 0.0), (46, 1, 4.5, 1.2), (64, 1, 4.0, -0.8), (81, 1, 3.0, 0.6),
-                                   (38, -1, 4.0, 0.4), (57, -1, 4.5, -0.5), (75, -1, 3.5, 0.9)):
+    # six shores from the dock floor to the bilge, each at its own angle
+    for (xs_, side, zs_, lean) in ((26, 1, 3.0, 0.0), (49, 1, 4.5, 1.6), (73, 1, 4.0, -1.0),
+                                   (36, -1, 3.5, 0.6), (60, -1, 4.5, -0.8), (84, -1, 3.0, 1.2)):
         u = float(S.u(xs_))
-        yb = S.yc + side * (float(S.hb(u, zs_)) + 0.4)
-        foot_y = (DOCK[3] - 1.0) if side > 0 else (DOCK[2] + 1.0)
-        Y.solid(Beam((xs_ + lean, foot_y, STEPS[0][0] + 0.5), (xs_, yb, zs_), w=1.0, h=1.0,
-                     mat=M('timber', tex_endgrain)), tag='shore')
+        yb = S.yc + side * (float(S.hb(u, zs_)) + 0.5)
+        foot_y = (DOCK[3] - 7.4) if side > 0 else (DOCK[2] + 7.4)
+        Y.solid(Beam((xs_ + lean, foot_y, FLOOR + 0.6), (xs_, yb, zs_), w=1.3, h=1.3,
+                     mat=M('timber', tex_endgrain, bias=1)), tag='shore')
     if stage >= 3:
         Y.solid(Field(S.bulwark_d, S.bbox(top=3), M('oak', tex_hull)), hero=True, tag='ship', maxit=200)
         Y.solid(Field(S.cap_d, S.bbox(top=4), M('oak', bias=1)), hero=True, tag='ship', maxit=200)
@@ -818,26 +838,24 @@ def build_props(Y, stage, phase):
                                      (40.0, 86.0, 0.8, 1.6, 1.1, 0.7), (43.2, 85.4, 0, 1.3, 2.0, 0.9),
                                      (42.0, 84.4, 0.8, 2.6, 0.9, 0.6)):
         b(ox, oy, oz, ow, od, oh, 'timber', tex=tex_endgrain, tag='saw')
-    # --- the plank stack on three bearers, stickered, a sprung plank, a patched tarp over the far end
+    # --- the plank stack on three bearers: stickered layers, uneven boards, one board askew
     for bx in (49.0, 61.5, 73.0):
-        b(bx, 77.4, 0, 1.4, 9.6, 1.0, 'timber', tag='stack')
+        b(bx, 76.8, 0, 1.5, 10.6, 1.1, 'timber', tag='stack')
     layers = 4 if stage == 1 else 2
-    z = 1.0
+    z = 1.1
     for L_ in range(layers):
-        for j, (py, pw) in enumerate(((78.0, 2.5), (80.8, 2.3), (83.4, 2.6))):
-            xs0 = 47.0 + 3.4 * hash2(L_, j, 41)
-            ln = 23.0 + 8.0 * hash2(L_, j, 42)
-            if L_ == layers - 1 and j == 2:
-                Y.solid(Beam((xs0, py + pw / 2, z + 0.55), (xs0 + ln, py + pw / 2, z + 2.9), w=pw, h=1.1,
-                             mat=M('timber', tex_plank)), tag='stack')                         # the sprung plank
-                continue
-            b(xs0, py, z, ln, pw, 1.1, 'timber', tex=tex_plank, tag='stack')
-        z += 1.1
-        if L_ < layers - 1:
-            for sx_ in (50.0, 61.8, 73.4):
-                b(sx_ + 0.6 * hash2(L_, 1, 43), 77.7, z, 0.8, 9.0, 0.9, 'timber', tag='stack', lines=False)
-            z += 0.9
-    Y.solid(sdf.RBox(68.5, 77.0, 0.3, 80.5, 87.4, z + 1.0, r=1.6, mat=M('canvas', tex_canvas)), tag='stack')
+        for j_, (py, pw) in enumerate(((77.6, 2.4), (80.5, 2.2), (83.2, 2.5))):
+            xs0 = 46.5 + 3.6 * hash2(L_, j_, 41)
+            ln = 22.0 + 9.0 * hash2(L_, j_, 42)
+            if L_ == layers - 1 and j_ == 1:
+                continue                                   # a board already taken from the top
+            b(xs0, py, z, ln, pw, 1.0, 'timber', tex=tex_plank, tag='stack')
+        z += 1.0
+        for sx_ in (50.0, 61.8, 73.4):
+            b(sx_ + 0.7 * hash2(L_, 1, 43), 76.9, z, 0.8, 10.4, 1.0, 'timber', bias=-1, tag='stack', lines=False)
+        z += 1.0
+    Y.solid(Beam((50.0, 80.0, z + 0.5), (76.0, 82.6, z + 2.6), w=2.3, h=1.0, mat=M('timber', tex_plank)),
+            tag='stack')                                                                    # the askew, sprung board
     # --- the logs, waiting at the back
     for (lx0, lx1, ly, lz, r) in ((64.0, 90.0, 6.0, 0.0, 1.7), (66.5, 93.0, 9.6, 0.0, 1.9), (63.0, 88.0, 13.3, 0.0, 1.6),
                                   (65.5, 91.0, 7.9, 3.1, 1.5), (64.5, 89.5, 11.5, 3.3, 1.6)):
@@ -920,6 +938,88 @@ def stamp(Y, slots, rows, key, x, y, anchor, depth=None, hero=False):
                 if hero:
                     Y.s.obj[Yy, X] = next(iter(Y.hero))
 
+BLOCK_OLD = ["..o..", ".oSo.", "oSTTo", "oTkto", "oTTto", "ottto", ".ooo.", "..i..", "..i..", ".i.i.", "..ii."]
+
+
+LANTERN = [".o.", "ooo", "oHo", "ohH", "oHo", "ooo"]       # bail, cap, glass round a hot core
+
+def night_lights(Y, slots):
+    """lanterns as warm slot maps, hand-shaped pools in palette steps, their reflections on the canal"""
+    S = SHIP
+    s = Y.s
+    ok = set(Y.pal.keys())
+    head = float(S.zs(1.0))
+    lamps = [((S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 6.2), 'H', 7.5, 5.0),          # stern lantern on its post
+             ((S.x0 + S.L - 2.6, S.yc - 0.6, head + 4.4), 'H', 6.5, 4.5),          # bow lantern on the stem head
+             ((CRANE['x'] + CRANE['w'] / 2, CRANE['y'] + CRANE['w'] + 0.7, 21.0), 'A', 8.0, 5.5)]  # crane
+    # the stern lantern's post and the bow lantern's crook
+    line3(Y, slots, (S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 2.6), (S.x0 + 1.4, S.yc, float(S.zs(0.0)) + 5.0), 'oak1')
+    # pools: warm steps on whatever lies under each lantern, an irregular lobed outline
+    W_, H_ = s.W, s.H
+    m = s.obj >= 0
+    ys, xs = np.nonzero(m)
+    wx, wy, wz = s.world[ys, xs, 0], s.world[ys, xs, 1], s.world[ys, xs, 2]
+    mx, my = TURN.inv(wx, wy)
+    for (p, kind, rx, ry) in lamps:
+        dx, dy = (mx - p[0]), (my - p[1])
+        ang = np.arctan2(dy, dx)
+        lobe = 1.0 + 0.18 * np.sin(3 * ang + 1.3) + 0.12 * np.sin(5 * ang + 0.4)
+        r = np.sqrt((dx / rx) ** 2 + (dy / ry) ** 2) / lobe
+        near = (wz <= p[2] + 0.5) & (wz >= p[2] - 26)
+        for k in np.nonzero((r < 1.0) & near)[0]:
+            v = slots[ys[k], xs[k]]
+            if not isinstance(v, str) or not v[-1:].isdigit():
+                continue
+            base = v.rstrip('0123456789'); n = int(v[len(base):])
+            warm = {'stone': 'stoneW', 'oak': 'oakW', 'timber': 'timberW'}.get(base)
+            if warm is None:
+                continue
+            n2 = min(4, n + (1 if r[k] < 0.5 else 0))
+            slots[ys[k], xs[k]] = '%s%d' % (warm, n2)
+    for (p, kind, rx, ry) in lamps:
+        sx, sy = Y.to_screen(*p)
+        key = {'o': 'ol', 'H': 'lamp%s2' % kind, 'h': 'lamp%s' % kind}
+        stamp(Y, slots, LANTERN, key, sx, sy, (1, 3), depth=Y.depth_of(*p) + 0.5)
+    # the shop window's broken reflection on the high water in front of it
+    hx, hy, hw, hd = HUT
+    for wy_ in (hy + 6.2, hy + 9.2):
+        sx, sy = Y.to_screen(hx - 0.1, wy_, 2 * WATER - 5.2)
+        rows = [(0, 3, 'refl1'), (2, 2, 'refl1'), (3, 4, 'refl0'), (5, 2, 'refl1'), (7, 3, 'refl0'), (9, 2, 'refl0'),
+                (12, 1, 'refl0')]
+        for j, (dyy, wd, sl) in enumerate(rows):
+            X0 = int(sx) - wd // 2 + (1 if j % 3 == 1 else 0) - 2
+            for X in range(X0, X0 + wd):
+                Yy = int(sy) + dyy - 6
+                if 0 <= X < W and 0 <= Yy < H and isinstance(slots[Yy, X], str) and slots[Yy, X].startswith('water'):
+                    slots[Yy, X] = sl
+    # the landing stage catches the window spill
+    for (yy, xx) in zip(*np.nonzero(np.isin(s.obj, list(Y.tag.get('hut', ()))))):
+        v = slots[yy, xx]
+        P = s.world[yy, xx]; qx, qy = TURN.inv(float(P[0]), float(P[1]))
+        if isinstance(v, str) and v.startswith('timber') and v[-1:].isdigit() and qx < hx - 0.2 and hy + 3 < qy < hy + 12 and P[2] < 0.5:
+            slots[yy, xx] = 'timberW%s' % min(4, int(v[-1]) + 1)
+
+PEN_TOP = ["oPPPPPPPPp", "oPPPPp...."]
+PEN_YARD = ["oPPPPp", "oPp..."]
+
+def rigging(Y, slots):
+    S = SHIP
+    xm = S.x0 + S.L * 0.53
+    zd = float(S.zs(0.53))
+    head = float(S.zs(1.0))
+    top = (xm, S.yc, zd + 38.8)
+    sprit = (S.x0 + S.L + 13, S.yc, head + 4.5)
+    line3(Y, slots, (xm + 0.3, S.yc, zd + 49.5), sprit, 'ropeD')                       # forestay
+    line3(Y, slots, (xm - 0.3, S.yc, zd + 49.0), (S.x0 + 1.0, S.yc, float(S.zs(0.0)) + 2.6), 'ropeD')  # backstay
+    for side in (-1, 1):
+        for dx in (-3.6, -1.6, 0.6):
+            u = float(S.u(xm + dx)); zr = float(S.zs(u)) + 2.5
+            line3(Y, slots, top, (xm + dx, S.yc + side * (float(S.hb(u, zr - 2.5)) - 0.2), zr), 'ropeD')
+    sx, sy = Y.to_screen(xm, S.yc, zd + 50.2)
+    stamp(Y, slots, PEN_TOP, {'o': 'ol', 'P': 'pen', 'p': 'penD'}, sx, sy, (0, 0))
+    sx, sy = Y.to_screen(xm + 0.9, S.yc - 9.0, zd + 31.6)
+    stamp(Y, slots, PEN_YARD, {'o': 'ol', 'P': 'pen', 'p': 'penD'}, sx, sy, (0, 1))
+
 BLOCK = ["..o..", ".oSo.", "oSTTo", "oTkto", "oTTto", "ottto", ".ooo.", "..i..", "..i..", ".i.i.", "..ii."]
 
 def finish(Y, slots, phase):
@@ -952,8 +1052,12 @@ def finish(Y, slots, phase):
     line3(Y, slots, (tip[0], tip[1], tip[2] - 0.7), (tip[0], tip[1], zb + 1.0), 'rope')
     line3(Y, slots, (tip[0] - 0.6, tip[1] - 0.8, tip[2] - 0.2), (CRANE['x'] + 1.0, CRANE['y'] - 2.4, 4.6), 'ropeD')
     bx, by = Y.to_screen(tip[0], tip[1], zb)
-    stamp(Y, slots, BLOCK, {'o': 'ol', 'S': 'timber4', 'T': 'timber3', 't': 'timber2', 'k': 'ol', 'i': 'ironL'},
+    stamp(Y, slots, BLOCK, {'o': 'ol', 'S': 'trim3', 'T': 'trim2', 't': 'trim1', 'k': 'ol', 'i': 'ironL'},
           bx, by, (2, 1), depth=Y.depth_of(tip[0], tip[1], zb))
+    if phase == 'night':
+        if Y.stage >= 4:
+            rigging(Y, slots)
+        night_lights(Y, slots)
     if phase == 'dawn':
         # the chandler is up: a thin smoke from the stovepipe, leaning off on the morning air
         px, py = Y.to_screen(*Y.stovepipe)

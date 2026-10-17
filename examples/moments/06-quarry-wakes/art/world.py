@@ -84,41 +84,66 @@ def terraces(c, x0, x1, top_y, benches, ramp, seed, lip_rows=1, road=None):
                 elif d >= hgt - 2:
                     v = ramp[1]
                 c.g[yy, x] = v
-            # cracks: uneven vertical seams down the face
-            if _h(x, k, seed + 5) < 0.06:
-                ln = 2 + int(_h(x, k, seed + 6) * (hgt - 3))
-                for yy in range(ty + 2, min(ty + hgt - 1, ty + 2 + ln)):
-                    c.put(x, yy, ramp[0])
+        drill_marks(c, x0, x1, y + lip_rows + 2, y + hgt - 1, ramp[0], ramp[2] if ramp[2] != ramp[1] else ramp[3],
+                    seed + 7 * k, every=(4, 9), frac=(0.3, 0.8))
         y += hgt
         k += 1
     return y
 
-def side_wall(c, benches, side, seed, bottom=150):
+def drill_marks(c, x0, x1, ya, yb, dark, lit, seed, every=(3, 7), frac=(0.4, 0.95)):
+    """vertical drill-hole scores down a bench face: a lit 1 px line with a dark partner to its
+    right, every 3-7 px, of uneven length, some broken"""
+    x = x0 + int(_h(x0, ya, seed) * every[1])
+    k = 0
+    while x < x1 - 1:
+        n = int((yb - ya) * (frac[0] + (frac[1] - frac[0]) * _h(k, 1, seed)))
+        brk = ya + 2 + int(_h(k, 2, seed) * max(1, n)) if _h(k, 3, seed) < 0.35 else -1
+        for y in range(ya, min(yb, ya + n)):
+            if y == brk:
+                continue
+            c.put(x, y, lit)
+            c.put(x + 1, y, dark)
+        x += every[0] + int(_h(k, 4, seed) * (every[1] - every[0] + 1))
+        k += 1
+
+def side_wall(c, benches, side, seed, bottom=150, band=(30, 250)):
     """a terraced side wall: benches [(top_y, edge_x), ...] top down; each bench reaches from the
-    frame edge to edge_x (left) or from edge_x to the edge (right), so the profile steps inward."""
-    ramp = ('side0', 'side1', 'side2', 'side3', 'side4')
+    frame edge to a jagged end at edge_x, so the profile steps toward the pit. Each bench: a lit
+    lip (warmed near the dusk band), a 2 px top, a shadow row, a face scored by drill marks; the
+    end face toward the pit is lit on the right wall (it faces the light) and dark on the left."""
     for k, (ty, ex) in enumerate(benches):
         ny = benches[k + 1][0] if k + 1 < len(benches) else bottom
-        xs = range(0, ex) if side == 'left' else range(ex, W)
-        for x in xs:
-            jog = 1 if _h(x // 7, k, seed) < 0.3 else 0
-            for y in range(ty + jog, ny + 2):
-                d = y - ty - jog
+        for y in range(ty, ny + 2):
+            j = int(_h((y - ty) // (2 + k % 3), k, seed + 3) * 3)          # jagged end in short runs
+            xe = ex - j if side == 'left' else ex + j
+            xs = range(0, xe) if side == 'left' else range(xe, W)
+            d = y - ty
+            for x in xs:
                 v = 'side1'
-                if d < 2:
-                    v = 'side3' if d == 0 else 'side2'          # lit bench lip, 2 rows
-                elif d == 2:
-                    v = 'side0'                                  # shadow under the lip
+                if d == 0:
+                    near_band = ty < 104 and band[0] <= x <= band[1]
+                    v = ('lipw1' if abs(x - xe) < 6 else 'lipw0') if near_band else 'side4'
+                elif d <= 2:
+                    v = 'side3' if d == 1 else 'side2'
+                elif d == 3:
+                    v = 'side0'
                 c.put(x, y, v)
-            if _h(x, k, seed + 5) < 0.07:                        # drill lines and cracks
-                ln = 3 + int(_h(x, k, seed + 6) * max(1, ny - ty - 6))
-                for y in range(ty + 4, min(ny - 1, ty + 4 + ln)):
-                    c.put(x, y, 'side0')
-        # the bench's end face toward the pit: 1 px lit edge on the left wall, dark on the right
-        ex2 = ex - 1 if side == 'left' else ex
-        for y in range(ty + 1, ny + 2):
-            c.put(ex2, y, 'side2' if side == 'left' else 'side0')
-        c.put(ex2, ty, 'side4' if side == 'left' else 'side3')
+            if d > 3:                                                    # the end face
+                if side == 'left':
+                    c.put(xe - 1, y, 'side0'); c.put(xe - 2, y, 'side0')
+                else:
+                    c.put(xe, y, 'side3'); c.put(xe + 1, y, 'side2')
+        x0, x1 = (0, ex - 3) if side == 'left' else (ex + 3, W)
+        drill_marks(c, x0, x1, ty + 5, ny, 'side0', 'side2', seed + 11 * k)
+
+def fallen_blocks(c, blocks, ramp=('side0', 'side1', 'side3', 'side4')):
+    """fallen blocks at the foot of a wall: mismatched sizes, a lit top, a dark right side"""
+    for (x, y, w, h) in blocks:
+        c.rect(x, y, x + w, y + h, ramp[1])
+        c.rect(x, y, x + w, y + 1, ramp[3])
+        c.rect(x, y + 1, x + 1, y + h, ramp[2])
+        c.rect(x + w - 1, y + 1, x + w, y + h, ramp[0])
+        c.rect(x, y + h - 1, x + w, y + h, ramp[0])
 
 def water(c, y0):
     cols = np.arange(W)
@@ -189,62 +214,67 @@ def near_rim(c):
     return m
 
 def crane(c):
-    """a toppled lattice crane: the boom lying on the rim (tip broken over the edge at the
-    left), its cab tipped on its side at the right. Cold steel, chipped. Returns its mask."""
+    """a toppled lattice crane lying diagonally across the lower right: the boom's tip broken
+    over the rim at the lower left, its cab tipped on its side at the right. Cold steel a value
+    step above the rim (chords crane3-crane4), a cast shadow under it. Returns its mask."""
     before = c.g.copy()
-    # boom: two chords from (200, 196) to (300, 171), 9 px apart, lattice between
-    x0, y0, x1, y1 = 205, 196, 292, 182
+    x0, y0, x1, y1 = 199, 209, 288, 181
     L = math.hypot(x1 - x0, y1 - y0)
     ux, uy = (x1 - x0) / L, (y1 - y0) / L
     nx, ny = uy, -ux                                     # perpendicular (up-left side)
-    w = 9
-    top = [(x0 + nx * w, y0 + ny * w), (x1 + nx * w, y1 + ny * w)]
-    # lattice diagonals (a zig-zag, bays of uneven length), drawn first, chords over them
-    s, k = 2.0, 0
-    while s < L - 4:
-        bay = 7 + (k % 3)
-        a = (x0 + ux * s, y0 + uy * s)
-        b = (x0 + ux * (s + bay) + nx * (w - 1), y0 + uy * (s + bay) + ny * (w - 1))
+    w = 10
+    for t in range(int(L)):                              # cast shadow on the rim under the boom
+        c.put(x0 + ux * t + 1, y0 + uy * t + 2, 'rock0')
+        c.put(x0 + ux * t + 1, y0 + uy * t + 3, 'rock1')
+    s_, k = 3.0, 0
+    while s_ < L - 4:                                    # lattice web, bays of uneven length
+        bay = 8 + (k * 3) % 4
+        a = (x0 + ux * s_ + nx * 1.5, y0 + uy * s_ + ny * 1.5)
+        b = (x0 + ux * (s_ + bay) + nx * (w - 1.5), y0 + uy * (s_ + bay) + ny * (w - 1.5))
         if k % 2:
-            a, b = (a[0] + nx * (w - 1), a[1] + ny * (w - 1)), (b[0] - nx * (w - 1), b[1] - ny * (w - 1))
-        if not (k == 5):                                 # one bay's diagonal snapped off
-            c.line(a[0], a[1], b[0], b[1], 'crane2')
-        s += bay
+            a, b = (a[0] + nx * (w - 3), a[1] + ny * (w - 3)), (b[0] - nx * (w - 3), b[1] - ny * (w - 3))
+        if k != 4:                                       # one bay's diagonal snapped off
+            c.line(a[0], a[1], b[0], b[1], 'crane3')
+        else:
+            c.line(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 2, 'crane3')
+        c.line(x0 + ux * s_ + nx * 1.5, y0 + uy * s_ + ny * 1.5, x0 + ux * s_ + nx * (w - 1.5),
+               y0 + uy * s_ + ny * (w - 1.5), 'crane2')
+        s_ += bay
         k += 1
-    c.line(x0, y0, x1, y1, 'crane3')                    # bottom chord
-    c.line(x0 + ux, y0 + uy + 1, x1 + ux, y1 + uy + 1, 'crane0')
-    c.line(top[0][0], top[0][1], top[1][0], top[1][1], 'crane3')   # lit top chord
-    c.line(top[0][0], top[0][1] + 1, top[1][0], top[1][1] + 1, 'crane1')
-    # the broken tip: chords bent down over the rim, a sheave and a hook on a slack cable
-    c.line(x0, y0, x0 - 6, y0 + 7, 'crane2')
-    c.line(top[0][0], top[0][1], top[0][0] - 4, top[0][1] + 10, 'crane2')
-    c.disc(x0 - 5, y0 + 6, 2, 'crane3')
-    c.put(x0 - 5, y0 + 6, 'crane0')
-    for t in range(0, 14):
-        c.put(x0 - 6 + (1 if t > 9 else 0), y0 + 8 + t, 'crane1')
-    c.rect(x0 - 7, y0 + 22, x0 - 4, y0 + 23, 'crane2')
-    c.put(x0 - 7, y0 + 23, 'crane2'); c.put(x0 - 7, y0 + 24, 'crane3')
-    # cab tipped on its side: an 18x14 box, roof facing left, one broken window
-    cx0, cy0 = 286, 171
-    c.rect(cx0, cy0, cx0 + 18, cy0 + 16, 'crane1')
-    c.rect(cx0, cy0, cx0 + 18, cy0 + 2, 'crane3')       # lit top edge (was its side)
-    c.rect(cx0, cy0 + 2, cx0 + 2, cy0 + 16, 'crane2')   # the roof, now facing left
-    c.rect(cx0 + 5, cy0 + 4, cx0 + 13, cy0 + 10, 'crane0')   # window hole
-    c.put(cx0 + 6, cy0 + 5, 'crane3'); c.put(cx0 + 7, cy0 + 5, 'crane2')   # glass shard
-    c.put(cx0 + 12, cy0 + 9, 'crane2')
-    c.rect(cx0 + 3, cy0 + 12, cx0 + 17, cy0 + 13, 'crane0')               # a door seam
-    c.put(cx0 + 15, cy0 + 4, 'crane3')
+    for (off, sl) in ((0, 'crane2'), (1, 'crane1')):    # bottom chord, 2 px
+        c.line(x0 + nx * off, y0 + ny * off + 0, x1 + nx * off, y1 + ny * off, sl)
+    for (off, sl) in ((w, 'crane4'), (w - 1, 'crane3')):  # lit top chord, 2 px
+        c.line(x0 + nx * off, y0 + ny * off, x1 + nx * off, y1 + ny * off, sl)
+    # the broken tip: chords bent down over the rim edge, a sheave, a hook on a slack cable
+    c.line(x0, y0, x0 - 5, y0 + 6, 'crane3')
+    c.line(x0 + nx * w, y0 + ny * w, x0 - 6, y0 - 2, 'crane3')
+    c.disc(x0 - 6, y0 + 3, 2.4, 'crane3'); c.put(x0 - 6, y0 + 3, 'crane0'); c.put(x0 - 7, y0 + 2, 'crane4')
+    for t in range(0, 9):
+        c.put(x0 - 8 + (1 if t > 5 else 0), y0 + 5 + t, 'crane2')
+    c.rect(x0 - 9, y0 + 14, x0 - 6, y0 + 15, 'crane3'); c.put(x0 - 9, y0 + 15, 'crane3'); c.put(x0 - 9, y0 + 16, 'crane4')
+    # cab tipped on its side at the boom's base: 20 x 15, its roof now facing left
+    cx0, cy0 = 284, 166
+    c.rect(cx0, cy0, cx0 + 20, cy0 + 16, 'crane2')
+    c.rect(cx0, cy0, cx0 + 20, cy0 + 2, 'crane4')       # lit top edge (was its side)
+    c.rect(cx0, cy0 + 2, cx0 + 2, cy0 + 16, 'crane3')   # the roof, now facing left, lit
+    c.rect(cx0, cy0 + 15, cx0 + 20, cy0 + 16, 'crane0')
+    c.rect(cx0 + 5, cy0 + 4, cx0 + 14, cy0 + 10, 'crane0')   # the window hole
+    c.put(cx0 + 6, cy0 + 5, 'crane4'); c.put(cx0 + 7, cy0 + 5, 'crane3'); c.put(cx0 + 6, cy0 + 6, 'crane3')
+    c.rect(cx0 + 3, cy0 + 12, cx0 + 18, cy0 + 13, 'crane1')                # a door seam
+    for (rx, ry) in ((16, 4), (17, 9), (3, 6)):
+        c.put(cx0 + rx, cy0 + ry, 'crane4')
+    c.disc(x1 + 1, y1 + nx * 0 - 3, 3.2, 'crane3'); c.disc(x1 + 1, y1 - 3, 1.5, 'crane0')   # boom foot pin
     return ~np.equal(c.g, before)
 
 def details(c):
     """fence posts, a drum barrel, a dead floodlight mast on the far terraces"""
-    for (x, y, h, lean) in ((222, 192, 9, 1), (262, 188, 7, -1)):
+    for (x, y, h, lean) in ((216, 191, 9, 1), (231, 190, 7, -1)):
         for k in range(h):
             xx = x + (lean if k > h // 2 else 0)
             c.put(xx, y - k, 'crane2'); c.put(xx + 1, y - k, 'crane0')
         c.put(x + (lean if h > 2 else 0), y - h + 1, 'crane3')
     # barrel 7x9 by the soldier
-    bx, by = 246, 182
+    bx, by = 290, 181
     c.rect(bx, by, bx + 7, by + 9, 'crane1')
     c.rect(bx, by, bx + 2, by + 9, 'crane2')
     c.rect(bx + 6, by, bx + 7, by + 9, 'crane0')
@@ -260,13 +290,16 @@ def build(slam=False):
     far = Canvas(W, H, None)
     sky(far)
     # far terraced wall behind the boss: benches of uneven height (14, 6, 11, 17 rows)
-    terraces(far, 0, W, 92, [(14, 0), (6, 0), (11, 0), (17, 0)], ('far0', 'far1', 'far2', 'far3'), 7)
+    terraces(far, 0, W, 92, [(14, 0), (6, 0)], ('haze0', 'haze1', 'haze2', 'haze3'), 7)       # far tier, hazed
+    terraces(far, 0, W, 112, [(11, 0), (17, 0)], ('far0', 'far1', 'far2', 'far3'), 8)       # nearer tier
     # haul road zig-zag down the far benches (a lighter 1 px line)
     for (xa, ya, xb, yb) in ((176, 94, 214, 105), (214, 106, 160, 117), (160, 118, 205, 131)):
         far.line(xa, ya, xb, yb, 'far3')
     # side walls: benches stepping toward the pit (a staircase profile), mismatched heights
     side_wall(far, [(36, 46), (57, 55), (69, 61), (96, 70), (113, 77), (131, 83)], 'left', 3)
     side_wall(far, [(52, 250), (66, 243), (90, 236), (101, 231), (128, 224)], 'right', 9)
+    fallen_blocks(far, [(84, 144, 7, 4), (93, 146, 4, 3), (71, 146, 10, 4), (214, 145, 6, 4), (205, 147, 3, 2),
+                        (226, 147, 9, 3)])
     water(far, 140)
     # the window's reflection: three gold dashes on the water under the boss (set by the scene)
     near = Canvas(W, H, None)

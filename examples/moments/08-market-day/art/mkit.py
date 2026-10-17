@@ -24,16 +24,16 @@ def build_palette():
         'terra': P.from_lch(0.60, 0.20, 46),
         'brown': '#9a5a32',
         'tile': P.from_lch(0.50, 0.035, 50),       # weathered grey-brown tile (the hall, old roofs)
-        'slate': P.from_lch(0.40, 0.025, 260),     # dark slate
+        'slate': P.from_lch(0.33, 0.03, 50),       # dark old tile (the hall, a third of the roofs)
         # walls
-        'cream': '#f3e2b8',
-        'plaster': P.from_lch(0.88, 0.01, 90),     # off-white plaster (never #fff)
-        'pink': '#f58fb0',
+        'cream': P.from_lch(0.80, 0.06, 88),
+        'plaster': P.from_lch(0.78, 0.012, 90),    # off-white plaster (never #fff)
+        'pink': P.from_lch(0.78, 0.085, 36),       # apricot (a pink would rival the rose)
         'ochre': '#f2b631',
         'mint': '#5fd3a6',
         'sky': '#4fa8f0',
-        'stone': P.from_lch(0.84, 0.06, 80),       # the hall's sandstone
-        'red': P.from_lch(0.50, 0.16, 32),         # red sandstone (cathedral square plinths)
+        'stone': P.from_lch(0.80, 0.06, 80),       # the hall's sandstone
+        'red': P.from_lch(0.50, 0.14, 42),         # chimney brick
         # awnings by stall type
         'fruit': P.from_lch(0.72, 0.19, 55),       # orange
         'flower': '#9a5cf0',                       # violet
@@ -48,8 +48,9 @@ def build_palette():
     # neutral ladder (paving, glass, timber darks)
     for i, L in enumerate((0.22, 0.30, 0.40, 0.52, 0.63, 0.74, 0.82, 0.90)):
         pal['g%d' % i] = P.from_lch(L, 0.008, 250)
-    for i, L in enumerate((0.62, 0.71, 0.78)):
+    for i, L in enumerate((0.52, 0.60, 0.66)):
         pal['p%d' % i] = P.from_lch(L, 0.012, 80)  # paving: seams, stones, base
+    pal['tilek'] = P.from_lch(0.24, 0.03, 45)    # the tile-course line shared by every roof
     pal['timber'] = P.from_lch(0.30, 0.045, 45)
     pal['timber2'] = P.from_lch(0.38, 0.05, 48)
     pal['glass'] = P.from_lch(0.26, 0.03, 250)

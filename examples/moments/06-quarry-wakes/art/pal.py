@@ -38,7 +38,10 @@ def build():
     put('side', [T(1, 1, 2), T(2, 2, 3), T(3, 3, 4), T(4, 4, 6), T(5, 6, 7)])     # side walls
     put('water', [T(0, 1, 2), T(1, 2, 3), T(1, 3, 4), T(2, 4, 5), T(3, 6, 7)])
     put('rock', [T(1, 0, 2), T(1, 1, 2), T(2, 2, 3), T(3, 3, 5), T(4, 5, 6)])     # near rim
-    put('crane', [T(1, 2, 2), T(2, 3, 4), T(4, 5, 6), T(6, 8, 9)])                # cold steel
+    put('crane', [T(1, 2, 2), T(2, 3, 4), T(4, 5, 6), T(6, 8, 9), T(9, 11, 12)])   # cold steel
+    put('sub', [T(0, 3, 4), T(1, 5, 6), T(2, 7, 8)])                              # what is under water
+    put('lipw', [T(9, 7, 8), T(10, 8, 9)])                                        # bench lips by the band
+    put('haze', [T(4, 5, 7), T(5, 6, 8), T(6, 7, 9), T(8, 9, 11)])                # far benches in haze
     put('wglint', [T(21, 14, 5), T(25, 21, 12)])                                  # window dashes on water
     # ---------------- boss: warm, saturated, hand-modelled
     put('rust', P.ramp('#9a4426', steps=7, style='arcade', l_max=0.82))

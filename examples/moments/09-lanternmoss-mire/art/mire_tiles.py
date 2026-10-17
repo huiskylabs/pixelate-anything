@@ -83,21 +83,18 @@ def peat_texture(g, region, seed):
 
 
 def moss_texture(g, region, seed):
-    """placed tufts (a lit tip over a dark root) and one cushion, off the edges"""
+    """placed tufts (a straw tip over a dark root) and one cushion, off the edges; straw (reed1)
+    rather than the lit moss tip, so the interior stays dark at night"""
     for i in range(4):
         x = 2 + int(h32(i, seed, 3) * 12); y = 2 + int(h32(seed, i, 5) * 11)
         if all(region(x + dx, y + dy) for dx in (-1, 0, 1, 2) for dy in (-1, 0, 1, 2)):
-            if i == 0:
-                g.set(x, y, 'moss3')                  # one lit tip per tile
-            else:
-                g.set(x + (i % 2), y, 'moss1')        # the rest are dark tufts
+            g.set(x + (i % 2), y, 'reed1')
             g.set(x, y + 1, 'moss1'); g.set(x + 1, y + 1, 'moss1')
     if h32(seed, 9, 11) < 0.7:
         x = 3 + int(h32(seed, 10, 13) * 8); y = 3 + int(h32(seed, 12, 17) * 8)
         if all(region(x + dx, y + dy) for dx in range(-1, 6) for dy in range(-1, 5)):
-            # a moss cushion: a 5x3 bump, lit rim top-left, shade bottom-right
-            for dx, dy, s in ((1, 0, 'moss3'), (2, 0, 'moss3'), (3, 0, 'moss2'),
-                              (0, 1, 'moss3'), (1, 1, 'moss2'), (2, 1, 'moss2'), (3, 1, 'moss2'), (4, 1, 'moss1'),
+            for dx, dy, s in ((1, 0, 'reed1'), (2, 0, 'reed1'), (3, 0, 'moss2'),
+                              (0, 1, 'reed1'), (1, 1, 'moss2'), (2, 1, 'moss2'), (3, 1, 'moss2'), (4, 1, 'moss1'),
                               (0, 2, 'moss2'), (1, 2, 'moss2'), (2, 2, 'moss1'), (3, 2, 'moss1'), (4, 2, 'moss0'),
                               (1, 3, 'moss0'), (2, 3, 'moss0'), (3, 3, 'moss0')):
                 g.set(x + dx, y + dy, s)
@@ -106,7 +103,7 @@ def moss_texture(g, region, seed):
 def moss_tile(mask, var):
     seed = 100 + mask * 7 + var * 131
     g = Grid(T, T)
-    moss = shape(mask, 900 + var * 17 + mask, 0.34)
+    moss = shape(mask, 900 + var * 17 + mask, 0.5, cell=7)
     peat = lambda x, y: not moss(x, y)
     for y in range(T):
         for x in range(T):
@@ -123,14 +120,42 @@ def moss_tile(mask, var):
                 s = 'peat0' if moss(x, y - 1) else 'peat1'   # shadow under the lip
             g.set(x, y, s)
     peat_texture(g, lambda x, y: peat(x, y) and not moss(x, y - 1) and not moss(x, y - 2), seed)
-    moss_texture(g, lambda x, y: moss(x, y) and moss(x, y - 1) and moss(x - 1, y) and moss(x + 1, y) and moss(x, y + 1), seed)
+    inner = lambda x, y: moss(x, y) and moss(x, y - 1) and moss(x - 1, y) and moss(x + 1, y) and moss(x, y + 1)
+    moss_texture(g, lambda x, y: all(inner(x + dx, y + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)), seed)
+    # glow speckles: single lit pixels 2-3 px inside the fringe, a few per tile (clusters at night)
+    n = 0
+    for y in range(1, T - 1):
+        for x in range(1, T - 1):
+            if n >= 3 or g.a[y][x] != 'moss2' or not inner(x, y):
+                continue
+            near = any(not moss(x + dx, y + dy) for dx in range(-3, 4) for dy in range(-3, 4))
+            if near and h32(x, y, seed + 77) < 0.16:
+                g.set(x, y, 'moss3'); n += 1
     return g
+
+
+def _fade(x, y):
+    u = min(1.0, max(0.0, (x + 0.5) / T)); v = min(1.0, max(0.0, (y + 0.5) / T))
+    return min(1.0, 4 * min(u, 1 - u, v, 1 - v))
 
 
 def bank_tile(mask, var=0):
     seed = 500 + mask * 7 + var * 131
+    fs = 700 + mask + var * 29
     g = Grid(T, T)
-    land = shape(mask, 700 + mask + var * 29, 0.26, cell=7)
+    land = shape(mask, fs, 0.26, cell=7)
+    # shallows: the same field at a lower threshold whose margin wobbles (but not at the tile
+    # edges, where the field is shared with the neighbour), so the band hugs the shore seamlessly
+    raw = {(x, y): blend(mask, x, y, fs, 0.26, 7) > 0.5 - (0.27 + (_vnoise(x, y, 1300 + var, 4) - 0.5) * 0.26 * _fade(x, y))
+           for x in range(-1, T + 1) for y in range(-1, T + 1)}
+    for _ in range(2):                                   # no 1 px holes or crumbs, edges untouched
+        nxt = dict(raw)
+        for y in range(1, T - 1):
+            for x in range(1, T - 1):
+                if sum(raw[(x + dx, y + dy)] == raw[(x, y)] for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))) <= 1:
+                    nxt[(x, y)] = not raw[(x, y)]
+        raw = nxt
+    shallow = lambda x, y: raw.get((x, y), False)
     for y in range(T):
         for x in range(T):
             if land(x, y):
@@ -148,15 +173,33 @@ def bank_tile(mask, var=0):
                 else:
                     s = 'peat1'
                 g.set(x, y, s)
-            else:
-                if land(x, y - 1):
-                    g.set(x, y, 'water0')                    # dark wet line under the face
-                elif land(x, y - 2) and h32(x // 3, y, seed + 3) < 0.55:
-                    g.set(x, y, 'water2')                    # a lap of light along the face
-                elif (land(x, y + 1) or land(x + 1, y) or land(x - 1, y)) and h32(x // 3, y // 2, seed + 4) < 0.45:
-                    g.set(x, y, 'water2')                    # laps against the far shore
+            elif land(x, y - 1):
+                g.set(x, y, 'water0')                        # dark wet line under the face
+            elif shallow(x, y):
+                s = 'shallow'
+                if land(x, y - 2) and h32(x // 3, y, seed + 3) < 0.6:
+                    s = 'lap'                                # a lap of light along the face
+                elif (land(x, y + 1) or land(x + 1, y) or land(x - 1, y)) and h32(x // 3, y // 2, seed + 4) < 0.5:
+                    s = 'lap'                                # laps against the far shore
+                g.set(x, y, s)
     peat_texture(g, lambda x, y: land(x, y) and all(land(x, y + k) for k in (1, 2, 3, 4))
                  and land(x, y - 1) and land(x - 1, y) and land(x + 1, y), seed)
+    return g
+
+
+def deep_tile(mask):
+    """deep channels: water0 where the corners say deep, with two faint long crests; transparent
+    elsewhere so the animated water shows"""
+    g = Grid(T, T)
+    deep = shape(mask, 1600 + mask, 0.3, cell=6)
+    for y in range(T):
+        for x in range(T):
+            if deep(x, y):
+                g.set(x, y, 'water0')
+    for i, (x0, y, n) in enumerate(((2, 4, 5), (8, 11, 4))):
+        if all(deep(x0 + k, y) and deep(x0 + k, y - 1) and deep(x0 + k, y + 1) for k in range(-1, n + 1)):
+            for k in range(n):
+                g.set(x0 + k, y, 'water1')
     return g
 
 
@@ -376,6 +419,7 @@ def export():
     out = []
     for var, name in enumerate(('moss_peat', 'moss_peat_b', 'moss_peat_c')):
         out.append(('sprite', name, [moss_tile(m, var) for m in range(16)], 0, 0, {'tile': T}))
+    out.append(('sprite', 'deep_water', [deep_tile(m) for m in range(16)], 0, 0, {'tile': T}))
     for var, name in enumerate(('peat_bank', 'peat_bank_b', 'peat_bank_c')):
         out.append(('sprite', name, [bank_tile(m, var) for m in range(16)], 0, 0, {'tile': T}))
     # bog water: 4 variants x 4 frames in one strip (variant v = frames 4v..4v+3)

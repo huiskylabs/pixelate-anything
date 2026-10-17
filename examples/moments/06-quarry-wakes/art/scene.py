@@ -28,6 +28,26 @@ def over(dst, src, where=None):
         m &= where
     dst.g[m] = src.g[m]
 
+import palette as _P
+_SUBL = {}
+def sub_slot(v):
+    """a boss slot as it looks under the water: one of three deep teal steps by its value"""
+    if v not in _SUBL:
+        Lv = _P.lch(PAL[v])[0]
+        _SUBL[v] = 'sub0' if Lv < 0.33 else ('sub1' if Lv < 0.5 else 'sub2')
+    return _SUBL[v]
+
+def surface(wy, seed=17):
+    """the wobbling water surface row per column: wy + (-1, 0, 1) in runs of 3-7 px"""
+    ys = np.zeros(W, int)
+    x, k = 0, 0
+    while x < W:
+        n = 3 + int(F._h(k, 1, seed) * 5)
+        ys[x:x + n] = wy + int(F._h(k, 2, seed) * 3) - 1
+        x += n
+        k += 1
+    return ys
+
 def rim_y(near):
     """the near rim's top row per column (from the near canvas's rock slots)"""
     ys = np.full(W, H, int)
@@ -46,25 +66,58 @@ def build(moment):
     wy = p['water']
     # layers (each a full-frame canvas, None = clear)
     bg = Canvas(W, H, None); over(bg, far)
-    bosscv = Canvas(W, H, None)
+    rockm = np.vectorize(lambda v: str(v).startswith('rock'))(near.g)
+    back = Canvas(W, H, None)                    # drawn behind the near rim
+    front = Canvas(W, H, None)                   # what reaches over the rim (claws, legs below the surface)
+    ys = surface(wy) if moment == 'A' else np.full(W, wy)
+    yy = np.arange(H)[:, None]
+    below = yy >= ys[None, :]
+    depth = np.zeros(W, int)
+    x, k = 0, 0
+    while x < W:                                 # how deep the hull still shows under the water
+        n = 3 + int(F._h(k, 3, 23) * 6)
+        depth[x:x + n] = 8 + int(F._h(k, 4, 23) * 7)
+        x += n
+        k += 1
     for P in order:
-        if P.name in ('leg_f',):
-            continue
-        g = P.c.g.copy()
-        if P.name != 'leg_r':
-            g[wy:] = None
-        tmp = Canvas(W, H, None); tmp.g = g
-        over(bosscv, tmp)
-    over(bosscv, parts['leg_f'].c)
+        g = P.c.g
+        m = ~np.equal(g, None)
+        if P.name in ('leg_r', 'leg_f'):
+            up = m & ~below
+            back.g[up] = g[up]
+            dn = m & below
+            if moment == 'A':
+                on_rim = dn & rockm
+                front.g[on_rim] = g[on_rim]
+                wet = dn & ~rockm
+                front.g[wet] = np.vectorize(sub_slot, otypes=[object])(g[wet]) if wet.any() else front.g[wet]
+            else:
+                front.g[dn] = g[dn]
+        else:
+            up = m & ~below
+            back.g[up] = g[up]
+            if moment == 'A':
+                wet = m & below & (yy < (ys + depth)[None, :])
+                if wet.any():
+                    back.g[wet] = np.vectorize(sub_slot, otypes=[object])(g[wet])
+    if moment == 'A':                            # a broken sheen along the surface over the drowned parts
+        for x in range(W):
+            y = ys[x]
+            for cv in (back, front):
+                if cv.g[y, x] is not None and str(cv.g[y, x]).startswith('sub') and F._h(x // 2, 5, 29) < 0.55:
+                    cv.g[y, x] = 'water4'
+    bosscv = Canvas(W, H, None)
+    over(bosscv, back)
+    over(bosscv, front)
     win = parts['cabin'].anchors['window']
     # the window's reflection: three gold dashes on the dark water under the hull
     for (dx, dy, n) in ((-2, 9, 4), (1, 15, 3), (-1, 22, 5)):
         for k in range(n):
             bg.put(win[0] + dx + k, wy + dy, 'wglint1' if k == 1 else 'wglint0')
     if moment == 'A':
-        sol, sbox = soldier.draw(274, 189, 'brace')
+        sol, sbox = soldier.draw(266, 189, 'brace')
     else:
-        sol, sbox = soldier.draw(276, 190, 'flinch')
+        sol, sbox = soldier.draw(263, 190, 'flinch')
     fxc = Canvas(W, H, None)
     fxb = Canvas(W, H, None)
     ry = rim_y(near)
@@ -72,12 +125,25 @@ def build(moment):
         # the water crown along the hull's waterline: foam lobes, jets of shrinking cells
         hull = np.nonzero(~np.equal(parts['body'].c.g[wy - 1], None))[0]
         hx0, hx1 = int(hull.min()) - 4, int(hull.max()) + 4
-        # water sheeting off the gunwale as the hull rises (start at the lit gunwale row)
+        # water sheeting off the deck edge: clustered at the bow (under the jaw) and the stern,
+        # mismatched spacing, length and width, some breaking into drops
         bg_ = parts['body'].c.g
-        for i, xs in enumerate((hx0 + 9, hx0 + 31, hx0 + 52, hx0 + 70, hx0 + 97, hx0 + 121, hx0 + 138)):
-            col = [y for y in range(60, wy) if bg_[y, xs] == 'rust5']
-            if col:
-                F.sheet(fxc, xs, col[0] + 2, wy - 2, seed=60 + i, width=1 + (i % 3 == 0))
+        i = 0
+        for (cx, n, spread) in ((hx1 - 16, 5, 13), (hx0 + 10, 4, 9), (hx0 + 66, 2, 6), (hx0 + 104, 1, 3)):
+            for j in range(n):
+                xs = int(cx + (F._h(i, 1, 61) - 0.5) * 2 * spread)
+                col = [y for y in range(60, wy) if bg_[y, xs] == 'rust5']
+                i += 1
+                if not col:
+                    continue
+                y0 = col[0] + 2
+                longs = F._h(i, 2, 61) < 0.55
+                y1 = wy - 2 if longs else y0 + 4 + int(F._h(i, 3, 61) * 12)
+                wd = 1 + (F._h(i, 4, 61) < 0.35) + (F._h(i, 5, 61) < 0.1)
+                F.sheet(fxc, xs, y0, y1, seed=60 + i, width=wd)
+                if not longs:
+                    for kk in range(2):
+                        F.cell(fxc, xs, y1 + 3 + kk * 5 + int(F._h(i, 6 + kk, 61) * 3), 1 + (kk == 0 and wd > 1), 'spray3')
         F.foam(fxc, hx0, hx1, wy, seed=3, height=(3, 8))
         # splash crowns of mismatched size erupting around the body
         for i, (x, size, arms, ln) in enumerate(((hx0 + 3, 30, 5, -0.25), (hx0 + 54, 15, 3, -0.1),
@@ -163,25 +229,13 @@ def build(moment):
         mx, my = parts['stack'].anchors['mouth']
         for i, (age, dx, dy) in enumerate(((0.9, 60, 12), (0.62, 36, 10), (0.34, 15, 8))):
             F.smoke(fxc, mx + dx, my + dy, age, seed=40 + i, r=(4.0, 12.0), rise=6.0)
-    return dict(bg=bg, near=near, boss=bosscv, soldier=sol, fx=fxc, fxb=fxb, parts=parts, order=order,
+    return dict(bg=bg, near=near, boss=bosscv, back=back, front=front, soldier=sol, fx=fxc, fxb=fxb, parts=parts, order=order,
                 sbox=sbox, rim=ry)
 
 def frame_of(L, moment):
     c = Canvas(W, H, None)
-    over(c, L['bg'])
-    back = Canvas(W, H, None)
-    over(c, L['boss'])
-    over(c, L['soldier'])
-    over(c, L['near'])
-    over(c, L['fxb'])
-    # the claws grip the rim: leg pixels below the waterline sit in front of the near layer
-    p = boss.POSES[moment]
-    for nm in ('leg_r', 'leg_f'):
-        g = L['parts'][nm].c
-        m = ~np.equal(g.g, None)
-        m[:p['water']] = False
-        c.g[m] = g.g[m]
-    over(c, L['fx'])
+    for k in ('bg', 'back', 'soldier', 'near', 'fxb', 'front', 'fx'):
+        over(c, L[k])
     return c
 
 def export(moment, tag):
@@ -197,7 +251,7 @@ def export(moment, tag):
         rgba(cv.g).save(OUT / ('06-%s-layer-%s.png' % (tag, name)))
     # actor mask: boss and soldier pixels as they show in the frame
     act = np.zeros((H, W), bool)
-    for nm in ('boss', 'soldier'):
+    for nm in ('back', 'front', 'soldier'):
         cv = L[nm]
         m = ~np.equal(cv.g, None)
         act |= m & (fr.g == cv.g)

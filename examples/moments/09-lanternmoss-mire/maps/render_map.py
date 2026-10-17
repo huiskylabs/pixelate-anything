@@ -31,24 +31,32 @@ def h(x, y, s):
 
 
 def parse(path):
-    corners, deck, props, sec = [], [], [], None
+    """sections: corners, deep, deck, props, and 'pool: X Y' (a hand-drawn light-pool mask)"""
+    sec, d = None, {'corners': [], 'deep': [], 'deck': [], 'props': [], 'pool': []}
+    pool_at = (0, 0)
     for line in pathlib.Path(path).read_text().splitlines():
-        if not line.strip() or line.lstrip().startswith('#'):
+        if not line.strip() or line.lstrip().startswith('#') or line.startswith('tile:'):
             continue
-        if line.strip() in ('corners:', 'deck:', 'props:'):
+        if line.strip() in ('corners:', 'deep:', 'deck:', 'props:'):
             sec = line.strip()[:-1]
             continue
-        if line.startswith('tile:'):
+        if line.startswith('pool:'):
+            sec = 'pool'
+            pool_at = tuple(int(v) for v in line.split()[1:3])
             continue
-        if sec == 'corners':
-            corners.append(line.strip())
-        elif sec == 'deck':
-            deck.append(line.strip())
-        elif sec == 'props':
+        if sec == 'props':
             p = line.split()
-            props.append((p[0], int(p[1]), int(p[2]), int(p[3]) if len(p) > 3 and p[3].isdigit() else 0,
-                          'flip' in p[3:]))
-    return corners, deck, props
+            d['props'].append((p[0], int(p[1]), int(p[2]), int(p[3]) if len(p) > 3 and p[3].isdigit() else 0,
+                               'flip' in p[3:]))
+        elif sec:
+            d[sec].append(line.strip())
+    return d, pool_at
+
+
+# light pool: the core swaps every plank and water slot, the rim only the light ones
+POOL_CORE = {'wood1': 'lamp_w1', 'wood2': 'lamp_w2', 'water1': 'lamp_q1', 'water2': 'lamp_q2',
+             'shallow': 'lamp_q1', 'lap': 'lamp_q2'}
+POOL_RIM = {'wood2': 'lamp_w2', 'water2': 'lamp_q2', 'lap': 'lamp_q2'}
 
 
 def check_corners(corners):
@@ -82,8 +90,9 @@ def stamp(dst, g, ox, oy):
                 dst.a[Y][X] = v
 
 
-def compose(sprites, corners, deck, props, k=0):
+def compose(sprites, d, pool_at, k=0):
     """the map as a slot Grid; k advances the water and the idles (for the GIF)"""
+    corners, deck, props, deep = d['corners'], d['deck'], d['props'], d['deep']
     S = {s['name']: s for s in sprites}
     rows, cols = len(corners) - 1, len(corners[0]) - 1
     g = Grid(cols * T, rows * T)
@@ -95,6 +104,10 @@ def compose(sprites, corners, deck, props, k=0):
             wv = 0 if q < 0.5 else 1 if q < 0.72 else 2 if q < 0.86 else 3
             if min(c) == 0:
                 stamp(g, S['bog_water']['frames'][wv * 4 + (k + tx) % 4], tx * T, ty * T)
+                if deep and max(c) == 0:
+                    dv = [1 if deep[yy][xx] == 'd' else 0 for xx, yy in ((tx, ty), (tx + 1, ty), (tx, ty + 1), (tx + 1, ty + 1))]
+                    if any(dv):
+                        stamp(g, S['deep_water']['frames'][dv[0] * 8 + dv[1] * 4 + dv[2] * 2 + dv[3]], tx * T, ty * T)
                 if max(c) > 0:
                     idx = sum((1 if v > 0 else 0) << (3 - i) for i, v in enumerate(c))
                     bank = ('peat_bank', 'peat_bank_b', 'peat_bank_c')[int(h(tx, ty, 23) * 3)]
@@ -115,6 +128,13 @@ def compose(sprites, corners, deck, props, k=0):
             else:
                 name = DECK[ch]
             stamp(g, bw[DECK_FRAMES.index(name)], tx * T, ty * T)
+    px, py = pool_at
+    for j, row in enumerate(d['pool']):
+        for i, ch in enumerate(row):
+            X, Y = px + i, py + j
+            if ch in '#+' and 0 <= X < g.w and 0 <= Y < g.h:
+                v = g.a[Y][X]
+                g.a[Y][X] = (POOL_CORE if ch == '#' else POOL_RIM).get(v, v)
     for name, x, y, fi, fl in sorted(props, key=lambda p: p[2]):
         if name not in S:
             print('map: unknown prop', name)
@@ -146,11 +166,16 @@ def main(a):
     meta, day, sprites = assets.load_pack(PACK)
     night = json.loads((PACK / 'palette-night.json').read_text())
     assert set(day) == set(night), 'palettes must share slot names'
-    corners, deck, props = parse(PACK / 'maps' / 'mire.txt')
-    bad = check_corners(corners)
+    d, pool_at = parse(PACK / 'maps' / 'mire.txt')
+    bad = check_corners(d['corners'])
     if bad:
         print('moss corners touching water (fix the map):', bad)
-    g = compose(sprites, corners, deck, props, k)
+    for y, row in enumerate(d['deep']):
+        for x, ch in enumerate(row):
+            if ch == 'd' and any(d['corners'][y + dy][x + dx] != '~' for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+                                 if 0 <= y + dy < len(d['corners']) and 0 <= x + dx < len(row)):
+                print('deep corner next to land (fix the map):', (x, y))
+    g = compose(sprites, d, pool_at, k)
     out = PACK / 'out'
     out.mkdir(exist_ok=True)
     for tag, pal in (('a', day), ('b', night)):
@@ -159,7 +184,7 @@ def main(a):
     print('wrote out/09-a.png, out/09-b.png (1280x768) and their @1x (320x192)')
     if '--gif' in a:
         for tag, pal in (('a', day), ('b', night)):
-            frames = [paint(compose(sprites, corners, deck, props, i), pal, 3) for i in range(8)]
+            frames = [paint(compose(sprites, d, pool_at, i), pal, 3) for i in range(8)]
             frames[0].save(out / ('09-%s.gif' % tag), save_all=True, append_images=frames[1:],
                            duration=250, loop=0, optimize=False)
         print('wrote out/09-a.gif, out/09-b.gif')

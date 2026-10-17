@@ -7,6 +7,7 @@ from common import W, H, YY, XX, OUT, hsh, new_grid, save
 import geometry as G
 
 GREYS = {'g0': '#1b1b1b', 'g1': '#333333', 'g2': '#4d4d4d', 'g3': '#666666', 'g4': '#e4e4e4'}
+GREYS_B = {'g0': '#141414', 'g1': '#202020', 'g2': '#3f3f3f', 'g3': '#5a5a5a', 'g4': '#e4e4e4'}
 
 
 def blockin_a():
@@ -27,14 +28,25 @@ def blockin_a():
 
 
 def blockin_b():
-    g = new_grid('g0')                                  # night sky: darkest
-    for (y, x0, x1, th) in G.AURORA_BLOCK:
-        g[y:y + th, x0:x1] = 'g2'                       # aurora: mid
-    top = G.cloud_top_line()
-    g[YY >= top[None, :].repeat(H, 0)] = 'g3'           # cloud sea: light
-    g[:, G.CABLE_X:G.CABLE_X + 2] = np.where(YY[:, :2] < top[G.CABLE_X], 'g1', g[:, G.CABLE_X:G.CABLE_X + 2])
+    """B as planned: night sky (darkest), the aurora ribbon (mid), the cloud sea (light), the gondola"""
+    import math
+    g = new_grid('g1')
+    for x in range(6, 262):                             # the aurora: an S-curved ribbon, tall in three places
+        u = (x - 6) / 252
+        yh = int(round(78 + 26 * math.sin(math.pi * 1.6 * u + 0.3) + 10 * u))
+        Lx = int(12 + 46 * math.exp(-((x - 54) / 26) ** 2) + 38 * math.exp(-((x - 150) / 20) ** 2) + 30 * math.exp(-((x - 226) / 22) ** 2))
+        g[max(0, yh - Lx):yh + 1, x] = 'g2'
+    for x in range(150, 266):
+        u = (x - 150) / 112
+        yh = int(round(176 - 14 * math.sin(math.pi * 1.3 * u)))
+        g[yh - 14:yh + 1, x] = 'g2'
+    g[(YY >= 340) & (XX < 164)] = 'g3'                  # near mass, mid mass, far mass, strata below
+    g[(YY >= 322) & (XX >= 172) & (XX < 266)] = 'g3'
+    g[(YY >= 304) & (XX >= 206) & (XX < 248)] = 'g3'
+    g[YY >= 362] = 'g3'
+    g[(YY >= 318) & (YY < 342) & ((XX - 132) ** 2 + ((YY - 326) * 1.3) ** 2 <= 22 * 22)] = 'g3'
     x0, y0, x1, y1 = G.GONDOLA_BLOCK
-    g[y0:y1 + 1, x0:x1 - 6] = 'g1'
+    g[y0:y1 + 1, x0:x1 - 6] = 'g0'
     g[214:258, 130:x1 + 1] = 'g4'
     return g
 
@@ -42,7 +54,7 @@ def blockin_b():
 if __name__ == '__main__':
     for name, fn in (('blockin-a', blockin_a), ('blockin-b', blockin_b)):
         g = fn()
-        save(g, GREYS, name, scale=1)
+        save(g, GREYS if name.endswith('a') else GREYS_B, name, scale=1)
         (OUT / ('%s@1x.png' % name)).unlink()
         (OUT / ('%s-palette.json' % name)).unlink()
         tot = g.size

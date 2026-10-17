@@ -16,14 +16,14 @@ import gondola as GD
 
 RAMPS = {
     'sky': [(.125, .040, 275), (.15, .046, 278), (.18, .050, 282), (.21, .052, 286), (.24, .052, 292)],
-    'aur': [(.225, .038, 205), (.275, .048, 185), (.33, .060, 166), (.40, .072, 152)],
+    'aur': [(.205, .034, 210), (.245, .042, 188), (.29, .052, 168), (.345, .062, 154)],
     'auv': [(.215, .045, 325), (.25, .050, 335)],
     'st': [(.33, .030, 262), (.50, .030, 252), (.66, .030, 242), (.82, .025, 95)],
-    'cl': [(.22, .035, 290), (.28, .040, 284), (.335, .042, 276), (.39, .040, 262), (.44, .036, 240), (.48, .030, 225)],
+    'cl': [(.205, .035, 292), (.265, .040, 284), (.31, .042, 276), (.35, .040, 262), (.375, .036, 240), (.395, .030, 225)],
     'wood': [(.15, .030, 285), (.21, .040, 305), (.28, .050, 330), (.35, .055, 355), (.42, .055, 20)],
     'rose': [(.30, .065, 8), (.37, .075, 16), (.44, .070, 26)],
     'sand': [(.36, .035, 70), (.44, .035, 78)],
-    'cab': [(.21, .030, 290), (.27, .035, 300), (.33, .038, 330), (.39, .038, 20)],
+    'cab': [(.165, .030, 290), (.195, .034, 300), (.23, .036, 320), (.27, .036, 350)],
     'coat': [(.19, .045, 250), (.26, .060, 240), (.34, .065, 228), (.42, .060, 214)],
     'scarf': [(.32, .090, 18), (.41, .100, 26), (.49, .090, 36)],
     'skin': [(.42, .060, 40), (.56, .070, 55), (.68, .075, 66)],
@@ -186,13 +186,22 @@ def cloud_mass(g, x0, x1, top, lobes, seed, dim=0, body=11, ends=12, height=44):
 BAY = None
 
 
-def strata(g, layers, seed):
-    """the bank's lower layers filling the bottom: wide flat strata of deeper values, each with a
-    subtle lit upper edge and a long Bayer seam into the next"""
+def strata(g, layers, seed, lobes=()):
+    """the bank's lower layers filling the bottom: wide strata of deeper values, each with a lit
+    upper edge, a hollow of shadow under its lip, lobes of very different radius with a crease where
+    they sit on the layer, and a long Bayer seam into the next"""
     for i, (top, slot_rim, slot_body, slot_low) in enumerate(layers):
+        # the hollow: the 2 rows just above this layer's top, in the layer behind, fall into shadow
         for x in range(W):
-            lump = max(0.0, noise1(x / 23, seed + 20 + i)) * 7 + max(0.0, noise1(x / 61, seed + 30 + i)) * 6
-            yt = top - int(round(lump)) + int(round(1.2 * noise1(x / 9, seed + 10 + i)))
+            lump = max(0.0, noise1(x / (31 + 9 * i), seed + 20 + i)) * (6 + 2 * i) + max(0.0, noise1(x / 70, seed + 30 + i)) * 5
+            yt = top - int(round(lump)) + int(round(1.0 * noise1(x / 13, seed + 10 + i)))
+            for d in (1, 2):
+                v = g[yt - d, x] if 0 <= yt - d < H else None
+                if isinstance(v, str) and v.startswith('cl') and (d == 1 or bayer(x, yt - d) < 8):
+                    g[yt - d, x] = 'cl0'
+        for x in range(W):
+            lump = max(0.0, noise1(x / (31 + 9 * i), seed + 20 + i)) * (6 + 2 * i) + max(0.0, noise1(x / 70, seed + 30 + i)) * 5
+            yt = top - int(round(lump)) + int(round(1.0 * noise1(x / 13, seed + 10 + i)))
             for y in range(max(0, yt), H):
                 d = y - yt
                 th = (bayer(x, y) + 0.5) / 16
@@ -205,6 +214,16 @@ def strata(g, layers, seed):
                 else:
                     v = slot_low if th < min(1.0, (d - 10) / 14.0) else slot_body
                 put(g, x, y, v)
+    for (lx, ly, lr, rim, body, crease) in lobes:
+        dx = XX + 0.5 - lx; dy = (YY + 0.5 - ly) / 0.6
+        rr = np.sqrt(dx * dx + dy * dy)
+        inside = (rr <= lr) & (YY <= ly + 2)
+        g[inside] = body
+        g[inside & (rr > lr - 1.6) & (dy < 0)] = rim
+        g[inside & (rr > lr - 3.2) & (rr <= lr - 1.6) & (dy < -lr * 0.3) & (dx < 0) & (BAY < 8)] = rim
+        base = (YY == ly + 3) & (np.abs(dx) < lr - 1)
+        g[base] = crease
+        g[inside & (rr > lr - 1.5) & (dx > lr * 0.4) & (dy > -lr * 0.4)] = crease
 
 
 def wisp(g, pts, th, slot_core, slot_edge):
@@ -227,7 +246,8 @@ def cloud_sea(g):
     global BAY
     BAY = np.vectorize(lambda x, y: bayer(x, y))(XX, YY)
     # the bank's lower layers first (they sit behind the masses' bellies)
-    strata(g, [(366, 'cl3', 'cl2', 'cl1'), (404, 'cl4', 'cl3', 'cl2'), (444, 'cl4', 'cl3', 'cl2')], 41)
+    strata(g, [(366, 'cl3', 'cl2', 'cl1'), (388, 'cl4', 'cl2', 'cl1'), (410, 'cl4', 'cl3', 'cl2'),
+               (434, 'cl5', 'cl3', 'cl2'), (458, 'cl5', 'cl3', 'cl2')], 41)
     # far small mass: about 15% of the width, high on the right, one step dimmer
     cloud_mass(g, 206, 248, 304, [(222, 6, 0.8)], seed=31, dim=1, body=7, ends=8, height=22)
     # mid mass: about 30%, right, one big lobe and one small
@@ -235,8 +255,8 @@ def cloud_sea(g):
     # near huge mass: about 60%, left of centre; its biggest lobe rises under the gondola
     cloud_mass(g, -10, 164, 340, [(132, 22, 0.75), (70, 10, 0.9), (20, 5, 0.9)], seed=33, body=14, ends=14, height=58)
     # torn wisps off the big lobe, toward the gondola's floor and trailing right with the wind
-    wisp(g, [(116, 304), (128, 300), (142, 298), (156, 298), (168, 300)], 3, 'cl4', 'cl3')
-    wisp(g, [(146, 289), (156, 287), (167, 287), (176, 289)], 2, 'cl3', 'cl2')
+    wisp(g, [(116, 304), (128, 300), (142, 298), (156, 298), (168, 300)], 3, 'cl3', 'cl2')
+    wisp(g, [(146, 289), (156, 287), (167, 287), (176, 289)], 2, 'cl2', 'cl1')
     wisp(g, [(186, 316), (198, 312), (210, 313)], 2, 'cl4', 'cl3')
 
 

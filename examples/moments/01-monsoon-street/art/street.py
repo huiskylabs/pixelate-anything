@@ -30,43 +30,108 @@ def hsh(*a):
 
 
 # ---------------------------------------------------------------- invented glyphs
-HERO_GLYPHS = ["""
-....#....
-#########
-..#...#..
-..#####..
-..#...#..
-..#####..
-....#....
-.#######.
-#...#...#""", """
-.#.......
-.#.######
-###......
-.#..####.
-.#..#..#.
-.#..####.
-.#.......
-.#.######
-##.......""", """
-..#...#..
-#########
-.........
-.#######.
-.#..#..#.
-.#######.
-....#....
-...#.#...
-.##...##.""", """
-#.......#
-.#.....#.
-..#####..
-....#....
-#########
-....#....
-..#.#.#..
-.#..#..#.
-#...#...#"""]
+# My own blocky stroke primitives, drawn on the left half and mirrored (thick, symmetric, 40-62% fill,
+# one connected piece): they read as a sign script but are no letter of any real script. Each sign
+# speaks its own dialect (a primitive subset), so no two signs share a look.
+def _crown(g, r):
+    h, hw = g.shape
+    g[0, :] = True
+    g[1, ::2] = True
+
+
+def _post(g, r):
+    h, hw = g.shape
+    g[int(r(1) * h * 0.4):, max(0, hw - 2):] = True
+
+
+def _fork(g, r):
+    h, hw = g.shape
+    g[h - 1 - h // 3:, 0] = True
+    g[h - 1 - h // 3, :] = True
+
+
+def _eye(g, r):
+    h, hw = g.shape
+    y = h // 2 - 1 + int(r(2) * 2)
+    y = min(max(1, y), h - 3)
+    g[y - 1:y + 2, max(0, hw - 3):] = True
+    g[y, hw - 1] = False
+
+
+def _step(g, r):
+    h, hw = g.shape
+    for k in range(hw):
+        y = h - 1 - k * 2
+        if 0 <= y < h:
+            g[max(0, y - 1):y + 1, k] = True
+
+
+def _bar2(g, r):
+    h, hw = g.shape
+    y = int(r(3) * (h - 2))
+    g[y:y + 2, int(r(4) * 2):] = True
+
+
+def _hook(g, r):
+    h, hw = g.shape
+    g[h // 2:, 0] = True
+    g[h - 1, :max(2, hw - 1)] = True
+
+
+def _cap(g, r):
+    h, hw = g.shape
+    g[0:2, max(0, hw - 2):] = True
+    g[1, max(0, hw - 3)] = True
+
+
+DIALECTS = [(_crown, _eye, _fork, _post, _bar2), (_post, _step, _hook, _bar2), (_cap, _eye, _hook, _fork),
+            (_bar2, _post, _step, _cap), (_crown, _hook, _eye, _step)]
+
+
+def _runs(v):
+    v = np.asarray(v, int)
+    return int(((v[1:] == 1) & (v[:-1] == 0)).sum() + v[0])
+
+
+def _label_ok(g):
+    """one piece, and complex both ways (some row and some column cross two strokes), so it is
+    never a bare T, I, L or a Greek pi"""
+    from scipy import ndimage
+    if ndimage.label(g)[1] != 1:
+        return False
+    if g.shape[1] <= 3:
+        return True
+    return max(_runs(r) for r in g) >= 2 and max(_runs(c) for c in g.T) >= 2
+
+
+def rune(seed, w=7, h=9, dialect=0, fill=(0.38, 0.62)):
+    """an invented sign glyph (bool h x w) in one dialect, reseeded until it is one piece in range"""
+    hw = (w + 1) // 2
+    prims = DIALECTS[dialect % len(DIALECTS)]
+    best = None
+    for k in range(600):
+        if k == 300:                                    # a dialect too poor for this box: borrow
+            prims = prims + DIALECTS[(dialect + 2) % len(DIALECTS)]
+        rs = lambda j, k=k: hsh(seed, k, j, dialect)
+        g = np.zeros((h, hw), bool)
+        n = 2 + int(rs(0) * 2)
+        chosen = []
+        for j in range(8):
+            pr = prims[int(rs(10 + j) * len(prims))]
+            if pr not in chosen:
+                chosen.append(pr)
+            if len(chosen) == n:
+                break
+        for q, pr in enumerate(chosen):
+            pr(g, lambda z, q=q: rs(40 + q * 9 + z))
+        full = np.concatenate([g, g[:, :w - hw][:, ::-1]], 1)
+        f = full.mean()
+        if full.any() and _label_ok(full):
+            if fill[0] <= f <= fill[1]:
+                return full
+            if best is None or abs(f - 0.5) < abs(best.mean() - 0.5):
+                best = full
+    return best
 
 
 def parse(art):
@@ -74,24 +139,8 @@ def parse(art):
     return np.array([[ch == '#' for ch in r] for r in rows], bool)
 
 
-def small_glyph(seed, w=5, h=5):
-    """a seeded invented glyph from 2-3 strokes: never a real letter, never a filled box"""
-    g = np.zeros((h, w), bool)
-    k = int(hsh(seed, 1) * 6)
-    parts = [(0, 'top'), (1, 'mid'), (2, 'stem'), (3, 'left'), (4, 'right'), (5, 'bot'), (6, 'hook'), (7, 'dot')]
-    picks = sorted({int(hsh(seed, j + 3) * 8) for j in range(3)})
-    for p in picks:
-        if p == 0: g[0, :] = True
-        if p == 1: g[h // 2, 1:w] = True
-        if p == 2: g[:, w // 2] = True
-        if p == 3: g[1:, 0] = True
-        if p == 4: g[:h - 1, w - 1] = True
-        if p == 5: g[h - 1, :w - 1] = True
-        if p == 6: g[h - 1, 0:2] = True; g[1:h, 1] = True
-        if p == 7: g[1, w - 2] = True; g[h - 2, 1] = True
-    if g.mean() > 0.55 or g.sum() < 4:
-        g[:] = False; g[0, :] = True; g[:, w // 2] = True; g[h - 1, k % w] = True
-    return g
+def small_glyph(seed, w=5, h=5, dialect=3):
+    return rune(seed, w, h, dialect, fill=(0.36, 0.66))
 
 
 class Street:
@@ -106,6 +155,7 @@ class Street:
         self.NOREF = np.zeros((H, W), bool)               # vertical pixels that must not mirror
         self.lights = []
         self.cols = []
+        self.spills = []                                  # soft warm ground spills (masks -> lamp map)
         self.awnings = []
         self.yy, self.xx = np.mgrid[0:H, 0:W]
 
@@ -150,6 +200,15 @@ class Street:
 
     def light(self, x, y, sig, colour, gain):
         self.lights.append((x, y, sig, colour, gain))
+
+    def spill(self, pts, gain, colour=(1.0, 0.72, 0.42), blur=2.5):
+        """a soft warm trapezoid of light on the ground in front of a lit opening"""
+        self.spills.append((pts, gain, colour, blur))
+
+    def gspill(self, X, z0, z1, out, gain):
+        """a spill on the ground beside a receding wall at X: from its base out `out` metres"""
+        s = 1 if X < 0 else -1
+        self.spill([P(X, 0, z0), P(X, 0, z1), P(X + s * out, 0, z1 + 0.6), P(X + s * out, 0, z0 - 0.6)], gain)
 
     def wire(self, x0, y0, x1, y1, sag, slot='plum'):
         pts = self.c.catenary(x0, y0, x1, y1, sag, slot)
@@ -206,6 +265,7 @@ class Street:
         self.rect(253, gy0 + 5, 278, gy0 + 9, 'win1', base=row(Z))
         self.rect(284, gy0 + 6, 292, int(G.FARWALL_ROW), 'void', base=row(Z))
         self.light(265, 172, (16, 7), (1.0, 0.75, 0.45), 0.3)
+        self.spill([(252, 183), (280, 183), (286, 188), (246, 188)], 0.3, blur=1.2)
 
     def cross_street_wires(self):
         Zt = G.Z_TRAM
@@ -283,7 +343,7 @@ class Street:
         # destination board on the header (invented glyphs)
         self.rect(x0 + 6, Y(r_head) + 1, x0 + 26, Y(r_win1) - 1, 'win1', base=base)
         for gi in range(3):
-            g = small_glyph(gi * 13 + 5, 4, 3)
+            g = rune(gi * 13 + 5, 3, 3, 3, fill=(0.4, 0.8))
             self.stamp(g, x0 + 8 + gi * 6, Y(r_head) + 2, 'win0', base)
         # pantograph: a diamond from the roof to the contact wire
         pxc = rear + 66
@@ -365,10 +425,11 @@ class Street:
         self.road, self.pav, self.curb = road, pav, curb
         self.Zr, self.Xr = Zr, Xr
         # the puddle: hand-shaped, in the gutter by the right curb, wider toward the viewer
-        pts = [(286, 235), (300, 233), (321, 234), (340, 236), (352, 235), (368, 236), (376, 241),
-               (386, 247), (398, 255), (406, 262), (396, 264), (371, 265), (338, 263), (312, 264),
-               (284, 262), (262, 260), (250, 256), (255, 251), (266, 247), (262, 243), (272, 239)]
-        pud = self.c.mask_poly(pts) & road
+        pts = [(282, 232), (301, 230), (326, 231), (349, 233), (372, 232), (396, 234), (419, 237),
+               (438, 241), (451, 247), (461, 255), (457, 262), (439, 268), (402, 270), (350, 270),
+               (306, 269), (268, 266), (247, 261), (244, 254), (253, 247), (262, 242), (270, 236)]
+        pud = self.c.mask_poly(pts) & (road | pav | curb)
+        self.pud_curb = pud & curb
         self.pud = pud
         self.g[pud] = 'void'
         self.GR[pud] = 3
@@ -398,6 +459,7 @@ class Street:
         self.wall(X, 16.9, 17.2, 0.0, 2.5, 'con0')
         self.awning_L(15.7, 18.6, 2.55, 0.95, 'awa', sag=1)
         self.light(col(X + 0.6, 17), yh(1.4, 17), (8, 10), (1.0, 0.75, 0.45), 0.55)
+        self.gspill(X, 15.9, 18.3, 1.6, 0.32)
         self.cols.append(dict(x0=int(col(X, 16.2)), x1=int(col(X, 18.0)), y=yh(1.6, 17), b=row(17),
                               slots=('win0', 'win0'), p=0.22, reach=240))
         # L2: shutter down (mismatched slats), a lit upper window in A
@@ -418,6 +480,7 @@ class Street:
         self.wall(X, 25.2, 26.2, 1.3, 2.3, 'awh1')                                # noren
         self.awning_L(23.7, 27.2, 2.5, 0.8, 'awb', sag=0)
         self.light(col(X + 0.5, 25.5), yh(1.4, 25.5), (7, 8), (1.0, 0.75, 0.45), 0.45)
+        self.gspill(X, 23.9, 27.0, 1.5, 0.28)
         self.cols.append(dict(x0=int(col(X, 24.2)), x1=int(col(X, 26.6)), y=yh(1.6, 25.5), b=row(25.5),
                               slots=('win0', 'win0'), p=0.2, reach=230))
         # L4: the corner at the cross street: a dim vending machine glow, dark above
@@ -463,13 +526,15 @@ class Street:
         self.rect(x0 + 1, r0 + 1, x1 - 1, r1 - 1, panel, base=base)
         if askew:
             self.rect(x1 - 1, r0 + 1, x1, r0 + 3, 'plum', base=base)
-        gw = max(3, min(6, x1 - x0 - 4))
+        gw = max(3, min(7, x1 - x0 - 4))
+        gw -= (gw + 1) % 2                      # odd widths mirror about a centre column
+        gh = gw + 1
         gy = r0 + 3
         k = 0
-        while gy + gw <= r1 - 3:
-            g = small_glyph(seed * 7 + k, gw, gw)
+        while gy + gh <= r1 - 3:
+            g = rune(seed * 7 + k, gw, gh, seed % 5)
             self.stamp(g, x0 + (x1 - x0 - gw) // 2, gy, ink, base)
-            gy += gw + 2 + (k % 2)
+            gy += gh + 2 + (k % 2)
             k += 1
         # bracket to the wall
         self.rect(min(x1, int(col(X, Z))) - 1, r0 - 2, max(x1, int(col(X, Z))), r0 - 1, 'cool1', base=base)
@@ -492,6 +557,7 @@ class Street:
         self.wall(X, 18.3, 20.9, 0.7, 2.2, 'win0')
         self.wall(X, 18.4, 20.8, 1.7, 2.2, 'win1')
         self.light(col(X - 0.5, 19.6), yh(1.5, 19.6), (6, 9), (1.0, 0.75, 0.45), 0.4)
+        self.gspill(X, 18.3, 20.9, 1.4, 0.3)
         self.cols.append(dict(x0=int(col(X, 20.8)), x1=int(col(X, 18.4)), y=yh(1.5, 19.6), b=row(19.6),
                               slots=('win0', 'win0'), p=0.22, reach=240))
         # R2: maroon awning over a shop, shutter half down in B
@@ -499,6 +565,7 @@ class Street:
         if a:
             self.wall(X, 22.2, 26.4, 1.0, 2.3, 'win1')
             self.light(col(X - 0.5, 24.3), yh(1.4, 24.3), (6, 8), (1.0, 0.75, 0.45), 0.4)
+            self.gspill(X, 22.2, 26.4, 1.3, 0.26)
             self.cols.append(dict(x0=int(col(X, 26.2)), x1=int(col(X, 22.4)), y=yh(1.5, 24.3), b=row(24.3),
                                   slots=('win0', 'win0'), p=0.18, reach=230))
         self.awning_R(21.8, 26.8, 2.6, 0.7, 'awb')
@@ -589,6 +656,7 @@ class Street:
         self.front(Z, sx0, sx1, 2.6, 2.85, 'cool1')                                 # shutter box
         if a:
             self.light(col((sx0 + sx1) / 2, Z), yh(1.4, Z), (22, 12), (1.0, 0.74, 0.45), 0.4)
+            self.spill([(64, 207), (122, 207), (136, 238), (50, 238)], 0.36)
             self.cols.append(dict(x0=int(col(sx0, Z)) + 2, x1=int(col(sx1, Z)) - 2, y=yh(1.6, Z), b=row(Z),
                                   slots=('win0', 'win1'), p=0.26, reach=262))
         else:
@@ -597,6 +665,7 @@ class Street:
                 self.front(Z, sx0, sx1, yv, yv + 0.05, 'cool1')
             self.front(Z, sx0, sx1, 0.96, 1.02, 'cool3')
             self.light(col((sx0 + sx1) / 2, Z), yh(0.6, Z), (24, 8), (1.0, 0.72, 0.42), 0.45)
+            self.spill([(64, 207), (122, 207), (130, 228), (56, 228)], 0.3)
             self.cols.append(dict(x0=int(col(sx0, Z)) + 2, x1=int(col(sx1, Z)) - 2, y=yh(0.5, Z), b=row(Z),
                                   slots=('win0',), p=0.35, reach=260))
         # the door (dim) and a standing poster board
@@ -605,28 +674,21 @@ class Street:
         self.front(Z, -5.15, -5.11, 0.9, 1.1, 'cool3')
         self.front(Z, -4.9, -4.38, 0.15, 1.9, 'con3')
         for k in range(3):
-            g = small_glyph(90 + k, 5, 5)
+            g = rune(90 + k, 5, 5, 2)
             self.stamp(g, int(col(-4.84, Z)) + 3, int(yh(1.75, Z)) + k * 8, 'con0', row(Z))
         self.front(Z, -4.9, -4.38, 0.0, 0.15, 'con0')
         # the billboard over the shop: unlit, glyph rows, lit only by the street lamp
         self.front(Z, -8.35, -5.75, 2.9, 3.2, 'con0')
         self.front(Z, -8.3, -5.8, 2.93, 3.17, 'ps0')
         for k in range(6):
-            g = small_glyph(120 + k, 5, 4)
-            self.stamp(g, int(col(-8.15, Z)) + k * 9, int(yh(3.13, Z)) + 1, 'con0', row(Z))
+            g = rune(120 + k, 5, 5, 1)
+            self.stamp(g, int(col(-8.15, Z)) + k * 9 + (k % 2), int(yh(3.13, Z)) + 1, 'con0', row(Z))
         # the teal neon box sign (a cool accent), an invented mark
         bx0, bx1, by0, by1 = int(col(-8.42, Z)), int(col(-7.3, Z)), int(yh(5.0, Z)), int(yh(4.1, Z))
         self.rect(bx0, by0, bx1, by1, 'plum', base=row(Z))
         self.rect(bx0 + 1, by0 + 1, bx1 - 1, by1 - 1, 'neo0', base=row(Z))
         self.rect(bx0 + 2, by0 + 2, bx1 - 2, by0 + 3, 'neo1', base=row(Z))
-        mark = parse("""
-..#####..
-.#.....#.
-.#..#..#.
-....#....
-.#######.
-....#....
-...#.#...""")
+        mark = rune(61, 9, 9, 4)
         self.stamp(mark, (bx0 + bx1) // 2 - 4, by0 + 5, 'neo1', row(Z))
         self.rect(bx1, by0 + 3, bx1 + 3, by0 + 4, 'cool1', base=row(Z))
         self.light((bx0 + bx1) / 2, (by0 + by1) / 2, (14, 10), (0.5, 0.9, 1.0), 0.32)
@@ -740,7 +802,7 @@ class Street:
         self.front(Z, dX1 - 0.16, dX1 - 0.12, 0.8, 1.15, 'cool1')                   # handle
         self.front(Z, dX0, dX1, 1.7, 2.4, 'awh1')
         self.front(Z, dX0 + 0.3, dX0 + 0.34, 1.7, 2.4, 'awh0')
-        nm = small_glyph(77, 5, 5)
+        nm = rune(77, 5, 5, 4)
         self.stamp(nm, int(col(dX0 + 0.08, Z)) + 1, int(yh(2.2, Z)) + 1, 'win1', row(Z))
         self.front(Z, dX0, dX1, 0.0, 0.08, 'win1')
         # ---- the fascia sign: the frame's peak value; one dead tube in its border
@@ -752,11 +814,11 @@ class Street:
         self.rect(sxa + 1, sya + 1, sxb - 1, sya + 2, 'hs1', base=row(Z))
         self.rect(sxa + 1, syb - 2, sxb - 1, syb - 1, 'hs1', base=row(Z))
         self.rect(sxa + 9, syb - 2, sxa + 16, syb - 1, 'win3', base=row(Z))         # the dead tube
-        gl = [parse(g) for g in HERO_GLYPHS]
-        gx = sxa + 6
-        for i, gg in enumerate([gl[0], gl[2], gl[1], gl[3]]):
+        gx = sxa + 7
+        for i, sd in enumerate((3, 18, 7, 29)):
+            gg = rune(sd, 7, 9, 0)
             self.stamp(gg, gx, sya + 2, 'gl0', row(Z))
-            gx += 9 + (8 if i != 1 else 10)
+            gx += 7 + (11 if i != 1 else 14)
         self.sign_box = (sxa, sya, sxb, syb)
         # ---- the awning over the window: indigo with pale stripes converging to the vanishing point
         Za, yt, yl = Z - 0.75, 2.62, 2.25
@@ -827,7 +889,9 @@ class Street:
         # ---- lights: the sign, the window and its spill, the lantern
         self.light((sxa + sxb) / 2, (sya + syb) / 2, (34, 13), (1.0, 0.88, 0.66), 1.15)
         self.light(col(4.5, Z), yh(1.3, Z), (30, 22), (1.0, 0.74, 0.44), 1.0)
-        self.light(col(4.6, 11.5), row(11.5), (44, 11), (1.0, 0.72, 0.42), 0.95)
+        self.light(col(4.6, 11.5), row(11.5), (44, 11), (1.0, 0.72, 0.42), 0.6)
+        self.spill([(377, 212), (457, 212), (478, 266), (346, 266)], 0.6, blur=3.0)
+        self.gspill(X0, Z + 0.2, Zb - 0.4, 1.3, 0.32)
         self.light(lx + 6.5, ly + 6, 11, (1.0, 0.32, 0.2), 0.6)
         self.light(col(X0 - 0.3, 15.5), yh(1.3, 15.5), (9, 14), (1.0, 0.74, 0.44), 0.5)
         # reflection columns under the hero's lights
@@ -871,7 +935,20 @@ class Street:
                     self.B[yy_, xx_] = lb
         self.lamp = (hx + 4.5, hy + 3)
         self.light(hx + 4.5, hy + 6, (24, 30), (1.0, 0.78, 0.45), 0.85)
-        self.light(150, 214, (38, 9), (1.0, 0.74, 0.42), 0.7)
+        pool = [(128, 223), (140, 217), (158, 214), (176, 213), (196, 215), (211, 219), (221, 225),
+                (214, 230), (196, 234), (170, 235), (149, 232), (134, 228)]
+        self.spill(pool, 0.7, (1.0, 0.78, 0.48), blur=3.0)
+        pm = self.c.mask_poly(pool) & (self.GR > 0) & np.isnan(self.B)
+        lift = {'rd0': 'rd1', 'void': 'rd0', 'rd1': 'rd2', 'con1': 'con2', 'con0': 'con1'}
+        for k_, v_ in lift.items():
+            self.g[pm & (self.g == k_)] = v_
+        for j in range(22):                                                      # glints on the wet ground
+            gx = 136 + int(hsh(j, 61) * 80); gy = 216 + int(hsh(j, 62) * 17)
+            if pm[gy, gx]:
+                ln = 2 + int(hsh(j, 63) * 4)
+                for i in range(ln):
+                    if gx + i < W and pm[gy, gx + i]:
+                        self.g[gy, gx + i] = 'rd3'
         self.cols.append(dict(x0=hx + 2, x1=hx + 7, y=hy + 3, b=lb, slots=('win1', 'win2'), p=0.42, reach=270))
         # utility poles: mismatched heights, crossarms, a transformer; thinner with distance
         poles = [(-3.55, 19.5, 9.4, 2), (-3.5, 27.5, 8.6, 1), (2.45, 26.0, 9.0, 1)]
@@ -905,6 +982,7 @@ class Street:
     def reflect(self):
         a = self.ph == 'a'
         g, B = self.g, self.B
+        src = g.copy()
         vert = np.isfinite(B) & ~self.NOREF
         ys, xs = np.nonzero(vert)
         b = B[ys, xs]
@@ -937,14 +1015,8 @@ class Street:
                     continue
                 gt = self.GR[y, x]
                 emi = s in EMISSIVE
-                if gt == 3:                                             # the puddle: a mirror
-                    if a:
-                        gap = (y + int(hsh(y, 5) * 3)) % 3 == 0
-                        if gap:
-                            continue
-                        g[y, x] = step.get(s, d1[s]) if emi else d2[s]
-                    else:
-                        g[y, x] = step.get(s, s) if emi else d1[s]
+                if gt == 3:
+                    continue
                 elif gt == 1:                                           # the wet road: streaky, dark
                     if (y + int(hsh(y // 2, x // 23, 2) * 3)) % (2 if a else 3) == 0:
                         continue
@@ -956,13 +1028,68 @@ class Street:
                 elif gt == 2:                                           # wet slabs: faint
                     if emi and (y + x // 4) % 4 == 0:
                         g[y, x] = step.get(step.get(s, s), 'con1')
-        # the puddle's rim: a dark lip where the water meets the asphalt, lit on the far edge
-        pud = self.pud
+        self.puddle_mirror(src, step)
+
+    def puddle_mirror(self, src, step):
+        """the puddle mirrors the street above it upside down, anchored at its far edge: each column
+        starts from the base row of the nearest thing standing in it, compressed 2.3x so the street
+        from the ground to the signs fits (the tram strip, the hero shopfront and its sign) in
+        darker slots, lights a step down. A: broken into concentric ring arcs. B: glass-smooth."""
+        a = self.ph == 'a'
+        g, B, pud = self.g, self.B, self.pud
+        k = 2.3
+        sl = set(src.ravel()) - {None}
+        d1 = {s: darker(s, 0.05) for s in sl}
+        d2 = {s: darker(s, 0.1, 0.65) for s in sl}
+        rings = []
+        if a:
+            ys_, xs_ = np.nonzero(pud)
+            for i in range(7):
+                ph = ((self.t + int(hsh(i, 71) * 24)) % 24) / 24.0
+                gen = (self.t + int(hsh(i, 71) * 24)) // 24
+                j = int(hsh(i, gen, 73) * len(xs_))
+                rings.append((xs_[j], ys_[j], 3 + 15 * ph))
+        for x in np.nonzero(pud.any(0))[0]:
+            ys = np.nonzero(pud[:, x])[0]
+            ye = ys.min()
+            colB = B[:ye, x]
+            fin = np.isfinite(colB)
+            if not fin.any():
+                continue
+            bs = colB[fin].max()
+            for y in ys:
+                ysrc = int(bs - 1 - (y - ye) * k)
+                if ysrc < 0:
+                    continue
+                s = src[ysrc, x]
+                if s is None:
+                    continue
+                emi = s in EMISSIVE
+                if a:
+                    v = step.get(s, d1[s]) if emi else d2[s]
+                    cut = False
+                    for (cx, cy, R) in rings:
+                        e = np.hypot(x - cx, (y - cy) / 0.3)
+                        if e < R:
+                            dd = R - e
+                            if dd % 4 < 1.0:
+                                v = 'cool4' if y <= cy else 'rn1'               # a ring crest arc
+                                cut = False
+                                break
+                            if int(dd // 4) % 2 == 1:
+                                cut = True
+                    if cut:
+                        v = 'rd0'
+                else:
+                    v = step.get(s, s) if emi else d1[s]
+                g[y, x] = v
+        # the edge: a 1 px lighter lip on the far side, a dark lip elsewhere
         edge = pud & ~(np.roll(pud, 1, 0) & np.roll(pud, -1, 0) & np.roll(pud, 1, 1) & np.roll(pud, -1, 1))
         top_edge = pud & ~np.roll(pud, 1, 0)
-        g[edge] = 'rd2'
-        g[top_edge] = 'con2'
-        g[pud & np.roll(top_edge, 1, 0)] = 'rd0'
+        g[edge & ~top_edge] = 'rd0'
+        g[top_edge] = 'cool4'
+        if a:
+            g[self.pud_curb & ~edge & (self.yy % 3 != 0)] = 'rd1'           # the drowned curb
 
     def light_columns(self):
         """lights stretch into stepped dash columns down the wet road toward the viewer"""
@@ -992,7 +1119,8 @@ class Street:
                 off = (hsh(y, ci, 13) - 0.5) * hw * 0.7
                 ln = max(1, int(round(hw * (0.35 + 0.65 * hsh(y, ci, 17)))))
                 lev = hsh(y, ci, 19) + 0.35 * near_m
-                s = sl[0] if lev < 0.6 else (sl[1] if lev < 0.95 or len(sl) < 3 else sl[2])
+                idx = 0 if lev < 0.6 else (1 if lev < 0.95 else 2)
+                s = sl[min(idx, len(sl) - 1)]
                 xa = int(round(cx + off - ln / 2))
                 for x in range(xa, xa + ln):
                     if 0 <= x < W and self.GR[y, x] in (1, 2):
@@ -1137,15 +1265,21 @@ class Street:
         over[sya - 1:syb + 1, sxa - 1:sxb + 1] = True
         lx0, ly0, lx1, ly1 = self.lantern
         over[ly0:ly1, lx0 - 1:lx1 + 1] = True
-        fx.rain_cells(self.c, t, T_LOOP, n=150, length=4, slot='rn0', cycles=8, seed=5,
+        fx.rain_cells(self.c, t, T_LOOP, n=175, length=4, slot='rn0', cycles=8, seed=5,
                       region=(0, 0, W, 262), slant=7, over=over)
-        fx.rain_cells(self.c, t, T_LOOP, n=46, length=9, slot='rn1', cycles=10, seed=19,
+        tmp = Canvas(W, H, None)
+        fx.rain_cells(tmp, t, T_LOOP, n=64, length=11, slot='rn1', cycles=10, seed=19,
                       region=(0, 0, W, H), slant=7, over=over)
-        fx.splash_field(self.c, t, T_LOOP, (60, 190, 470, 268), n=26, every=12, size=1,
+        near = tmp.g == 'rn1'
+        lit = np.isin(before, list(EMISSIVE))
+        self.g[near & ~lit] = 'rn1'
+        self.g[near & lit] = 'win3'
+        fx.splash_field(self.c, t, T_LOOP, (60, 190, 470, 236), n=18, every=12, size=1,
                         slots=('rn1', 'rn0'), over=self.pud | (self.GR == 0), seed=3)
-        # puddle rings: five sources, rings squashed for the low camera
-        fx.ripples(self.c, t, T_LOOP, self.pud, n=7, life=24, seed=7, r=(2, 13), squash=0.26,
-                   slots=('cool4', 'rn1', 'rd3'), rings=2, gap=4)
+        for j in range(14):                                                     # crowns near the viewer
+            sx_ = 70 + int(hsh(j, 81) * 380); sy_ = 240 + int(hsh(j, 82) * 28)
+            if 0 <= sy_ < H and self.GR[sy_, sx_] in (1, 2) and not self.pud[sy_, sx_]:
+                fx.splash(self.c, sx_, sy_, (t + j) % 3, size=2, slots=('cool4', 'rn1'))
         # awnings drip in stepped streams; the hero's side awning leaks into the bucket
         for ai, aw in enumerate(self.awnings):
             m = aw['mask']

@@ -13,10 +13,10 @@ POSES = {
                   neck=(-3, -23), head=(-4, -27), sh_f=(-3, -21), el_f=(-9, -17), ha_f=(-12, -21),
                   sh_b=(1, -21), el_b=(3, -15), ha_b=(-3, -17), stock=(5, -15), muzzle=(-18, -25),
                   pack=(5, -19), hem=(9, -5), hem_f=(-6, -6), tuck=0),
-    'flinch': dict(foot_f=(-6, 0), knee_f=(-7, -7), hip=(1, -10), foot_b=(8, 0), knee_b=(5, -3),
-                   neck=(3, -20), head=(1, -23), sh_f=(1, -18), el_f=(-6, -23), ha_f=(-1, -27),
-                   sh_b=(5, -18), el_b=(8, -13), ha_b=(4, -11), stock=(10, -9), muzzle=(-9, -5),
-                   pack=(8, -16), hem=(13, -3), hem_f=(-5, -5), tuck=1),
+    'flinch': dict(foot_f=(-3, 0), knee_f=(-1, -7), hip=(2, -10), foot_b=(9, 0), knee_b=(8, -5),
+                   neck=(5, -18), head=(7, -21), sh_f=(3, -16), el_f=(-4, -21), ha_f=(10, -22),
+                   sh_b=(7, -17), el_b=(11, -12), ha_b=(7, -10), stock=(12, -8), muzzle=(-8, -3),
+                   pack=(-1, -15), hem=(14, -3), hem_f=(-5, -4), tuck=1, face=1),
 }
 
 COAT = [(-0.6, 'coat4'), (0.1, 'coat3'), (0.6, 'coat2'), (1.0, 'coat1')]
@@ -83,9 +83,10 @@ def draw(ax, ay, pose):
         for x in range(int(hcx) - 3, int(hcx) + 3):
             if ((x + 0.5 - hcx) / 3.1) ** 2 + ((y + 0.5 - hcy) / 3.2) ** 2 <= 1:
                 c.put(x, y, 'skin2' if x < hcx - 0.5 else ('skin1' if x < hcx + 1.5 else 'skin0'))
-    c.put(hcx - 3, hcy, 'skin2')                                     # the nose
-    c.put(hcx - 2, hcy - 1, 'boot0')                                 # the eye
-    c.put(hcx - 1, hcy + 2, 'skin0')                                 # jaw shadow
+    f = p.get('face', -1)                                            # -1 faces left, 1 turned away right
+    c.put(hcx + 3 * f, hcy, 'skin1' if f > 0 else 'skin2')           # the nose
+    c.put(hcx + 2 * f, hcy - 1, 'boot0')                             # the eye
+    c.put(hcx - 1 * f, hcy + 2, 'skin0')                             # jaw shadow
     # helmet: a dome with a brim, lit cap up-left, the strap down the cheek
     for y in range(int(hcy) - 7, int(hcy) - 1):
         for x in range(int(hcx) - 5, int(hcx) + 6):
@@ -97,9 +98,13 @@ def draw(ax, ay, pose):
                 elif dx > 0.45:
                     v = 'oliv1'
                 c.put(x, y, v)
-    c.rect(hcx - 6, hcy - 2, hcx + 5, hcy - 1, 'oliv1')               # brim
-    c.put(hcx - 6, hcy - 2, 'oliv2')
-    c.put(hcx + 1, hcy + 1, 'oliv0'); c.put(hcx + 1, hcy + 2, 'oliv0')  # strap
+    if f < 0:
+        c.rect(hcx - 6, hcy - 2, hcx + 5, hcy - 1, 'oliv1')           # brim
+        c.put(hcx - 6, hcy - 2, 'oliv2')
+    else:
+        c.rect(hcx - 5, hcy - 2, hcx + 6, hcy - 1, 'oliv1')
+        c.put(hcx - 5, hcy - 2, 'oliv2')
+    c.put(hcx - f, hcy + 1, 'oliv0'); c.put(hcx - f, hcy + 2, 'oliv0')  # strap
     # rifle: a 2 px dark barrel and a brown stock
     sx, sy = J['stock']
     mx, my = J['muzzle']

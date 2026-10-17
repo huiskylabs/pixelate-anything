@@ -11,8 +11,8 @@ Run: python3 art/panel_snes.py  ->  out/panel-snes.png (+ -bg, -bg-far/-mid/-nea
 import math, sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import numpy as np
-from common import Canvas, COMP, px, stamp, q15, image, over, save, OUT, band_sky, sprite_boxes
-import shapes, texture
+from common import Canvas, COMP, px, stamp, q15, image, over, save, OUT, band_sky, sprite_boxes, shade_facets, rock_facets, torus_cells
+import shapes, texture, layout
 
 W, H = 256, 224
 HZ = 119                                        # the sea horizon
@@ -306,23 +306,52 @@ def house(c, x0, base, w, wh, roof, rh, side, lit_windows, dark_windows=(), door
         dx, dw = door
         c.rect(x0 + dx, base - 6, x0 + dx + dw, base - 1, 'tw0')
 
+def chimney(c, x, y, h, smoke=False):
+    c.rect(x, y - h, x + 3, y, 'st1'); c.rect(x + 2, y - h, x + 3, y, 'st3'); c.rect(x - 1, y - h - 1, x + 4, y - h, 'st0')
+    if smoke:
+        for (sx, sy) in ((x, y - h - 3), (x - 2, y - h - 5), (x - 5, y - h - 6)):
+            c.rect(sx, sy, sx + 3, sy + 2, 'sm0'); c.put(sx + 2, sy, 'sm1')
+
+def flat_house(c, x0, base, w, wh, side, lit, dark, door):
+    """a flat-roofed house with a parapet and a roof-terrace rail"""
+    top = base - wh
+    c.rect(x0, top, x0 + w, base, 'tw2'); c.rect(x0, top, x0 + 1, base, 'tw0')
+    c.rect(x0 + w, top, x0 + w + side, base, 'tw3'); c.rect(x0 + w + side - 1, top, x0 + w + side, base, 'tw4')
+    c.rect(x0 - 1, top - 2, x0 + w + side + 1, top, 'tw3'); c.rect(x0 - 1, top, x0 + w + side + 1, top + 1, 'tw0')
+    for x in range(x0 + 1, x0 + w + side, 3):
+        c.put(x, top - 3, 'tw1')
+    c.rect(x0, top - 4, x0 + w + side, top - 3, 'tw1')
+    for (wx, wy, ww, whh) in lit:
+        c.rect(x0 + wx, top + wy, x0 + wx + ww, top + wy + whh, 'win'); c.rect(x0 + wx, top + wy + whh - 1, x0 + wx + ww, top + wy + whh, 'win1')
+    for (wx, wy, ww, whh) in dark:
+        c.rect(x0 + wx, top + wy, x0 + wx + ww, top + wy + whh, 'tw0')
+    dx, dw = door
+    c.rect(x0 + dx, base - 6, x0 + dx + dw, base - 1, 'tw0')
+    c.rect(x0, base - 1, x0 + w + side, base, 'tw0')
+
 def town(c):
-    # back row, higher up the slope (in the crag's shadow)
-    house(c, 103, 161, 17, 12, 'gable', 6, 4, [(3, 4, 2, 3)], [(10, 4, 2, 3)], door=(6, 3))
-    house(c, 125, 157, 12, 16, 'lean', 5, 3, [(3, 3, 2, 3)], [(7, 9, 2, 3)])
-    house(c, 144, 162, 21, 11, 'hip', 5, 4, [(4, 3, 3, 3), (14, 3, 3, 3)], [(9, 3, 3, 3)], door=(10, 3))
-    house(c, 176, 159, 14, 13, 'gable', 6, 3, [], [(4, 4, 2, 3), (9, 4, 2, 3)], door=(5, 3))
-    # the washing line between the tall house and the hip-roofed one: three small shirts
-    c.line(138, 146, 145, 147, 'tw2')
+    # upper terrace: a tall narrow townhouse, a squat hip-roofed cottage, a flat-roofed house, a steep gable
+    house(c, 103, 160, 11, 21, 'gable', 9, 3, [(2, 3, 2, 3), (2, 10, 2, 3)], [(7, 3, 2, 3), (7, 10, 2, 3)], door=(6, 3))
+    chimney(c, 108, 150, 4, smoke=True)
+    house(c, 119, 157, 19, 8, 'hip', 3, 4, [(3, 3, 3, 2)], [], door=(11, 3))
+    flat_house(c, 144, 163, 15, 14, 4, [(3, 3, 2, 3)], [(10, 3, 2, 3), (3, 8, 2, 3)], (9, 3))
+    house(c, 168, 159, 13, 11, 'gable', 8, 3, [], [(3, 4, 2, 3), (8, 4, 2, 3)], door=(5, 3))
+    c.disc(174.5, 144.5, 1.2, 'tw0')                                # a round window in the steep gable
+    chimney(c, 136, 153, 3)
+    # the washing line between the cottage and the flat-roofed house: three small shirts
+    c.line(138, 148, 145, 149, 'tw2')
     for x, sl in ((139, 'wl4'), (142, 'cv2')):
-        c.rect(x, 147, x + 2, 150, sl); c.put(x - 1, 147, sl); c.put(x + 2, 147, sl)
-    # front row, by the quay
-    house(c, 110, 188, 20, 13, 'hip', 6, 4, [(4, 4, 3, 3)], [(13, 4, 3, 3)], door=(9, 3))
-    house(c, 135, 190, 15, 10, 'side', 4, 3, [], [], door=(5, 4), sag=True)       # the fisherman's shed
-    house(c, 157, 189, 24, 15, 'gable', 8, 4, [(4, 4, 3, 3), (16, 4, 3, 3)], [(10, 10, 3, 3)], door=(10, 3))
-    # steps and a lane between the rows
-    for k, x in enumerate(range(186, 196, 2)):
-        c.rect(x, 168 + k * 4, x + 6, 170 + k * 4, 'st2'); c.rect(x, 168 + k * 4, x + 6, 169 + k * 4, 'st3')
+        c.rect(x, 149, x + 2, 152, sl); c.put(x - 1, 149, sl); c.put(x + 2, 149, sl)
+    # by the quay: the fisherman's shed (sagging ridge), a two-storey house with a lean-to, the harbour inn
+    house(c, 108, 189, 17, 9, 'side', 4, 3, [], [(4, 3, 2, 2)], door=(9, 4), sag=True)
+    house(c, 131, 188, 14, 16, 'side', 6, 3, [(3, 4, 2, 3)], [(9, 4, 2, 3), (3, 10, 2, 3)], door=(8, 3))
+    house(c, 148, 188, 8, 7, 'lean', 3, 0, [(2, 2, 2, 2)], [])
+    chimney(c, 140, 174, 4)
+    house(c, 160, 187, 27, 12, 'hip', 5, 4, [(3, 3, 3, 3), (10, 3, 3, 3), (17, 3, 3, 3)], [(23, 3, 2, 3)], door=(14, 3))
+    c.rect(186, 176, 187, 181, 'wd0'); c.rect(187, 177, 191, 180, 'wd2'); c.put(188, 178, 'win')   # the inn's sign
+    # steps and a lamp on the lane
+    for k, x in enumerate(range(190, 198, 2)):
+        c.rect(x, 166 + k * 5, x + 6, 168 + k * 5, 'st2'); c.rect(x, 166 + k * 5, x + 6, 167 + k * 5, 'st3')
 
 def harbour(c):
     # quay along the front row
@@ -359,9 +388,12 @@ kwwwwwwwwwwwwwwwwwWk
 ..kkkkkkkkkkkkkkkk..
 """
     stamp(c, hull, {'k': 'bt0', 'w': 'bt2', 'W': 'tw4', 'b': 'bt1', 's': 'tw3', 'S': 'win'}, x, y - 10)
-    for x0, x1, yy in ((x - 14, x - 7, y), (x - 5, x, y + 1), (x - 22, x - 17, y - 1), (x - 4, x - 1, y - 2)):
-        c.rect(x0, yy, x1, yy + 1, 'gl2')
+    for k in range(0, 22, 2):                                       # a V-wake opening behind the stern
+        if k % 6 != 4:
+            c.rect(x - 2 - k, y - 1 - k // 5, x - k, y - k // 5, 'gl2' if k < 10 else 'se5')
+            c.rect(x - 2 - k, y + 1 + k // 4, x - k, y + 2 + k // 4, 'gl2' if k < 10 else 'se5')
     c.rect(x + 18, y - 2, x + 21, y - 1, 'gl2')
+    c.rect(x + 6, y - 13, x + 8, y - 11, 'sm1'); c.rect(x + 3, y - 15, x + 6, y - 13, 'sm0')
 
 # ---------------------------------------------------------------- near: cliff, plateau, post office, rail
 CRACKS = [[(15, 77), (13, 100), (17, 128), (12, 160), (15, 224)],
@@ -379,47 +411,28 @@ def near_layer():
     for y in range(PL, H):
         rock[y, :int(xe[y - PL])] = True
     c.fill(rock, 'nc2')
-    # blocks: cracks jog sideways at each stratum, so the face reads as stacked rock, not planks
-    cuts = sorted(set([PL] + [y for _, _, y in STRATA] + [H]))
-    def shift(y, i):
-        band = sum(1 for cy in cuts if cy <= y)
-        return ((band * 5 + i * 3) % 5) - 2
-    for y in range(PL + 1, H):
-        xs = [_fx(cr, y) + shift(y, i) for i, cr in enumerate(CRACKS)]
-        e = int(xe[y - PL])
-        for x in range(0, e):
-            left = max([v for v in xs if v <= x], default=0)
-            right = min([v for v in xs if v > x], default=e)
-            if x - left < 1 and left > 0:
-                c.g[y, x] = 'nc0'
-            elif right - x <= 2:
-                c.g[y, x] = 'nc3'
-            elif x - left <= 2 and left > 0:
-                c.g[y, x] = 'nc1'
-        # the frame edge and the bottom sink into deeper rock
-        for x in range(0, min(e, 12 - (y - PL) // 20)):
-            c.g[y, x] = 'nc1'
-        if y >= 210:
-            for x in range(0, e - 8):
-                if c.g[y, x] in ('nc2', 'nc3') and (y >= 212 or (x + y) % 2 == 0):
-                    c.g[y, x] = 'nc1'
-    # big planes: two sunlit facets and two recesses, hand-placed, so the face is not one even rhythm
-    for pts, sl in (([(38, 83), (61, 80), (67, 97), (59, 113), (43, 108)], 'nc3'),
-                    ([(17, 127), (31, 123), (35, 149), (22, 156)], 'nc1'),
-                    ([(49, 151), (67, 146), (72, 171), (55, 178)], 'nc3'),
-                    ([(58, 189), (73, 186), (76, 205), (63, 208)], 'nc1')):
-        m = c.mask_poly(pts) & rock
-        for (yv, xv) in zip(*np.nonzero(m)):
-            if c.g[yv, xv] == 'nc2':
-                c.g[yv, xv] = sl
-    for x0, x1, y in STRATA:
-        for x in range(x0, x1):
+    rng = np.random.default_rng(12)
+    sites = [(int(x + rng.integers(-5, 6)), int(y + rng.integers(-8, 9))) for y in range(84, 232, 30)
+             for x in range(4 + (y // 30 % 2) * 9, 100, 19)]
+    ids = torus_cells(W, H, sites, aspect=2.1)
+    rock_facets(c, rock, ids, [('nc2', 'nc3'), ('nc3', 'nc4'), ('nc1', 'nc2'), ('nc2', 'nc3'), ('nc2', 'nc4')],
+                'nc0', 'nc3')
+    yy, xx = np.mgrid[0:H, 0:W]
+    for y in range(PL, H):                                          # the frame edge sinks into shade
+        for x in range(0, 7 - (y - PL) // 30):
             if rock[y, x] and c.g[y, x] != 'nc0':
-                c.g[y, x] = 'nc0'
-                if c.g[y - 1, x] in ('nc2', 'nc1'):
-                    c.g[y - 1, x] = 'nc3'
-    texture.flakes(c, rock & (np.mgrid[0:H, 0:W][1] > 38) & (np.mgrid[0:H, 0:W][0] < 150), 'nc', base=2,
-                   cell=(13, 7), cluster=0.6, gate=0.8, length=(3, 6), stack=(1, 2), lit_end=1, steps=6, seed=2)
+                c.g[y, x] = 'nc1'
+    # ledges: a lit lip, a dark undercut, grass tufts in mismatched clumps
+    for x0, x1, y, tufts in ((6, 31, 112, (9, 17, 26)), (40, 66, 139, (44, 57)), (14, 36, 171, (18, 29)),
+                             (52, 74, 196, (55, 63, 70))):
+        for x in range(x0, x1):
+            if rock[y, x]:
+                c.g[y, x] = 'nc4'; c.g[y + 1, x] = 'nc0'
+                if rock[y + 2, x] and x % 3:
+                    c.g[y + 2, x] = 'nc1'
+        for k, tx in enumerate(tufts):
+            h_ = (2, 3, 1)[k % 3]
+            c.rect(tx, y - h_, tx + 2 + k % 2, y, 'gr1'); c.put(tx + 1, y - h_, 'gr2'); c.put(tx, y - 1, 'gr2')
     # the sun-facing strip along the right edge
     for y in range(PL, H):
         e = int(xe[y - PL])
@@ -565,73 +578,46 @@ def smoke(c):
 
 # ---------------------------------------------------------------- sprites: glider, pilot, gulls
 def glider(c):
-    """the canvas wing seen a little from below, rising toward the sun: a dark leading-edge spar, the
-    cloth glowing between ribs that show through it, a scalloped hem; struts down to the control bar;
-    a light boom back to a small canvas tail"""
-    xa, ya, xb, yb = 111, 93, 183, 80
-    lead = lambda x: ya + (yb - ya) * (x - xa) / (xb - xa)
-    chord = lambda x: max(5.0, 12.5 - 7.0 * abs(x - 143) / 40.0)
-    ribs = [118, 126, 135, 144, 153, 161, 168, 175]
-    wing = np.zeros((H, W), bool)
-    for x in range(xa, xb + 1):
-        y0, y1 = lead(x), lead(x) + chord(x)
-        for y in range(int(math.floor(y0)), int(math.ceil(y1)) + 1):
-            if y0 - 0.5 <= y + 0.5 - 0.5 < y1:
-                wing[y, x] = True
-    # the hem: the cloth pulls up between ribs (shallow scallops)
-    bounds = [xa] + ribs + [xb]
-    for r0, r1 in zip(bounds, bounds[1:]):
-        for x in range(r0 + 2, r1 - 1):
-            col = np.nonzero(wing[:, x])[0]
-            if len(col) > 4:
-                wing[col[-1], x] = False
-    top = {}
-    bot = {}
-    for x in range(xa, xb + 1):
-        col = np.nonzero(wing[:, x])[0]
-        if len(col):
-            top[x], bot[x] = col[0], col[-1]
-    for x in top:
-        n = bot[x] - top[x]
-        glow = (x - xa) / (xb - xa)
-        for y in range(top[x], bot[x] + 1):
-            t = (y - top[x]) / max(1, n)
-            if y == bot[x]:
-                s_ = 'cv1'
-            elif t < 0.22:
-                s_ = 'cv3'
-            elif t < 0.8:
-                s_ = 'cv4' if glow > 0.35 else 'cv3'
-            else:
-                s_ = 'cv2'
-            c.g[y, x] = s_
-    for r in ribs:                                                  # ribs seen through the cloth
-        for y in range(top[r] + 1, bot[r] + 1):
-            c.g[y, r] = 'cv1' if y < bot[r] else 'cv0'
-    for x in top:                                                   # the spar along the leading edge
-        c.g[top[x] - 1, x] = 'gw0'
-        c.g[top[x], x] = 'gw2'
-    for x in (xa, xa + 1):
-        c.rect(x, top[x] - 1, x + 1, bot[x] + 2 - (x - xa), 'gw0')
-    c.rect(xb, top[xb] - 1, xb + 2, bot[xb] + 1, 'gw0'); c.put(xb, top[xb], 'gw2')
-    # struts and the control bar
-    c.line(139, bot[139] + 1, 137, 104, 'gw1'); c.line(151, bot[151] + 1, 153, 104, 'gw1')
-    c.rect(134, 104, 157, 105, 'gw0'); c.rect(135, 103, 156, 104, 'gw2')
-    # the boom back to the tail
-    c.line(113, 99, 140, 107, 'gw2')
-    c.line(113, 100, 140, 108, 'gw0')
-    fin = """
-....k.......
-...kck......
-...kcck.....
-..kccck.....
-kkkcccckkkk.
-kcccccccccck
-.kkkkkkkkkk.
-"""
-    stamp(c, fin, {'k': 'gw0', 'c': 'cv2'}, 101, 94)
-    c.put(104, 97, 'cv3'); c.put(105, 98, 'cv3'); c.put(106, 99, 'cv3')
-    return wing
+    """a shallow delta canvas wing seen slightly from below: a dark leading-edge spar from the nose to
+    two clean points, four battens a side showing through the cloth, the left (shade) panel darker,
+    the right panel glowing with the sun behind it, a billowing hem; an A-frame under the keel"""
+    Lt, Nz, Rt = (104, 91), (147, 77), (181, 82)
+    edge = lambda x: Lt[1] + (Rt[1] - Lt[1]) * (x - Lt[0]) / (Rt[0] - Lt[0])     # the trailing edge line
+    keel_x = Nz[0]
+    tri = c.mask_poly([(Lt[0], Lt[1] + 0.5), (Nz[0] + 0.5, Nz[1]), (Rt[0] + 1, Rt[1] + 0.5)])
+    left_b = [Nz[0] + (Lt[0] - Nz[0]) * f for f in (0.2, 0.42, 0.62, 0.8)]
+    right_b = [Nz[0] + (Rt[0] - Nz[0]) * f for f in (0.24, 0.48, 0.7, 0.88)]
+    bat = sorted(int(round(v)) for v in left_b + right_b)
+    # billow: the cloth sags 1-2 px below the edge line between battens
+    stops = [Lt[0]] + bat[:4] + [keel_x] + bat[4:] + [Rt[0]]
+    for a, b in zip(stops, stops[1:]):
+        for x in range(a + 1, b):
+            f = (x - a) / max(1, b - a)
+            sag = 2 if 0.3 < f < 0.7 and b - a > 8 else (1 if 0.12 < f < 0.88 else 0)
+            for k in range(1, sag + 1):
+                tri[int(math.floor(edge(x))) + k, x] = True
+    ys, xs = np.nonzero(tri)
+    for y, x in zip(ys, xs):
+        depth = y - (Nz[1] + (abs(x - keel_x) / (keel_x - Lt[0] if x < keel_x else Rt[0] - keel_x)) * ((Lt[1] if x < keel_x else Rt[1]) - Nz[1]))
+        low = y >= edge(x) - 1
+        if x < keel_x:                                              # the shade panel
+            s_ = 'cv1' if low else ('cv2' if depth > 1 else 'cv3')
+        else:                                                        # the sunlit panel
+            s_ = 'cv2' if low else ('cv4' if depth > 1.5 else 'cv3')
+        c.g[y, x] = s_
+    for bx in bat:                                                   # battens through the cloth
+        col = np.nonzero(tri[:, bx])[0]
+        for y in col[1:]:
+            c.g[y, bx] = 'cv1' if bx > keel_x else 'cv0'
+    col = np.nonzero(tri[:, keel_x])[0]
+    for y in col:
+        c.g[y, keel_x] = 'gw1'
+    c.line(Lt[0], Lt[1], Nz[0], Nz[1], 'gw0'); c.line(Nz[0], Nz[1], Rt[0], Rt[1], 'gw0')
+    c.line(Lt[0] + 2, Lt[1], Nz[0], Nz[1] + 1, 'gw2'); c.line(Nz[0] + 1, Nz[1] + 1, Rt[0] - 2, Rt[1], 'gw2')
+    # the A-frame and the control bar under the keel
+    c.line(keel_x, 86, 137, 101, 'gw1'); c.line(keel_x + 1, 86, 158, 101, 'gw1')
+    c.rect(135, 101, 161, 102, 'gw0'); c.rect(136, 100, 160, 101, 'gw2')
+    c.line(keel_x, 86, keel_x - 1, 104, 'gw0')                         # the hang strap
 
 PILOT = """
 ......kkkkk......
@@ -708,7 +694,7 @@ k...k
 def sprites():
     c = Canvas(W, H)
     glider(c)
-    pilot(c, 135, 103)
+    pilot(c, 136, 102)
     stamp(c, SATCHEL, {'k': 'sa0', 'a': 'sa1', 'A': 'sa2', 'W': 'cv3'}, 150, 112)
     for (u, v, s) in COMP['gulls']:
         g = GULLS[s]
@@ -728,7 +714,7 @@ if __name__ == '__main__':
     save('panel-snes-bg', image(bg, PAL))
     save('panel-snes', image(full, PAL))
     import era
-    boxes = [(100, 76, spr.g[76:124, 100:186] != None)] + \
+    boxes = [(100, 74, spr.g[74:124, 100:186] != None)] + \
             [(px(u, W), px(v, H), spr.g[px(v, H):px(v, H) + 6, px(u, W):px(u, W) + 12] != None) for u, v, s in COMP['gulls']]
     print('sprites:', era.check_sprites(boxes, 'snes'))
     print('colours:', len(set(full.g.ravel()) - {None}))

@@ -41,7 +41,7 @@ Request: one 320x180 still of a gorge at the meeting of two waterfalls: a rope b
 - Planes: near walls 43% (dark), foreground banks 17% (dark), bridge 1% (dark), upper sky and storm 9% (mid), mesa 3% (mid), rock step 5% (mid), left fall 2% (mid), pool and river 13% (mid), forge frame and landing 1% (mid), low sky glow 6% (light), right fall 1% (light), forge light 1% (brightest)
 - Value plan: dark group L .14-.30, mean .25 (near walls, foreground banks, bridge silhouette); mid group L .31-.46, mean .38 (upper sky and storm, rose-lit wall faces, rock step, left fall, river body, mesa); light group L .47-.62, mean .52 (low sky glow, right fall, cloud crown; flashed storm rims up to .72); brightest (L .78-.92) only at the focal forge interior and the lantern core. At night: everything L .10-.27 except the water ranges (to .52), the spill (to .58) and the forge and lantern (to .92).
 - Layout: left wall x 0-100 (full height to the pool at y 124), right wall x 204-320; sky gap x 96-214, y 0-96 with the storm bank x 108-210, y 6-52 and the mesa x 116-204, y 64-96 (a small butte x 102-122); hazed rock step x 96-212, y 88-124.
-- Left fall: x 86-95 from a cleft at y 28 to the pool at y 124 (in the wall's shadow); right fall: x 144-160 over the rock step, y 90-124 (sunlit); both meet in the pool y 120-134 behind the bridge.
+- Left fall (in the wall's shadow): pours over a lip at y 30, x 92-101, breaks on a ledge at y 70, lower tier x 88-104 widening to 22 px at the pool (y 124); right fall (sunlit): pours over the rock pinnacle's lip at y 76, x 126-134, breaks at y 98, lower tier x 122-137 widening to 19 px; their spray crowns merge into one foam pool at the river's head (x 80-150), behind the bridge (art director note 2).
 - Bridge: posts at x 74 (left ledge, y 86) and x 205 (forge landing, y 104); deck sags 9 px; 2 handrail ropes, cords every 5-9 px.
 - Forge: door opening x 220-237, y 84-106 in a stone frame x 215-241, landing planks x 196-252 at y 106-110, chimney x 242-249 from y 46.
 - River: leaves the pool at x 110-200, curls left to x 70-160 at y 146, then right, leaving the bottom edge at x 120-262; foreground rocks x 0-125 and x 240-320, a gravel bar on the inner bend.
@@ -68,7 +68,7 @@ Request: one 320x180 still of a gorge at the meeting of two waterfalls: a rope b
 - Forge fire: slots F0-F3 (ember red to pale-yellow core) fill the door opening; the spill FR0-FR1 (warm orange) is a hand-shaped wedge on the landing planks reaching 14 px out from the door and a 1-2 px warm rim on the door frame stones; hidden by the door leaf on its left side and by the wall everywhere else.
 - Lantern: L0-L2 (amber glass, pale core 2x2 px) in a 5x7 px box, a warm rim on the nearest 3 cords and the bridge post; blocked by nothing; no glow ring wider than 1 px.
 - Sunset sun: not drawn; the rose rim slots R3-R4 on left-facing faces and ledge tops of the right wall, M2-M3 on the mesa, C2-C3 on the cloud crown.
-- Lightning: bolt slot BL (pale lilac) between the cloud belly and the mesa caprock, 1 px with one branch, on only during the 2 flash frames; the flash lifts C0-C3 and M0-M3 by `palette.flash`.
+- Lightning: bolt slot BL (pale lilac) from the flat cloud base (y 41) to the mesa caprock (y 61), a jagged channel 1-2 px wide with three short branches, on only during the 2 flash frames; the flash lifts C0-C3 and M0-M3 by `palette.flash`.
 
 ## 8. Motion table
 - Left fall WA0-WA5: 6-slot range rotating one step every 3 ticks (10 fps), streaks move down; period 18 ticks.
@@ -78,7 +78,7 @@ Request: one 320x180 still of a gorge at the meeting of two waterfalls: a rope b
 - Forge F0-F3 and FR0-FR1: flick() held 3-5 steps at 10 fps; lantern L0-L2 flick() held 3 steps.
 - Stars T0-T2: 3-slot range stepped on a hold table at 2 fps; period 45 ticks.
 - Lightning: one strike per loop at sunset, 1 pre-flash frame then 2 flash frames (BL on, `palette.flash` on C and M), decay over 3 frames.
-- Rain RS3, RC0, RM0, RM1: switched on for 8 s at the noon-to-sunset turn; still otherwise (off = its base colour).
+- Rain RS3, RC0, RM0, RM1: the storm's rain curtain under the right of the cloud base, switched on through the sunset storm (on in A, per art director note 4) and off otherwise (off = its base colour, as in B).
 - Mood change: palette dissolve over 2 s between moods, all slots keep their role.
 
 ## 9. Particles
@@ -98,4 +98,4 @@ Request: one 320x180 still of a gorge at the meeting of two waterfalls: a rope b
 - Index map built once (art/canyon.py); palettes per mood with ranges rotated to the moment (art/palettes.py); render and verify in art/render.py.
 - Gate: `pixelate check out/03-a.png --style lofi --scale 6 --brief brief.md --pal out/03-sunset.json` and the same for 03-b with out/03-night.json; block-in `pixelate check out/blockin-a.png --blockin --brief brief.md`.
 - Sound: sound/03-sample.wav, 5.0 s, 48 kHz 16-bit stereo, 20 ms fade-in, 400 ms fade-out, near -14 LUFS; `pixelate check sound/03-sample.wav --style ambient --use song --bpm 64`.
-- Gate overrides: none yet.
+- Gate overrides: none (A and B pass every line without one).

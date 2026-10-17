@@ -47,13 +47,13 @@ def _r(name, specs):
 
 PAL = {}
 PAL.update(_r('sky', [(.170, .020, 248), (.188, .021, 246), (.206, .022, 244), (.224, .022, 242),
-                      (.243, .021, 240), (.262, .020, 246), (.282, .018, 286)]))
+                      (.243, .021, 240), (.264, .020, 246), (.296, .018, 286)]))
 PAL.update(_r('cl', [(.124, .015, 250), (.142, .016, 250), (.162, .017, 252)]))
 PAL.update(_r('rim', [(.255, .020, 300), (.320, .024, 322), (.440, .020, 250), (.600, .014, 240)]))
 PAL.update(_r('moon', [(.800, .020, 238), (.885, .014, 232), (.955, .008, 220)]))
 PAL.update(_r('star', [(.380, .018, 240), (.520, .014, 236), (.720, .010, 232)]))
 PAL.update(_r('head', [(.196, .018, 252), (.214, .018, 256)]))
-PAL.update(_r('sea', [(.186, .022, 232), (.205, .022, 232), (.226, .022, 234), (.256, .022, 236),
+PAL.update(_r('sea', [(.184, .022, 232), (.200, .022, 232), (.216, .022, 234), (.250, .022, 236),
                       (.285, .020, 236), (.380, .018, 236), (.500, .014, 234)]))
 PAL.update(_r('mon', [(.126, .014, 242), (.152, .014, 242)]))
 PAL.update(_r('mrim', [(.235, .018, 238), (.350, .018, 236)]))
@@ -66,6 +66,10 @@ PAL['figr'] = P.from_lch(.270, .018, 236)
 PAL['figw'] = P.from_lch(.460, .085, 58)
 PAL.update(_r('lamp', [(.420, .095, 48), (.620, .135, 58), (.780, .125, 70), (.885, .085, 82)]))
 PAL.update(_r('door', [(.300, .070, 48), (.520, .110, 58), (.720, .120, 68), (.860, .085, 80)]))
+PAL['halo0'] = P.from_lch(.560, .016, 236)
+PAL['wisp0'] = P.from_lch(.318, .020, 300)
+PAL['pool4'] = P.from_lch(.380, .016, 240)
+PAL.update(_r('deep', [(.176, .020, 236), (.200, .020, 236)]))
 PAL['leaf0'] = P.from_lch(.138, .012, 60)
 PAL['sil0'] = P.from_lch(.112, .012, 246)
 
@@ -94,18 +98,27 @@ def _bank(top, bot, seed):
 
 
 def cloud_masks(moment):
-    """two stratiform banks with long runs (the dominant one 50% of the width) and low streaks"""
-    big = _bank([(72, 50), (90, 40), (118, 31), (150, 28), (176, 32), (204, 25), (236, 22), (262, 27),
-                 (292, 30), (318, 27), (346, 31), (372, 36), (398, 42), (414, 47), (424, 52)],
-                [(424, 54), (410, 58), (392, 60), (360, 61), (330, 59), (300, 62), (270, 60), (236, 63),
-                 (200, 61), (170, 58), (140, 60), (110, 57), (86, 56), (72, 52)], 31)
-    right = _bank([(512, 45), (520, 36), (538, 27), (566, 21), (596, 17), (626, 15), (642, 14)],
-                  [(642, 47), (620, 50), (596, 47), (570, 51), (546, 48), (526, 50), (512, 47)], 37)
-    sliver = np.zeros((H, W), bool)
-    for x0, x1, y in ((6, 64, 103), (20, 52, 102), (118, 196, 172), (140, 176, 171), (232, 300, 184),
-                      (244, 268, 183)):
-        sliver[y, x0:x1] = True
-    return big, right, sliver
+    """one long bank (two thirds of the width) with a ragged break above the moon, where the shaft
+    comes through; two small filled wisps low over the horizon"""
+    yy, xx = np.mgrid[0:H, 0:W]
+    bank = _bank([(214, 44), (232, 33), (256, 26), (284, 29), (312, 25), (340, 28), (368, 32),
+                  (396, 29), (424, 33), (450, 36), (478, 31), (506, 25), (536, 21), (566, 19), (598, 16),
+                  (642, 14)],
+                 [(642, 49), (612, 51), (584, 50), (556, 53), (528, 55), (500, 57), (476, 60), (452, 61),
+                  (424, 61), (394, 62), (364, 61), (334, 60), (304, 62), (272, 60), (246, 58), (226, 53),
+                  (214, 46)], 31)
+    gx0, gy0, gx1, gy1 = G.GAP
+    cx = (gx0 + gx1) / 2.0
+    half = 2.5 + 9.5 * np.clip((yy - gy0) / float(gy1 - gy0), 0, 1) ** 1.3
+    tear = np.abs(xx - cx - np.round(2 * np.sin(yy / 4.0))) <= half
+    bank &= ~(tear & (yy >= gy0))
+    wisps = np.zeros((H, W), bool)
+    for x0, x1, y, th in ((112, 204, 171, 3), (232, 296, 184, 2), (520, 600, 178, 2)):
+        for x in range(x0, x1):
+            k = min(x - x0, x1 - 1 - x)
+            t = 1 if k < 8 else th
+            wisps[y - t + 1:y + 1, x] = True
+    return bank, wisps
 
 
 def draw_sky(moment):
@@ -117,7 +130,7 @@ def draw_sky(moment):
     intent = np.zeros((H, W), bool)
     mx, my, mr = G.MOON
     yy, xx = np.mgrid[0:H, 0:W]
-    big, right, sliver = cloud_masks(moment)
+    bank, wisps = cloud_masks(moment)
     # stars: hand-placed clusters, 3 tones, a handful bright, none on the clouds or by the moon
     for k, (cx, cy, r, n) in enumerate(STAR_CLUSTERS):
         for i in range(n):
@@ -126,7 +139,7 @@ def draw_sky(moment):
             x, y = int(cx + d * math.cos(a)), int(cy + 0.6 * d * math.sin(a))
             if not (0 <= x < W and 0 <= y < G.HORIZON - 12) or math.hypot(x - mx, y - my) < 70:
                 continue
-            if big[max(0, y - 2):y + 3, max(0, x - 2):x + 3].any() or right[max(0, y - 2):y + 3, max(0, x - 2):x + 3].any():
+            if bank[max(0, y - 2):y + 3, max(0, x - 2):x + 3].any():
                 continue
             c.put(x, y, 'star0' if hh(k, i, 3) < 0.62 else 'star1')
             intent[y, x] = True
@@ -137,37 +150,37 @@ def draw_sky(moment):
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 c.put(x + dx, y + dy, 'star0')
                 intent[y + dy, x + dx] = True
-    # clouds: dark backlit bodies, a paler belly, two thin inner strata, one silver lining along
-    # the underside that brightens toward the gap and wraps the gap-facing ends
+    # the cloud bank: a filled mass one step darker than the sky, a paler belly, two thin inner
+    # strata; a silver rim only on the moon-facing underside, brightest at the break, and the
+    # break's own walls lit where the shaft comes through
     gx = (G.GAP[0] + G.GAP[2]) / 2.0
-    for m in (big, right):
-        c.g[m] = 'cl0'
-        cols = np.nonzero(m.any(0))[0]
-        for x in cols:
-            ys = np.nonzero(m[:, x])[0]
-            y0, y1 = ys.min(), ys.max()
-            c.g[int(y0 + (y1 - y0) * 0.58):y1 + 1, x] = 'cl1'
-            dx = abs(x - gx)
-            slot = 'rim3' if dx < 58 else 'rim2' if dx < 105 else 'rim1' if dx < 190 else 'rim0'
-            if slot != 'rim0' or x % 3:
-                c.g[y1, x] = slot
-            if dx < 90 and y1 - 1 > y0:
-                c.g[y1 - 1, x] = 'rim2' if dx < 58 else 'rim1'
-            if dx < 50 and y1 - 2 > y0:
-                c.g[y1 - 2, x] = 'rim1'
-        for y in np.nonzero(m.any(1))[0]:
-            xs = np.nonzero(m[y])[0]
-            xe = xs.max() if m is big else xs.min()
-            if abs(xe - gx) < 60:
-                c.g[y, xe] = 'rim3' if abs(xe - gx) < 50 else 'rim2'
-    for x0, x1, y in ((132, 196, 51), (150, 174, 52), (262, 344, 54), (286, 316, 55), (548, 600, 40),
-                      (560, 584, 41)):
+    c.g[bank] = 'cl0'
+    for x in np.nonzero(bank.any(0))[0]:
+        ys = np.nonzero(bank[:, x])[0]
+        y0, y1 = ys.min(), ys.max()
+        c.g[int(y0 + (y1 - y0) * 0.6):y1 + 1, x] = 'cl1'
+        dx = abs(x - gx)
+        if dx < 60:
+            c.g[y1, x] = 'rim3'
+            c.g[y1 - 1, x] = 'rim2'
+        elif dx < 130:
+            c.g[y1, x] = 'rim2'
+        elif dx < 220 and x % 2 == 0:
+            c.g[y1, x] = 'rim1'
+    for y in range(G.GAP[1], G.GAP[3] + 1):
+        row = bank[y]
+        for x in range(G.GAP[0] - 12, G.GAP[2] + 12):
+            if row[x] and (not row[x + 1] or not row[x - 1]):
+                c.g[y, x] = 'rim3' if y > G.GAP[1] + 8 else 'rim2'
+    for x0, x1, y in ((262, 340, 54), (286, 316, 55), (548, 600, 44), (560, 584, 45)):
         for x in range(x0, x1):
             if c.g[y, x] in ('cl0', 'cl1'):
                 c.g[y, x] = 'cl2'
-    c.g[sliver] = 'rim0'
+    c.g[wisps] = 'wisp0'
     # the moon: a flat disc, a one-slot ring that rounds it, one big irregular mare and a small one
     disc = G.disc(mx, my, mr)
+    halo = G.disc(mx, my, mr + 2) & ~G.disc(mx, my, mr)       # a one-slot halo ring, 2 px even
+    c.g[halo] = 'halo0'
     c.g[disc] = 'moon2'
     ring = disc & ~morph.erode(disc, 1, metric='cross')
     c.g[ring] = 'moon1'
@@ -311,29 +324,22 @@ def front_line():
 
 
 def water_masks(moment):
-    """the flats' water: the road-front lagoon, the channel before the island, thin sand pools and
-    the near pool behind the bank (which the near silhouettes read against)"""
+    """the shallow pools beside the causeway (lighter: they take the moon and the shaft) and the
+    deeper channel between them and the near shore (darker)"""
     yy, xx = np.mgrid[0:H, 0:W]
-    lag = np.zeros((H, W), bool)
-    for x in range(26, W):
+    shallow = np.zeros((H, W), bool)
+    for x in range(22, W):
         if x <= 418:
             y0 = G.road_y(x) + sum(G.road_th(x))
-            y1 = y0 + 29 + int(round(3 * math.sin(x / 37.0) + 1.5 * math.sin(x / 11.0)))
+            y1 = y0 + 30 + int(round(3 * math.sin(x / 37.0) + 1.5 * math.sin(x / 11.0)))
         else:
             y0 = G.WATERLINE + 1
-            y1 = 264 + int(round(2 * math.sin(x / 23.0)))
-        lag[y0:y1, x] = True
-    pools = np.zeros((H, W), bool)
-    for x0, x1, y in ((60, 140, 297), (236, 330, 293), (420, 520, 284), (540, 610, 292)):
-        for x in range(x0, x1):
-            k = min(x - x0, x1 - 1 - x)
-            pools[y:y + (1 if k < 4 else 2 if k < 10 else 3), x] = True
-    near = yy >= 305 + np.round(3 * np.sin(xx / 41.0) + np.sin(xx / 9.0)).astype(int)
-    if moment == 'b':
-        # the flood creeps back: behind the last pilgrim the sand between lagoon and near pool goes under
-        near |= (yy >= 270) & (xx < 236)
-        lag |= (yy >= 262) & (xx < 236)
-    return lag, pools, near
+            y1 = 266 + int(round(2 * math.sin(x / 23.0)))
+        if moment == 'b' and x < 236:
+            y1 += 10                                   # the flood spreads behind the last pilgrim
+        shallow[y0:y1, x] = True
+    deep = (yy < H) & ~shallow
+    return shallow, deep
 
 
 def draw_middle(moment):
@@ -354,24 +360,35 @@ def draw_middle(moment):
                 if x + i < W and region[y, x + i]:
                     c.g[y, x + i] = 'sand2'
             x += ln + 10 + int(hh(x, y, 14) * 40)
-    lag, small, near = water_masks(moment)
-    water = (lag | small | near) & region
-    c.g[water] = 'pool1'
-    c.g[near & region] = 'pool2'
-    top_edge = water & ~morph.shift(water, 0, 1, fill=False)
-    # long ripple streaks, lighter and darker, mismatched
+    lag, deep = water_masks(moment)
+    lag &= region
+    deep &= region
+    c.g[lag] = 'pool2'
+    c.g[deep] = 'deep0'
+    sh = G.SHAFT[moment]
+    ang = math.radians(sh['angle'])
+    fx_, fy_ = sh['x'] + math.cos(ang) * sh['length'], sh['y'] + math.sin(ang) * sh['length']
+    lit = (((xx - fx_) / 40.0) ** 2 + ((yy - fy_ - 8) / 14.0) ** 2) <= 1
+    # long ripple streaks, mismatched: lighter and darker in the shallows, sparse in the channel
     for y in range(240, H):
         x = int(hh(y, 6, 3) * 30)
         while x < W:
             ln = 3 + int(hh(x, y, 15) * 14)
-            hi = 'pool3' if near[y, x] else 'pool2'
-            lo = 'pool1' if near[y, x] else 'pool0'
-            tone = hi if hh(x, y, 16) < 0.55 else lo
+            up = hh(x, y, 16) < 0.55
             for i in range(ln):
-                if x + i < W and water[y, x + i]:
-                    c.g[y, x + i] = tone
+                X = x + i
+                if X >= W:
+                    break
+                if lag[y, X]:
+                    c.g[y, X] = ('pool4' if lit[y, X] else 'pool3') if up else 'pool1'
+                elif deep[y, X] and hh(x, y, 18) < 0.45:
+                    c.g[y, X] = 'deep1'
             x += ln + 8 + int(hh(x, y, 17) * 34)
-    c.g[top_edge & ~lag] = 'pool3'
+    # where the shaft lands, the shallows take its light in more, longer streaks
+    for y in range(int(fy_) - 2, int(fy_) + 24):
+        for x in range(int(fx_) - 40, int(fx_) + 40):
+            if 0 <= x < W and 0 <= y < H and lit[y, x] and lag[y, x] and hh(x // 5, y, 19) < 0.35:
+                c.g[y, x] = 'pool4'
     # under the road the lagoon mirrors the causeway: two dark rows, broken
     for x in range(26, 419):
         y0 = G.road_y(x) + sum(G.road_th(x))
@@ -392,9 +409,10 @@ def draw_middle(moment):
     road = draw_causeway(c, moment, intent)
     actor = np.zeros((H, W), bool)
     lamps = []
-    for i, (fx, h, kind, fr) in enumerate(G.PILGRIMS[moment]):
+    for i, spec in enumerate(G.PILGRIMS[moment]):
+        fx, h, kind, fr = spec[:4]
         fy = G.feet_y(fx, moment)
-        fig = FG.pilgrim(h, kind, fr, seed=i, lead=(i == 0))
+        fig = FG.pilgrim(h, kind, fr, seed=i, lead=(i == 0), tall=('tall' in spec))
         g, (ax, ay), (lx, ly) = fig['g'], fig['anchor'], fig['lamp']
         ox, oy = fx - ax, fy - ay
         for (y, x), v in np.ndenumerate(g):
@@ -456,10 +474,18 @@ def draw_causeway(c, moment, intent):
             if under:
                 for r in range(0, top):
                     c.g[y + r, x] = 'pool2' if (x + r) % 7 else 'pool3'
-    # glints: a few bright wet points on the stones, nearest the shaft
+    # glints: bright wet points on the stones, most where the shaft lands
+    sh = G.SHAFT[moment]
+    ang = math.radians(sh['angle'])
+    fx_ = sh['x'] + math.cos(ang) * sh['length']
     for x in xs:
         y = G.road_y(x)
-        if c.g[y, x] == 'st4' and hh(x, 7, 41) < 0.18 and x > 250:
+        inpool = abs(x - fx_) < 30
+        if c.g[y, x] in ('st3', 'st4') and inpool and hh(x, 8, 41) < 0.6:
+            c.g[y, x] = 'st4' if c.g[y, x] == 'st3' else 'st5'
+            if c.g[y, x] == 'st5':
+                intent[y, x] = True
+        elif c.g[y, x] == 'st4' and hh(x, 7, 41) < 0.12 and x > 250:
             c.g[y, x] = 'st5'
             intent[y, x] = True
     # weed tufts hanging off the seaward face
@@ -648,20 +674,23 @@ def render(moment):
     s.plane(rgba(far_c), depth=3)
     sh = G.SHAFT[moment]
 
-    def far_light(p):
-        p.shaft(sh['x'], sh['y'], angle=sh['angle'], length=sh['length'], width=sh['width'],
-                colour=LIGHT['shaft'], strength=0.30, floor=0.5, tail=12, head=8, behind=isl | moon,
-                striate=0.03, seed=3)
-    s.light(far_light, depth=3)
     s.plane(rgba(mid_c), depth=2)
     lampmask = mid_c.mask_of('lamp') & ~near
     figs = actor
 
+    ang = math.radians(sh['angle'])
+    fx_, fy_ = sh['x'] + math.cos(ang) * sh['length'], sh['y'] + math.sin(ang) * sh['length']
+
     def mid_light(p):
+        p.shaft(sh['x'], sh['y'], angle=sh['angle'], length=sh['length'], width=sh['width'],
+                colour=LIGHT['shaft'], strength=0.30, floor=0.55, tail=10, head=8,
+                behind=isl | moon | figs | lampmask, striate=0.03, seed=3)
+        p.light(fx_, fy_ + 6, 34, LIGHT['shaft'], strength=0.20, squash=0.32, falloff=1.4,
+                behind=isl | figs | lampmask)
         for lx, ly, i in lamps:
             p.light(lx, ly + 5, 10, LIGHT['lamp'], strength=0.36 if i else 0.42, squash=0.55,
                     falloff=1.3, behind=figs | lampmask)
-        p.glow(mask=lampmask, kernel='gauss', radius=(1.2, 3.0), weights=(0.6, 0.4), strength=0.30,
+        p.glow(mask=lampmask, kernel='gauss', radius=(1.0, 2.5), weights=(0.6, 0.4), strength=0.26,
                tint=LIGHT['lamp'])
     s.light(mid_light, depth=2)
     s.plane(rgba(near_c), depth=0)

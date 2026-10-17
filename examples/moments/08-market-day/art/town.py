@@ -26,7 +26,7 @@ ALLEY_N = (52, 59)                  # a mouth off the far side (x range), runs n
 ALLEY_S = (84, 91)                  # a mouth off the near side, runs south
 
 WALLS = ['cream', 'plaster', 'pink', 'ochre', 'plaster', 'mint', 'cream', 'sky', 'plaster', 'pink']
-ROOFS = ['terra', 'brown', 'tile', 'terra', 'slate', 'brown', 'tile', 'terra']
+ROOFS = ['slate', 'brown', 'terra', 'slate', 'tile', 'brown', 'slate', 'terra', 'tile']
 
 def _r(k, a, b, s=0):
     return a + (b - a) * hash2(k, 17, s)

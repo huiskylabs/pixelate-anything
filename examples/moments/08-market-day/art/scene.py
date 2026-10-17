@@ -85,8 +85,8 @@ GX0, GY0 = -420, -420
 def ground(u, v, t, face_step=3, W=None, H=None):
     x, y = u + GX0, v + GY0
     st = L.STREET; sq = L.SQUARE
-    if -49 <= x < -41 and -18.5 <= y < -13.5:                    # the runner spills onto the paving
-        return 'rose2' if -17.9 <= y < -14.1 else 'rose1'
+    if -49 <= x < -40 and -19.5 <= y < -12.5:                    # the runner spills onto the paving
+        return 'rose2' if -18.9 <= y < -13.1 else 'rose1'
     if st[0] <= x < st[2] and st[1] <= y < st[3]:
         if 23 <= y < 24.6:
             return 'p1'                                           # the central gutter
@@ -96,6 +96,8 @@ def ground(u, v, t, face_step=3, W=None, H=None):
         if hash2(ix, iy, 71) < 0.05 and (x % 1.6) < 1.1:
             return 'p1'
         return 'p2'
+    if -48 <= x < -38 and -42 <= y < 10:                         # a granite apron frames the steps
+        return 'p0' if ((x % 3.0) < 0.5 or (y % 3.0) < 0.5) else 'p1'
     if (sq[0] <= x < sq[2] and sq[1] <= y < sq[3]) or x >= st[2]:
         if (x % 9.0) < 0.5 or (y % 9.0) < 0.5:
             return 'p1'
@@ -121,7 +123,7 @@ def final():
         hr = 1.5 * (b['w'] if b['gable'] else b['d'])
         objs.append({'kind': 'house', 'box': sbox(b['X'], b['Y'], 0, b['w'], b['d'], b['h'] + hr)})
     A = L.HALL
-    steps = dict(L.STEPS, runner=(-18.5, -13.5))
+    steps = dict(L.STEPS, runner=(-19.5, -12.5))
     hero_ids |= set(mbld.hall(s, A, steps))
     objs.append({'kind': 'hall', 'box': sbox(A['X'], A['Y'], 0, A['w'], A['d'], A['h'] + A['roof'])})
 
@@ -159,6 +161,8 @@ def final():
     put(mfig.person(15, 'back', 'se', t='slate2'), -40.5, -8.5, 0)                    # a guest watching from the square
     put(mfig.person(16, 'stand', 'sw', t='pink2'), -41.5, -27.5, 0)
     put(mfig.person(17, 'skirt', 'se', t='ochre2'), -39.0, -24.0, 0)
+    for (y, z) in ((-21.6, zl), (-10.4, zl)):
+        put(mprops.pot(), -59.0, y, z, hero=True, kind='pot')
 
     # ---- Place Gutenberg: fountain, kids and pigeons, the juggler and ring
     mprops.fountain(s, -30, -64)
@@ -233,6 +237,55 @@ def final():
         put(mfig.pigeon('sit', 'se' if i % 2 else 'sw'), x, y, kind='pigeon')
     put(mprops.tree(7), 176.0, 104.0, kind='tree')
     put(mprops.tree(11, 20, 15), 196.0, 18.0, kind='tree')
+    put(mprops.tree(5, 22, 16), 214.0, 86.0, kind='tree')
+    put(mprops.tree(9, 20, 15), 160.0, 150.0, kind='tree')
+    # a tour group round its guide, a family, strollers, pigeons, more cafe tables
+    gx, gy = 168.0, 62.0
+    put(mfig.person(200, 'up', 'sw', t='bread2'), gx, gy)
+    for i, (dx, dy, f, pose) in enumerate(((-4.5, 1.0, 'se', 'back'), (-3.0, 4.5, 'se', 'stand'), (1.5, 5.0, 'sw', 'skirt'),
+                                             (4.8, 2.0, 'sw', 'stand'), (4.0, -3.0, 'sw', 'back'), (-1.0, -4.6, 'se', 'back'),
+                                             (-4.6, -2.5, 'se', 'stand'))):
+        put(mfig.person(201 + i, pose, f), gx + dx, gy + dy)
+    put(mfig.person(210, 'walk', 'se', t='leaf2'), 186.0, 96.0)
+    put(mfig.kid(211, 'run', 'se'), 189.0, 98.5)
+    put(mfig.kid(212, 'stand', 'se'), 184.5, 99.5)
+    for i, (x, y, pose, f) in enumerate(((140, 104, 'walk', 'sw'), (150, 132, 'walk', 'se'), (166, 140, 'stride', 'sw'),
+                                          (186, 122, 'walk', 'se'), (200, 70, 'walk', 'sw'), (206, 102, 'stand', 'se'),
+                                          (209, 104, 'skirt', 'sw'), (214, 58, 'walk', 'se'), (176, 30, 'walk', 'sw'),
+                                          (204, 36, 'back', 'se'), (222, 112, 'walk', 'sw'), (196, 140, 'stand', 'se'))):
+        put(mfig.person(220 + i, pose, f), x, y)
+    for i, (x, y) in enumerate(((192, 80), (194, 83), (190, 84), (198, 116), (201, 118), (180, 136))):
+        put(mfig.pigeon('sit', 'se' if i % 2 else 'sw', 'g4' if i % 3 else 'g3'), x, y, kind='pigeon')
+    # the north end of the cathedral square, by the right edge: a street sweeper, two friends, a couple, pigeons
+    for i, (x, y, pose, f) in enumerate(((158, 30, 'stand', 'se'), (160.5, 32.5, 'up', 'sw'), (172, 14, 'walk', 'sw'),
+                                          (174.5, 16.5, 'walk', 'sw'), (186, 50, 'back', 'se'), (152, 46, 'stride', 'se'),
+                                          (166, 4, 'walk', 'se'), (182, 26, 'skirt', 'sw'))):
+        put(mfig.person(260 + i, pose, f), x, y)
+    for i, (x, y) in enumerate(((168, 38), (170, 40), (165, 41), (178, 34))):
+        put(mfig.pigeon('sit', 'se' if i % 2 else 'sw', 'g4'), x, y, kind='pigeon')
+    put(mprops.tree(13, 22, 16), 192.0, 60.0, kind='tree')
+    for i, (x, y, pose, f) in enumerate(((190, 100, 'stand', 'se'), (192.5, 102.5, 'skirt', 'sw'), (188, 104, 'back', 'se'),
+                                          (204, 92, 'walk', 'sw'), (200, 112, 'stride', 'se'))):
+        put(mfig.person(280 + i, pose, f), x, y)
+    put(mfig.kid(290, 'run', 'se'), 196.5, 108.0)
+    for i, (x, y) in enumerate(((199, 105), (201.5, 106.5), (197, 103.5))):
+        put(mfig.pigeon('up' if i == 1 else 'sit', 'sw', 'g3'), x, y, 5 if i == 1 else 0, kind='pigeon')
+    put(mprops.lamp(), 178.0, 92.0, kind='lamp')
+    # a fruit barrow of crates at the square's north end (crates and baskets of fruit)
+    for i, (x, y, z, goods) in enumerate(((147.0, 36.0, 0, ['fruit2', 'fruit1']), (149.2, 36.0, 0, ['leaf2', 'bread2']),
+                                           (151.4, 36.3, 0, ['fruit2', 'leaf2']), (148.0, 38.4, 0, ['bread2', 'fruit1']),
+                                           (150.5, 38.6, 0, ['leaf1', 'leaf2']), (148.2, 36.2, 2, ['fruit2', 'bread2']))):
+        mprops.crate(s, x, y, goods, seed=300 + i, z=z)
+        objs.append({'kind': 'crate', 'box': sbox(x, y, z, 2, 2, 2)})
+    put(mfig.story('melon', 301, 'sw', T='plaster2'), 154.0, 39.5)
+    put(mfig.person(302, 'out', 'se'), 145.0, 41.5)
+    for (x, y) in ((150.0, 62.0), (186.0, 132.0), (208.0, 40.0)):
+        put(mprops.lamp(), x, y, kind='lamp')
+    for i, (x, y, paint) in enumerate(((127.5, 148.0, 'terra'), (131.5, 156.0, 'plaster'), (125.0, 170.0, 'brown'))):
+        put(mprops.cafe_table(), x, y, kind='table')
+        put(mfig.story('sitter', 240 + i, 'se'), x - 1.6, y + 1.2)
+        put(mfig.story('sitter', 250 + i, 'sw'), x + 1.8, y - 1.0)
+        put(mprops.parasol(paint), x + 0.2, y - 0.2, kind='parasol')
 
     # ---- the kite snagged on a hall dormer, near the ridge
     put(mprops.kite(), -73.0, -44.0, 81.0, kind='kite')
@@ -254,7 +307,7 @@ def final():
                 slots[y, x] = 'ol'
     # petals: a fan of rose and white flecks over the couple, drifting right
     cx, cy = scr(-57.4, -15.6, zl + 14)
-    for i in range(46):
+    for i in range(64):
         a = hash2(i, 1, 99) * math.pi
         r = 4 + hash2(i, 2, 99) * 30
         x = int(round(cx + math.cos(a) * r * 1.3 + 6 * hash2(i, 5, 99)))
@@ -288,6 +341,10 @@ def export(outdir):
     ys, xs = np.nonzero(actor)
     print('actor bbox', xs.min(), ys.min(), xs.max(), ys.max(), 'colours', len(used), 'time %.1f' % (time.time() - t0))
     fails = compose.check_density(objs, (0, 0, W, H), road=road)
+    ii = np.pad(road.astype(float).cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+    worst = max(((ii[y + 120, x + 120] - ii[y, x + 120] - ii[y + 120, x] + ii[y, x]) / 14400.0, x, y)
+                for y in range(0, 481, 20) for x in range(0, 481, 20))
+    print('worst road window %.0f%% at x %d y %d' % (100 * worst[0], worst[1], worst[2]))
     print('check_density:', 'PASS' if not fails else fails, '| objects', len(objs), '| bare paving %.1f%%' % (100 * road.mean()))
     # image B: a 150 x 150 native crop around the wedding at 8x
     bx0, by0 = int(sys.argv[3]) if len(sys.argv) > 3 else 128, int(sys.argv[4]) if len(sys.argv) > 4 else 128

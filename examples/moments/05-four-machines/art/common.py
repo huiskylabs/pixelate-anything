@@ -141,3 +141,64 @@ def attr_report(c, pal, subpals, backdrop, block=16):
             else:
                 bad.append((bx, by, sorted(cols)))
     return bad, attr
+
+def shade_facets(c, ids, base_slots, seam, lit, dark, skip=None):
+    """irregular rock facets from a layout id map (0 = seam, > 0 = facet): each facet one base tone
+    (picked by its id from base_slots), its sun-side (right) edge one lit step, its left edge one
+    dark step, seams in `seam`. base_slots: list of (slot, lit_slot, dark_slot) triples."""
+    H, W = ids.shape
+    for y in range(H):
+        for x in range(W):
+            i = ids[y, x]
+            if i < 0 or (skip is not None and skip[y, x]):
+                continue
+            if i == 0:
+                c.g[y, x] = seam
+                continue
+            b, l, d = base_slots[((int(i) * 2654435761) >> 7) % len(base_slots)]
+            r = ids[y, x + 1] if x + 1 < W else -1
+            le = ids[y, x - 1] if x > 0 else -1
+            up = ids[y - 1, x] if y > 0 else -1
+            if r != i:
+                c.g[y, x] = l
+            elif up != i and (x + 1 < W and ids[y, min(W - 1, x + 2)] == i) and (y * 7 + x) % 3 != 0:
+                c.g[y, x] = l
+            elif le != i:
+                c.g[y, x] = d
+            else:
+                c.g[y, x] = b
+
+def torus_cells(w, h, sites, aspect=1.0):
+    """a periodic Voronoi id map (w x h, wraps on both axes) with 1 px seams (0); ids from 1.
+    aspect > 1 stretches cells vertically. For tile-budget eras: the pattern repeats exactly."""
+    yy, xx = np.mgrid[0:h, 0:w]
+    best = np.full((h, w), 1e9); sec = np.full((h, w), 1e9); idm = np.zeros((h, w), int)
+    for k, (sx, sy) in enumerate(sites, 1):
+        dx = np.minimum(abs(xx - sx), w - abs(xx - sx))
+        dy = np.minimum(abs(yy - sy), h - abs(yy - sy)) / aspect
+        d = np.hypot(dx, dy)
+        closer = d < best
+        sec = np.where(closer, best, np.minimum(sec, d))
+        idm = np.where(closer, k, idm)
+        best = np.where(closer, d, best)
+    idm[(sec - best) < 0.9] = 0
+    return idm
+
+def rock_facets(c, mask, ids, planes, fracture, lip):
+    """angular cliff facets from a Voronoi id map: each facet a plane (base, sun-side edge) picked by
+    id; seams that run up and down are dark fractures, seams that run across are lit lips (ledge tops)"""
+    H, W = ids.shape
+    for y in range(H):
+        for x in range(W):
+            if not mask[y, x]:
+                continue
+            i = ids[y, x]
+            if i == 0:
+                l_, r_ = (ids[y, x - 1] if x > 0 else 0), (ids[y, x + 1] if x + 1 < W else 0)
+                u_, d_ = (ids[y - 1, x] if y > 0 else 0), (ids[y + 1, x] if y + 1 < H else 0)
+                flat = u_ > 0 and d_ > 0 and u_ != d_ and (l_ == 0 or r_ == 0 or l_ == r_)
+                c.g[y, x] = lip if flat and (l_ == 0 and r_ == 0) is False else fracture
+                continue
+            b, l = planes[((int(i) * 2654435761) >> 9) % len(planes)]
+            r = ids[y, x + 1] if x + 1 < W else i
+            c.g[y, x] = l if r != i else b

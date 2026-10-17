@@ -14,11 +14,12 @@ HORIZON = 206                     # sea meets sky
 # ---------------------------------------------------------------- sky emitters
 MOON = (468, 108, 22)             # cx, cy, r: low, behind the bell tower's west face
 MOON_BOX = (446, 86, 490, 130)
-GAP = (418, 26, 506, 60)          # the cloud gap above the moon (x0, y0, x1, y1)
+GAP = (438, 32, 464, 62)          # the ragged break in the cloud bank above the moon
 # the shaft per moment: it breathes across the water between the two stills
 SHAFT = {
-    'a': dict(x=446, y=50, angle=106, length=178, width=(13, 46)),
-    'b': dict(x=440, y=50, angle=110, length=176, width=(12, 40)),
+    # from the break in the bank to the causeway round the leading pilgrims (the leading line)
+    'a': dict(x=448, y=60, angle=107, length=189, width=(9, 40)),
+    'b': dict(x=446, y=60, angle=110, length=186, width=(9, 36)),
 }
 
 # ---------------------------------------------------------------- the island and the monastery
@@ -84,12 +85,14 @@ def step_y(x):
 # two stragglers; kinds: 'staff' tall with staff, 'pack' bedroll and a lantern pole,
 # 'elder' stooped with staff, 'high' lantern raised
 PILGRIMS = {
-    'a': [(404, 31, 'staff', 0), (381, 33, 'pack', 2), (340, 30, 'high', 1), (321, 32, 'staff', 3),
-          (267, 29, 'elder', 0), (236, 34, 'pack', 1), (209, 31, 'staff', 2), (163, 30, 'high', 3),
-          (125, 32, 'elder', 1)],
-    # B: the first at the top of the steps, two on the flight, the rest strung out on the road
-    'b': [(497, 31, 'staff', 4), (469, 33, 'pack', 0), (444, 30, 'high', 2), (411, 32, 'staff', 1),
-          (362, 29, 'elder', 3), (330, 34, 'pack', 0), (293, 31, 'staff', 2), (241, 30, 'high', 1),
+    # A: the leader pulls ahead at the island end; a tight pair; one; a loose trio; a wide gap; one;
+    # a straggler far behind. (feet x, height, kind, walk drawing[, 'tall' staff])
+    'a': [(410, 31, 'staff', 0), (358, 33, 'pack', 2), (347, 29, 'elder', 1), (309, 32, 'high', 3),
+          (281, 30, 'staff', 2, 'tall'), (262, 34, 'pack', 0), (244, 31, 'staff', 1), (190, 30, 'high', 3),
+          (124, 32, 'elder', 0)],
+    # B: the first at the door, two on the flight, one at the landing, the rest strung out on the road
+    'b': [(505, 31, 'staff', 4), (466, 33, 'pack', 0), (443, 29, 'elder', 2), (409, 32, 'high', 1),
+          (360, 30, 'staff', 3, 'tall'), (338, 34, 'pack', 0), (300, 31, 'staff', 2), (251, 30, 'high', 1),
           (214, 32, 'elder', 3)],
 }
 

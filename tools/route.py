@@ -346,13 +346,16 @@ def camera_intent(request):
             pattern = (r'(?<![a-z0-9])' + re.escape(word) +
                        (r'(?:e?s|y)?(?![a-z0-9])' if word[:1].isascii() and word[:1].isalnum() and word[-1:].isalnum() else ''))
             for match in re.finditer(pattern, t):
-                if re.search(r'\b(?:not|no|without)\s+(?:an?\s+)?$', t[:match.start()]):
+                if re.match(r'-(?:looking|inspired|like)\b', t[match.end():]):
+                    continue
+                if re.search(r'\b(?:not|no|without|avoid|instead of|rather than)\s+'
+                             r'(?:(?:in|an?|the)\s+)?$', t[:match.start()]):
                     negated.append(match.span())
                 else:
                     positive.add(label)
     for start, end in reversed(sorted(set(negated))):
         t = t[:start] + ' ' * (end - start) + t[end:]
-    return next((label for label in CAMERA_INTENTS if label in positive), None), t
+    return next(iter(positive)) if len(positive) == 1 else None, t
 
 def route(request, n=3):
     """-> {'picks': [{style, score, why, projection, pick_if, example}], 'mode', 'guide', 'projection'}"""
@@ -1988,7 +1991,12 @@ CASES = [
 CAMERA_CASES = [
     ('A street seen in one-point perspective, not isometric.', 'one-point perspective'),
     ('Rebuild this photo in two-point perspective, not one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective instead of one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective rather than one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective; avoid one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective, not in one-point perspective.', 'two-point perspective'),
     ('Rebuild this photo in one-point perspective, not two-point perspective.', 'one-point perspective'),
+    ('Rebuild this photo in one-point perspective instead of two-point perspective.', 'one-point perspective'),
     ('Rebuild this two-point perspective photo of an isometric-looking city.', 'two-point perspective'),
     ('A corridor with a single vanishing point.', 'one-point perspective'),
     ('A corner with two vanishing points.', 'two-point perspective'),
@@ -2004,6 +2012,8 @@ CAMERA_DEFAULT_CASES = [
     ('Rebuild this reference image of a street.', 'inspect reference'),
     ('Rebuild this photo, not one-point perspective.', 'inspect reference'),
     ('Rebuild this photo, not isometric.', 'inspect reference'),
+    ('Rebuild this photo, without an isometric view.', 'inspect reference'),
+    ('Rebuild this photo in one-point perspective or two-point perspective.', 'inspect reference'),
 ]
 
 # (request, size, scale, text the long brief must hold): delivery size, scene variants and era gates
@@ -2026,6 +2036,8 @@ BRIEF_CASES = [
       'route reads the request, not the image', 'screen-space native-pixel grid',
       'Use its finish, not its geometry']),
     ('Rebuild this photo of a corner in two-point perspective.', None, None,
+     ['- Projection: two-point perspective.', 'both vanishing points in native px']),
+    ('Rebuild this photo in two-point perspective instead of one-point perspective.', None, None,
      ['- Projection: two-point perspective.', 'both vanishing points in native px']),
     ('Rebuild this photo of a street.', None, None,
      ['- Projection: inspect reference.', '- Camera: TODO inspect the reference',

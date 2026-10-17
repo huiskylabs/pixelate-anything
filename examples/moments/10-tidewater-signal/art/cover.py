@@ -1026,7 +1026,8 @@ kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk...
             g[y, 56] = 'X0' if y < 320 else g[y, 56]
             g[y, 214] = 'X1' if y < 320 else 'X0'
         ant = self.m['antenna']
-        g[edge_px(ant, (1, 0)) & (YY < 279)] = 'X1'
+        g[edge_px(ant, (1, 0)) & (YY < 279) & (YY >= 243)] = 'X1'   # rim on the lower 2 px section only
+        g[ant & (YY < 240)] = 'R0'                                 # above the bend: a hard silhouette
         case = self.m['case']
         g[edge_px(case, (0, -1))] = 'X1'
         # mug: rim top, the window-side silhouette

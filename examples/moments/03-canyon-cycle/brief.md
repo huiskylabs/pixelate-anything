@@ -78,7 +78,7 @@ Request: one 320x180 still of a gorge at the meeting of two waterfalls: a rope b
 - Forge F0-F3 and FR0-FR1: flick() held 3-5 steps at 10 fps; lantern L0-L2 flick() held 3 steps.
 - Stars T0-T2: 3-slot range stepped on a hold table at 2 fps; period 45 ticks.
 - Lightning: one strike per loop at sunset, 1 pre-flash frame then 2 flash frames (BL on, `palette.flash` on C and M), decay over 3 frames.
-- Rain RS3, RC0, RM0, RM1: the storm's rain curtain under the right of the cloud base, switched on through the sunset storm (on in A, per art director note 4) and off otherwise (off = its base colour, as in B).
+- Rain RS3, RC0, RM0, RM1: the storm's rain curtain under the right of the cloud base, switched on for the 8 s sunset storm (on in A, per art director note 4) and off otherwise (off = its base colour, as in B).
 - Mood change: palette dissolve over 2 s between moods, all slots keep their role.
 
 ## 9. Particles

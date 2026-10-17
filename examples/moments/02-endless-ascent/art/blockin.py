@@ -45,8 +45,12 @@ def blockin_b():
     g[(YY >= 304) & (XX >= 206) & (XX < 248)] = 'g3'
     g[YY >= 362] = 'g3'
     g[(YY >= 318) & (YY < 342) & ((XX - 132) ** 2 + ((YY - 326) * 1.3) ** 2 <= 22 * 22)] = 'g3'
+    for top in (366, 388, 410, 434, 458):               # the receding ridges: a shadow hollow over each
+        for x in range(W):
+            yt = top - int(round(4 + 4 * math.sin(x / (17 + top % 7) + top)))
+            g[yt - 2:yt, x] = 'g2'
     x0, y0, x1, y1 = G.GONDOLA_BLOCK
-    g[y0:y1 + 1, x0:x1 - 6] = 'g0'
+    g[y0:y1 + 1, x0:x1 - 6] = 'g2'
     g[214:258, 130:x1 + 1] = 'g4'
     return g
 

@@ -1,0 +1,6 @@
+{
+  "title": "Pixel Radio",
+  "description": "A generative soundtrack that moves from a chiptune overworld theme into an ambient drift and back.",
+  "alt": "A small pixel-art equaliser that changes colour with the music.",
+  "files": ["palettes.js", "scene.js"]
+}

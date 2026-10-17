@@ -49,7 +49,8 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
 6. Draw everything yourself in code (guide('drawing')). kit_tools() lists topics and modules,
    kit_tools('rain') the techniques for a subject, kit_tools('post.Post.lightmap') one signature.
    references/assets holds examples to read, never to call.
-7. check_frame and redraw until every line passes (guide('delivery')).
+7. check_frame and redraw until every line passes (guide('delivery')); then judge_frame and fix each
+   box it finds or say why it stays.
 8. critique_prompt(brief, frame, prev=last lead critique): the same for the still; optional
    role=composition|lighting|set|character consults observe only; pass at most two notes total
    via consults to a later lead round. The lead alone grades and reconciles notes. Apply its fixes,
@@ -148,6 +149,19 @@ def check_frame(frame: str, style: str = '', scale: int = 1, palette: str = '', 
             args += [flag, P(v) if flag in ('--pal', '--pre', '--actor', '--brief') else v]
     code, text = cli(*args)
     return [('PASS\n' if code == 0 else 'FAIL\n') + text, thumb(P(frame))]
+
+@server.tool()
+def judge_frame(frame: str, scale: int = 0, ignore: str = '') -> list:
+    """The judge, as `pixelate judge`: finds what the gate passes and an art director rejects (rock
+    drawn as masonry, rows of identical units, scalloped edges, masses drawn as 1 px contours, murky
+    values) and returns each defect's box in native px, why it reads wrong and a fix, plus an overlay
+    of the frame with numbered boxes. Run it after check_frame passes and before critique_prompt;
+    fix each box or say why it stays. ignore: comma-separated kinds to skip (masonry for a brick town)."""
+    out = str(P(frame, write=True)) + '.judge.png'
+    args = ['judge', P(frame), '--overlay', out] + (['--scale', scale] if scale else []) + \
+           (['--ignore', ignore] if ignore else [])
+    code, text = cli(*args)
+    return [text, Image(path=out)] if code == 0 else [text]
 
 @server.tool()
 def critique_prompt(brief: str, frame: str = '', block: str = '', prev: str = '', style: str = '',

@@ -20,7 +20,8 @@
   pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op] [--brief B]   the delivery gate
   pixelate check BLOCKIN.png --blockin --brief brief.md [--scale N]   the greyscale block-in, before drawing
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
-  pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review
+  pixelate judge FRAME.png [--overlay OUT.png] [--json] [--log]   locate what the gate passes and an art director rejects
+  pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review (--run: run it and save the critique)
   pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]   prompt an independent listening agent after the music gate
   pixelate review record --brief B [--frame F] --critique REPORT   bind external lead critique to artifact
   pixelate review status --brief B [--frame F]   READY only for matching A evidence
@@ -42,7 +43,8 @@ TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
 SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
-           'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py', 'critique-music': 'critique_music.py'}
+           'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py', 'critique-music': 'critique_music.py',
+           'judge': 'judge.py'}
 TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
 
 def run(script, args):

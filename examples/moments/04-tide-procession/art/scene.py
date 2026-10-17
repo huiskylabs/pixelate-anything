@@ -380,12 +380,14 @@ def draw_middle(moment):
     lag, deep = water_masks(moment)
     lag &= region
     deep &= region
-    c.g[lag] = 'pool2'
     c.g[deep] = 'deep0'
     sh = G.SHAFT[moment]
     ang = math.radians(sh['angle'])
     fx_, fy_ = sh['x'] + math.cos(ang) * sh['length'], sh['y'] + math.sin(ang) * sh['length']
     lit = (((xx - fx_) / 40.0) ** 2 + ((yy - fy_ - 8) / 14.0) ** 2) <= 1
+    glowz = (((xx - fx_) / 74.0) ** 2 + ((yy - fy_ - 8) / 24.0) ** 2) <= 1
+    c.g[lag] = 'pool1'
+    c.g[lag & glowz] = 'pool2'
     # long ripple streaks, mismatched: lighter and darker in the shallows, sparse in the channel
     for y in range(240, H):
         x = int(hh(y, 6, 3) * 30)
@@ -397,7 +399,10 @@ def draw_middle(moment):
                 if X >= W:
                     break
                 if lag[y, X]:
-                    c.g[y, X] = ('pool4' if lit[y, X] else 'pool3') if up else 'pool1'
+                    if glowz[y, X]:
+                        c.g[y, X] = ('pool4' if lit[y, X] else 'pool3') if up else 'pool1'
+                    else:
+                        c.g[y, X] = 'pool2' if up else 'pool0'
                 elif deep[y, X] and hh(x, y, 18) < 0.45:
                     c.g[y, X] = 'deep1'
             x += ln + 8 + int(hh(x, y, 17) * 34)

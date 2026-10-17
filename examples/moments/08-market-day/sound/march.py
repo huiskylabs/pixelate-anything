@@ -187,7 +187,7 @@ def render():
     g = sliding_window_view(padded, 2 * w + 1).min(axis=1)          # look ahead and hold
     k = np.hanning(2 * w + 1); k /= k.sum()
     g = np.convolve(np.pad(g, (w, w), mode='edge'), k, mode='valid')
-    buf *= np.minimum(g, need + 0.0)[None, :] if False else g[None, :]
+    buf *= g[None, :]
     buf *= ceil / max(ceil, np.abs(buf).max())
     return buf
 

@@ -73,7 +73,7 @@ light down the steps; the tide floods back. Two stills of the best moments and a
   to the island landing (x 418, y 238), so the road is the leading line ending at the island.
 - Hero: 116,204,418,268 (native px); peak value: the moon disc and its halo ring (444,84,492,132); peak chroma: the lead pilgrim's lantern
 - Hero B: see brief-b.md (the open portal and its spill, 440,158,536,244).
-- Planes: near plane 13% (band 1), cloud bank 6% (band 1), island and monastery 7% (band 1), causeway and pilgrims 2% (band 1), night sky 36% (band 2), far sea 6% (band 2), deep channel 14% (band 2), moon glow and horizon band 7% (band 3), shallows beside the causeway 7% (band 3), moon and the shaft's pool on the causeway 1% (band 4: brightest)
+- Planes: near plane 13% (band 1), cloud bank 6% (band 1), island and monastery 7% (band 1), causeway and pilgrims 2% (band 1), night sky 36% (band 2), far sea 7% (band 2), shallows beside the causeway 5% (band 2), deep channel 14% (band 2), moon glow and horizon band 7% (band 3), shallows lit by the shaft 1.5% (band 3), moon and the shaft's pool on the causeway 1% (band 4: brightest)
 - Layout: sky 0-205 (calm: clouds, stars, the moon, the shaft only); island x 408-634, y 58-239;
   causeway x 22-418; flats and pools y 240-340; near bank y 296-360 with the pine at x 0-200 rising
   to y 30; boat x 168-252, y 312-334; posts x 497-592, y 280-340.
@@ -82,7 +82,7 @@ light down the steps; the tide floods back. Two stills of the best moments and a
   shallows beside the causeway (lighter) and the deep channel (darker) with ten mismatched glints;
   pine pads 118, 76, 60 and 30 px wide; pilgrims: the leader ahead, a tight pair, one, a loose trio,
   a wide gap, one, a straggler.
-- Value plan: near plane, cloud bank, monastery and pilgrims L .10-.14 (darkest); night sky, far sea and the deep channel L .17-.26 (dark); the moon's glow, the horizon band, the shallows beside the causeway and the shaft body L .27-.40 (mid); brightest only at the moon (peak L .95) and its one repeat, the shaft's pool on the causeway round the leaders (L .4-.55); lantern cores L .88 are 1-2 px points
+- Value plan: near plane, cloud bank, monastery and pilgrims L .10-.14 (darkest); night sky, far sea and the deep channel L .17-.26 (dark); the moon's glow, the horizon band, the shallows where the shaft lands and the shaft body L .27-.40 (mid); the other shallows sit one step above the channel; brightest only at the moon (peak L .95) and its one repeat, the shaft's pool on the causeway round the leaders (L .4-.55); lantern cores L .88 are 1-2 px points
 - Objects (maximums): 1 island with 1 church, 1 bell tower, 1 apse, 1 dormitory, 1 house,
   1 boathouse, 1 stair flight of 13 treads, 1 bent tree; 1 causeway; 9 pilgrims; 1 moon; 3 cloud
   masses; about 70 stars; 1 far headland; 1 boat, 4 posts, 1 pine.

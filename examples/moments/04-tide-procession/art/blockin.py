@@ -55,7 +55,10 @@ def blockin(moment):
     L[G.disc(mx, my, mr)] = GREY['brightest']
     # the shallows beside the causeway (mid); the channel behind them stays dark
     lag, deep = scene.water_masks(moment)
-    L[lag] = GREY['mid']
+    sh0 = G.SHAFT[moment]
+    a0 = math.radians(sh0['angle'])
+    fx0, fy0 = sh0['x'] + math.cos(a0) * sh0['length'], sh0['y'] + math.sin(a0) * sh0['length']
+    L[lag & ((((xx - fx0) / 74.0) ** 2 + ((yy - fy0 - 8) / 24.0) ** 2) <= 1)] = GREY['mid']
     # island and monastery
     L[G.island_mask()] = GREY['darkest']
     # the causeway: a dark road across the lit flats

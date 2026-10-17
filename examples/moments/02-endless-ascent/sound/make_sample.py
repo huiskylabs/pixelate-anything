@@ -65,6 +65,9 @@ def main():
     gl, gr = np.cos((pan + 1) * np.pi / 4), np.sin((pan + 1) * np.pi / 4)
     clip[i0:i0 + m, 0] += b[:m] * gl * 1.41
     clip[i0:i0 + m, 1] += b[:m] * gr * 1.41
+    # a gentle high shelf (about -3 dB above 5 kHz): the hats and crackle sat a touch bright for a lofi tilt
+    hp = sosfilt(butter(1, 5000, 'highpass', fs=SR, output='sos'), clip, axis=0)
+    clip = clip - 0.3 * hp
     # level: about -14 LUFS integrated, true peak kept under -1 dBFS
     lufs = MC.integrated(MC.block_loudness(clip, SR))
     clip *= 10 ** ((-14.0 - lufs) / 20)

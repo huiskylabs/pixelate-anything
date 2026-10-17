@@ -46,10 +46,10 @@ Request: rebuild Pexels photo 14037897 (Nick Verlice, "Aerial View of Medieval B
 - a melon held up between a vendor and a customer, a split melon on the crate (5x4 px, green over the orange-awning stall).
 - the dog running off with a silver fish, the fishmonger's arm up (dog 9x6 px, fish 5x2 px).
 - the cyclist's crate of baguettes on the rear rack (6x4 px, ochre on #000).
-- flower buckets around the cart (4x3 px each, violet and yellow on the paving, one step darker than it).
+- the flower cart heaped with violet and yellow blooms on the cathedral square (13x8 px, brown cart on grey granite).
 - a pigeon burst over the kids: 8 birds in 3 sizes rising (3x2 to 5x3 px, grey on paving or roof).
 - open umbrellas over two cafe tables, a waiter with a tray (5x5 px).
-- a pot of geraniums on a sill, laundry on a line across the north alley (4x3 px, rose is NOT used: red-orange geraniums).
+- a fruit barrow of stacked crates at the cathedral square's north end, a vendor holding up a melon (crates 4x3 px, orange, green and yellow on brown).
 
 ## 6. Phases
 - One phase: noon. Palette by roles: terracotta and brown roof paints, weathered grey-brown tile (the hall), dark slate; cream, off-white plaster, pink, ochre, mint and sky facades; sandstone (the hall); neutral paving ladder; dark timber; awnings orange (fruit), violet (flowers), blue (fish), yellow (bread); leaf green; brass gold; the hero rose; #000 and #fff.

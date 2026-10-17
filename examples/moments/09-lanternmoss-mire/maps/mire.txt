@@ -1,0 +1,64 @@
+# Lanternmoss Mire, 20x12 tiles (320x192). Rendered by maps/render_map.py (day and night).
+# Corner grid: one char per tile corner: '~' bog water, '.' peat, '#' moss (moss never touches water).
+# Deck grid: one char per tile: '-' plank run, '=' broken plank, '<' '>' ends, '|' run north,
+#   '^' 'v' ends, '+' landing.
+# Props: name x y [frame] [flip], placed by anchor, drawn in y order.
+tile: 16
+corners:
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~.......~
+...~~~~~~~~~~.#####.~
+.#..~~~~~~~~..#####.~
+.##..~~~~~~~..####..~
+.###..~~~~~~~......~~
+.####..~~~~~~~~~~~...
+.#####.~~~~~~~~~~....
+.####..~~~~~~~~~~.#..
+.###..~~~~~~~~~~~.##.
+.....~~~~~~~~~~~~....
+~...~~~~~~~~~~~~~~...
+~~~~~~~~~~~~~~~~~~~~~
+deck:
+....................
+....................
+....................
+....................
+..............^.....
+..............|.....
+......<---=---+---->
+....................
+....................
+....................
+....................
+....................
+props:
+lily_pads 128 34
+cattails 66 50
+heron 92 64 0 flip
+cattails 112 68 1
+cattails 196 30 1
+lily_pads 186 52
+glow_caps 230 56
+shrine_post 250 52
+glow_caps_small 268 58
+key 262 64 0
+lantern_moth 284 30 2
+glow_caps_small 24 74
+eye_stump 42 114 2
+glow_caps 62 120
+glow_caps_small 20 126
+peat_toad 66 142 2
+potion 40 166 1
+cattails 100 156
+lily_pads 230 132
+sunken_cart 156 178
+bell_snail 152 168 0
+cattails 214 170 1
+ferrier_idle_front 136 105 0
+lantern_moth 154 88 0
+lantern_moth 126 82 3
+coin 186 104 0
+cattails 300 92
+mud_crab 296 150 1
+cattails 316 146 1
+glow_caps_small 304 172

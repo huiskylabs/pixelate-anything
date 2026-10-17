@@ -3,3 +3,12 @@
 **/music/dist/
 **/*.mp4
 **/__pycache__/
+# Scratch renders made while looking (crops, zooms, drafts): regenerable.
+**/out/crop-*
+**/out/view-*
+**/out/native-*
+**/out/draft-*
+**/out/_look*
+**/out/look*
+**/out/zoom*
+**/_look*/

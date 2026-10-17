@@ -1,0 +1,37 @@
+GIMP Palette
+Name: lanternmoss day
+Columns: 8
+#
+ 28  22  38	ol
+247 241 220	wh
+ 24  58  64	water0
+ 43  86  82	water1
+ 77 123 107	water2
+ 44  26  28	peat0
+ 78  50  39	peat1
+116  83  65	peat2
+ 31  70  52	moss0
+ 58 106  49	moss1
+106 146  56	moss2
+176 185  92	moss3
+ 74  58  62	wood0
+134 112  90	wood1
+184 160 122	wood2
+110  92  42	reed0
+168 143  69	reed1
+220 203 136	reed2
+106  26  46	coat0
+173  58  40	coat1
+226 115  60	coat2
+160  90  76	skin0
+227 162 124	skin1
+138  74  28	gold0
+207 138  38	gold1
+244 199  90	gold2
+255 243 184	flame
+ 92 136 132	lum0
+156 202 184	lum1
+224 243 218	lum2
+ 70  77 102	mist0
+120 136 160	mist1
+182 196 200	mist2

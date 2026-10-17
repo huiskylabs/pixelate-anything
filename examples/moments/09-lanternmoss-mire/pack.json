@@ -1,0 +1,8 @@
+{
+  "name": "Lanternmoss Mire",
+  "palette": "palette.json",
+  "palettes": {"day": "palette.json", "night": "palette-night.json"},
+  "scale": 4,
+  "preview_bg": "#2a2836",
+  "maps": []
+}

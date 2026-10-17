@@ -122,8 +122,13 @@ rim, lean and trail follows the same line. See [drawing.md#drawing-objects](draw
 ### 4. The scene
 
 Camera and projection, what fills how much of the frame, the horizon line, and the full object
-list with counts as maximums ("4 houses, no more") and rough positions. These lines decide most of
-the grade, so the template asks for them by name, and the gate reads the first two:
+list with counts as maximums ("4 houses, no more") and rough positions. For a rebuild, inspect the
+reference and record its horizon (or that it is outside the crop), visible vanishing point(s),
+near/far scale and framing at native size. Routing knows only the request text, not the photo's
+camera. Keep an explicit one- or two-point view when requested; decide any stylization with the
+user instead of silently changing it to iso. Name the screen-space pixel construction and which
+edges and repeated forms must converge. These lines decide most of the grade, so the template
+asks for them by name, and the gate reads the first two:
 
 - **Hero**: `x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`. A figure stays at
   least 40 px tall at the delivered cell; no other mass over 0.6x its area or within 0.1 L of its peak.

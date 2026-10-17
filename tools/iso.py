@@ -1,6 +1,7 @@
 """Isometric and 3/4 pixel art: build a scene from boxes, roofs, pyramids, cylinders and
-sprites, get clean pixel art back in a projection pixel art actually uses (CAMERAS: 2:1 iso,
-military, 3/4 top-down, oblique, side), with cast shadows if you want them.
+sprites, get clean pixel art back in one of five orthographic camera presets (CAMERAS: 2:1 iso,
+military, 3/4 top-down, oblique, side), with cast shadows if you want them. For vanishing-point
+perspective, draw in screen space at native resolution instead; see guides/rebuild.md.
 
     from iso import Iso
     s = Iso(400, 300, origin=(200, 60))

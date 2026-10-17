@@ -39,19 +39,21 @@ Only when the parts read right, compose. Use `tools/sdf.py` for anything curved:
 
 Use `Iso.box` only where the place really is boxes. `examples/santorini/art/santorini.py` is the worked example.
 
-## 2. Pick the projection
+## 2. Pick the camera
 
-Pixel art uses only projections whose lines land on clean pixel steps. Choose the one closest to the reference's camera and to where the art will be used. `tools/iso.py` renders all of them from one 3D description; see `examples/projections`.
+The five views below are useful presets, not limits. Choose one when it fits the reference or the art's use. `tools/iso.py` renders these orthographic views from one 3D description; see `examples/projections`. It does not render vanishing-point perspective.
 
 | camera | lines | pick it for |
 |---|---|---|
 | `side` | horizontal and vertical | a street front or skyline seen level; platformer backgrounds |
-| `topdown` (3/4) | horizontal and vertical | a high, front-on view (most aerial photos taken toward the horizon); RPG and town maps |
+| `topdown` (3/4) | horizontal and vertical | a high, front-on view; RPG and town maps |
 | `iso` (2:1 dimetric) | 2-pixel steps | a view onto a corner of things; strategy games, dioramas, tiles |
 | `oblique` | true front, 2:1 depth | building fronts that must read exactly, with some depth |
 | `military` (45°) | 1:1 steps | a steep plan view, graphic maps |
 
-Avoid true isometric (30°: jaggy lines) and perspective; pixel art does not use them. A perspective photo maps to the nearest projection above: keep its framing, drop its vanishing points.
+For a reference rebuild, inspect the image yourself: `pixelate route` reads request words, not image geometry. Record the crop, horizon (including when it falls outside the frame), visible vanishing point(s), near/far scale and the landmark's position. If the reference uses one- or two-point perspective, or the request explicitly asks for it, keep that camera instead of substituting iso. A stylized projection is a choice to confirm, not an automatic correction.
+
+Construct perspective in screen space on the native-pixel canvas. Mark the horizon and vanishing point(s), block in the nearest and farthest silhouettes, then place receding edges and repeated units along those guides. For one point, depth edges meet one point; for two points, each horizontal face direction meets its own point. Snap corners to integer pixels and hand-step long diagonals with consistent clusters. Check shrinking windows, paving and figures at 1x before detailing; limit far detail and use the palette's haze. This is authored pixel drawing, not a full 3D perspective renderer. Steep or distant converging edges may need selective simplification to avoid noisy stair-steps, but the camera and framing still need to read.
 
 ## 3. Trace the layout
 
@@ -63,13 +65,16 @@ Read the reference and list what makes it *that* place:
 - the one or two signature details (a spire, a crown, a dome, a flag).
 
 Then place them:
-- **Front-on views:** trace the photo directly. `bld(x0, x1, roof_top, roof_front, height)` in `examples/san-francisco/art/rebuild.py` turns "the roof sits here on screen and the front is this tall" into a 3D box. Work landmark first, then the foreground, then fill the rest.
+- **Front-on orthographic views:** place the photo's large forms on screen. `bld(x0, x1, roof_top, roof_front, height)` in `examples/san-francisco/art/rebuild.py` turns "the roof sits here on screen and the front is this tall" into a 3D box. Work landmark first, then the foreground, then fill the rest.
+- **Perspective views:** use the brief's horizon, vanishing points and native-pixel boxes to draw the landmark and the main receding planes first. Place near and far repeats by hand along the guides; do not feed them to `Iso.box`.
 - **Isometric:** lay out a street grid in world units. 16 units is one 32x16 tile.
 - **Fill:** use procedural blocks (row houses, trees) for the rest, seeded by `hash2` so they stay put, and keep them clear of the landmarks (`RESERVED`).
 - **Organic places:** follow the contours instead of a grid. Vary widths and depths, leave gaps for stairs and alleys, and let neighbours merge (`Smooth`). Let houses sink into the terrace above, so a roof becomes the next terrace.
 - **Fill the frame.** Show a crop of a world that continues past every edge, not a block floating in the sky. A full-bleed square reads as a place, a floating slab as a model. Generate past the frame and let the canvas cut it.
 
 ## 4. Shapes (tools/iso.py, tools/sdf.py)
+
+For the five orthographic cameras, use the shapes recipe below. For one- or two-point perspective, draw converging edges on the native-pixel canvas as in section 2. `Iso` does not render vanishing points.
 
 ```python
 from iso import Iso, frustum, windows, clone
@@ -123,6 +128,6 @@ Put the render next to the reference at the same size and check:
 - Are the forms the reference's forms (curved where it is curved, boxy where it is boxy)?
 - Is the density the same, and is the regularity the same?
 - Is the landmark instantly recognisable, at the same place in the frame?
-- Do the big masses sit where they sit in the photo?
+- Do the big masses sit where they sit in the photo? Do the horizon, convergence, near/far scale and crop still match its camera?
 - Does the eye go to the landmark first? If not, quiet the surroundings: lower contrast, fewer windows, more haze.
 - Are there any noisy areas? Fix them with fewer, bigger shapes, placed texture and flat roofs.

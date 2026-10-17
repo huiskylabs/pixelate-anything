@@ -49,6 +49,8 @@ CASES = [
     ('a lighthouse in a storm', 'scene', {'lofi', 'pastel-cell', 'contre-jour'}),
     ('a cosy coffee shop interior in the morning', 'scene', {'lofi', 'cosy-lightmap'}),
     ('a sunny harbour town with boats and gulls', 'scene', {'hd-overworld', 'sticker-iso'}),
+    ('Rebuild this photo of a street in one-point perspective.', 'rebuild', None),
+    ('Rebuild this photo of a corner in two-point perspective.', 'rebuild', None),
 ]
 
 BRIEF_CASES = [
@@ -65,6 +67,25 @@ BRIEF_CASES = [
     ('A busy canal market at noon in isometric.', (1920, 1080), 3, ['Canvas 640x360', 'Figures: 20-22 px iso people', 'x0.60 by native height']),
     ('A busy canal market at noon in isometric.', (1280, 720), None, ['Canvas 640x360', '2x nearest to 1280x720']),
     ('A busy canal market at noon in isometric.', None, None, ['- Music: an accordion-like lead', 'TRACK.wav']),
+    ('Rebuild this photo of a street in one-point perspective.', None, None,
+     ['- Projection: one-point perspective.', 'the vanishing point in native px',
+      'route reads the request, not the image', 'screen-space native-pixel grid',
+      'Use its finish, not its geometry']),
+    ('Rebuild this photo of a corner in two-point perspective.', None, None,
+     ['- Projection: two-point perspective.', 'both vanishing points in native px']),
+    ('Rebuild this photo in two-point perspective instead of one-point perspective.', None, None,
+     ['- Projection: two-point perspective.', 'both vanishing points in native px']),
+    ('Rebuild this photo using two-point perspective over one-point perspective.', None, None,
+     ['- Projection: two-point perspective.', 'both vanishing points in native px']),
+    ('Rebuild this photo of a street.', None, None,
+     ['- Projection: inspect reference.', '- Camera: TODO inspect the reference',
+      'reference vanishing point(s) in native px', 'Use its finish, not its geometry']),
+    ('A sunny coast in two-point perspective.', None, None,
+     ['- Projection: two-point perspective.', 'Sun and shade are palette steps']),
+    ('A sunny coast from above.', None, None,
+     ["iso.Iso(camera='topdown').cast_shadows"]),
+    ('Make a full HD overworld, not top-down.', None, None,
+     ['- Projection: choose camera.', 'choose a view other than the one the request excludes']),
 ]
 
 GAP_CASES = [
@@ -90,6 +111,9 @@ GAP_CASES = [
     ('A Game Boy style lighthouse on a stormy night.', 'figures', ['one or two small figures'], [], True),
     ('A busy canal market at noon in isometric.', 'purpose and outputs', ['story beats', 'every period divides'],
      [], False),
+    ('Rebuild this photo of a street in one-point perspective.', 'style', ['finish, not the camera'], [], False),
+    ('Rebuild this photo of a street in one-point perspective.', 'figures', ['sized for the camera'],
+     ['iso people'], True),
 ]
 LINT_CASES = [
     ('vague', ('Phases', '- a cool blue rim on the left'), False),
@@ -132,4 +156,60 @@ LINT_CASES = [
     ('hex', 'gate `--era gameboy`; gb2 #8bac0f, gb3 #9bbc0f', 1),
     ('hex', 'palette `palettes/gameboy.hex`: #0f380f #306230 #678e23 #9bbc0f', 0),
     ('hex', 'our own palette: #123456 #abcdef', 0),
+    ('plan', '- Projection: two-point perspective from above.\n- Hero: 128,34,512,262 (native px); peak value: the door wedge; peak '
+             'chroma: the cat\n- Planes: roof 40%, street 27%, back row 10%, walls 23%\n- Layout: shop x 128-512\n'
+             '- Masses: roof 384 px, neighbours 112 and 112 px\n- Value plan: void L .05, walls .15; brightest at '
+             'the door, 2%', 0),
+]
+
+CAMERA_CASES = [
+    ('A street seen in one-point perspective, not isometric.', 'one-point perspective'),
+    ('Rebuild this photo in two-point perspective, not one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective instead of one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective rather than one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective; avoid one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective; avoid using one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in two-point perspective, not in one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo using two-point perspective over one-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo; do not use one-point perspective; choose two-point perspective.', 'two-point perspective'),
+    ('Rebuild this photo in one-point perspective, not two-point perspective.', 'one-point perspective'),
+    ('Rebuild this photo in one-point perspective instead of two-point perspective.', 'one-point perspective'),
+    ('Rebuild this two-point perspective photo of an isometric-looking city.', 'two-point perspective'),
+    ('A corridor with a single vanishing point.', 'one-point perspective'),
+    ('A corner with two vanishing points.', 'two-point perspective'),
+    ('An isometric castle siege.', '2:1 iso'),
+    ('A village from above.', '3/4 top-down'),
+    ('A side view of a street.', 'side'),
+    ('An oblique projection of a house.', 'oblique'),
+    ('A military projection of a town.', 'military'),
+]
+
+CAMERA_DEFAULT_CASES = [
+    ('a cosy farm at night', '3/4 top-down'),
+    ('make a pixel island', 'side'),
+    ('Rebuild this reference image of a street.', 'inspect reference'),
+    ('Rebuild this photo, not one-point perspective.', 'inspect reference'),
+    ('Rebuild this photo, not isometric.', 'inspect reference'),
+    ('Rebuild this photo, without an isometric view.', 'inspect reference'),
+    ('Rebuild this photo of a city; do not use one-point perspective.', 'inspect reference'),
+    ("Rebuild this photo; don't use one-point perspective.", 'inspect reference'),
+    ('Rebuild this photo; avoid using one-point perspective.', 'inspect reference'),
+    ('Rebuild this isometric city; do not use isometric projection.', 'inspect reference'),
+    ('A city, do not use isometric projection.', 'choose camera'),
+    ('Make a full HD overworld, not top-down.', 'choose camera'),
+    ('Rebuild this photo, no longer in one-point perspective.', 'inspect reference'),
+    ('Rebuild this photo in one-point perspective or two-point perspective.', 'inspect reference'),
+]
+
+BRIEF_AVOID_CASES = [
+    ('Rebuild this photo of a street in one-point perspective.', ['iso boxes', 'iso_person']),
+    ('Rebuild this photo of a corner in two-point perspective.', ['iso boxes', 'iso_person']),
+    ('Rebuild this photo of a street.', ['- Projection: 2:1 iso.', 'iso boxes']),
+    ('A sunny coast in two-point perspective.', ["iso.Iso(camera='topdown').cast_shadows"]),
+    ('Make a full HD overworld, not top-down.', ["iso.Iso(camera='topdown').cast_shadows"]),
+]
+
+SHORT_BRIEF_CASES = [
+    ('pixelate this reference photo of a street in two-point perspective',
+     ['**camera**: two-point perspective'], ['iso.Iso.box', '2:1 slope']),
 ]

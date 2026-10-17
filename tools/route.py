@@ -134,8 +134,9 @@ ROUTE = {
                       '大地图', '世界地图', '冒险', '海岸', '小队', '角色扮演']),
                  (2, ['day', 'sunny', 'bright', 'clouds', 'village', 'tide', 'bridge', 'waterfall',
                       '白天', '晴', '明亮', '云', '村', '潮', '桥', '瀑布'])],
-        rules=['Sun and shade are palette steps, not a light layer: light.Light.mask / apply for pools, '
-               "iso.Iso(camera='topdown').cast_shadows for hard cast shadows; post.over only for translucent clouds.",
+        rules=['Sun and shade are palette steps, not a light layer: light.Light.mask / apply for pools; '
+               'post.over only for translucent clouds.',
+               ("Hard cast shadows from iso.Iso(camera='topdown').cast_shadows.", 'topdown'),
                'A sunny read comes from contrast inside the low-key budget: a few bright lit faces and sparkle on '
                'the water against deep shade, not from lifting everything.',
                'Ramps of 5-9 steps at about 0.05 L, chroma rising toward the light (ramp style rise).',
@@ -281,6 +282,7 @@ ROUTE = {
 
 MODES = [
     ('rebuild', 3, ['photo', 'picture of', 'my photo', 'aerial', 'rebuild', 'this image', 'from this',
+                    'reference image', 'reference photo',
                     '照片', '这张图', '航拍', '重建']),
     ('era', 3, ['nes', 'game boy', 'gameboy', '8-bit', '8 bit', '16-bit', '16 bit', 'snes', 'genesis', 'mega drive',
                 'gba', 'pico-8', 'pico8', '红白机', '8位', '16位', '掌机', '四色绿', '超任', 'famicom',
@@ -311,9 +313,18 @@ def era_of(request):
 GUIDE = {'scene': 'guides/scenes.md', 'rebuild': 'guides/rebuild.md', 'era': 'guides/eras.md',
          'assets': 'guides/assets.md', 'music': 'guides/music.md'}
 
-PROJECTION = [('2:1 iso', ['isometric', 'iso ', 'iso-', '等距', '2:1']),
-              ('3/4 top-down', ['top-down', 'top down', 'from above', 'overhead', 'bird', '俯视', '鸟瞰', '顶视']),
-              ('side', ['side view', 'side-on', 'side on', 'profile', 'platformer', '侧视', '横版'])]
+CAMERA_INTENTS = {
+    'one-point perspective': ['one-point perspective', 'one point perspective', '1-point perspective',
+                              '1 point perspective', 'single vanishing point', '一点透视'],
+    'two-point perspective': ['two-point perspective', 'two point perspective', '2-point perspective',
+                              '2 point perspective', 'two vanishing points', '两点透视'],
+    '2:1 iso': ['isometric', 'iso ', 'iso-', '等距', '2:1'],
+    '3/4 top-down': ['top-down', 'top down', 'from above', 'overhead', 'bird', '俯视', '鸟瞰', '顶视'],
+    'side': ['side view', 'side-on', 'side on', 'profile', 'platformer', '侧视', '横版'],
+    'oblique': ['oblique projection', 'oblique view', '斜投影'],
+    'military': ['military projection', 'military view', '军事投影'],
+}
+
 
 DARK = ['night', 'dark', 'midnight', 'underground', 'cave', '夜', '暗', '深夜', '地下']
 BRIGHT = ['day', 'noon', 'sunny', 'morning', 'bright', '白天', '中午', '晴', '早晨', '明亮']
@@ -329,10 +340,36 @@ def _hit(text, w):
 def _hits(text, words):
     return [w for w in words if _hit(text, w)]
 
+def camera_intent(request):
+    """-> (stated camera or None, request without explicitly negated camera phrases)."""
+    t = ' ' + request.lower().replace('’', "'") + ' '
+    positive = set()
+    excluded = set()
+    negated = []
+    for label, phrases in CAMERA_INTENTS.items():
+        for phrase in phrases:
+            word = phrase.strip()
+            pattern = (r'(?<![a-z0-9])' + re.escape(word) +
+                       (r'(?:e?s|y)?(?![a-z0-9])' if word[:1].isascii() and word[:1].isalnum() and word[-1:].isalnum() else ''))
+            for match in re.finditer(pattern, t):
+                if re.match(r'-(?:looking|inspired|like)\b', t[match.end():]):
+                    continue
+                if re.search(r"\b(?:not|no|without|avoid|don't|do not|instead of|rather than|over)\s+"
+                             r'(?:(?:longer|use|using|draw|choose|in|an?|the)\s+){0,3}$', t[:match.start()]):
+                    excluded.add(label)
+                    negated.append(match.span())
+                else:
+                    positive.add(label)
+    for start, end in reversed(sorted(set(negated))):
+        t = t[:start] + ' ' * (end - start) + t[end:]
+    positive -= excluded
+    return next(iter(positive)) if len(positive) == 1 else None, t, excluded
+
 def route(request, n=3):
     """-> {'picks': [{style, score, why, projection, pick_if, example}], 'mode', 'guide', 'projection'}"""
     t0 = ' ' + request.lower() + ' '
-    t = _no_era(t0)                                  # 'Game Boy' names an era, not a boy or a game level
+    proj, camera_text, excluded = camera_intent(request)
+    t = _no_era(camera_text)                          # 'Game Boy' names an era, not a boy or a game level
     scores = {}
     for name, r in ROUTE.items():
         s, why = 0, []
@@ -350,11 +387,6 @@ def route(request, n=3):
             scores[name][0] -= 2
         if bright and name in DARK_STYLES:
             scores[name][0] -= 2
-    proj = None
-    for p, words in PROJECTION:
-        if _hits(t, words):
-            proj = p
-            break
     if proj:                                         # a stated projection favours the styles drawn in it
         for name in scores:
             if ROUTE[name]['projection'] == proj:
@@ -369,24 +401,29 @@ def route(request, n=3):
             if styles.get(name)['res'] != 'none':
                 scores[name][0] -= 3
     order = sorted(scores, key=lambda k: (-scores[k][0], list(ROUTE).index(k)))
+    camera = proj or ('inspect reference' if mode == 'rebuild' else None)
+    def pick_camera(style):
+        default = ROUTE[style]['projection']
+        return camera or ('choose camera' if default in excluded else default)
     picks = []
     for name in order[:n]:
         s, why = scores[name]
         r = ROUTE[name]
         picks.append(dict(style=name, score=s, why=why or ['no signal in the request'],
-                          projection=proj or r['projection'], pick_if=r['pick_if'], example=r['example']))
+                          projection=pick_camera(name), pick_if=r['pick_if'], example=r['example']))
     if picks[0]['score'] <= 0:                       # nothing matched: the toolkit's own look first
         lofi = next((p for p in picks if p['style'] == 'lofi'), None)
         if lofi is None:
             r = ROUTE['lofi']
             lofi = dict(style='lofi', score=0, why=['no strong signal: the default for a calm scene'],
-                        projection=proj or r['projection'], pick_if=r['pick_if'], example=r['example'])
+                        projection=pick_camera('lofi'), pick_if=r['pick_if'], example=r['example'])
         picks = [lofi] + [p for p in picks if p['style'] != 'lofi'][:n - 1]
     if mode != 'scene' and picks[0]['score'] <= 0:
         picks[0]['why'] = ['no style signal: follow %s first; pick the finish style from the %s' % (
             GUIDE[mode], {'rebuild': "photo's light and subject", 'era': "console's limits",
                           'assets': 'game the assets are for', 'music': 'scene the music goes with'}[mode])]
     return dict(request=request, picks=picks, mode=mode, guide=GUIDE[mode], projection=proj,
+                excluded_cameras=[label for label in CAMERA_INTENTS if label in excluded],
                 era=era_of(request) if mode == 'era' else None)
 
 class IntakePlan(TypedDict):
@@ -930,10 +967,16 @@ def gaps(request, r=None, delivered=None, native_h=None):
         h = _hits(t, words) if words else []
         out.append(dict(topic=topic, stated='/'.join(h[:3]) if h else '', default=default))
     margin = p['score'] - (r['picks'][1]['score'] if len(r['picks']) > 1 else 0)
+    camera_override = p['projection'] in ('one-point perspective', 'two-point perspective',
+                                           'inspect reference', 'choose camera')
     out.append(dict(topic='style', stated='/'.join(p['why'][:2]) if p['score'] > 3 and margin >= 3 else '',
-                    default='`%s` (%s); the runners-up are %s' % (
-                        st['name'], st['what'], ', '.join('`%s`' % q['style'] for q in r['picks'][1:]))))
-    out.append(dict(topic='projection', stated=r['projection'] or '', default=p['projection']))
+                    default='`%s` (%s); the runners-up are %s%s' % (
+                        st['name'], st['what'], ', '.join('`%s`' % q['style'] for q in r['picks'][1:]),
+                        '; this style sets the finish, not the camera' if camera_override else '')))
+    out.append(dict(topic='projection', stated=r['projection'] or '', default=(
+        'inspect the reference camera before choosing a projection' if p['projection'] == 'inspect reference'
+        else 'choose a camera other than %s' % ', '.join(r['excluded_cameras'])
+        if p['projection'] == 'choose camera' else p['projection'])))
     tw, said = time_weather(request, st['name'])
     out.append(dict(topic='time and weather', stated=said, default=tw))
     add('phases', WORDS['phases'],
@@ -943,7 +986,9 @@ def gaps(request, r=None, delivered=None, native_h=None):
     named = _hits(t, WORDS['figures'] + ['slime', 'robot', 'samurai', '史莱姆', '武士', '机器人'])
     add('figures', WORDS['figures'],
         'only the actors the request names, nobody added' if named else
-        'one or two small figures doing a quiet, specific task (%s)' % _as_example(figure_size(st, native_h)[0]))
+        'one or two small figures doing a quiet, specific task (%s)' % (
+            _as_example(figure_size(st, native_h)[0]).replace('iso people', 'figures sized for the camera')
+            if camera_override else _as_example(figure_size(st, native_h)[0])))
     loop = ('the engine\'s 30-tick clock, sprites at 10, 5 or 2 fps; the loop is the music\'s length'
             if st['name'] == 'lofi' else loop_default(st['name']))
     excerpt = 'a GIF excerpt' if st['res'] == 'none' else 'an APNG excerpt (a GIF bands soft light)'
@@ -1112,7 +1157,7 @@ PLANE_MIN = {'topdown': (('ground', 'street', 'floor', 'road', 'plaza', 'yard', 
                          'seen from above')}
 
 def _proj_key(proj):
-    return 'topdown' if re.search(r'top[\s-]*down|俯视|from above', proj or '', re.I) else ''
+    return 'topdown' if re.fullmatch(r'(?:3/4\s+)?top[\s-]*down|俯视|from above', (proj or '').strip(), re.I) else ''
 
 def _planes(line):
     """the `NAME NN%` pairs of a Planes line (check.parse_planes): [(name, share, band tag or None)]"""
@@ -1599,7 +1644,11 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         import era as eramod
         E = eramod.ERAS[era]
     frames, fps = r['frames'][0], st['fps']
-    proj = projection or r['projection']
+    rebuild = bool(_hits(' ' + request.lower() + ' ', MODES[0][2]))
+    stated, _, excluded = camera_intent(request)
+    proj = projection or stated or ('inspect reference' if rebuild else
+                                   'choose camera' if r['projection'] in excluded else r['projection'])
+    screen_camera = proj in ('one-point perspective', 'two-point perspective', 'inspect reference', 'choose camera')
     light = {'none': 'no light layer: light is palette steps (warm slots, rims, a few highlight pixels)',
              'native': 'a light layer computed per art pixel from the scene\'s masks, scaled up last (post.Post(res="native"))',
              'screen': 'a light layer smooth inside each art pixel, composited at delivery size (post.Post(res="screen"))'}[st['res']]
@@ -1626,7 +1675,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                      if st['res'] == 'screen' else ' Excerpts as APNG (soft light bands in a GIF).'
                      if st['res'] == 'native' else ''))
     L.append('\n## 2. Style and light regime')
-    L.append('- Style `%s`: %s.' % (st['name'], st['what']))
+    L.append('- Style `%s`: %s.%s' % (
+        st['name'], st['what'], ' Use its finish, not its geometry; the camera below controls the drawing.'
+        if screen_camera else ''))
     L.append('- Light: %s; blend %s.' % (light, ', '.join(st['blend']) or 'none'))
     if E:
         L.append('- Ramps: 3-4 steps picked by hand from the %s palette. Palette: at most %d colours%s.' % (
@@ -1642,8 +1693,14 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'on or any game the request names. TODO name anything else to avoid '
              '(see references/brief.md#2-style-and-light-regime; run `pixelate style %s`).' % st['name'])
     L.append('\n## 3. Art direction rules')
-    for x in r['rules']:
-        L.append('- ' + x)
+    for rule in r['rules']:
+        if isinstance(rule, tuple):
+            x, condition = rule
+            if not _fits(condition, st['name'], proj):
+                continue
+        else:
+            x = rule
+        L.append('- ' + (x.replace('3.3-head iso figures', 'figures scaled for depth') if screen_camera else x))
     L.append('- TODO 3-5 rules for this scene: which silhouettes must read, where rims fall, the built-in imperfections '
              '(a lean, a sag, a missing plank, a mismatched part) (see references/drawing.md#drawing-objects; run '
              '`pixelate style %s` for the style\'s rules).' % st['name'])
@@ -1656,6 +1713,20 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'is a slot map. references/assets has finished examples to study, never to call.')
     L.append('\n## 4. The scene')
     L.append('- Projection: %s. Canvas %dx%d.' % (proj, w, h))
+    if proj == 'choose camera':
+        L.append('- Camera: TODO choose a view other than the one the request excludes. Record its framing and '
+                 'construction at native-pixel size before drawing (see guides/rebuild.md#2-pick-the-camera).')
+    elif screen_camera:
+        vanishing = ('the vanishing point in native px' if proj == 'one-point perspective' else
+                     'both vanishing points in native px' if proj == 'two-point perspective' else
+                     'the reference vanishing point(s) in native px, if visible')
+        construction = ('Decide from the reference whether edges converge; if they do, draw them on the '
+                        'screen-space native-pixel grid.' if proj == 'inspect reference' else
+                        'Draw converging edges and receding spacing on the screen-space native-pixel grid.')
+        L.append('- Camera: TODO inspect the reference if one was supplied; route reads the request, not the image. '
+                 f'Record the horizon in native px (or say it is outside the frame), {vanishing}, the crop and '
+                 f'focal framing, and the near/far scale changes. {construction} Adapt figure sizes to depth, '
+                 'not iso.Iso geometry (see guides/rebuild.md#2-pick-the-camera).')
     L.append('- Hero: TODO x0,y0,x1,y1 (native px); peak value: TODO the object that alone holds the brightest '
              'values; peak chroma: TODO the object that alone holds the top chroma%s. A figure stays at least %d px '
              'tall at the delivered cell; no other mass over 0.6x the hero\'s area or within 0.1 L of its peak '
@@ -1740,7 +1811,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
             w, h, N, DW, DH,
             'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
-    L += _figure_lines(st, h, N)
+    L += [line.replace('iso people', 'figures adapted to the camera') if screen_camera else line
+          for line in _figure_lines(st, h, N)]
     if E:
         L.append('- Budget: the %s checks replace the style\'s value budget in the gate (`--era %s`): screen size, '
                  'colour count, palette, colours per block, unique tiles; the style still sets the craft limits.' % (
@@ -1761,7 +1833,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              '(see references/delivery.md#art-director).')
     L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
              '(see references/delivery.md#still and references/delivery.md#animation-plan).')
-    L.append('\nTechniques for this style: ' + '; '.join(r['tools']) + '.')
+    style_tools = [x for x in r['tools'] if not screen_camera or not re.search(
+        r'\biso\b|iso_|compose\.(?:populate|strips)', x, re.I)]
+    L.append('\nTechniques for this style: ' + '; '.join(style_tools) + '.')
     tt = topic_tools(request, st['name'], proj)
     if tt:
         L.append('Techniques for this subject (more: `pixelate tools TOPIC --style %s`; signatures: '
@@ -1769,7 +1843,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         L += ['- ' + x + '.' for x in tt]
     L.append('Always: ' + ALWAYS_TOOLS + '.')
     if r['example']:
-        L.append('Closest example in the repo: %s.' % r['example'])
+        L.append('Closest example in the repo: %s.%s' % (
+            r['example'], ' Study its finish, not its camera.' if screen_camera else ''))
     return '\n'.join(L) + '\n'
 
 # ---------------------------------------------------------------- the short brief, for small asks
@@ -1827,6 +1902,8 @@ def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, s
           'the game it is for, what would disappoint them; see references/brief.md#read-the-intent)']
     if 'style' in g:
         L.append('- **style**: %s' % g['style']['default'])
+    if kind == 'photo' and 'projection' in g:
+        L.append('- **camera**: %s' % g['projection']['default'])
     size = {'palette': 'about %d colours in `%s` ramps, 4-6 steps per role' % (st['colours'], ', '.join(st['ramp'])),
             'icons': '12 icons at 16x16 on one shared palette, lit from the upper left',
             'photo': 'native %dx%d, %dx nearest to %dx%d, about %d colours' % (w, h, N, DW, DH, st['colours']),
@@ -1866,8 +1943,8 @@ def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, s
                     '(see references/drawing.md#drawing-objects).',
                     '- One ramp set, one outline rule and one light direction across the set.',
                     '- Each icon is a slot map in code; for a small readable mark, study references/assets/glyphs.py stamp.'],
-          'photo': ['- TODO what the photo shows and what must survive: the subject, the light, the one detail people look for '
-                    '(see guides/pixelate.md).',
+          'photo': ['- TODO what the photo shows and what must survive: the subject, camera and framing, the light, '
+                    'the one detail people look for (inspect the reference; route reads only the request).',
                     '- First pass `pixelate image IMG -o out.png` (guides/pixelate.md), then fix by hand what it gets '
                     'wrong: the subject\'s edges, orphan pixels, outlines.',
                     '- A rebuilt, moving scene is a full brief: `pixelate route "..." --brief --full` with guides/rebuild.md.'],
@@ -1882,7 +1959,8 @@ def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, s
                      'similar finished thing, study references/assets/ and draw your own.'],
           'music': ['- Start from `pixelate new music DIR` (guides/music.md).',
                     '- TODO what changes over the loop, and where the loop seam falls (see guides/music.md).']}[kind]
-    tt = topic_tools(request, S)
+    projection = r['picks'][0]['projection'] if r else None
+    tt = topic_tools(request, S, projection)
     if tt and kind != 'music':
         L.append('- Techniques for this subject (more: `pixelate tools TOPIC --style %s`):' % S)
         L += ['  - ' + x + '.' for x in tt]
@@ -1927,7 +2005,10 @@ def _lint_case(fn, arg):
 
 def selftest(verbose=False):
     """-> number of cases that route wrong or whose brief misses a line (printed)"""
-    from route_regression_cases import CASES, BRIEF_CASES, GAP_CASES, LINT_CASES
+    from route_regression_cases import (
+        CASES, CAMERA_CASES, CAMERA_DEFAULT_CASES, BRIEF_CASES, BRIEF_AVOID_CASES,
+        SHORT_BRIEF_CASES, GAP_CASES, LINT_CASES,
+    )
 
     bad = 0
     for q, topic, want, avoid, empty in GAP_CASES:
@@ -1950,17 +2031,46 @@ def selftest(verbose=False):
             print('%s lint    %-16s %s  (got %r)' % ('XX' if wrong else '  ', fn, str(arg)[:56].replace('\n', ' '), got))
     for q, size, scale, want in BRIEF_CASES:
         r = route(q)
-        text = brief(r['picks'][0]['style'], q, era=r.get('era'), size=size or size_of(q), scale=scale)
+        text = brief(r['picks'][0]['style'], q, projection=r['picks'][0]['projection'], era=r.get('era'),
+                     size=size or size_of(q), scale=scale)
         miss = [w for w in want if w not in text]
         bad += bool(miss)
         if miss or verbose:
             print('%s brief   %-14s %s%s' % ('XX' if miss else '  ', r['picks'][0]['style'], q[:60],
                                             ('  missing: %s' % miss) if miss else ''))
+    for q, avoid in BRIEF_AVOID_CASES:
+        r = route(q)
+        text = brief(r['picks'][0]['style'], q)
+        found = [phrase for phrase in avoid if phrase in text]
+        bad += bool(found)
+        if found or verbose:
+            print(f"{'XX' if found else '  '} camera brief {q[:48]}" + (f'  unexpected: {found}' if found else ''))
+    for q, want, avoid in SHORT_BRIEF_CASES:
+        r = route(q)
+        text = short_brief(r['picks'][0]['style'], q, 'photo', r)
+        missing = [phrase for phrase in want if phrase not in text]
+        found = [phrase for phrase in avoid if phrase in text]
+        bad += bool(missing or found)
+        if missing or found or verbose:
+            print(f"{'XX' if missing or found else '  '} short camera {q[:48]}" +
+                  (f' missing: {missing}; unexpected: {found}' if missing or found else ''))
+    for q, projection in CAMERA_DEFAULT_CASES:
+        r = route(q)
+        wrong = r['picks'][0]['projection'] != projection or r['projection'] is not None
+        bad += wrong
+        if wrong or verbose:
+            print(f"{'XX' if wrong else '  '} camera default {projection:<22} {q[:50]}")
     for neg in ('Post.shaft' in brief('pastel-cell', 'sun rays over the clouds'),
                 '(shapes.ray, canvas.Canvas.fill)' in brief('contre-jour', 'a beam of light')):
         bad += neg
         if neg:
             print('XX the light-beams topic gives a style the wrong ray')
+    for q, projection in CAMERA_CASES:
+        r = route(q)
+        wrong = r['picks'][0]['projection'] != projection or r['projection'] != projection
+        bad += wrong
+        if wrong or verbose:
+            print(f"{'XX' if wrong else '  '} camera  {projection:<22} {q[:70]}")
     for q, mode, ok in CASES:
         r = route(q)
         top = r['picks'][0]['style']
@@ -1968,7 +2078,8 @@ def selftest(verbose=False):
         bad += wrong
         if wrong or verbose:
             print('%s %-7s %-14s %s' % ('XX' if wrong else '  ', r['mode'], top, q[:70]))
-    n = len(CASES) + len(BRIEF_CASES) + len(GAP_CASES) + len(LINT_CASES) + 4
+    n = (len(CASES) + len(CAMERA_CASES) + len(CAMERA_DEFAULT_CASES) + len(BRIEF_CASES) +
+         len(BRIEF_AVOID_CASES) + len(SHORT_BRIEF_CASES) + len(GAP_CASES) + len(LINT_CASES) + 4)
     print('%d/%d cases route as expected' % (n - bad, n))
     return bad
 
@@ -2022,7 +2133,10 @@ def main(a):
         if style != r['picks'][0]['style']:            # a named style leads section 0 too
             rt = ROUTE[style]
             pick = next((q for q in r['picks'] if q['style'] == style), None) or dict(
-                style=style, score=0, why=['named with --brief'], projection=r['projection'] or rt['projection'],
+                style=style, score=0, why=['named with --brief'],
+                projection=r['projection'] or ('inspect reference' if r['mode'] == 'rebuild' else
+                                               'choose camera' if rt['projection'] in r['excluded_cameras']
+                                               else rt['projection']),
                 pick_if=rt['pick_if'], example=rt['example'])
             r['picks'] = [pick] + [q for q in r['picks'] if q['style'] != style][:2]
         kind = None if full else small_kind(req, r)
@@ -2030,7 +2144,8 @@ def main(a):
         if kind:
             text = short_brief(style, req, kind, r, era=r.get('era'), size=size, scale=scale)
         else:
-            text = brief(style, req, choices=gaps(req, r, (DW, DH) if size or scale else None, NH), era=r.get('era'),
+            text = brief(style, req, projection=r['picks'][0]['projection'],
+                         choices=gaps(req, r, (DW, DH) if size or scale else None, NH), era=r.get('era'),
                          size=size, scale=scale)
         if out:
             pathlib.Path(out).write_text(text); print('wrote', out)

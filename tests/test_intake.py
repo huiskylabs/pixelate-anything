@@ -74,6 +74,9 @@ class IntakeTest(unittest.TestCase):
                             'make a pixel island ' + 'with lanterns ' * 500):
                 with self.subTest(request=request):
                     self.assertEqual(json.loads(mcp_server.intake_request(request)), self.cli_plan(request))
+            self.assertIn('presets, not limits', mcp_server.INSTRUCTIONS)
+            self.assertIn('native-pixel grid', mcp_server.INSTRUCTIONS)
+            self.assertNotIn('projections only', mcp_server.INSTRUCTIONS)
 
 
 if __name__ == '__main__':

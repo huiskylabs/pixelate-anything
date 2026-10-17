@@ -48,10 +48,13 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
    check_frame again, repeat until it grades A. Passing the gate means legal, not good: never self-grade.
 9. Show one still for go/no-go, only once it is graded A, with the last critique in one line.
 10. Confirm the animation plan (loop length, what moves, rates), then animate.
-Hard rules: pixel-art projections only (side, 3/4 top-down, 2:1 iso, oblique, military); originals
-only, no existing IP; rebuild a photo rather than convert it; every effect is done in code. Every
-track goes through check_music until it passes. Look at every preview image you get back and fix what
-looks wrong before going on. Paths are relative to the workspace."""
+Hard rules: the five orthographic views (side, 3/4 top-down, 2:1 iso, oblique, military) are
+presets, not limits. Keep a reference's camera or an explicit one- or two-point perspective;
+draw converging edges on the native-pixel grid. Draw original scenes without borrowed characters,
+logos or UI; a rebuild may depict the supplied place and camera. Rebuild a photo rather than convert
+it; every effect is done in code. Every track goes through check_music until it passes. Look at
+every preview image you get back and fix what looks wrong before going on. Paths are relative to
+the workspace."""
 
 server = Server('pixelate-anything', instructions=INSTRUCTIONS)
 

@@ -25,7 +25,9 @@ GUIDES = {p.stem: p for p in sorted((KIT / 'guides').glob('*.md'))}
 GUIDES.update({'brief': KIT / 'references' / 'brief.md', 'drawing': KIT / 'references' / 'drawing.md',
                'delivery': KIT / 'references' / 'delivery.md', 'craft': KIT / 'references' / 'craft.md',
                'scene-contract': KIT / 'references' / 'scene-contract.md', 'skill': KIT / 'SKILL.md',
-               'art-director': KIT / 'references' / 'art-director.md'})
+               'art-director': KIT / 'references' / 'art-director.md',
+               'visual-specialists': KIT / 'references' / 'visual-specialists.md',
+               'music-review': KIT / 'references' / 'music-review.md'})
 
 INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read only what each step needs.
 1. intake_request: if disposition is offer, optionally ask its two questions. Accept answers in the user's
@@ -47,7 +49,9 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
    kit_tools('rain') the techniques for a subject, kit_tools('post.Post.lightmap') one signature.
    references/assets holds examples to read, never to call.
 7. check_frame and redraw until every line passes (guide('delivery')).
-8. critique_prompt(brief, frame, prev=last critique): the same for the still; apply its fixes,
+8. critique_prompt(brief, frame, prev=last lead critique): the same for the still; optional
+   role=composition|lighting|set|character consults observe only; pass at most two notes total
+   via consults to a later lead round. The lead alone grades and reconciles notes. Apply its fixes,
    check_frame again within the stage's review budget (guide('delivery'), Art director). If the budget
    ends below A, stop automatic review, report grade and unresolved ranked fixes and ask whether to
    continue or change the brief. Passing the gate means legal, not good: never self-grade.
@@ -57,7 +61,8 @@ Hard rules: the five orthographic views (side, 3/4 top-down, 2:1 iso, oblique, m
 presets, not limits. Keep a reference's camera or an explicit one- or two-point perspective;
 draw converging edges on the native-pixel grid. Draw original scenes without borrowed characters,
 logos or UI; a rebuild may depict the supplied place and camera. Rebuild a photo rather than convert
-it; every effect is done in code. Every track goes through check_music until it passes. Look at
+it; every effect is done in code. Every rendered track goes through check_music until it passes;
+then optionally use music_critique_prompt with a separate agent that can actually listen. Look at
 every preview image you get back and fix what looks wrong before going on. Paths are relative to
 the workspace."""
 
@@ -142,7 +147,8 @@ def check_frame(frame: str, style: str = '', scale: int = 1, palette: str = '', 
     return [('PASS\n' if code == 0 else 'FAIL\n') + text, thumb(P(frame))]
 
 @server.tool()
-def critique_prompt(brief: str, frame: str = '', block: str = '', prev: str = '', style: str = '') -> str:
+def critique_prompt(brief: str, frame: str = '', block: str = '', prev: str = '', style: str = '',
+                    role: str = 'lead', consults: list[str] | None = None) -> str:
     """The prompt for an independent art director, as `pixelate critique`. With no frame it grades
     the brief before anything is drawn (step 4), with the greyscale block-in `block` if given; drawing
     waits for an A. With a frame it grades the still (step 8), writing a 480 px nearest-neighbour
@@ -151,10 +157,25 @@ def critique_prompt(brief: str, frame: str = '', block: str = '', prev: str = ''
     part for that stage), the brief's request, section 0 and signature elements, and the paths of the
     brief and the bar. Send it to a separate agent or model that did not write or draw the work; apply
     the fixes it returns, then lint_brief or check_frame again. This tool produces one prompt per
-    call; track the brief or still review budget in guide('delivery') yourself."""
+    call; track the brief or still review budget in guide('delivery') yourself. role selects the
+    lead (default) or one observational specialist; consults are up to two specialist note paths
+    passed only to the lead, while prev is only the prior lead critique."""
     import critique
+    notes = consults or []
+    if len(notes) > 2:
+        raise ValueError('at most two specialist consult notes per visual artifact')
     return critique.prompt(P(frame, write=True) if frame else None, P(brief), style,
-                           prev=P(prev) if prev else None, block=P(block) if block else None)
+                           prev=P(prev) if prev else None,
+                           block=P(block) if block else None,
+                           role=role, consults=[P(note) for note in notes])
+
+@server.tool()
+def music_critique_prompt(track: str, brief: str, prev: str = '') -> str:
+    """Prompt a separate listening agent after rendering and passing check_music. Does not play
+    audio, check the gate, or invoke an agent. Without actual audio access the agent must return
+    NOT REVIEWED, not a grade. prev is the previous music critique only; see guide('delivery')."""
+    import critique
+    return critique.music_prompt(P(track), P(brief), P(prev) if prev else None)
 
 @server.tool()
 def check_music(track: str, style: str = 'any', use: str = 'loop', bpm: float = 0, key: str = '') -> list:

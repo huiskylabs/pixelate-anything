@@ -22,6 +22,16 @@ Every line prints PASS or FAIL with the number and the limit, and says what a FA
 at the ear sheet as you look at a frame preview: spectrogram, loudness, pitch classes and a bar-by-bar
 similarity grid (a bright checkerboard = the same bars over and over).
 
+### Optional independent listening review
+
+After rendering the track and passing `pixelate check TRACK.wav` (MCP `check_music`), run
+`pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]` or MCP
+`music_critique_prompt`. This prints a prompt; it does **not** play audio or invoke a reviewer.
+Send it to a separate agent that can actually listen to the rendered track and read the brief.
+It assesses motif, arrangement, mood, mix and scene fit, and checks prior fixes by ear. Without
+audible access it must return `NOT REVIEWED`, not a grade. This is opt-in; music's separate graded
+review budget and stop/report/ask rule are in `references/delivery.md#art-director`.
+
 ### Self-critique (what numbers cannot hear)
 
 Before showing a track, answer these honestly and fix what fails:

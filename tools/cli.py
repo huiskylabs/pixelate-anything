@@ -20,7 +20,8 @@
   pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op] [--brief B]   the delivery gate
   pixelate check BLOCKIN.png --blockin --brief brief.md [--scale N]   the greyscale block-in, before drawing
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
-  pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P]   an independent art director: the brief, then the still
+  pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review
+  pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]   prompt an independent listening agent after the music gate
   pixelate check TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]   the music gate
   pixelate build SCENE [--release]       one self-contained HTML page
   pixelate audio SCENE out.{wav,ogg,flac,mp3}   one seamless loop of the music     (guides/music.md)
@@ -39,7 +40,7 @@ TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
 SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
-           'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py'}
+           'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py', 'critique-music': 'critique_music.py'}
 TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
 
 def run(script, args):

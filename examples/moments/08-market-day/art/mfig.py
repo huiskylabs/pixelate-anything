@@ -265,11 +265,83 @@ f...f.
 """
 
 def band(name, seed=0, facing='se'):
-    art = {'tuba': TUBA, 'trumpet': TRUMPET, 'drum': DRUM, 'trombone': TROMBONE, 'cymbal': CYMBAL}[name]
-    # the band wears one uniform: a deep slate jacket and a gold cap stripe
-    k = colours(seed, t='slate2', p='g1', h=colours(seed)['h'])
-    g = mkit.grid_from(art, k)
+    """a bandsman in the uniform: red cap and tunic, dark trousers, 1 px gold buttons; brass gold."""
+    art = {'tuba': TUBA, 'trumpet': TRUMPET, 'drum': DRUM, 'trombone': TROMBONE, 'cymbal': CYMBAL,
+           'major': BODY_MAJOR}[name]
+    rows = [r for r in art.strip('\n').splitlines() if r.strip()]
+    rows = [r.strip() for r in rows]
+    # the cap: the first hair row becomes the red cap
+    for i, r in enumerate(rows):
+        if 'h' in r:
+            rows[i] = r.replace('h', 'T')
+            break
+    # gold buttons down the tunic's centre (1 px glints)
+    done = 0
+    for i, r in enumerate(rows):
+        if 't' in r and done < 2 and r.count('t') >= 3:
+            js = [j for j, c in enumerate(r) if c == 't']
+            j = js[len(js) // 2]
+            rows[i] = r[:j] + 'y' + r[j + 1:]
+            done += 1
+    k = colours(seed, t='tunic', T='tunic', p='g1', y='gold')
+    g = mkit.grid_from('\n'.join(rows), k)
     return mkit.flipx(g) if facing == 'sw' else g
+
+BODY_MAJOR = """
+.....g
+.hhh.G
+hhsss.s
+hssss.t
+.sss..t
+ttttttt
+ttttt..
+ttttt..
+sttts..
+.ppp...
+.p.p...
+p...p..
+p...p..
+f...f..
+"""
+
+ACCORDION = """
+.hhh..
+hhsss.
+hssss.
+.sss..
+tqaqat
+taqaqt
+sqaqas
+.ppp..
+.p.p..
+.p.p..
+.p.p..
+.f.f..
+"""
+
+UMBRELLA = """
+..ccc..
+.ccccc.
+ccccccc
+...p...
+...p...
+"""
+
+HAT = """
+.y.
+qqq
+"""
+
+def accordionist(seed=0, facing='se'):
+    k = colours(seed, t='leaf1', a='g6', q='g1')
+    g = mkit.grid_from(ACCORDION, k)
+    return mkit.flipx(g) if facing == 'sw' else g
+
+def umbrella(paint='mint2'):
+    return mkit.grid_from(UMBRELLA, {'c': paint, 'p': 'g1'})
+
+def hat():
+    return mkit.grid_from(HAT, {'y': 'gold', 'q': 'g1'})
 
 # ---------------------------------------------------------------- stories
 JUGGLER = """

@@ -63,6 +63,7 @@ def build_palette():
     pal['hb'] = P.from_lch(0.42, 0.08, 55)        # brown
     pal['hy'] = P.from_lch(0.84, 0.12, 90)        # blond
     pal['hr'] = P.from_lch(0.58, 0.15, 45)        # ginger
+    pal['tunic'] = P.from_lch(0.52, 0.165, 30)   # the band's uniform
     pal['gold'] = P.from_lch(0.80, 0.15, 88)      # brass
     pal['gold2'] = P.from_lch(0.66, 0.13, 80)
     pal['water'] = P.from_lch(0.70, 0.12, 225)

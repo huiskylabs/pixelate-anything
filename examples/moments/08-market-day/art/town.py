@@ -24,6 +24,7 @@ HALL = dict(X=-92, Y=-76, w=32, d=104, h=42, roof=48, hip=18, plinth=6)
 STEPS = dict(x0=-60, y0=-37, y1=5, landing=5, n=2, tread=3, rise=2)   # in front of the hall
 ALLEY_N = (52, 59)                  # a mouth off the far side (x range), runs north
 ALLEY_S = (84, 91)                  # a mouth off the near side, runs south
+LANE_SW = (18, 24)                  # a lane through the near-side roof carpet (lower left)
 
 WALLS = ['cream', 'plaster', 'pink', 'ochre', 'plaster', 'mint', 'cream', 'sky', 'plaster', 'pink']
 ROOFS = ['slate', 'brown', 'terra', 'slate', 'tile', 'brown', 'slate', 'terra', 'tile']
@@ -75,7 +76,8 @@ def buildings():
     # rows behind the near side (lower left), their ends fronting the cathedral square raggedly
     for i, y0 in enumerate((70, 94, 118, 142, 166, 190, 214)):
         xe = 124 - (0, 3, 1, 5, 2, 6, 3)[i]
-        B += row(-150, xe, y0, 20, 'near', 10 + i, hmin=20, hmax=32, skip=[ALLEY_S] if i < 2 else ())
+        lanes = ([ALLEY_S] if i < 2 else []) + ([LANE_SW] if i >= 1 else [])
+        B += row(-150, xe, y0, 20, 'near', 10 + i, hmin=20, hmax=32, skip=lanes)
     B += row(-150, -4, 50, 18, 'near', 20, hmin=20, hmax=30)          # the square's south side
     # behind the far side and east and north of the square, to the top-right corner
     for i, y0 in enumerate((-50, -78, -106, -134, -162, -190, -218, -246)):

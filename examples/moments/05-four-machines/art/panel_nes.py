@@ -51,40 +51,44 @@ def sky(c):
             elif y < 102: s = 'O' if chk(x, y) else 'P'
             else: s = 'O'
             c.g[y, x] = s
-    # the sun's warmth: a checker of orange into the pink above it
-    for y in range(82, 102):
-        for x in range(190, 252):
-            if math.hypot(x - 220, (y - HZ) * 1.3) < 27 and chk(x, y):
-                c.g[y, x] = 'O'
     for x, y in ((106, 9), (151, 4), (183, 14), (236, 7), (9, 6)):    # the last stars
         c.g[y, x] = 'Wt'
     # cloud bars: dark blue in the violet band, violet with an orange underline in the pink band
-    for x0, x1, y in ((150, 196, 50), (164, 222, 52), (205, 240, 45)):
-        c.rect(x0, y, x1, y + 1, 'B')
     for x0, x1, y in ((182, 250, 86), (196, 238, 88), (226, 255, 93)):
         c.rect(x0, y, x1, y + 2, 'V'); c.rect(x0 + 3, y + 2, x1 - 2, y + 3, 'O')
 
+WAVE = ["...PP..........VVV..............",
+        "................................",
+        "..........BB..............VV....",
+        "................................",
+        ".VVV.............BBB............",
+        "................................",
+        "...........VV...........BB......",
+        "................................"]
+GLIT = ["OO...OOO", "..PO....", "...OO..O", ".O......", "OOO..OO.", "....P...", ".OO...OO", "........"]
+
 def sea(c):
+    """the sea in tiles: one 32x8 wave pattern repeated (pink near the horizon), the sun's glitter as
+    a column of one 8x8 glitter tile that widens toward the viewer"""
     for y in range(HZ, H):
         c.rect(0, y, W, y + 1, 'K')
-    # waves: short dashes on a 32 px rhythm per row band (so tiles repeat); near the horizon pink
-    for y in range(HZ + 2, H, 4):
-        band = (y - HZ) // 4
-        t = (y - HZ) / (H - HZ)
-        for x0 in range(0, W, 32):
-            for off, L in ((3 + (band * 11) % 16, 3 + int(3 * t)), (19 + (band * 7) % 10, 2 + int(4 * t))):
-                x = x0 + off
-                s = 'P' if y < 132 else ('V' if (band % 3) else 'B')
-                c.rect(x, y, x + L, y + 1, s)
-    # the glitter column under the sun: orange dashes, narrowing to the horizon
-    rng = np.random.default_rng(3)
-    for y in range(HZ + 1, H, 2):
-        t = (y - HZ) / (H - HZ)
-        half = 3 + 19 * t
-        for _ in range(int(2 + 5 * t)):
-            x = int(220 + rng.uniform(-half, half))
-            L = int(2 + rng.integers(0, 2) + 3 * t)
-            c.rect(x, y, x + L, y + 1, 'O' if rng.random() < 0.75 else 'P')
+    for y in range(120, H):
+        row = WAVE[y % 8]
+        for x in range(W):
+            ch = row[x % 32]
+            if ch != '.':
+                c.g[y, x] = ('P' if y < 128 else ch)
+    for ty in range(15, 28):                                       # tile rows from the horizon down
+        t = (ty - 15) / 12.0
+        half = int(round(1 + 2.6 * t))                             # tiles either side of the sun's column
+        for tx in range(27 - half, 28 + half):
+            for j in range(8):
+                y = ty * 8 + j
+                if y <= HZ:
+                    continue
+                for i in range(8):
+                    ch = GLIT[(j + (tx % 2) * 4) % 8][i]
+                    c.g[y, tx * 8 + i] = 'K' if ch == '.' else ch
 
 def crag(c):
     m = c.mask_poly(CRAG + [(212, 200), (84, 200)])
@@ -113,7 +117,7 @@ def near_cliff(c):
     PL = 80
     # the cliff edge: x of the face per row, jogging only at 8 px rows (edge tiles repeat)
     edge = {}
-    jogs = [(80, 88), (96, 90), (112, 92), (128, 91), (144, 95), (168, 97), (192, 99), (208, 101)]
+    jogs = [(80, 88), (144, 96)]
     for y in range(PL, H):
         e = max(v for yy, v in jogs if yy <= y)
         edge[y] = e
@@ -121,13 +125,14 @@ def near_cliff(c):
         for x in range(edge[y]):
             c.g[y, x] = rock(x, y)
         e = edge[y]
-        for x in range(e - 5, e):                                 # the sunlit strip
-            c.g[y, x] = 'O' if x == e - 1 or (x == e - 2 and y % 8 < 5) else 'N'
-        c.g[y, e - 6] = 'K'
+        for x in range(e - 8, e):                                 # the sunlit strip, one tile wide
+            c.g[y, x] = 'O' if x >= e - 2 and (x == e - 1 or y % 8 < 5) else ('K' if x == e - 8 else 'N')
+            if x == e - 5 and y % 8 in (2, 3):
+                c.g[y, x] = 'D'
     for yy, v in jogs[1:]:                                       # each jog is a lit ledge
         p = edge[yy - 1]
         c.rect(p - 6, yy, v, yy + 1, 'O'); c.rect(p - 6, yy + 1, v - 1, yy + 2, 'N')
-    for x0, x1, y in ((8, 40, 120), (48, 72, 152), (16, 48, 184)):
+    for x0, x1, y in ((8, 40, 120), (40, 72, 176)):
         c.rect(x0, y, x1, y + 1, 'O'); c.rect(x0, y + 1, x1, y + 2, 'K')
         for tx in range(x0 + 3, x1 - 2, 9):
             c.rect(tx, y - 2, tx + 2, y, 'N'); c.put(tx + 1, y - 3, 'O')
@@ -143,7 +148,7 @@ def near_cliff(c):
         c.rect(x, PL + 4, x + 1, PL + 4 + h, 'N')
     return edge
 
-ROCK_IDS = torus_cells(32, 32, [(5, 4), (19, 9), (28, 22), (11, 20), (23, 31), (2, 28)], aspect=2.0)
+ROCK_IDS = torus_cells(32, 32, [(6, 5), (21, 10), (29, 24), (12, 21), (2, 30)], aspect=1.3)
 
 def rock(x, y):
     """one 32x32 metatile of angular facets (periodic, so the pattern table holds it in 16 tiles),
@@ -156,7 +161,7 @@ def rock(x, y):
         l_, r_ = ROCK_IDS[v, (u - 1) % 32], ROCK_IDS[v, (u + 1) % 32]
         up, dn = ROCK_IDS[(v - 1) % 32, u], ROCK_IDS[(v + 1) % 32, u]
         return 'O' if (up > 0 and dn > 0 and up != dn and (l_ == 0 or r_ == 0)) else 'K'
-    lit_plane = i in (2, 5)
+    lit_plane = i == 2
     if ROCK_IDS[v, (u + 1) % 32] != i:
         return 'O' if lit_plane else 'N'
     return 'N' if lit_plane else 'D'
@@ -320,7 +325,7 @@ def clean_blocks(c):
 def wing(c):
     """the delta in three sprite colours: a black spar from the nose to two clean points, white cloth,
     orange battens, the shade panel's underside band in orange; the A-frame and bar under the keel"""
-    Lt, Nz, Rt = (112, 92), (146, 76), (175, 85)
+    Lt, Nz, Rt = (112, 92), (146, 76), (174, 85)
     edge = lambda x: Lt[1] + (Rt[1] - Lt[1]) * (x - Lt[0]) / (Rt[0] - Lt[0])
     kx = Nz[0]
     tri = c.mask_poly([(Lt[0], Lt[1] + 0.5), (Nz[0] + 0.5, Nz[1]), (Rt[0] + 1, Rt[1] + 0.5)])
@@ -340,8 +345,8 @@ def wing(c):
     for y in np.nonzero(tri[:, kx])[0]:
         c.g[y, kx] = 'O'
     c.line(Lt[0], Lt[1], Nz[0], Nz[1], 'K'); c.line(Nz[0], Nz[1], Rt[0], Rt[1], 'K')
-    c.line(kx, 88, 136, 100, 'K'); c.line(kx + 1, 88, 157, 100, 'K')       # A-frame
-    c.rect(134, 100, 159, 101, 'K')                                       # control bar
+    c.line(kx, 88, 137, 100, 'O'); c.line(kx + 1, 88, 156, 100, 'O')       # A-frame, sunlit wood
+    c.rect(135, 100, 158, 101, 'O')                                       # control bar
 
 def tail(c):
     pass
@@ -416,7 +421,7 @@ KWWWWWWWWWWWWWWWWWWK
 """
 FLAG = """
 RRRRRRRRRRRR
-.RRRRRRRRRRR
+.RRWWWWWWRRR
 ..RDWWWWDRRR
 ...WDWWDWRRR
 ..RWWDDWWRRR
@@ -457,14 +462,29 @@ def render():
     full = over(bg, *[objs[k] for k in order])
     return bg, objs, full
 
+def oam(m):
+    """8x8 hardware sprites for one object mask: per 8 px column from the object's left edge, stacked
+    from the first used row down, empty 8-row slots skipped -> [(x, y, 8, 8)]"""
+    ys, xs = np.nonzero(m)
+    out = []
+    for cx in range(xs.min(), xs.max() + 1, 8):
+        col = m[:, cx:cx + 8].any(1)
+        rows = np.nonzero(col)[0]
+        if not len(rows):
+            continue
+        y = rows[0]
+        while y <= rows[-1]:
+            if col[y:y + 8].any():
+                out.append((int(cx), int(y), 8, 8))
+            y += 8
+    return out
+
 def sprite_report(objs):
     import era
     boxes = []
     for k, o in objs.items():
         m = o.g != None  # noqa: E711
-        ys, xs = np.nonzero(m)
-        x0, y0 = xs.min(), ys.min()
-        boxes.append((int(x0), int(y0), m[y0:ys.max() + 1, x0:xs.max() + 1]))
+        boxes += oam(m)
         cols = {PAL[s] for s in o.g.ravel() if s is not None}
         if not any(cols <= set(sp) for sp in SPRPALS):
             print('sprite %s uses %s: not one sprite palette' % (k, sorted(cols)))

@@ -79,6 +79,17 @@ cgc
 .r.
 rgr
 """,
+    'box': """
+ccccc
+cgcgc
+""",
+    'tall': """
+.c.
+ccc
+cgc
+cgc
+cgc
+""",
     'wide': """
 ...c...
 ..ccc..
@@ -114,6 +125,8 @@ def dormer_rows(s, axis, a0, a1, b_eave, b_ridge, z_eave, z_ridge, mat, wall, se
             kind_pool = ['tri', 'small']
         else:
             kind_pool = ['small', 'gable'] if L > 16 else ['small']
+            if 'box' in kinds or 'tall' in kinds:
+                kind_pool = [k for k in kinds if k in ('box', 'tall', 'small', 'tri')] or kind_pool
         step = 3.6 + 1.6 * r + hash2(seed, r, 6) * 1.5           # units between dormer centres
         margin = 1.6 + r * 1.0 + hash2(seed, r, 7) * 1.2
         ra0, ra1 = a0 + hip * f, a1 - hip * f
@@ -213,6 +226,8 @@ def house(s, b, z0=0):
         rows = 1 if d < 14 else (2 if w < 11 else 3)
         hv = hash2(seed, 21, 1)
         kinds = ('gable', 'gable', 'tri') if hv < 0.45 else (('tri',) if hv < 0.62 else ('gable',))
+        if b['side'] == 'near' and b['Y'] >= 70:
+            kinds = [('box', 'gable'), ('tall', 'tri'), ('gable', 'box', 'tri'), ('tall',), ('gable', 'tri')][int(hash2(seed, 26, 1) * 5)]
         if hv > 0.9:
             rows = 0                                   # an old roof with no dormers at all
         elif hv > 0.78:

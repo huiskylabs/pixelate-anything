@@ -20,7 +20,7 @@ A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-
 | `provenance` | `{made: "YYYY-MM-DD", by: nonempty string}`. This identifies who made the piece; it does not attest review. |
 | `license` | `MIT` for library contributions. |
 
-Optional: `recipes` (distinct `tools/recipes.py` function names such as `rock_face`), `kit` (`{tested: nonempty version string}`), `media` (`thumb`, `contact`, `video`, `gif`: optional file paths), `lineage` (`{remixed_from: slug or null}`), `review` (see below). The manifest is limited to 128 KiB.
+Optional: `recipes` (distinct `tools/recipes.py` function names such as `rock_face`; `pixelate library recipes [NAME]` lists the pieces declaring each, not proof their code called it), `kit` (`{tested: nonempty version string}`), `media` (`thumb`, `contact`, `video`, `gif`: optional file paths), `lineage` (`{remixed_from: slug or null}`), `review` (see below). The manifest is limited to 128 KiB.
 
 ### Typed outputs
 

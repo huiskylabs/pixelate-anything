@@ -31,7 +31,7 @@
                                          (runs the trusted piece's commands without a sandbox; runs no critique)
   pixelate deliver DIR --verify          check DELIVERY.md's facts, fingerprint and hashes (runs no piece code)
   pixelate find "REQUEST" [--mode M] [--json]   the closest library pieces, or a starter (static: runs no piece code)
-  pixelate library list | show ID | index      browse the library and rebuild library/index.json (static)
+  pixelate library list | show ID | recipes [NAME] | index   browse catalog and declared recipe users (static)
   pixelate library test [ID...] [--quick]      render trusted pieces in temporary copies and compare golden 1x frames
   pixelate library add DIR [--status study|accepted|reviewed] --trust-local-code   run a trusted local piece twice,
                                          stage it with 1x goldens and rebuild the index (NO sandbox; never in PR CI)

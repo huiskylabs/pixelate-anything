@@ -6,6 +6,7 @@ checked-in pieces and `add --trust-local-code` renders a trusted local candidate
 manifest shell commands run without a sandbox; never invoke them in pull-request CI.
 """
 import argparse
+import ast
 import datetime
 import hashlib
 import io
@@ -400,6 +401,9 @@ def validate(root):
         if (not isinstance(recipes, list) or not all(isinstance(r, str) and RECIPE.fullmatch(r) for r in recipes) or
                 len(recipes) != len(set(recipes))):
             fail('recipes', 'expected distinct recipe function names')
+        unknown = sorted(set(recipes) - set(recipe_functions()))
+        if unknown:
+            fail('recipes', f'{unknown}: not a function in tools/recipes.py')
     if 'kit' in manifest:
         fields(manifest['kit'], ('tested',), where='kit')
         text(manifest['kit']['tested'], 'kit.tested')
@@ -433,6 +437,30 @@ def validate(root):
     if manifest['status'] == 'reviewed':
         review_binding(root, manifest)
     return manifest
+
+
+def recipe_functions():
+    """Public function names in the kit's recipes.py, parsed but never imported or executed."""
+    source = Path(__file__).with_name('recipes.py')
+    tree = ast.parse(source.read_text(encoding='utf-8'), filename=str(source))
+    return sorted(node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                  and not node.name.startswith('_'))
+
+
+def recipe_usage(library, name=None):
+    """Static reverse index of declared recipe names to piece ids; not evidence a program called one."""
+    uses = {recipe: [] for recipe in recipe_functions()}
+    if name is not None and name not in uses:
+        fail('recipe', f'unknown function {name!r} in tools/recipes.py')
+    for piece in scan(library).values():
+        for recipe in piece.get('recipes', []):
+            if recipe not in uses:
+                fail(f"{piece['id']}.recipes", f'{recipe!r} is not a function in tools/recipes.py')
+            uses[recipe].append(piece['id'])
+    note = 'Declared in piece.json only; not proof a program called the function or that its art passed review'
+    if name is not None:
+        return {'name': name, 'pieces': uses[name], 'note': note}
+    return {'recipes': [{'name': recipe, 'pieces': pieces} for recipe, pieces in uses.items()], 'note': note}
 
 
 def scan(library):
@@ -765,6 +793,8 @@ def main(argv=None, prog=None):
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('index')
     commands.add_parser('list')
+    recipes = commands.add_parser('recipes', help='static recipe functions and pieces declaring each one')
+    recipes.add_argument('name', nargs='?', metavar='NAME')
     commands.add_parser('show').add_argument('id')
     finding = commands.add_parser('find')
     finding.add_argument('request')
@@ -795,6 +825,7 @@ def main(argv=None, prog=None):
             raise SystemExit(0 if report['ok'] else 1)
         result = {'index': lambda: write_index(args.library).decode('utf-8'),
                   'list': lambda: list_pieces(args.library),
+                  'recipes': lambda: recipe_usage(args.library, args.name),
                   'show': lambda: show(args.library, args.id),
                   'find': lambda: find(args.library, args.request, args.mode)}[args.command]()
     except LibraryError as exc:

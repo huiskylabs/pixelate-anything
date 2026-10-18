@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "id": "canyon-cycle",
+  "title": "The Canyon That Moves Without Moving",
+  "summary": "A gorge where two waterfalls meet, with a rope bridge, a forge and a mesa under storm clouds, decoded from one index array: A rose sunset at the lightning instant, B indigo night.",
+  "request": "one 320x180 still of a gorge at the meeting of two waterfalls: a rope bridge, a forge cut into the cliff with its door open, a river curling into the foreground, a hanging lantern, storm clouds over a far mesa. No pixel is ever redrawn: all motion is palette rotation over dedicated slot ranges. The palette moves through four moods: cold dawn, hard white noon, rose sunset, indigo night. Deliver two moments from one index array: A rose sunset at the lightning instant, B indigo night.",
+  "status": "study",
+  "mode": "scene",
+  "runtime": "script",
+  "tags": {
+    "subject": [
+      "canyon",
+      "waterfall",
+      "bridge",
+      "forge",
+      "river",
+      "lantern",
+      "mesa",
+      "storm",
+      "lightning"
+    ],
+    "setting": [
+      "outdoor",
+      "sunset",
+      "night"
+    ],
+    "camera": "side",
+    "style": "lofi",
+    "era": "none",
+    "motion": "stills",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 320,
+    "h": 180,
+    "scale": 6
+  },
+  "outputs": [
+    {
+      "name": "a",
+      "kind": "image",
+      "run": "python3 art/render.py",
+      "frame": "out/03-a.png",
+      "style": "lofi",
+      "brief": "brief.md",
+      "pal": "out/03-sunset.json",
+      "scale": 6,
+      "golden": "out/golden/a.png"
+    },
+    {
+      "name": "b",
+      "kind": "image",
+      "run": "python3 art/render.py",
+      "frame": "out/03-b.png",
+      "style": "lofi",
+      "brief": "brief.md",
+      "pal": "out/03-night.json",
+      "scale": 6,
+      "golden": "out/golden/b.png"
+    },
+    {
+      "name": "index",
+      "kind": "export",
+      "run": "python3 art/render.py",
+      "file": "out/03-index.png"
+    },
+    {
+      "name": "sample",
+      "kind": "audio",
+      "run": "pixelate audio music sound/full.wav && python3 sound/make_sample.py",
+      "file": "sound/03-sample.mp3"
+    }
+  ],
+  "anatomy": [
+    {
+      "file": "brief.md",
+      "draws": "The scene brief: intent, palette-cycling moods, layout, value plan, sound plan",
+      "change_for": "intent, mood and the written rules the gate reads"
+    },
+    {
+      "file": "art/geo.py",
+      "draws": "Hand-placed layout of every region (polylines and boxes) on the native 320x180 grid",
+      "change_for": "composition"
+    },
+    {
+      "file": "art/palettes.py",
+      "draws": "The slot map, cycling ranges, switched and flicker slots, and the mood palettes (dawn, noon, sunset, night)",
+      "change_for": "colour, mood, time of day"
+    },
+    {
+      "file": "art/canyon.py",
+      "draws": "The one index map drawn back to front: cliffs, falls, river, bridge, forge, lantern, mesa, storm",
+      "change_for": "the setting and its props"
+    },
+    {
+      "file": "art/render.py",
+      "draws": "Decodes A and B from the index array, exports index PNG and palettes (json, hex, gpl), verifies; writes to absolute /home/user/... paths",
+      "change_for": "which moods are delivered, output size"
+    },
+    {
+      "file": "art/blockin.py",
+      "draws": "Greyscale block-in for the planes line; writes to an absolute /home/user/... path",
+      "change_for": "composition check before detail"
+    },
+    {
+      "file": "sound/make_sample.py",
+      "draws": "Cuts the 5 s sample from the engine render, mixes a synthesised thunder roll and encodes the mp3",
+      "change_for": "the thunder, clip start, sample mix"
+    },
+    {
+      "file": "music/music.js",
+      "draws": "Ambient pad and music box over a sub drone at 64 bpm in B-flat minor with a wind and fire bed (engine music project)",
+      "change_for": "music style, key, tempo"
+    },
+    {
+      "file": "music/config.js",
+      "draws": "Engine scene length and tempo for the sample render",
+      "change_for": "loop length"
+    },
+    {
+      "file": "music/palettes.js",
+      "draws": "Engine palettes for the stock equaliser picture",
+      "change_for": "nothing for this piece"
+    },
+    {
+      "file": "music/scene.js",
+      "draws": "Stock engine equaliser picture that the music project requires; it is not part of the artwork",
+      "change_for": "nothing for this piece"
+    },
+    {
+      "file": "music/scene.json",
+      "draws": "Stock engine scene metadata (title and file list) for the music project",
+      "change_for": "nothing for this piece"
+    }
+  ],
+  "knobs": {},
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "provenance": {
+    "made": "2026-10-17",
+    "by": "parallel Claude agents with a coordinating agent as art director (examples/moments showcase run, PR #21); migrated to library/ on 2026-10-18 without re-review"
+  },
+  "license": "MIT"
+}

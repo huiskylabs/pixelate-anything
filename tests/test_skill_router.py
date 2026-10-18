@@ -102,6 +102,23 @@ class SkillRouterTest(unittest.TestCase):
         self.assertIn('No gate pass, golden match, heuristic or self-assessment raises a piece', TEXT)
         self.assertIn('Never grade your own work', TEXT)
 
+    def test_unreviewed_remix_branch_is_separate_from_the_author_stop(self):
+        loop = section('The remix loop')
+        step6 = next(line for line in loop.splitlines() if line.startswith('6. '))
+        step7 = next(line for line in loop.splitlines() if line.startswith('7. '))
+        self.assertIn('and the user has approved a budget', step6)
+        self.assertIn('do not ask anyone to run it: print the prompt', step6)
+        self.assertIn('take the unreviewed branch of step 7', step6)
+        self.assertIn('**Unreviewed branch** (remix only, no critique in step 6)', step7)
+        for phrase in ('say NO INDEPENDENT REVIEW and give no grade or art-quality claim',
+                       'report the delivery\'s facts as NOT REVIEWED',
+                       'ask the user separately to approve before calling it finished',
+                       'never call it accepted or reviewed',
+                       'The author path has no such branch: a review stage without budget or lead stops'):
+            self.assertIn(phrase, step7, phrase)
+        trust = section('Trust and evidence')
+        self.assertIn('on the author path the stage stops for a budget or a lead; a remix continues only as the unreviewed branch of step 7', trust)
+
     def test_knob_claims_match_the_library(self):
         declared = {}
         for manifest in (REPO / 'library').glob('*/piece.json'):

@@ -87,6 +87,31 @@ class AuthoringDocsTest(unittest.TestCase):
                        'ask whether to continue or change the brief', 'Only the user can extend'):
             self.assertIn(phrase.lower(), text.lower(), phrase)
 
+    def test_block_in_is_the_only_drawing_before_brief_approval(self):
+        text = AUTHORING.read_text(encoding='utf-8')
+        rules = text.split('## Hard rules')[1].split('\n## ')[0]
+        steps = text.split('## The ten steps')[1].split('\n## ')[0]
+        step4 = next(line for line in steps.splitlines() if line.startswith('4. '))
+        step5 = next(line for line in steps.splitlines() if line.startswith('5. '))
+        self.assertNotIn('No drawing before the user has OK', rules)
+        for phrase in ('The greyscale block-in (step 4) is the only drawing allowed before the user OKs the brief',
+                       'A full brief needs a bound independent A before the user confirms it, then drawing',
+                       'A short brief has no brief-stage lead: after its block-in passes the block-in gate, the user confirms it as written, then drawing',
+                       "a short brief's does not"):
+            self.assertIn(phrase, rules, phrase)
+        self.assertIn('A short brief skips brief-stage review (no lead, no `review record`), not the greyscale block-in or its gate', step4)
+        self.assertIn('once the gate passes it goes to step 5', step4)
+        self.assertIn('Show a full brief with section 0 on top only at a bound A', step5)
+        self.assertIn('Show a short brief as written once its block-in has passed the gate; it has no lead grade', step5)
+
+    def test_no_budget_stops_the_author_stage_and_only_a_remix_goes_on_unreviewed(self):
+        text = AUTHORING.read_text(encoding='utf-8')
+        budget = next(line for line in text.splitlines() if line.startswith('- **Paid or outside review needs a budget.**'))
+        for phrase in ('stop at that stage, even if a reviewer is available: do not ask them to run it',
+                       'Only a remix, which has no review stage, may go on, and only as the unreviewed branch of'):
+            self.assertIn(phrase, budget, phrase)
+        self.assertIn('Three graded lead rounds per stage'.lower(), text.lower())
+
     def test_only_existing_commands_are_offered(self):
         help_text = subprocess.run([sys.executable, str(REPO / 'pixelate'), '--help'], capture_output=True, text=True, check=True).stdout
         text = AUTHORING.read_text(encoding='utf-8')

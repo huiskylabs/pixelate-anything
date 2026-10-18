@@ -45,8 +45,9 @@ again and writes facts (or verifies them without running code); an unreviewed re
 as NOT REVIEWED but needs separate user approval before being called finished. No check clears
 redistribution rights or raises a piece's status. For your own inspected source, add_piece needs an
 explicit trust flag and runs two unsandboxed renders into a workspace catalog; give back by a manual
-pull request with evidence. Never call add_piece on an outside contributor's PR. Shell-based remix, render and deliver execute trusted code with your
-permissions, without a sandbox; never run contributed programs in PR CI.
+pull request with evidence. Never call add_piece on an outside contributor's PR. Tool-selected
+paths stay in the workspace, but a spawned piece command can read or write anywhere your user can;
+piece commands execute without a sandbox. Never run contributed programs in PR CI.
 Author path: read guide('authoring') for the full ten steps. The independent lead owns each grade
 with three graded rounds per full stage by default; specialists observe. The greyscale block-in
 is the sole pre-approval drawing and must pass its gate. A full brief needs a bound independent A
@@ -59,8 +60,8 @@ draw converging edges on the native-pixel grid. Draw original scenes without bor
 logos or UI; a rebuild may depict the supplied place and camera. Rebuild a photo rather than convert
 it; every effect is done in code. Every rendered track goes through check_music until it passes;
 then optionally use music_critique_prompt with a separate agent that can actually listen. Look at
-every preview image you get back and fix what looks wrong before going on. Paths are relative to
-the workspace."""
+every preview image you get back and fix what looks wrong before going on. Tool paths are relative
+to the workspace; piece commands are not confined to it."""
 
 server = Server('pixelate-anything', instructions=INSTRUCTIONS)
 
@@ -478,11 +479,12 @@ def in_library(q):
 
 def work_folder(path, new=False):
     """the resolved workspace folder for `path`. A piece folder must already hold piece.json; a new folder
-    (the remix destination) must be inside the workspace, not the workspace itself. Nothing in the kit's
-    library is ever a place to write: a render or delivery writes reports, logs and packages there."""
+    (the remix destination) must be inside the workspace, not the workspace itself. Render, remix
+    and deliver never write to a kit library piece. `add_piece` may write to the kit library as a
+    catalog only when the kit root is the workspace and explicit trust was given."""
     q = P(path, write=True)
     if in_library(q):
-        raise ValueError('%s is inside the kit library, which is read-only; remix a piece into the workspace first' % q)
+        raise ValueError('%s is inside the kit library, read-only for render/remix/deliver; remix it into the workspace first' % q)
     if new:
         if q == WORK:
             raise ValueError('choose a new folder inside the workspace, not the workspace itself: %s' % WORK)

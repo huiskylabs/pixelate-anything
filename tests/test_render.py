@@ -1,4 +1,6 @@
+import hashlib
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -66,9 +68,31 @@ class RenderTest(unittest.TestCase):
             self.assertIn('defects', rec['judge'])
         self.assertEqual(r.returncode, 0 if all(render.ok(x) for x in recs) else 1)
         self.assertTrue((self.d / 'render-report.json').exists())
+        runs = [json.loads(l) for l in (self.d / '.pixelate' / 'runs.jsonl').read_text().splitlines()]
+        self.assertEqual(runs[-1]['type'], 'render')
+        self.assertEqual([i['name'] for i in runs[-1]['images']], ['a', 'b'])
+        self.assertEqual(len(runs[-1]['images'][0]['sha256']), 64)
         one = json.loads(self.cli('--image', 'b', '--no-run', '--json').stdout)
         self.assertEqual([x['name'] for x in one], ['b'])
         self.assertNotIn('run', one[0])
+
+    def test_run_log_hashes_the_bytes_each_image_was_checked_with(self):
+        (self.d / 'art.py').write_text(ART.replace("(232, 216, 160)", "(232, 216, 160) if sys.argv[1] == 'a' else (90, 200, 90)"))
+        self.spec([{'name': 'a', 'run': '%s art.py a' % sys.executable, 'frame': 'out/a.png', 'style': 'arcade', 'scale': 4},
+                   {'name': 'b', 'run': '%s art.py b && %s -c "import shutil; shutil.copy(\'out/b.png\', \'out/a.png\')"'
+                    % (sys.executable, sys.executable), 'frame': 'out/b.png', 'style': 'arcade', 'scale': 4}])
+        self.cli('--json')
+        run = json.loads((self.d / '.pixelate' / 'runs.jsonl').read_text().splitlines()[-1])
+        a, b = run['images']
+        self.assertNotEqual(a['sha256'], b['sha256'])              # a was hashed before b overwrote it
+        self.assertEqual(hashlib.sha256((self.d / 'out/a.png').read_bytes()).hexdigest(), b['sha256'])
+
+    def test_no_log_turns_off_every_log(self):
+        self.spec([{'name': 'a', 'run': '%s art.py a' % sys.executable, 'frame': 'out/a.png', 'style': 'arcade', 'scale': 4}])
+        r = subprocess.run([sys.executable, str(ROOT / 'pixelate'), 'render', str(self.d)], capture_output=True,
+                           text=True, env=dict(os.environ, PIXELATE_NO_LOG='1'))
+        self.assertTrue((self.d / 'render-report.json').exists(), r.stderr)
+        self.assertFalse((self.d / '.pixelate').exists())
 
     def test_failed_command_fails_the_render(self):
         self.spec([{'name': 'a', 'run': '%s -c "raise SystemExit(\'boom\')"' % sys.executable, 'frame': 'out/a.png',

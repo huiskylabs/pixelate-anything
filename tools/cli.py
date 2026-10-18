@@ -33,6 +33,7 @@
   pixelate video SCENE out.mp4 [--scale S] [--audio loop.wav]   crisp MP4
   pixelate gif SCENE out.gif [--scale S] [--fps 15] [--frames K0:K1]
   pixelate doctor                        check node, ffmpeg, python packages, Chromium
+  pixelate --version                     the kit's version
   pixelate mcp                           run the MCP server (stdio) for any MCP client
   pixelate setup [--yes] [--only claude,cursor,codex,gemini]   register MCP + skill with your agents
 
@@ -130,6 +131,10 @@ def main(argv=None):
     if not a or a[0] in ('-h', '--help', 'help'):
         print(__doc__); return
     cmd, rest = a[0], a[1:]
+    if cmd in ('--version', 'version'):
+        sys.path.insert(0, str(TOOLS))
+        from version import VERSION
+        print('pixelate-anything %s' % VERSION); return
     if cmd in SCRIPTS:
         run(SCRIPTS[cmd], rest)
     elif cmd == 'review':

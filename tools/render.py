@@ -25,7 +25,11 @@ required for the gate.
 
 piece.json outputs replace render.json: an image output takes the same fields plus `kind`, and audio
 and export outputs are run and hashed but never gated. Piece commands run with the kit's `tools/` first
-on PYTHONPATH and the kit root (the `pixelate` command) first on PATH. After a piece command, a frame,
+on PYTHONPATH and the kit root (the `pixelate` command) first on PATH, and PIXELATE_KIT set to the kit
+root, whatever the caller exported. Outputs that share a run command run it once, in order of first
+appearance. Before it runs, each of its declared frames and files is deleted from DIR (never through a
+link), so a stale output from an earlier render cannot pass: the command must write it again, and a
+render that cannot delete one fails that command. --no-run deletes nothing. After a piece command, a frame,
 file or gate input reached through a link, or not a regular file, fails. The frame is read once without
 following links, and the gate and era check run on a private copy of those bytes and of the gate inputs;
 the judge and --critique read the same bytes, so the hash is of the bytes they all checked. With logging
@@ -221,9 +225,10 @@ def logging():
     return not os.environ.get('PIXELATE_NO_LOG')
 
 def piece_env():
-    """the environment piece commands run in: the kit's tools/ importable and `pixelate` on PATH, so a
-    checked-in program runs from any folder without a hard-coded kit path"""
-    env = dict(os.environ)
+    """the environment piece commands run in: the kit's tools/ importable, `pixelate` on PATH and
+    PIXELATE_KIT the kit root (never an inherited value), so a checked-in program runs from any folder
+    without a hard-coded kit path or an exported variable"""
+    env = dict(os.environ, PIXELATE_KIT=str(KIT))
     for key, path in (('PYTHONPATH', KIT / 'tools'), ('PATH', KIT)):
         env[key] = os.pathsep.join(filter(None, (str(path), env.get(key))))
     return env
@@ -298,14 +303,29 @@ def critique_frame(d, frame, brief, out=None):
         rec['error'] = _tail(c.stderr or c.stdout, 2)
     return rec
 
-def render_one(d, im, run=True, critique=False, env=None, piece=False):
-    """piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
+def run_group(d, group, env):
+    """delete every declared frame and file of group, the piece outputs that share one run command,
+    from d, then run that command once: its run record. A path that cannot be deleted without
+    following a link fails the command unrun"""
+    try:
+        for out in group:
+            remove_regular(d, out.get('frame') or out['file'])
+    except UnsafePath as exc:
+        return {'ok': False, 'seconds': 0.0, 'error': 'unsafe output: %s' % exc}
+    return run_command(group[0]['run'], d, env)
+
+def render_one(d, im, run=True, critique=False, env=None, piece=False, ran=None):
+    """ran: the run record of im's command, already run for a piece (see run_group); piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
     without a link; its frame is read once, the gate and era check run on a private copy of those
     bytes and of the gate inputs, and the judge and critique read the same bytes, so the recorded hash
     is of the bytes they checked. With logging on, the frame the judge and critique logs name is kept under
     DIR/.pixelate/snapshots (rec['snapshot']), and so is the brief the critique reads"""
     rec = {'name': im['name'], 'frame': im['frame']}
-    if run and im.get('run'):
+    if ran is not None:
+        rec['run'] = dict(ran)
+        if not ran['ok']:
+            return rec
+    elif run and im.get('run'):
         rec['run'] = run_command(im['run'], d, env)
         if not rec['run']['ok']:
             return rec
@@ -358,10 +378,15 @@ def render_one(d, im, run=True, critique=False, env=None, piece=False):
         rec['critique'] = critique_frame(d, im['frame'], im['brief'])
     return rec
 
-def render_file(d, out, run=True, env=None):
-    """run an audio or export output and hash the file it writes; these files are never gated"""
+def render_file(d, out, run=True, env=None, ran=None):
+    """hash the file an audio or export output writes, after running its command (or with ran, the
+    run record it already has); these files are never gated"""
     rec = {'name': out['name'], 'kind': out['kind'], 'file': out['file']}
-    if run:
+    if ran is not None:
+        rec['run'] = dict(ran)
+        if not ran['ok']:
+            return rec
+    elif run:
         rec['run'] = run_command(out['run'], d, env)
         if not rec['run']['ok']:
             return rec
@@ -471,8 +496,14 @@ def main(argv=None):
         recs = [render_one(d, im, not a.no_run, a.critique) for im in outputs]
     else:
         env = piece_env()
-        recs = [dict(render_one(d, o, not a.no_run, a.critique, env, piece=True), kind='image') if o['kind'] == 'image'
-                else render_file(d, o, not a.no_run, env) for o in outputs]
+        ran, recs = {}, []
+        for o in outputs:
+            if not a.no_run and o['run'] not in ran:
+                ran[o['run']] = run_group(d, [x for x in outputs if x['run'] == o['run']], env)
+            if o['kind'] == 'image':
+                recs.append(dict(render_one(d, o, False, a.critique, env, piece=True, ran=ran.get(o['run'])), kind='image'))
+            else:
+                recs.append(render_file(d, o, False, env, ran=ran.get(o['run'])))
     (d / 'render-report.json').write_text(json.dumps(recs, indent=1))
     unlogged = log_run(d, recs, piece=source == 'piece.json')
     if unlogged:

@@ -173,8 +173,17 @@ def save(root, data):
     (root / 'piece.json').write_text(json.dumps(data), encoding='utf-8')
 
 
-def pixelate(*args, cwd=None):
-    return subprocess.run([sys.executable, str(REPO / 'pixelate'), *args], capture_output=True, text=True, cwd=cwd)
+def pixelate(*args, cwd=None, env=None):
+    return subprocess.run([sys.executable, str(REPO / 'pixelate'), *args], capture_output=True, text=True, cwd=cwd,
+                          env=env)
+
+
+def caller_env(kit=None):
+    """The caller's environment with PIXELATE_KIT unset, or set to kit (a wrong value)."""
+    env = {key: value for key, value in os.environ.items() if key != 'PIXELATE_KIT'}
+    if kit is not None:
+        env['PIXELATE_KIT'] = kit
+    return env
 
 
 class Fixture(unittest.TestCase):
@@ -769,8 +778,8 @@ class RenderPiece(Fixture):
         canary = write_canary(self.piece / 'out' / 'a.png', outside / 'a.png')
         drawn = (self.piece / 'out' / 'a.png').read_bytes()
         link = f'ln -sf {outside / "a.png"}'
-        for image_run, error in ((f'rm out/a.png && {link} out/a.png', 'unsafe frame: out/a.png'),
-                                 (f'{link} out/a-actor.png', 'unsafe gate input: out/a-actor.png')):
+        for image_run, error in ((f'rm -f out/a.png && {link} out/a.png', 'unsafe frame: out/a.png'),
+                                 (f'{sys.executable} art/draw.py && {link} out/a-actor.png', 'unsafe gate input: out/a-actor.png')):
             with self.subTest(run=image_run):
                 self.data['outputs'][0].update(run=image_run, actor='out/a-actor.png')
                 self.data['outputs'][1]['run'] = f'rm -f sound/tone.wav && {link} sound/tone.wav'
@@ -810,6 +819,161 @@ class RenderPiece(Fixture):
         result = pixelate('render', str(self.piece))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('piece.json: output.style', result.stderr)
+
+
+class PieceKitEnvironment(Fixture):
+    KIT_VERSION = 'python3 "$PIXELATE_KIT/pixelate" --version > out/version.txt'
+
+    def test_pieces_find_the_kit_without_an_exported_variable(self):
+        self.data['outputs'][2]['run'] = self.KIT_VERSION
+        save(self.piece, self.data)
+        for label, env in (('unset', caller_env()), ('spoofed', caller_env('/nonexistent/kit'))):
+            with self.subTest(PIXELATE_KIT=label):
+                (self.piece / 'out' / 'version.txt').write_text('stale committed export', encoding='utf-8')
+                result = pixelate('library', '--library', str(self.library), 'test', 'harbour', env=env)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(self.outputs(json.loads(result.stdout))['version']['status'], 'passed')
+                rendered = pixelate('render', str(self.piece), '--image', 'version', '--json', env=env)
+                self.assertEqual(rendered.returncode, 0, rendered.stdout + rendered.stderr)
+                self.assertTrue((self.piece / 'out' / 'version.txt').read_text().startswith('pixelate-anything '))
+
+    def test_piece_env_sets_the_canonical_kit_over_an_inherited_value(self):
+        with mock.patch.dict(os.environ, PIXELATE_KIT='/nonexistent/kit'):
+            env = render.piece_env()
+        self.assertEqual(env['PIXELATE_KIT'], str(REPO))
+        self.assertEqual(env['PYTHONPATH'].split(os.pathsep)[0], str(REPO / 'tools'))
+        self.assertEqual(env['PATH'].split(os.pathsep)[0], str(REPO))
+
+    def test_clean_copy_of_lantern_isle_runs_without_an_exported_variable(self):
+        for label, env in (('unset', caller_env()), ('spoofed', caller_env('/nonexistent/kit'))):
+            with self.subTest(PIXELATE_KIT=label):
+                result = pixelate('library', 'test', '--quick', 'lantern-isle', env=env)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                report = json.loads(result.stdout)
+                self.assertTrue(report['ok'])
+                images = [o for o in report['pieces'][0]['outputs'] if o['kind'] == 'image']
+                self.assertTrue(images)
+                self.assertEqual({o['status'] for o in images}, {'passed'})
+
+
+class RenderInPlace(Fixture):
+    """`render DIR` on a piece.json renders in the source folder, so a stale declared output must not pass."""
+
+    def render_json(self, *args):
+        result = pixelate('render', str(self.piece), '--json', *args)
+        return result, {r['name']: r for r in json.loads(result.stdout)}
+
+    def logged(self):
+        return json.loads((self.piece / '.pixelate' / 'runs.jsonl').read_text().splitlines()[-1])
+
+    def test_stale_frame_and_a_no_op_command_fail_without_hashing_the_old_bytes(self):
+        stale = sha((self.piece / 'out' / 'a.png').read_bytes())
+        self.data['outputs'][0]['run'] = 'true'
+        save(self.piece, self.data)
+        result, records = self.render_json('--image', 'a')
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(records['a']['error'], 'frame not found: out/a.png')
+        for key in ('sha256', 'gate', 'judge', 'snapshot'):
+            self.assertNotIn(key, records['a'])
+        self.assertFalse((self.piece / 'out' / 'a.png').exists())
+        entry = self.logged()['images'][0]
+        self.assertEqual((entry['sha256'], entry['ok']), (None, False))
+        self.assertNotIn(stale, (self.piece / '.pixelate' / 'runs.jsonl').read_text())
+        self.assertFalse((self.piece / '.pixelate' / 'snapshots').exists())
+
+    def test_stale_audio_and_export_with_a_no_op_command_fail(self):
+        stale = {path: sha((self.piece / path).read_bytes()) for path in ('sound/tone.wav', 'out/version.txt')}
+        self.data['outputs'][1]['run'] = 'true'
+        self.data['outputs'][2]['run'] = 'true'
+        save(self.piece, self.data)
+        result, records = self.render_json('--image', 'tone')
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(records['tone']['error'], 'file not found: sound/tone.wav')
+        self.assertNotIn('sha256', records['tone'])
+        self.assertTrue((self.piece / 'out' / 'version.txt').exists())      # not selected: left alone
+        result, records = self.render_json()
+        self.assertEqual(result.returncode, 1)
+        for name, path in (('tone', 'sound/tone.wav'), ('version', 'out/version.txt')):
+            self.assertEqual(records[name]['error'], f'file not found: {path}')
+            self.assertNotIn('sha256', records[name])
+            self.assertFalse((self.piece / path).exists())
+        self.assertTrue(records['a']['run']['ok'])
+        for digest in stale.values():
+            self.assertNotIn(digest, json.dumps(self.logged()))
+        self.assertEqual([(f['name'], f['sha256'], f['ok']) for f in self.logged()['files']],
+                         [('tone', None, False), ('version', None, False)])
+
+    def test_a_linked_parent_folder_fails_the_output_and_deletes_nothing_outside(self):
+        outside = self.library.parent / 'outside'
+        outside.mkdir()
+        (outside / 'tone.wav').write_bytes(b'outside canary')
+        self.data['outputs'][0]['run'] = f'{self.data["outputs"][0]["run"]} && mv sound sound.bak && ln -s {outside} sound'
+        save(self.piece, self.data)
+        result, records = self.render_json()
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual((outside / 'tone.wav').read_bytes(), b'outside canary')
+        tone = records['tone']
+        self.assertFalse(tone['run']['ok'])
+        self.assertTrue(tone['run']['error'].startswith('unsafe output: sound/tone.wav'), tone['run']['error'])
+        self.assertNotIn('sha256', tone)
+        self.assertTrue(records['a']['run']['ok'])
+
+    def test_no_run_deletes_nothing_and_gates_what_is_there(self):
+        before = snapshot(self.piece)
+        result, records = self.render_json('--no-run')
+        self.assertEqual(result.returncode, 0 if self.logged()['ok'] else 1)
+        for path in ('out/a.png', 'sound/tone.wav', 'out/version.txt'):
+            self.assertEqual(sha((self.piece / path).read_bytes()), before[path])
+        for name, path in (('tone', 'sound/tone.wav'), ('version', 'out/version.txt')):
+            self.assertNotIn('run', records[name])
+            self.assertEqual(records[name]['sha256'], before[path])
+        self.assertNotIn('run', records['a'])
+        self.assertEqual(records['a']['sha256'], before['out/a.png'])
+
+    def test_a_real_command_replaces_every_stale_output(self):
+        stale = {path: sha((self.piece / path).read_bytes()) for path in ('out/a.png', 'sound/tone.wav', 'out/version.txt')}
+        result, records = self.render_json()
+        self.assertEqual(result.returncode, 0 if self.logged()['ok'] else 1)
+        for name, path in (('a', 'out/a.png'), ('tone', 'sound/tone.wav'), ('version', 'out/version.txt')):
+            self.assertTrue(records[name]['run']['ok'])
+            self.assertEqual(records[name]['sha256'], sha((self.piece / path).read_bytes()))
+            if name != 'a':                                  # the frame re-renders the same pixels
+                self.assertNotEqual(records[name]['sha256'], stale[path])
+        self.assertEqual(records['tone']['sha256'], sha(b'RIFF fixture audio'))
+        self.assertTrue((self.piece / records['a']['snapshot']).is_file())
+
+    def test_a_shared_command_runs_once_and_must_write_every_output(self):
+        shared = f'echo run >> runs.txt; {sys.executable} sound/make.py; echo x > out/version.txt'
+        self.data['outputs'][1]['run'] = self.data['outputs'][2]['run'] = shared
+        save(self.piece, self.data)
+        result, records = self.render_json()
+        self.assertEqual((self.piece / 'runs.txt').read_text(), 'run\n')
+        self.assertEqual(result.returncode, 0 if self.logged()['ok'] else 1)
+        self.assertEqual(records['version']['sha256'], sha(b'x\n'))
+        self.assertEqual(records['tone']['run'], records['version']['run'])
+        # The same command no longer writes the export: its stale copy is gone, so it cannot pass.
+        shared = f'{sys.executable} sound/make.py'
+        self.data['outputs'][1]['run'] = self.data['outputs'][2]['run'] = shared
+        save(self.piece, self.data)
+        result, records = self.render_json()
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(records['tone']['sha256'], sha(b'RIFF fixture audio'))
+        self.assertEqual(records['version']['error'], 'file not found: out/version.txt')
+        self.assertNotIn('sha256', records['version'])
+
+    def test_a_legacy_render_json_keeps_its_stale_output_and_environment(self):
+        (self.piece / 'piece.json').unlink()
+        out = self.piece / 'out'
+        command = f'{sys.executable} -c "import os; open(\'out/env.txt\', \'w\').write(repr((os.environ.get(\'PIXELATE_KIT\'), os.environ.get(\'PYTHONPATH\'))))"'
+        (self.piece / 'render.json').write_text(json.dumps({'images': [
+            {'name': 'a', 'run': 'true', 'frame': 'out/a.png', 'style': 'arcade', 'scale': 4},
+            {'name': 'env', 'run': command, 'frame': 'out/a.png', 'style': 'arcade', 'scale': 4}]}))
+        stale = sha((out / 'a.png').read_bytes())
+        with mock.patch.dict(os.environ, {'PIXELATE_KIT': '/inherited/kit', 'PYTHONPATH': '/inherited/path'}):
+            result = pixelate('render', str(self.piece), '--json')
+        records = {r['name']: r for r in json.loads(result.stdout)}
+        self.assertEqual(records['a']['sha256'], stale)            # legacy renders in place and keeps it
+        self.assertEqual((out / 'env.txt').read_text(), repr(('/inherited/kit', '/inherited/path')))
 
 
 class GoldenComparison(unittest.TestCase):

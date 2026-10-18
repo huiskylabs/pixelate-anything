@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "id": "starter-scene-still",
+  "title": "Starter: Scene Still",
+  "status": "starter",
+  "summary": "A neutral still scene to copy: a plain sky over flat ground with placeholder shapes (a grey box with a marker, two flat blocks, a foreground strip), rendered once by a small Python program. It draws no subject of its own; its one frame passes the lofi frame gate.",
+  "request": "No user request: a new starter planned in docs/PLAN-library.md section 6.2 (`starter-scene-still`, script runtime, status starter): an empty piece for the scene mode that renders a still and passes the gate empty.",
+  "mode": "scene",
+  "tags": {
+    "subject": [
+      "scene",
+      "scaffold",
+      "placeholder",
+      "sky",
+      "ground",
+      "horizon",
+      "box"
+    ],
+    "setting": [
+      "abstract",
+      "day"
+    ],
+    "camera": "side",
+    "style": "lofi",
+    "era": "none",
+    "motion": "stills",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 320,
+    "h": 180,
+    "scale": 4
+  },
+  "runtime": "script",
+  "outputs": [
+    {
+      "name": "still",
+      "kind": "image",
+      "run": "python3 art/scene.py",
+      "frame": "out/still.png",
+      "golden": "out/golden/still.png",
+      "size": {
+        "w": 320,
+        "h": 180
+      },
+      "scale": 4,
+      "style": "lofi",
+      "brief": "brief.md",
+      "pal": "out/palette.json"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/scene.py",
+      "draws": "the composition and its layout constants (canvas size and scale, horizon row, foreground row, sky stops, block and box positions); writes out/still.png at 4x and out/palette.json",
+      "change_for": "the scene, camera, framing, canvas size"
+    },
+    {
+      "file": "art/pal.py",
+      "draws": "one strict palette by role: sky, ground, foreground strip, outline, placeholder box, flat blocks and the box's marker",
+      "change_for": "colour, time of day, mood"
+    },
+    {
+      "file": "art/sprites.py",
+      "draws": "two placeholder slot maps (a grey box with a marker centre and a flat block) and the blit helper",
+      "change_for": "the subject and its parts"
+    },
+    {
+      "file": "brief.md",
+      "draws": "the neutral brief: what the scaffold is, its layout and the gate command",
+      "change_for": "intent, hero and gate override lines once a subject exists"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-18",
+    "by": "Claude (agent), phase-2 starter unit; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

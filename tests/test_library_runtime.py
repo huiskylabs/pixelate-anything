@@ -1195,7 +1195,7 @@ class NewCommand(unittest.TestCase):
                 self.assertEqual(result.returncode, 0)
                 self.assertIn('usage: pixelate new KIND DIR', result.stdout)
                 self.assertIn('It is a plain copy', result.stdout)
-                self.assertIn('alias of\n`pixelate remix STARTER DIR` once remix exists', result.stdout)
+                self.assertIn('The library\nplan makes `new` an alias of remix later; it is not one yet.', result.stdout)
         missing = pixelate('new', 'scene')
         self.assertEqual(missing.returncode, 1)
         self.assertIn('usage: pixelate new KIND DIR', missing.stderr)

@@ -311,6 +311,53 @@ class Refuses(Base):
         self.assertTrue(any('does not verify' in e and 'no note is lost' in e for e in result['errors']), result['errors'])
         self.assertEqual(path.read_text(encoding='utf-8'), edited)
 
+    def test_an_edited_deleted_or_linked_packaged_output_is_not_replaced(self):
+        root = make_piece(self.work)
+        self.delivered(root)
+        packaged = root / deliver.PACKAGE / 'out' / 'a.png'
+        md = root / deliver.PACKAGE / deliver.DELIVERY
+        md.write_text(md.read_text(encoding='utf-8') + 'my notes\n', encoding='utf-8')
+        original, md_text = packaged.read_bytes(), md.read_bytes()
+        outside = self.work / 'outside.png'
+        outside.write_bytes(original)
+        for label, damage, expect in (
+                ('edited', lambda: packaged.write_bytes(original + b'x'), 'a.png (edited)'),
+                ('same size', lambda: packaged.write_bytes(bytes(len(original))), 'a.png (edited)'),
+                ('deleted', lambda: None, 'a.png (missing)'),
+                ('linked', lambda: packaged.symlink_to(outside), 'symlink in piece'),
+                ('not regular', lambda: os.mkfifo(packaged), 'not a regular file in the package')):
+            with self.subTest(damage=label):
+                packaged.unlink(missing_ok=True)
+                damage()
+                before = sorted(p.name for p in packaged.parent.iterdir())
+                try:
+                    errors = deliver.deliver(root)['errors']
+                except deliver.DeliveryError as exc:  # a link anywhere in the piece makes it invalid
+                    errors = [str(exc)]
+                self.assertTrue(any(expect in e for e in errors), errors)
+                self.assertEqual(md.read_bytes(), md_text)
+                self.assertEqual(sorted(p.name for p in packaged.parent.iterdir()), before)
+                self.assertEqual(sorted(p.name for p in (root / 'dist').iterdir()), ['delivery'])
+                self.assertEqual(outside.read_bytes(), original)
+        packaged.unlink()
+        packaged.write_bytes(original)
+        self.delivered(root)
+        self.assertIn('my notes', self.text(root))
+
+    def test_edited_sources_still_redeliver_over_an_intact_package_and_keep_notes(self):
+        root = make_piece(self.work)
+        self.delivered(root)
+        md = root / deliver.PACKAGE / deliver.DELIVERY
+        md.write_text(md.read_text(encoding='utf-8') + 'Sent to the client.\n', encoding='utf-8')
+        old = (root / deliver.PACKAGE / 'out' / 'a.png').read_bytes()
+        draw = root / 'art' / 'draw.py'
+        draw.write_text(draw.read_text(encoding='utf-8').replace('(24, 8, 40, 20)', '(20, 8, 40, 20)'), encoding='utf-8')
+        (root / 'out' / 'a.png').write_bytes(b'stale')  # the current output differs from the delivered one too
+        self.assertTrue(self.delivered(root)['ok'])
+        self.assertNotEqual((root / deliver.PACKAGE / 'out' / 'a.png').read_bytes(), old)
+        self.assertIn('Sent to the client.', self.text(root))
+        self.assertTrue(deliver.verify(root)['ok'])
+
     def test_a_render_that_runs_too_long_is_killed(self):
         root = make_piece(self.work, outputs=[image(run=f'{PY} -c "import time; time.sleep(60)"')])
         result = self.failed(root, timeout=1)

@@ -227,8 +227,9 @@ evidence, the declared approval (always `verified: false`, never treated as appr
 and a list of what was not tested. It ends with `Fingerprint: sha256:...` of the canonical JSON; the time is left
 out, so delivering the same bytes again gives the same fingerprint. Write notes outside the block: delivering
 again keeps them. An existing `dist/delivery` is replaced only when its `DELIVERY.md` still verifies and it holds
-only the files that facts list; anything else (a link, a foreign folder, edited facts, an extra file) is left as
-it is and delivery fails, so no note or file is lost. A failed delivery writes no package and leaves an earlier
+only the files that facts list, each a regular file whose hash and size are the recorded ones; anything else (a link,
+a foreign folder, edited facts, an edited, deleted or extra file) is left as it is and delivery fails, so no note or
+file is lost. Changed sources are no obstacle: they are why to deliver again. A failed delivery writes no package and leaves an earlier
 one in place. Each delivery appends a `type: deliver` record (request, lineage, `--set` values, output hashes,
 fingerprint, `DELIVERY.md` hash, errors) to `DIR/.pixelate/runs.jsonl`, after render's own `type: render`
 record; `PIXELATE_NO_LOG=1` turns both off and keeps no snapshot, and the bytes are then read back and compared

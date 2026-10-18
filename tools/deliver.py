@@ -558,6 +558,24 @@ def package_files(d):
     return sorted(found)
 
 
+def checked_outputs(d, facts):
+    """(piece id, outputs) of facts that name this piece and package with well-formed output entries"""
+    try:
+        piece_id, outputs = facts['piece']['id'], facts['outputs']
+        if piece_id != d.name or facts['package'] != PACKAGE or not isinstance(outputs, list):
+            raise DeliveryError('facts name another piece or package')
+        for o in outputs:
+            library.relative(o['path'], 'facts output path')
+            if (o['path'] == DELIVERY or not isinstance(o['sha256'], str) or not re.fullmatch(r'[0-9a-f]{64}', o['sha256'])
+                    or type(o['bytes']) is not int):
+                raise DeliveryError(f"facts: bad output entry {o['name']}")
+        for rel in facts['sources']:
+            library.relative(rel, 'facts source path')
+    except (library.LibraryError, KeyError, TypeError, AttributeError) as exc:
+        raise DeliveryError(f'facts: malformed ({exc!r})') from None
+    return piece_id, outputs
+
+
 def owned_package(d):
     """(before, after) notes of an existing package deliver wrote, None when there is none; raises
     DeliveryError for anything deliver must not replace"""
@@ -574,10 +592,31 @@ def owned_package(d):
     except (OSError, DeliveryError) as exc:
         raise DeliveryError(f'{PACKAGE}/{DELIVERY} does not verify ({exc}); it was not replaced, so no note is lost; '
                             'move it away or restore it') from None
-    listed = {DELIVERY} | {o['path'] for o in facts['outputs']}
+    try:
+        _, outputs = checked_outputs(d, facts)
+    except DeliveryError as exc:
+        raise DeliveryError(f'{PACKAGE}/{DELIVERY} does not verify ({exc}); it was not replaced, so no note is lost; '
+                            'move it away or restore it') from None
+    listed = {DELIVERY} | {o['path'] for o in outputs}
     extra = sorted(set(package_files(d)) - listed)
     if extra:
         raise DeliveryError(f'{PACKAGE} holds files deliver did not write ({", ".join(extra[:5])}); move them away')
+    # The packaged outputs are the user's copy: replace them only while each still is what was delivered.
+    # Sources and art may have changed since (that is why to deliver again), so they are not compared.
+    altered = []
+    for o in outputs:
+        try:
+            now = hash_regular(d, f"{PACKAGE}/{o['path']}")
+        except FileNotFoundError:
+            altered.append(f"{o['path']} (missing)")
+        except OSError as exc:
+            altered.append(f"{o['path']} ({exc})")
+        else:
+            if now != (o['sha256'], o['bytes']):
+                altered.append(f"{o['path']} (edited)")
+    if altered:
+        raise DeliveryError(f'{PACKAGE} holds packaged outputs that are not what was delivered ({", ".join(altered[:5])}); '
+                            'it was not replaced; restore them or move the package away')
     return before, after
 
 
@@ -730,16 +769,7 @@ def verify(d):
         return result
     try:
         _, facts, _ = read_delivery(d)
-        piece_id, outputs = facts['piece']['id'], facts['outputs']
-        if piece_id != d.name or facts['package'] != PACKAGE or not isinstance(outputs, list):
-            raise DeliveryError('facts name another piece or package')
-        for o in outputs:
-            library.relative(o['path'], 'facts output path')
-            if (o['path'] == DELIVERY or not isinstance(o['sha256'], str) or not re.fullmatch(r'[0-9a-f]{64}', o['sha256'])
-                    or type(o['bytes']) is not int):
-                raise DeliveryError(f"facts: bad output entry {o['name']}")
-        for rel in facts['sources']:
-            library.relative(rel, 'facts source path')
+        piece_id, outputs = checked_outputs(d, facts)
     except FileNotFoundError:
         check('facts', False, f'no {PACKAGE}/{DELIVERY}: not delivered')
         return result

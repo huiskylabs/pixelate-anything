@@ -96,9 +96,12 @@ class AuthoringDocsTest(unittest.TestCase):
             self.assertIn(f'pixelate {command}', help_text, f'authoring.md offers `pixelate {command}`')
             if command in ('library', 'review'):
                 self.assertIn(sub, help_text, f'authoring.md offers `pixelate {command} {sub}`')
-        for unbuilt in ('pixelate deliver', 'pixelate library add', 'render --set'):
+        for unbuilt in ('pixelate deliver', 'pixelate library add'):
             self.assertNotIn(unbuilt, offered)
             self.assertNotIn(unbuilt, help_text)
+        self.assertIn('render DIR --set name=value', offered)
+        self.assertIn('--set', help_text)
+        self.assertIn('engine/pack `render --set`', not_built)
         self.assertIn('pixelate deliver', not_built)
         self.assertNotRegex(offered, r'(?i)\bMCP (tools? )?(for )?(find|remix|deliver)')
 

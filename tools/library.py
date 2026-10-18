@@ -536,30 +536,12 @@ def kit_render():
     return render
 
 
-def gate_snapshot(source, work, output, folder):
-    """Copy what the image gate reads into a private folder: the frame and generated gate inputs as the
-    run left them in `work`, the brief from the source piece. Every file is read without following a
-    link. Returns an error string, or None."""
-    render = kit_render()
-    for key in ('frame', *render.GATE_FILES):
-        if not output.get(key):
-            continue
-        try:
-            data = render.read_regular(source if key == 'brief' else work, output[key])
-        except FileNotFoundError:
-            continue  # the gate reports a missing input
-        except render.UnsafePath as exc:
-            return f'unsafe gate input: {exc}'
-        target = folder / output[key]
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-    return None
-
-
 def check_output(source, work, temp, output, canvas, status, result):
-    """Verify one output the group's run just wrote; records into `result`. A gate failure blocks
-    every status but `study`, where plan section 2.1 asks only for a render; a gate that errors
-    blocks every status."""
+    """Verify one output the group's run just wrote; records into `result`. The output is read once,
+    without following a link; those bytes are hashed, compared with the golden and, in a private
+    snapshot with the generated gate inputs from `work` and the brief from `source`, gated. A gate
+    failure blocks every status but `study`, where plan section 2.1 asks only for a render; a gate that
+    errors blocks every status."""
     render = kit_render()
     path = output.get('frame') or output['file']
     try:
@@ -586,14 +568,19 @@ def check_output(source, work, temp, output, canvas, status, result):
             return
     result['golden'] = compare_golden(io.BytesIO(data), golden, output.get('size') or canvas, output.get('scale', 1))
     folder = Path(tempfile.mkdtemp(prefix=f"gate-{output['name']}-", dir=temp))
-    error = gate_snapshot(source, work, output, folder)
+    error = render.gate_snapshot(folder, output, data, work, source)
     if error:
         result.update(status='failed', error=error)
         return
-    result.update(render.technical_gate(folder, output))
-    result['gate_ok'] = result['gate']['ok'] and result.get('era', {'ok': True})['ok']
-    # The era check exits nonzero only when it could not run.
-    errored = 'error' in result['gate'] or not result.get('era', {'ok': True})['ok']
+    gate = render.technical_gate(folder, output)
+    result['gate'] = gate['gate']
+    if 'era' in gate:
+        # `pixelate era` prints violations yet exits 0, so its status says only that it ran; the gate's
+        # own --era lines decide era legality.
+        result['era'] = {'ran': gate['era']['ok'], 'report': gate['era']['report']}
+    era_ran = result.get('era', {'ran': True})['ran']
+    result['gate_ok'] = result['gate']['ok'] and era_ran
+    errored = 'error' in result['gate'] or not era_ran
     if result['gate_ok'] or (status == 'study' and not errored):
         result['status'] = 'passed' if result['golden']['ok'] else 'failed'
         if not result['gate_ok']:

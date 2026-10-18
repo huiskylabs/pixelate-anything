@@ -1,7 +1,10 @@
 """`pixelate find`, `pixelate library` and `pixelate render` on synthetic pieces; trusted fixture code only."""
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -9,6 +12,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image, PngImagePlugin
 
@@ -18,6 +22,8 @@ spec = importlib.util.spec_from_file_location('piece_library', TOOLS / 'library.
 assert spec is not None and spec.loader is not None
 library = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(library)
+sys.path.insert(0, str(TOOLS))
+import render  # noqa: E402  the module library.kit_render() imports
 
 # Imports kit modules without a hard-coded kit path: render and test put kit tools/ on PYTHONPATH.
 # The frame passes the arcade gate: a dark night, a lit block and a foreground of scattered stones.
@@ -34,6 +40,20 @@ im.paste((90, 60, 40), (26, 10, 38, 18))
 assert colorlib
 im.save('out/a@1x.png')
 im.resize((256, 192), Image.NEAREST).save('out/a.png')
+'''
+# A 256x240 frame of thousands of colours: no NES screen, palette or tile budget allows it.
+NES_ILLEGAL = '''from PIL import Image
+im = Image.new('RGB', (256, 240))
+im.putdata([((x * 7) % 256, (y * 5) % 256, (x * y) % 256) for y in range(240) for x in range(256)])
+im.save('out/a.png')
+'''
+# A 160x144 frame in the four Game Boy shades with four unique tiles: legal for that era.
+GAMEBOY_LEGAL = '''from PIL import Image
+im = Image.new('RGB', (160, 144), (155, 188, 15))
+im.paste((15, 56, 15), (0, 112, 160, 144))
+im.paste((48, 98, 48), (40, 40, 72, 112))
+im.paste((103, 142, 35), (48, 48, 64, 64))
+im.save('out/a.png')
 '''
 SOUND = '''import pathlib
 pathlib.Path('sound/tone.wav').write_bytes(b'RIFF fixture audio')
@@ -71,6 +91,72 @@ def make_piece(library_root, piece_id='harbour'):
             'knobs': {}, 'provenance': {'made': '2026-10-18', 'by': 'fixture author'}, 'license': 'MIT'}
     save(root, data)
     return root, data
+
+
+def make_era_piece(library_root, era, draw, size):
+    """An accepted era piece: one 1x image gated by `--era` alone, its golden the frame its command draws."""
+    root = Path(library_root) / f'{era}-screen'
+    for folder in ('art', 'media', 'out/golden'):
+        (root / folder).mkdir(parents=True)
+    (root / 'art' / 'draw.py').write_text(draw, encoding='utf-8')
+    subprocess.run([sys.executable, 'art/draw.py'], cwd=root, check=True)
+    shutil.copy(root / 'out' / 'a.png', root / 'out' / 'golden' / 'a.png')
+    for path in ('media/thumb.png', 'media/contact.png', 'notes.md'):
+        (root / path).write_bytes(b'fixture')
+    w, h = size
+    data = {'schema': 1, 'id': root.name, 'title': 'Screen', 'summary': 'A console screen.',
+            'request': f'a {era} screen', 'status': 'accepted', 'mode': 'era', 'runtime': 'script',
+            'tags': {'subject': ['screen'], 'setting': ['night'], 'camera': 'none', 'style': 'none',
+                     'era': era, 'motion': 'stills', 'sound': 'none'},
+            'canvas': {'w': w, 'h': h, 'scale': 1},
+            'outputs': [{'name': 'a', 'kind': 'image', 'run': f'{sys.executable} art/draw.py', 'frame': 'out/a.png',
+                         'golden': 'out/golden/a.png', 'era': era}],
+            'anatomy': [{'file': 'art/draw.py', 'draws': 'the screen', 'change_for': 'the screen'}],
+            'knobs': {name: {'type': 'int', 'default': 1, 'edits': 'art/draw.py'} for name in ('seed', 'size')},
+            'provenance': {'made': '2026-10-18', 'by': 'fixture author'},
+            'media': {'thumb': 'media/thumb.png', 'contact': 'media/contact.png'},
+            'review': {'notes': 'notes.md', 'approved_by': 'user', 'record': None}, 'license': 'MIT'}
+    save(root, data)
+    return root, data
+
+
+def png(color, size=(256, 192)):
+    buffer = io.BytesIO()
+    Image.new('RGB', size, color).save(buffer, format='PNG')
+    return buffer.getvalue()
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+@contextlib.contextmanager
+def lingering_writer(root, rel, data):
+    """Patch render.read_regular so that right after the first read of rel under root, a process the
+    run left behind replaces rel with data. Yields the list of reads of rel."""
+    real = render.read_regular
+    reads = []
+    def read(base, path):
+        content = real(base, path)
+        if Path(base) == root and path == rel:
+            reads.append(path)
+            if len(reads) == 1:
+                (root / rel).write_bytes(data)
+        return content
+    with mock.patch.object(render, 'read_regular', read):
+        yield reads
+
+
+@contextlib.contextmanager
+def gated_frames():
+    """Patch render.technical_gate to record the hash of the frame each gate run reads."""
+    real = render.technical_gate
+    hashes = []
+    def gate(folder, im):
+        hashes.append(sha((Path(folder) / im['frame']).read_bytes()))
+        return real(folder, im)
+    with mock.patch.object(render, 'technical_gate', gate):
+        yield hashes
 
 
 def write_canary(frame, path):
@@ -401,6 +487,94 @@ class LibraryTest(Fixture):
         result, _ = self.library_test('harbour')
         self.assertEqual(result.returncode, 2)
         self.assertIn('duplicate JSON key', result.stderr)
+
+
+class ByteBinding(Fixture):
+    """A process the run leaves behind may rewrite the frame between checks; one read binds them all."""
+
+    def test_library_hashes_compares_and_gates_one_read_of_the_frame(self):
+        work = self.library.parent / 'work' / 'harbour'
+        shutil.copytree(self.piece, work)
+        drawn, later = (work / 'out' / 'a.png').read_bytes(), png((250, 250, 250))
+        output, result = self.data['outputs'][0], {}
+        with lingering_writer(work, 'out/a.png', later) as reads, gated_frames() as gated:
+            library.check_output(self.piece, work, self.library.parent, output, self.data['canvas'], 'accepted', result)
+        self.assertEqual((work / 'out' / 'a.png').read_bytes(), later)  # the writer did change the file
+        self.assertEqual(reads, ['out/a.png'])
+        self.assertEqual((result['sha256'], gated), (sha(drawn), [sha(drawn)]))
+        self.assertEqual(result['golden'], {'ok': True, 'pixels': 0})
+        self.assertEqual((result['status'], result['gate_ok']), ('passed', True))
+
+    def test_render_gates_and_judges_the_bytes_it_hashes(self):
+        drawn, later = (self.piece / 'out' / 'a.png').read_bytes(), png((250, 250, 250))
+        with mock.patch.dict(os.environ), lingering_writer(self.piece, 'out/a.png', later) as reads, \
+                gated_frames() as gated:
+            os.environ.pop('PIXELATE_NO_LOG', None)
+            record = render.render_one(self.piece, self.data['outputs'][0], run=False, piece=True)
+        self.assertEqual((self.piece / 'out' / 'a.png').read_bytes(), later)
+        self.assertEqual(reads, ['out/a.png'])
+        self.assertEqual((record['sha256'], gated), (sha(drawn), [sha(drawn)]))
+        self.assertTrue(record['gate']['ok'], record['gate'])
+        self.assertIn('defects', record['judge'])
+        judged = json.loads((self.piece / '.pixelate' / 'judge-log.jsonl').read_text().splitlines()[-1])
+        self.assertEqual(judged['sha256'], sha(drawn))
+        self.assertTrue((self.piece / 'out' / 'a.judge.png').is_file())  # the overlay stays beside the frame
+
+
+class EraLegality(unittest.TestCase):
+    """Era legality comes from the gate's `--era` lines; `pixelate era` only reports and exits 0."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.library = Path(temp.name) / 'library'
+        self.library.mkdir()
+
+    def library_test(self, piece_id):
+        result = pixelate('library', '--library', str(self.library), 'test', piece_id)
+        return result, json.loads(result.stdout)
+
+    def test_illegal_era_frame_with_an_exact_golden_fails_an_accepted_piece(self):
+        piece, data = make_era_piece(self.library, 'nes', NES_ILLEGAL, (256, 240))
+        era = pixelate('era', 'out/a.png', '--era', 'nes', cwd=piece)
+        self.assertEqual(era.returncode, 0, era.stderr)
+        self.assertIn('the NES-style 8-bit screen is 256x224', era.stdout)
+        self.assertNotIn('legal', era.stdout)
+        check = pixelate('check', 'out/a.png', '--era', 'nes', cwd=piece)
+        self.assertEqual(check.returncode, 1, check.stdout + check.stderr)
+        self.assertRegex(check.stdout, r'(?m)^FAIL era nes ')
+        self.assertRegex(check.stdout, r'(?m)^FAIL era tiles ')
+        result, report = self.library_test(piece.name)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual((report['ok'], report['gate_ok']), (False, False))
+        image = report['pieces'][0]['outputs'][0]
+        self.assertEqual(image['golden'], {'ok': True, 'pixels': 0})
+        self.assertTrue(image['era']['ran'])
+        self.assertNotIn('ok', image['era'])
+        self.assertFalse(image['gate']['ok'])
+        self.assertNotIn('error', image['gate'])
+        self.assertTrue(any(line.startswith('FAIL era nes ') for line in image['gate']['fail']), image['gate'])
+        self.assertEqual((image['status'], image['gate_ok']), ('failed', False))
+        self.assertNotIn('diagnostic', image)
+        # A study only has to render: the same verdict is reported, not blocking, and gate_ok stays false.
+        save(piece, {**data, 'status': 'study'})
+        result, report = self.library_test(piece.name)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual((report['ok'], report['gate_ok']), (True, False))
+        image = report['pieces'][0]['outputs'][0]
+        self.assertEqual((image['status'], image['gate_ok']), ('passed', False))
+        self.assertEqual(image['diagnostic'], 'study: the technical gate failed; reported, not blocking')
+
+    def test_legal_era_frame_passes_the_gate(self):
+        piece, _ = make_era_piece(self.library, 'gameboy', GAMEBOY_LEGAL, (160, 144))
+        check = pixelate('check', 'out/a.png', '--era', 'gameboy', cwd=piece)
+        self.assertEqual(check.returncode, 0, check.stdout)
+        result, report = self.library_test(piece.name)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        image = report['pieces'][0]['outputs'][0]
+        self.assertTrue(image['gate']['ok'])
+        self.assertTrue(any(line.startswith('PASS era gameboy ') for line in check.stdout.splitlines()))
+        self.assertEqual((image['status'], image['gate_ok'], report['gate_ok']), ('passed', True, True))
 
 
 class RenderPiece(Fixture):

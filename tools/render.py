@@ -4,9 +4,10 @@
 One command from art to a verified still. DIR/piece.json (a library piece, `references/piece.md`) or
 DIR/render.json names each image: the command that draws it, the frame it writes and how it is
 gated. For every image, render runs the command, gates the frame (`pixelate check`, with the brief's
-`## Image NAME` lines via --image), era-checks it when it names an era, judges it (`pixelate judge`,
-overlay beside the frame, logged to the corpus) and, with --critique, runs the art director
-(`pixelate critique --run`). It prints one compact line per image and writes DIR/render-report.json,
+`## Image NAME` lines via --image), era-checks it when it names an era (`pixelate era` reports
+violations but exits 0, so `era.ok` means the check ran; the gate's --era lines decide era legality),
+judges it (`pixelate judge`, overlay beside the frame, logged to the corpus) and, with --critique,
+runs the art director (`pixelate critique --run`). It prints one compact line per image and writes DIR/render-report.json,
 plus one record in DIR/.pixelate/runs.jsonl; it exits 1 when any image fails its command or its
 gate. PIXELATE_NO_LOG=1 turns off all of its logs (run, judge, critique).
 
@@ -25,11 +26,12 @@ required for the gate.
 piece.json outputs replace render.json: an image output takes the same fields plus `kind`, and audio
 and export outputs are run and hashed but never gated. Piece commands run with the kit's `tools/` first
 on PYTHONPATH and the kit root (the `pixelate` command) first on PATH. After a piece command, a frame,
-file or gate input reached through a link, or not a regular file, fails, and the hash is of the bytes
-read without following links; the gate and judge then reopen the paths. A folder with both files is an
-error.
+file or gate input reached through a link, or not a regular file, fails. The frame is read once without
+following links, and the gate, era check and judge run on a private copy of those bytes and of the gate
+inputs, so the hash is of the bytes they checked; --critique reads the frame in DIR. render.json images
+are hashed, gated and judged in place. A folder with both files is an error.
 """
-import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, stat, subprocess, sys, time
+import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, stat, subprocess, sys, tempfile, time
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 PIXELATE = [sys.executable, str(KIT / 'pixelate')]
@@ -96,17 +98,24 @@ def remove_regular(root, rel):
     finally:
         os.close(fd)
 
-def unsafe_inputs(d, im):
-    """the first gate input of a piece image that exists but is a link or not a regular file, else None;
-    a missing input is left for the gate to report"""
+def gate_snapshot(folder, im, frame, d, brief_root=None):
+    """write a private copy of what the image gate reads into folder: the bytes `frame` at im's frame
+    path, and each existing gate input of im read once from d (the brief from brief_root, when given)
+    without following a link. Returns 'unsafe gate input: ...' for an input that is a link or not a
+    regular file, else None; a missing input is left for the gate to report"""
+    files = {im['frame']: frame}
     for key in GATE_FILES:
-        if im.get(key):
+        if im.get(key) and im[key] not in files:
             try:
-                read_regular(d, im[key])
+                files[im[key]] = read_regular(brief_root if key == 'brief' and brief_root else d, im[key])
             except FileNotFoundError:
                 pass
             except UnsafePath as exc:
                 return 'unsafe gate input: %s' % exc
+    for rel, data in files.items():
+        target = pathlib.Path(folder) / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
     return None
 
 def load(dirpath):
@@ -187,17 +196,40 @@ def technical_gate(d, im):
     fails = [l.strip() for l in g.stdout.splitlines() if re.match(r'^\s*FAIL\b', l)]
     passes = [l for l in g.stdout.splitlines() if re.match(r'^\s*PASS\b', l)]
     rec['gate'] = {'ok': g.returncode == 0, 'pass': len(passes), 'fail': fails[:8]}
-    # A gate that finished ends with its summary; any other failure is an error, not a gate verdict.
-    if g.returncode and not re.search(r'^(ALL PASS|FAIL: \d+ of \d+ checks)', g.stdout, re.M):
+    # A failing gate that finished exits 1 with its summary as the last line and no traceback; any
+    # other failure, such as a crash after the summary, is an error, not a gate verdict.
+    last = (g.stdout.strip().splitlines() or [''])[-1]
+    if g.returncode and (g.returncode != 1 or not re.match(r'FAIL: \d+ of \d+ checks', last)
+                         or 'Traceback (most recent call last)' in g.stderr):
         rec['gate']['error'] = _tail(g.stderr or g.stdout)
     if im.get('era'):
+        # `pixelate era` prints violations and exits 0; nonzero only when it could not run. Era
+        # legality is the gate's own --era lines above.
         e = subprocess.run(PIXELATE + ['era', im['frame'], '--era', im['era']], cwd=d, capture_output=True, text=True)
         rec['era'] = {'ok': e.returncode == 0, 'report': _tail(e.stdout, 3)}
     return rec
 
+def judge(d, im, frame):
+    """`pixelate judge` on frame (a path from d), the overlay beside im's frame in d"""
+    overlay = (d / im['frame']).with_suffix('.judge.png')
+    jargs = ['judge', str(frame), '--json', '--overlay', str(overlay.relative_to(d))]
+    if logging():
+        jargs += ['--log', '--note', 'render']
+    if im.get('scale'):
+        jargs += ['--scale', str(im['scale'])]
+    if im.get('judge_ignore'):
+        jargs += ['--ignore', im['judge_ignore']]
+    j = subprocess.run(PIXELATE + jargs, cwd=d, capture_output=True, text=True)
+    if j.returncode:
+        return {'error': _tail(j.stderr or j.stdout)}
+    found = json.loads(j.stdout)['defects']
+    return {'defects': [{k: x[k] for k in ('id', 'kind', 'box', 'severity')} for x in found],
+            'overlay': str(overlay.relative_to(d)) if found else None}
+
 def render_one(d, im, run=True, critique=False, env=None, piece=False):
     """piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
-    without a link"""
+    without a link; its frame is read once and the gate, era check and judge run on a private snapshot
+    of those bytes and of the gate inputs, so the recorded hash is of the bytes they checked"""
     rec = {'name': im['name'], 'frame': im['frame']}
     if run and im.get('run'):
         rec['run'] = run_command(im['run'], d, env)
@@ -212,33 +244,23 @@ def render_one(d, im, run=True, critique=False, env=None, piece=False):
         except UnsafePath as exc:
             rec['error'] = 'unsafe frame: %s' % exc
             return rec
-        unsafe = unsafe_inputs(d, im)
-        if unsafe:
-            rec['error'] = unsafe
-            return rec
+        with tempfile.TemporaryDirectory(prefix='pixelate-render-') as folder:
+            folder = pathlib.Path(folder)
+            unsafe = gate_snapshot(folder, im, data, d)
+            if unsafe:
+                rec['error'] = unsafe
+                return rec
+            rec['sha256'] = hashlib.sha256(data).hexdigest()
+            rec.update(technical_gate(folder, im))
+            rec['judge'] = judge(d, im, folder / im['frame'])
     elif (d / im['frame']).is_file():
         data = (d / im['frame']).read_bytes()
+        rec['sha256'] = hashlib.sha256(data).hexdigest()   # the gate and judge reopen the path
+        rec.update(technical_gate(d, im))
+        rec['judge'] = judge(d, im, im['frame'])
     else:
         rec['error'] = 'frame not found: %s' % im['frame']
         return rec
-    rec['sha256'] = hashlib.sha256(data).hexdigest()   # the bytes gated and judged here
-    rec.update(technical_gate(d, im))
-    frame = d / im['frame']
-    overlay = frame.with_suffix('.judge.png')
-    jargs = ['judge', im['frame'], '--json', '--overlay', str(overlay.relative_to(d))]
-    if logging():
-        jargs += ['--log', '--note', 'render']
-    if im.get('scale'):
-        jargs += ['--scale', str(im['scale'])]
-    if im.get('judge_ignore'):
-        jargs += ['--ignore', im['judge_ignore']]
-    j = subprocess.run(PIXELATE + jargs, cwd=d, capture_output=True, text=True)
-    if j.returncode == 0:
-        found = json.loads(j.stdout)['defects']
-        rec['judge'] = {'defects': [{k: x[k] for k in ('id', 'kind', 'box', 'severity')} for x in found],
-                        'overlay': str(overlay.relative_to(d)) if found else None}
-    else:
-        rec['judge'] = {'error': _tail(j.stderr or j.stdout)}
     if critique and im.get('brief'):
         c = subprocess.run(PIXELATE + ['critique', im['frame'], '--brief', im['brief'], '--run']
                            + (['--log'] if logging() else []),

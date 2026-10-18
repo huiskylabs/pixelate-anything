@@ -92,10 +92,13 @@ class ScoreTest(unittest.TestCase):
             img.write_bytes(b'image bytes')
             prompt = pathlib.Path(tmp, 'skill-1', 'prompt.md')
             prompt.write_text('Fresh brief\n\n## Tools available\nSkill arm')
+            (img.parent.parent / 'reference.jpg').write_bytes(b'reference bytes')
             def check(frame, brief, work):
                 self.assertEqual(frame.name, 'frame.png')
                 self.assertNotIn('skill-1', str(frame))
                 self.assertEqual(frame.read_bytes(), img.read_bytes())
+                self.assertEqual((work / 'reference.jpg').read_bytes(), b'reference bytes')
+                self.assertNotIn('skill-1', str(work / 'reference.jpg'))
                 self.assertEqual(brief, prompt)
                 return 'A'
             with mock.patch.object(score, 'critique', side_effect=check):

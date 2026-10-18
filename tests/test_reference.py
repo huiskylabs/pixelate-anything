@@ -103,7 +103,8 @@ class ReferenceTest(unittest.TestCase):
                                       'mcp.server': types.ModuleType('mcp.server'),
                                       'mcp.server.fastmcp': server_module}):
             from tools import mcp_server
-            with patch.object(mcp_server, 'WORK', self.root):
+            with patch.object(mcp_server, 'WORK', self.root), patch.object(
+                    mcp_server, 'Image', lambda path: path):
                 result = mcp_server.inspect_reference(str(self.photo), 'mcp.json')
                 self.assertIn('camera: unknown', result[0])
                 self.assertEqual(result[1], str(self.root / 'mcp.overlay.png'))

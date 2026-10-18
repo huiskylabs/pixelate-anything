@@ -45,7 +45,9 @@ def critique(img, prompt_md, work):
     brief = work / 'blind-brief.md'
     text = prompt_md.read_text()
     first = text.strip().split('\n\n')[0].replace('\n', ' ')
-    brief.write_text('Request: %s\n\n## 0. Choices to confirm\n\n%s\n' % (first, text.split('## Tools available')[0].strip()))
+    brief.write_text('Request: %s\n\n## 0. Choices to confirm\n\n%s\n' % (first, text.split('## Tools available')[0].strip()) +
+                     ('\nReference photo to inspect: %s\n' % (work / 'reference.jpg')
+                      if (work / 'reference.jpg').is_file() else ''))
     r = subprocess.run(PIXELATE + ['critique', str(img), '--brief', str(brief), '--run', '--save',
                                    str(work / ('blind-critique-%s.md' % img.stem))], capture_output=True, text=True)
     g = re.search(r'^GRADE:\s*([ABC])', r.stdout, re.M)
@@ -57,6 +59,9 @@ def blind_grade(img, prompt_md):
         work = pathlib.Path(tmp)
         anonymous = work / 'frame.png'
         shutil.copyfile(img, anonymous)
+        reference = img.parent.parent / 'reference.jpg'
+        if reference.is_file():
+            shutil.copyfile(reference, work / 'reference.jpg')
         return critique(anonymous, prompt_md, work)
 
 

@@ -195,7 +195,7 @@ class Copy(Fixture):
                          'copied, not verified', 'fixture author, from fixture photo 42',
                          '| `art/draw.py` | the harbour wall \\| stones | the setting |',
                          '| time | night, dusk | night | `art/draw.py` |', '| seed | int | 7 | `art/draw.py` |',
-                         '`pixelate render` does not apply knobs yet', '| subject | harbour, wall |  |  |',
+                         'engine and pack pieces take no `--set` yet', '| subject | harbour, wall |  |  |',
                          '| camera | side |  |  |', '| palette |  |  |  |', '| composition |  |  |  |',
                          '| motion | stills |  |  |', '| sound | sfx |  |  |', 'What stays:', 'What changes:',
                          '## Checklist', '- [ ] Status stays `study`', '| a | image | passed: golden match, technical gate PASS |',

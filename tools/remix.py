@@ -131,8 +131,10 @@ def remix_md(manifest, base, baseline, baseline_sha):
     lines += [f"| `{a['file']}` | {cell(a['draws'])} | {cell(a['change_for'])} |" for a in manifest['anatomy']]
     lines += ['', '## Knobs', '']
     if manifest['knobs']:
-        lines += ['Declared settings and the file that reads each. `pixelate render` does not apply knobs yet, so a '
-                  'knob change is an edit to its file.', '', '| Knob | Values | Default | Edits |', '|---|---|---|---|']
+        lines += ['Declared settings and the file that reads each. For a script piece whose program reads `knobs()`, '
+                  '`pixelate render DIR --set KNOB=VALUE` renders a variant without an edit; engine and pack pieces '
+                  'take no `--set` yet, so there a knob change is an edit to its file.', '',
+                  '| Knob | Values | Default | Edits |', '|---|---|---|---|']
         lines += [f"| {name} | {cell(knob.get('values', knob.get('type')))} | {cell(knob['default'])} | `{knob['edits']}` |"
                   for name, knob in manifest['knobs'].items()]
     else:

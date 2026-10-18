@@ -219,6 +219,45 @@ def review_binding(root, manifest):
     fail(root, 'review record does not match an image output')
 
 
+def read_manifest(root):
+    """The parsed `piece.json` of the piece folder root: a regular file within the size limit, strict JSON
+    with unique keys and finite numbers. Its fields are not checked here."""
+    path = asset(root, 'piece.json', 'piece.json')
+    if path.stat().st_size > MAX_MANIFEST:
+        fail(path, 'manifest too large')
+    try:
+        return json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_pairs,
+                          parse_constant=lambda value: fail(path, f'nonfinite JSON number: {value}'))
+    except RecursionError:
+        fail(path, 'invalid JSON: nested too deeply')
+    except (ValueError, UnicodeError) as exc:
+        fail(path, f'invalid JSON: {exc}')
+
+
+def check_knobs(root, knobs):
+    """Check a manifest's `knobs` object: slug names, each an enum of distinct scalars with a matching
+    default or an integer, and an existing `edits` source."""
+    if not isinstance(knobs, dict):
+        fail('knobs', 'expected object')
+    for name, knob in knobs.items():
+        slug(name, 'knob name')
+        if not isinstance(knob, dict):
+            fail(name, 'expected knob object')
+        if 'values' in knob:
+            fields(knob, ('values', 'default', 'edits'), where=name)
+            values = knob['values']
+            if (not isinstance(values, list) or not values or
+                    any(type(v) not in (str, int, float, bool) for v in values) or
+                    len({(type(v).__name__, v) for v in values}) != len(values) or
+                    not any(type(v) is type(knob['default']) and v == knob['default'] for v in values)):
+                fail(name, 'expected distinct scalar values and matching default')
+        else:
+            fields(knob, ('type', 'default', 'edits'), where=name)
+            if knob['type'] != 'int' or type(knob['default']) is not int:
+                fail(name, 'expected integer knob')
+        asset(root, knob['edits'], f'knobs.{name}.edits')
+
+
 def validate(root):
     """Return validated manifest for one piece directory; never execute its run commands."""
     root = Path(root).absolute()
@@ -230,16 +269,8 @@ def validate(root):
         for name in dirs + files:
             if (Path(base) / name).is_symlink():
                 fail(root, f'symlink in piece: {Path(base) / name}')
-    path = asset(root, 'piece.json', 'piece.json')
-    if path.stat().st_size > MAX_MANIFEST:
-        fail(path, 'manifest too large')
-    try:
-        manifest = json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_pairs,
-                              parse_constant=lambda value: fail(path, f'nonfinite JSON number: {value}'))
-    except RecursionError:
-        fail(path, 'invalid JSON: nested too deeply')
-    except (ValueError, UnicodeError) as exc:
-        fail(path, f'invalid JSON: {exc}')
+    path = root / 'piece.json'
+    manifest = read_manifest(root)
     fields(manifest, ('schema', 'id', 'title', 'summary', 'request', 'status', 'mode', 'runtime',
                       'tags', 'canvas', 'outputs', 'anatomy', 'knobs', 'provenance', 'license'),
            ('recipes', 'kit', 'media', 'lineage', 'review'), str(path))
@@ -290,25 +321,7 @@ def validate(root):
         for key in ('draws', 'change_for'):
             text(entry[key], f'anatomy.{key}')
     knobs = manifest['knobs']
-    if not isinstance(knobs, dict):
-        fail('knobs', 'expected object')
-    for name, knob in knobs.items():
-        slug(name, 'knob name')
-        if not isinstance(knob, dict):
-            fail(name, 'expected knob object')
-        if 'values' in knob:
-            fields(knob, ('values', 'default', 'edits'), where=name)
-            values = knob['values']
-            if (not isinstance(values, list) or not values or
-                    any(type(v) not in (str, int, float, bool) for v in values) or
-                    len({(type(v).__name__, v) for v in values}) != len(values) or
-                    not any(type(v) is type(knob['default']) and v == knob['default'] for v in values)):
-                fail(name, 'expected distinct scalar values and matching default')
-        else:
-            fields(knob, ('type', 'default', 'edits'), where=name)
-            if knob['type'] != 'int' or type(knob['default']) is not int:
-                fail(name, 'expected integer knob')
-        asset(root, knob['edits'], f'knobs.{name}.edits')
+    check_knobs(root, knobs)
     provenance = manifest['provenance']
     fields(provenance, ('made', 'by'), where='provenance')
     text(provenance['by'], 'provenance.by')

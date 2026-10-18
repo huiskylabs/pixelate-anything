@@ -1,6 +1,6 @@
 # Remix a library piece
 
-Read this before `pixelate remix`. It covers the copy and its baseline only: knobs (`render --set`), distance from the base and `pixelate deliver` are not built yet, and `pixelate new` is still a plain copy, not an alias of remix.
+Read this before `pixelate remix`. It covers the copy and its baseline only. `render --set` works for script pieces only (`references/piece.md`); distance from the base and `pixelate deliver` are not built yet, and `pixelate new` is still a plain copy, not an alias of remix.
 
 ```
 pixelate find "an ancient temple wakes under a jungle at night"

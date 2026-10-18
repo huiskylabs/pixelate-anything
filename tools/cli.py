@@ -25,6 +25,7 @@
   pixelate judge FRAME.png [--overlay OUT.png] [--json] [--log]   locate what the gate passes and an art director rejects
   pixelate reference PHOTO -o reference.json [--marks reference.json]   correctable photo evidence + overlay (experimental)
   pixelate render DIR [--image NAME] [--critique]   draw, gate, era-check and judge every image in DIR/piece.json or DIR/render.json
+                         [--set KNOB=VALUE ...]   a variant of a script piece from its declared knobs (engine and pack: not yet)
   pixelate find "REQUEST" [--mode M] [--json]   the closest library pieces, or a starter (static: runs no piece code)
   pixelate library list | show ID | index      browse the library and rebuild library/index.json (static)
   pixelate library test [ID...] [--quick]      render trusted pieces in temporary copies and compare golden 1x frames

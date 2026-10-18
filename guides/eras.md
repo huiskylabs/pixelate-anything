@@ -7,10 +7,14 @@ any image against them (`pixelate era IMG --era nes`; MCP `era`).
 **Make original work.** Use an era's limits and its genre conventions: side scrolling, a status
 bar, a dialogue box, a title screen with a blinking prompt. Never use an existing game's
 characters, worlds, names, logos or signature objects, and don't make "a version of" a known
-game. Invent the hero, the place and the title. `library/retro-screens` shows the bar:
+game. Invent the hero, the place and the title. `library/retro-screens` shows the genre conventions:
 - **Rooftop Run:** an 8-bit platformer over San Francisco rooftops.
 - **Island Village:** a Game Boy-style RPG screen of the Santorini village.
 - **Pixel Harbor:** a title screen.
+
+`retro-screens` is a `study`, unreviewed, and not a legal base: its migration notes (`library/retro-screens/history/migration.md`) record the two NES screens above exceeding the 256-tile limit, while the Game Boy screen passes its era gate.
+
+**Starter and worked examples.** A new era screen follows the author path in `references/authoring.md`. `starter-era-nes` is a neutral NES starter built the way the hardware builds a screen (an 8x8 tile nametable, 16x16 attribute blocks, a sprite list, 2C02 colours): `pixelate remix starter-era-nes work/NAME --request "..."`. It passes the NES gate empty and is unreviewed; it is no template for the other consoles. `four-machines` draws one moment under four console limits and `quarry-wakes` is a Neo Geo-tagged scene; both are `study` status references to read.
 
 ## The presets
 

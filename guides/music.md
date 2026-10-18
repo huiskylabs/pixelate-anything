@@ -1,5 +1,7 @@
 # Music: lofi, chiptune and ambient loops
 
+**Starter and worked examples.** Standalone music follows the author path in `references/authoring.md` (the music gate and optional listening review are below). `starter-music` is the neutral starter (`pixelate new music NAME`): two generic phases over a plain equaliser, unreviewed; its loop passes the music loop gate, which says nothing about whether a tune is good. For a scored scene, `starter-scene-loop` and `lantern-isle` carry `music.js` with the picture; `quarry-wakes` writes a short sting in code. These pieces are `study` or `starter` status, so read them for technique; none has had a listening review.
+
 ## Write it yourself, then pass the gate
 
 The styles below are what the engine's built-in phases already do, not a limit. Any music the

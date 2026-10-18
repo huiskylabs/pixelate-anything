@@ -11,6 +11,11 @@ This is the default for any photo of a place, a building or a scene. Converting 
 - in its own camera (`art/rebuild.py`),
 - and again as an isometric diorama (`art/city.py`).
 
+**Starter and worked examples.** A new rebuild follows the author path in `references/authoring.md`. For a reference in two-point perspective, begin from `starter-rebuild-perspective`: `pixelate remix starter-rebuild-perspective work/NAME --request "..."`. Its `art/camera.py` is a true pinhole two-point camera, solved from a horizon row and two finite vanishing points, and `art/massing.py` projects block corners through it; it is not an isometric preset. It passes the gate empty and is unreviewed, so replace its placeholder blocks with the reference's forms and rewrite its brief. The pieces below are `study` status, unreviewed references; `pixelate library test ID --quick` reports each one's gate result, and a technical pass would still not be a review.
+- one-point perspective: `monsoon-street` (a street rebuilt after a photo; it imports SciPy, which `requirements.txt` does not list, so install it before rendering);
+- orthographic 2:1 iso and 3/4 top-down, not perspective: `san-francisco`, `santorini` and `market-day`, whose technical gate currently reports failures on some or all frames;
+- the five orthographic views from one 3D description: `projections`.
+
 ## 1. Read the shape language first
 
 Before placing anything, write down what the reference is made of. A wrong vocabulary can't be fixed later by detail.

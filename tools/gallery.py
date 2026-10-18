@@ -27,11 +27,7 @@ class GalleryError(ValueError):
     pass
 
 
-def regular(path, limit=None):
-    """Read a regular file without following a link; refuse oversize before allocating."""
-    if path.is_symlink():
-        raise GalleryError(f'{path}: link not allowed')
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+def _read_fd(fd, path, limit):
     with os.fdopen(fd, 'rb') as file:
         info = os.fstat(file.fileno())
         if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or (limit is not None and info.st_size > limit):
@@ -40,6 +36,34 @@ def regular(path, limit=None):
     if limit is not None and len(data) > limit:
         raise GalleryError(f'{path}: larger than {limit} bytes')
     return data
+
+
+def regular(path, limit=None):
+    """Read a regular file without following its final link; refuse oversize before allocating."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    return _read_fd(fd, path, limit)
+
+
+def regular_under(root, rel, limit):
+    """Read a piece path using no-follow directory descriptors for every component."""
+    library.relative(rel, 'gallery evidence or thumbnail')
+    path = root / rel
+    parts = rel.split('/')
+    try:
+        parent = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            for part in parts[:-1]:
+                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                                dir_fd=parent)
+                os.close(parent)
+                parent = child
+            fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                         dir_fd=parent)
+        finally:
+            os.close(parent)
+    except OSError as exc:
+        raise GalleryError(f'{path}: unsafe or missing component ({exc})') from None
+    return _read_fd(fd, path, limit)
 
 
 def permissions(path):
@@ -75,7 +99,7 @@ def cards(catalog, ledger):
         piece = catalog / piece_id
         evidence = piece / ledger[piece_id]['evidence']
         try:
-            if not regular(evidence, 128 * 1024).strip():
+            if not regular_under(piece, ledger[piece_id]['evidence'], 128 * 1024).strip():
                 raise GalleryError(f'{evidence}: empty rights evidence')
         except OSError as exc:
             raise GalleryError(f'{evidence}: missing or unsafe rights evidence ({exc})') from None
@@ -86,7 +110,7 @@ def cards(catalog, ledger):
         ext = Path(path).suffix.lower()
         if ext not in EXTENSIONS:
             raise GalleryError(f'{piece_id}: thumbnail must be PNG, GIF or WebP')
-        data = regular(piece / path, MAX_MEDIA)
+        data = regular_under(piece, path, MAX_MEDIA)
         if not data.startswith(EXTENSIONS[ext]) or (ext == '.webp' and data[8:12] != b'WEBP'):
             raise GalleryError(f'{piece_id}: thumbnail magic does not match {ext}')
         name = f'{piece_id}{ext}'

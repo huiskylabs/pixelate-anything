@@ -89,6 +89,22 @@ class Gallery(unittest.TestCase):
                     self.build()
         self.assertFalse((self.root / 'docs/gallery/index.html').exists())
 
+    def test_evidence_parent_link_cannot_escape_even_after_catalog_scan(self):
+        self.set_permissions({'starter-scene-still': {'evidence': 'history/rights.md'}})
+        indexed = library.index(self.catalog)
+        manifests = library.scan(self.catalog)
+        outside = self.root / 'outside-history'
+        outside.mkdir()
+        (outside / 'rights.md').write_text('Not evidence from this piece.\n')
+        shutil.rmtree(self.piece / 'history')
+        os.symlink(outside, self.piece / 'history', target_is_directory=True)
+        # Simulate the parent changing after index/manifest validation; the actual open must still refuse it.
+        with mock.patch.object(gallery.library, 'index', return_value=indexed), \
+                mock.patch.object(gallery.library, 'scan', return_value=manifests):
+            with self.assertRaisesRegex(gallery.GalleryError, 'unsafe or missing component'):
+                self.build()
+        self.assertFalse((self.root / 'docs/gallery/media/starter-scene-still.png').exists())
+
     def test_hardlinked_thumbnail_is_not_published(self):
         self.set_permissions({'starter-scene-still': {'evidence': 'history/rights.md'}})
         thumbnail = self.piece / 'media/thumb.png'

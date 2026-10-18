@@ -43,8 +43,9 @@ approved budget and a reviewer who did not make the work. With no budget or revi
 prompt and say NO INDEPENDENT REVIEW, with no art-quality claim. deliver_piece runs every output
 again and writes facts (or verifies them without running code); an unreviewed remix may be packaged
 as NOT REVIEWED but needs separate user approval before being called finished. No check clears
-redistribution rights or raises a piece's status. Local library add needs explicit trust and two
-unsandboxed renders; MCP add_piece is not built. Give back by a manual pull request with evidence. Shell-based remix, render and deliver execute trusted code with your
+redistribution rights or raises a piece's status. For your own inspected source, add_piece needs an
+explicit trust flag and runs two unsandboxed renders into a workspace catalog; give back by a manual
+pull request with evidence. Never call add_piece on an outside contributor's PR. Shell-based remix, render and deliver execute trusted code with your
 permissions, without a sandbox; never run contributed programs in PR CI.
 Author path: read guide('authoring') for the full ten steps. The independent lead owns each grade
 with three graded rounds per full stage by default; specialists observe. The greyscale block-in
@@ -765,6 +766,39 @@ def deliver_piece(piece_dir: str, sets: list[str] | None = None, verify: bool = 
     if not delivered:
         summary['note'] = 'No package was written by this delivery; an earlier package was left as it was.'
     return report(summary, images)
+
+@server.tool()
+def add_piece(piece_dir: str, library_dir: str = 'library', status: str = 'study',
+              trust_local_code: bool = False, timeout: int = 300) -> list:
+    """Stage a trusted local candidate in a workspace library using `pixelate library add`. This runs
+    every declared shell command TWICE without a sandbox. Explicit `trust_local_code=true` is required;
+    use it only for code you wrote or inspected, never for an outside contribution or in PR CI. The tool
+    generates 1x goldens and rebuilds the index, but commits nothing, opens no PR, runs no independent
+    critique and cannot establish user approval or redistribution rights. `status` is a declaration,
+    not a grade. A maintainer must review evidence and rights before accepting or publishing."""
+    if trust_local_code is not True:
+        raise ValueError('add_piece refuses unsandboxed execution without trust_local_code=true')
+    if status not in ('study', 'accepted', 'reviewed'):
+        raise ValueError('status must be study, accepted or reviewed')
+    seconds = check_timeout(timeout)
+    if seconds > 900:
+        raise ValueError('timeout must be at most 900 seconds per render')
+    source = work_folder(piece_dir)
+    catalog = P(library_dir, write=True)
+    if catalog == WORK or catalog.is_symlink() or not catalog.is_dir():
+        raise ValueError('library_dir must be an existing real catalog folder inside the workspace')
+    code, out, err = cli_full('library', '--library', catalog, 'add', source, '--status', status,
+                              '--trust-local-code', '--timeout', seconds, timeout=seconds * 2 + 120)
+    result = json_report(out)
+    if not isinstance(result, dict) or code != 0 or result.get('ok') is not True:
+        return report(dict(refusal('library add', code, out, err, seconds * 2 + 120), created=False,
+                           warning=EXEC_WARNING, notice='No art grade, approval or rights have been established.'))
+    return report({'ok': True, 'created': True, 'piece': result['piece'], 'status_declared': result['status'],
+                   'catalog': str(catalog), 'path': result['path'], 'index': result['index'],
+                   'renders': result['renders'], 'deterministic': result['deterministic'],
+                   'gate_ok': result['gate_ok'], 'outputs': result['outputs'],
+                   'warning': EXEC_WARNING, 'notice': result['notice'] + ' Manual PR required.'})
+
 
 def main():
     server.run('stdio')

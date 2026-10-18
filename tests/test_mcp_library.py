@@ -1,9 +1,9 @@
-"""MCP tools for the library: find_pieces, remix_piece, render_piece, deliver_piece (tools/mcp_server.py).
+"""MCP tools for the library: find, remix, render, deliver and opt-in add (tools/mcp_server.py).
 
 The mcp package is optional, so the server module is loaded against a fake one whose tool() keeps the
 function and whose Image records what it was given. The tools run the real `pixelate` CLI in a
 subprocess; fixture pieces are trusted code written by these tests, and one test remixes the first-party
-starter-scene-still. `add_piece` is not exposed: the library add command is not built."""
+starter-scene-still. `add_piece` is opt-in and only stages trusted local code, never PR code."""
 import hashlib
 import importlib.util
 import json
@@ -132,11 +132,32 @@ class Server(unittest.TestCase):
 
 
 class Surface(Server):
-    def test_the_four_phase2_tools_are_exposed_and_add_piece_is_not(self):
-        for name in ('find_pieces', 'remix_piece', 'render_piece', 'deliver_piece'):
+    def test_the_loop_and_opt_in_add_are_exposed(self):
+        for name in ('find_pieces', 'remix_piece', 'render_piece', 'deliver_piece', 'add_piece'):
             self.assertIn(name, self.tools)
-        self.assertNotIn('add_piece', self.tools)
         self.assertNotIn('critique', ' '.join(n for n in self.tools if n.endswith('_piece')))
+
+    def test_add_refuses_without_explicit_trust_before_running_anything(self):
+        with mock.patch.object(self.mcp, 'cli_full', side_effect=AssertionError('ran')):
+            for trust in (False, None, 1, 'true'):
+                with self.subTest(trust=trust), self.assertRaisesRegex(ValueError, 'trust_local_code=true'):
+                    self.tools['add_piece']('harbour', trust_local_code=trust)
+
+    def test_add_stages_only_in_a_workspace_catalog_and_claims_no_review_or_rights(self):
+        copied, _ = self.call('remix_piece', 'starter-scene-still', 'harbour', 'a harbour at dusk')
+        self.assertTrue(copied['created'])
+        catalog = self.work / 'library'
+        catalog.mkdir()
+        summary, images = self.call('add_piece', 'harbour', library_dir='library', trust_local_code=True)
+        self.assertTrue(summary['ok'] and summary['created'])
+        self.assertEqual((summary['renders'], summary['status_declared'], summary['gate_ok']), (2, 'study', True))
+        self.assertEqual(images, [])
+        self.assertTrue((catalog / 'harbour/out/golden/still.png').is_file())
+        self.assertEqual(json.loads((catalog / 'index.json').read_text())['pieces'][0]['id'], 'harbour')
+        self.assertIn('No independent art grade', summary['notice'])
+        self.assertIn('Manual PR required', summary['notice'])
+        with self.assertRaisesRegex(ValueError, 'workspace'):
+            self.tools['add_piece']('harbour', library_dir=str(REPO / 'library'), trust_local_code=True)
 
     def test_mcp_instructions_route_to_the_same_remix_loop(self):
         instructions = self.mcp.INSTRUCTIONS

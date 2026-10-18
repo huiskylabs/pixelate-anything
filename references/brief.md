@@ -63,7 +63,7 @@ what falls short and lint again.
 
 ## Art director on the brief
 
-The brief already shows the level the picture will reach, so it is graded before anything is drawn.
+The brief already shows the level the picture will reach, so a full brief is graded before detailed drawing; the gated greyscale block-in below is the sole pre-approval drawing.
 `pixelate critique --brief brief.md` prints a prompt for a separate agent that did not write the
 brief: the 12 points of [art-director.md](art-director.md) read as what the brief makes certain (a
 hero with its size, masses of different size, a value plan, a projection that shows the subject, a
@@ -75,8 +75,7 @@ Give it a block-in too: the brief's boxes drawn at native size as flat greys, on
 group, no detail (a few lines of `canvas.Canvas.rect` and `fill`). It shows in one look whether the
 hero owns the brightest value, the planes have their shares and the masses differ in size. It
 passes `pixelate check BLOCKIN.png --blockin --brief brief.md` and goes to the art director with
-`--block BLOCKIN.png`. Drawing waits for the A; if the budget ends below A, report the grade and
-unresolved ranked fixes and ask the user whether to continue or change the brief.
+`--block BLOCKIN.png`. Detailed drawing waits for the user's confirmation of a bound A full brief; a short brief skips brief-stage grading, not the block-in gate or user confirmation. If the full brief's budget ends below A, report the grade and unresolved ranked fixes and ask whether to continue or change it.
 
 ## Confirm
 

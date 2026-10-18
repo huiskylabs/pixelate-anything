@@ -384,6 +384,10 @@ def collect(d, manifest, recs, sets):
             if blocking:
                 errors.append(f'{name}: {blocking}')
                 continue
+            if not isinstance(rec.get('distance'), dict):
+                errors.append(f'{name}: render recorded no distance result for these gated bytes')
+                continue
+            entry['distance'] = rec['distance']
         else:
             entry['gated'] = False
         facts.append(entry)
@@ -395,7 +399,8 @@ def untested(manifest, outputs):
     kinds = {o['kind'] for o in manifest['outputs']}
     notes = ['determinism: every output was rendered once; deliver does not re-render to compare bytes',
              'golden frames: deliver does not compare outputs with out/golden (`pixelate library test` does)',
-             'distance from the base: not built yet',
+             'distance from the base: per-image uncalibrated heuristic when a bound base exists; '
+             'null with a reason otherwise, never a quality grade or delivery gate',
              'art quality: a gate pass is a technical check; no independent grade unless an image review is "A, bound"',
              'gate inputs (pal, pre, actor, intent) were hashed after the render, not when the gate read them',
              'sources: hashes cover piece.json and the files it references, not every file a program imports',
@@ -471,6 +476,21 @@ def summary(facts):
             gate, judge, rev = 'not gated', 'n/a', 'n/a'
         lines.append(f"| {cell(o['name'])} | {o['kind']} | `{cell(facts['package'] + '/' + o['path'])}` | `{o['sha256']}` | "
                      f'{cell(gate)} | {cell(judge)} | {cell(rev)} |')
+    for o in facts['outputs']:
+        if o['kind'] != 'image':
+            continue
+        distance = o['distance']
+        if distance['base'] is None:
+            summary_distance = 'not a remix'
+        elif distance['pixels'] is None and distance['palette'] is None:
+            summary_distance = f"unavailable ({cell(distance['reason'])})"
+        else:
+            pixels = (f"{distance['pixels']['share']:.1%} of 1x pixels differ" if distance['pixels'] else
+                      f"pixels unavailable ({cell(distance['reason'])})")
+            summary_distance = f"{pixels}; {distance['palette']['share']:.1%} of colours differ"
+            if distance['warning']:
+                summary_distance += '; WARNING under-remixed (uncalibrated, non-blocking)'
+        lines.append(f"- Distance for `{cell(o['name'])}`: {summary_distance}.")
     approval = ev['approval']
     lines += ['', 'Evidence, each separate; none proves another:', '',
               f"- Technical gate: {ev['gate']}. Era: {ev['era']}.",
@@ -805,6 +825,20 @@ def verify(d):
         changed = sorted(k for k in set(current) | set(facts['sources']) if current.get(k) != facts['sources'].get(k))
         check('sources', not changed, 'changed since delivery: ' + ', '.join(changed) if changed else
               f'{len(current)} files match')
+        baseline = facts.get('remix_baseline')
+        record_path = '.pixelate/remix-baseline.json'
+        try:
+            now = hash_regular(d, record_path)[0]
+        except FileNotFoundError:
+            check('remix baseline', baseline is None,
+                  'not recorded or present' if baseline is None else f'{record_path} disappeared since delivery')
+        except OSError as exc:
+            check('remix baseline', False, str(exc))
+        else:
+            expected = baseline.get('sha256') if isinstance(baseline, dict) and baseline.get('path') == record_path else None
+            check('remix baseline', isinstance(expected, str) and
+                  re.fullmatch(r'[0-9a-f]{64}', expected) is not None and now == expected,
+                  'unchanged' if now == expected else f'{record_path} changed or appeared since delivery')
         for o in outputs:
             if o['kind'] != 'image':
                 continue

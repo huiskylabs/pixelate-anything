@@ -54,6 +54,32 @@ class DeliveryRuntimeKnobs(unittest.TestCase):
     def test_pack_scale_variant_is_delivered_and_verifies(self):
         self.exercise('starter-assets', 'scale', 4, 'out/contact.png', 'pack.json', 3)
 
+    def test_remix_distance_and_its_baseline_are_bound_to_delivery(self):
+        root = self.work / 'harbour-remix'
+        process = subprocess.run([sys.executable, str(REPO / 'pixelate'), 'remix', 'starter-scene-still', str(root),
+                                  '--request', 'a harbour at dusk', '--json'], capture_output=True, text=True,
+                                 timeout=360)
+        self.assertEqual(process.returncode, 0, process.stdout[-1200:] + process.stderr[-1200:])
+        delivered = self.command(root)
+        self.assertTrue(delivered['ok'])
+        (image,) = delivered['facts']['outputs']
+        distance = image['distance']
+        self.assertEqual(distance['base']['id'], 'starter-scene-still')
+        self.assertEqual(distance['pixels']['differ'], 0)
+        self.assertTrue(distance['under_remixed'])
+        self.assertIn('under-remixed', distance['warning'])
+        self.assertIn('WARNING under-remixed', (root / 'dist/delivery/DELIVERY.md').read_text())
+        self.assertTrue(self.command(root, '--verify')['ok'])
+
+        baseline = root / '.pixelate/remix-baseline.json'
+        baseline.write_bytes(baseline.read_bytes() + b' ')
+        verified = subprocess.run([sys.executable, str(REPO / 'pixelate'), 'deliver', str(root), '--verify', '--json'],
+                                  capture_output=True, text=True, timeout=30)
+        self.assertEqual(verified.returncode, 1)
+        report = json.loads(verified.stdout)
+        self.assertFalse(report['ok'])
+        self.assertTrue(any(c['check'] == 'remix baseline' and not c['ok'] for c in report['checks']))
+
 
 if __name__ == '__main__':
     unittest.main()

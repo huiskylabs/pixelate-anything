@@ -214,16 +214,16 @@ references did not change during the render. A study's gate failure blocks deliv
 --quick` only reports it. A review record beside a frame (`FRAME.visual-review.json`) is checked with
 `review_status.piece_status` and against the delivered hash: a record that does not bind the delivered bytes
 blocks delivery, a bound record below A is reported, and status `reviewed` needs a bound A. `--set` goes to render
-unchanged, so it works where render supports it (script pieces today) and is refused (exit 2) where render refuses
-it; the facts carry the values render recorded. Without `--set` the facts list the declared knob defaults and say
+unchanged for script, engine and pack pieces with declared knobs; render refuses unsupported values (exit 2).
+The facts carry the values render recorded, not proof the program consumed them. Without `--set` the facts list the declared knob defaults and say
 that the program reading them is not proven. Delivery runs no critique and calls no paid reviewer: run `pixelate
 render DIR --critique` and `pixelate review record` first if you want a bound grade.
 
 On success the outputs are copied to `DIR/dist/delivery/` (git ignores `dist/`; remix and `new` never copy it)
 with `DELIVERY.md`. Its facts block, between two marker comments, is written by the script: the request and
 lineage, the remix baseline hash when there is one, the kit version, the knob values, the SHA-256 of `piece.json`
-and the files it references, every output's path, hash and size, and, kept apart, the gate, era, judge and review
-evidence, the declared approval (always `verified: false`, never treated as approval), a rights-not-verified line
+and the files it references, every output's path, hash and size, and, kept apart, the gate, era, judge, review
+and byte-bound distance-from-base evidence (or its unavailable reason), the declared approval (always `verified: false`, never treated as approval), a rights-not-verified line
 and a list of what was not tested. It ends with `Fingerprint: sha256:...` of the canonical JSON; the time is left
 out, so delivering the same bytes again gives the same fingerprint. Write notes outside the block: delivering
 again keeps them. An existing `dist/delivery` is replaced only when its `DELIVERY.md` still verifies and it holds
@@ -238,15 +238,17 @@ with the hash render gated. Exit 0 delivered, 1 failed, 2 an invalid piece or a 
 `pixelate deliver DIR --verify` starts no process and runs no piece code. Without following a link it checks that
 the facts block is exactly what the script writes for its JSON, that the fingerprint matches, that the package
 holds exactly the listed files with those hashes and sizes, and that the piece still validates, declares the same
-outputs and holds the same `piece.json`, referenced sources, outputs and review records. It catches edits; it
-does not catch someone with write access who rewrites the facts, the fingerprint and the files together, since
+outputs and holds the same `piece.json`, referenced sources, outputs, remix baseline and review records. It catches edits;
+it does not catch someone with write access who rewrites the facts, the fingerprint and the files together, since
 the fingerprint is a hash, not a signature.
 
 What a delivery does not prove: a gate pass is legal, not good; judge findings are heuristic, uncalibrated and
 never block; only a bound A review record is an independent grade, and even that does not show the reviewer was
 independent; a declared `review.approved_by` is not user approval; the license and the rights to any source are
 not checked. Audio and exports are hashed and checked nonempty, never gated or listened to. Outputs are rendered
-once, not compared with goldens (`pixelate library test` does that), and distance from the base is not built.
+once and not compared with goldens (`pixelate library test` does that). Distance from a matching checked-in base
+is an uncalibrated diagnostic, not an art grade or gate; a missing or mismatched base gives an unavailable reason.
+`--verify` checks the recorded baseline's bytes, not a fresh measurement against the current kit library.
 The piece's commands run through the shell with your permissions, without a sandbox: deliver only trusted pieces.
 Audio outputs need their tools: `pixelate audio` needs Node and Playwright's Chromium, and MP3 samples need
 ffmpeg (`pixelate doctor`). When one is missing or a command runs past `--timeout`, that output fails and nothing

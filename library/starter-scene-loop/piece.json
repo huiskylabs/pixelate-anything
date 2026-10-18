@@ -2,8 +2,8 @@
   "schema": 1,
   "id": "starter-scene-loop",
   "title": "Starter: Scene Loop",
-  "status": "study",
-  "summary": "A minimal looping scene to copy: a cabin and a pine on a hill from a warm dusk into a rainy night, with a lofi soundtrack and sprites as hand-drawn pixel maps.",
+  "status": "starter",
+  "summary": "A minimal looping scene to copy: a cabin and a pine on a hill from a warm dusk into a rainy night, with a lofi soundtrack and sprites as hand-drawn pixel maps. Its dusk frame (the first picture) and its rain frame pass the lofi frame gate.",
   "request": "Unknown: the original request was not recorded in the repository. Template from the first kit commits; no request exists. Source description: Hilltop Cabin: a starter scene for pixelate-anything.",
   "mode": "scene",
   "tags": {
@@ -38,6 +38,19 @@
   "runtime": "engine",
   "outputs": [
     {
+      "name": "dusk",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 0 --zoom 8 --out out",
+      "frame": "out/t0000.00.png",
+      "golden": "out/golden/dusk.png",
+      "size": {
+        "w": 240,
+        "h": 135
+      },
+      "scale": 8,
+      "style": "lofi"
+    },
+    {
       "name": "rain",
       "kind": "image",
       "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 30 --zoom 8 --out out",
@@ -60,7 +73,7 @@
     },
     {
       "file": "palettes.js",
-      "draws": "a palette per phase",
+      "draws": "a palette per phase; the dusk horizon band is kept under L 0.7 so the first picture meets the lofi budget",
       "change_for": "colour and mood"
     },
     {

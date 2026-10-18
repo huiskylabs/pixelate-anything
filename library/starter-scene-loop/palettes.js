@@ -3,7 +3,7 @@
    R roof, W wood, Y warm light, T pine, M moon, C cloud, N pale accents (stars, rain). */
 const PALETTES = {
   dusk: {
-    S0: '#2a1f4a', S1: '#432a5e', S2: '#6e3864', S3: '#b4555f', S4: '#ec8a5c',
+    S0: '#2a1f4a', S1: '#432a5e', S2: '#6e3864', S3: '#b4555f', S4: '#e0794f',
     F0: '#3b2346',
     H0: '#1b1729', H1: '#2a2340', H2: '#40335a', H3: '#6c4f7a',
     K0: '#120d1c', R1: '#5a2e3f', R2: '#8f4b54', W0: '#24171f', W1: '#452c33', W2: '#6e4a48',

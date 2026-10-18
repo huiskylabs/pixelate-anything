@@ -9,12 +9,11 @@ from PIL import Image, ImageDraw
 HERE = pathlib.Path(__file__).resolve().parent
 KIT = HERE.parents[2]
 sys.path.insert(0, str(KIT / 'tools'))
-sys.path.insert(0, str(KIT / 'library' / 'san-francisco' / 'art'))
 import artlib, colorlib as cl
 from iso import Iso, windows, hash2
-import palettes
+import cottage_palette
 
-PAL = palettes.day()
+PAL = cottage_palette.day()
 TREE = """
 ..oooo..
 .oTTTto.

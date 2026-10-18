@@ -19,9 +19,9 @@ Each output command was run from two independent clean copies of the tree (no `.
 
 Not checked: `pixelate judge`, `pixelate critique`, and any human or art-director review.
 
-## Dependency
+## Independence from other pieces
 
-`art/santorini.py` imports palettes.py from ../san-francisco/art (library/san-francisco), so this piece is not self-contained. The import path was changed from `examples/san-francisco/art` to `library/san-francisco/art`; no other drawing code changed. A copy of this folder outside the kit tree (a remix) breaks until the shared helper moves into `tools/`.
+`art/santorini.py` used to import `palettes.py` from `library/san-francisco/art` for `relight()` only. That function is now `art/oklab_relight.py`, copied unchanged from `library/san-francisco/art/palettes.py` (first-party, MIT) with an attribution header; `santorini.py` imports it from its own folder and no longer adds a sibling piece to `sys.path`. No other drawing code changed. The copy was checked by rendering this piece alone: the kit copy had no `library/` folder, the piece sat in a folder of its own, and the output matched the committed 1x golden pixel for pixel (`tests/test_library_migration.py`, `IsolatedCopyTest`; `PIXELATE_SLOW_LIBRARY=1` for this slow pack). A remix copied out of library/ therefore needs only this folder and the installed kit.
 
 ## Licensing and provenance
 

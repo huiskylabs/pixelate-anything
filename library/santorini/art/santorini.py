@@ -11,12 +11,11 @@ from PIL import Image
 HERE = pathlib.Path(__file__).resolve().parent
 KIT = HERE.parents[2]
 sys.path.insert(0, str(KIT / 'tools'))
-sys.path.insert(0, str(KIT / 'library' / 'san-francisco' / 'art'))
 import artlib, colorlib as cl
 from iso import Iso, clone, windows, hash2, ground_dither, BAYER4, shade
 from sdf import RBox, Cyl, Sphere, Cone, Union, Smooth, Sub, Inter, Above, Arch, Terrain
 from palette import ramp
-from palettes import relight
+from oklab_relight import relight
 
 W, H = 288, 288
 FRAMES, FPS = 144, 12

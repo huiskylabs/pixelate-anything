@@ -22,8 +22,10 @@ Not checked: `pixelate judge`, `pixelate critique`, and any human or art-directo
 
 ## Licensing and provenance
 
-The reference photo of the Financial District and the Transamerica Pyramid was "supplied by the user" (docs/gallery/SOURCES.md) and is not in the repository. No license for it is recorded, so its terms are unknown; this note does not assert any.
+The reference photo of the Financial District and the Transamerica Pyramid was "supplied by the user" (docs/gallery/SOURCES.md) and is not in the repository. No license for it is recorded, so its terms are unknown; this note does not assert any, and nobody has recorded consent from the photo's author or the user's right to redistribute art rebuilt from it.
+
+**Human gate before MIT publication:** this piece is kept in the library because the plan counts 17 pieces, but the rights to publish a rebuild of that photo under MIT are unestablished. A person must either document the photo's license or the user's permission, or decide to replace, re-derive or withdraw the piece (and the Pixel Harbor city in `retro-screens`, which is a copy of this piece's city) before the library is published. Migration did not resolve this.
 
 ## To promote
 
-- Audit: confirm the supplied reference photo may be used for rebuilt art; add real knobs (time of day) once `--set` exists; run `pixelate judge` and an independent critique; approve or demote.
+- Resolve the rights gate above; audit: confirm the supplied reference photo may be used for rebuilt art; add real knobs (time of day) once `--set` exists; run `pixelate judge` and an independent critique; approve or demote.

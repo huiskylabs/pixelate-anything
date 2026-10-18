@@ -62,7 +62,7 @@
   "anatomy": [
     {
       "file": "art/santorini.py",
-      "draws": "the whole diorama: terraced cubes and vaults, pools, stairs, chapel, windmill, catamaran and the day to blue-hour loop (144 frames); imports ../san-francisco/art (library/san-francisco), so it needs that piece beside it",
+      "draws": "the whole diorama: terraced cubes and vaults, pools, stairs, chapel, windmill, catamaran and the day to blue-hour loop (144 frames); art/oklab_relight.py is a copy of the relight() helper from the san-francisco piece",
       "change_for": "the place, the buildings, the animation"
     },
     {

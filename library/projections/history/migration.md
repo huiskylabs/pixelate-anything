@@ -19,9 +19,9 @@ Each output command was run from two independent clean copies of the tree (no `.
 
 Not checked: `pixelate judge`, `pixelate critique`, and any human or art-director review.
 
-## Dependency
+## Independence from other pieces
 
-`art/projections.py` imports palettes.py from ../san-francisco/art (library/san-francisco), so this piece is not self-contained. The import path was changed from `examples/san-francisco/art` to `library/san-francisco/art`; no other drawing code changed. A copy of this folder outside the kit tree (a remix) breaks until the shared helper moves into `tools/`.
+`art/projections.py` used to import `palettes.py` from `library/san-francisco/art` and used only `day()`. `art/cottage_palette.py` now holds `MATERIALS` and `day()` copied unchanged from that file (first-party, MIT) with an attribution header; the unused dusk, night and relight code was not copied. No other drawing code changed. The copy was checked by rendering this piece alone: the kit copy had no `library/` folder, the piece sat in a folder of its own, and the output matched the committed 1x golden pixel for pixel; the pack is fast, so the test always runs (`tests/test_library_migration.py`, `IsolatedCopyTest`). A remix copied out of library/ therefore needs only this folder and the installed kit.
 
 ## Licensing and provenance
 

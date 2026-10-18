@@ -10,7 +10,7 @@ These are rebuilt rather than converted. The photos themselves are not in the re
 
 | rebuild | reference | where |
 |---|---|---|
-| `library/san-francisco` | aerial photo of the Financial District and the Transamerica Pyramid | supplied by the user |
+| `library/san-francisco` (and the Pixel Harbor city in `library/retro-screens`, a copy of it) | aerial photo of the Financial District and the Transamerica Pyramid | supplied by the user; **no license or consent recorded, redistribution rights unestablished: a human gate before MIT publication** |
 | `library/santorini` | "Houses on Hill" by Vasilis Karkalas | https://www.pexels.com/photo/houses-on-hill-11222833/ (Pexels license) |
 
 ## Fonts
@@ -27,6 +27,7 @@ These are rebuilt rather than converted. The photos themselves are not in the re
 
 ## Original work
 
-`library/retro-screens` (Rooftop Run, Island Village, Pixel Harbor) and `library/lantern-isle` are all
-original: characters, places, titles and text. Console names in the era presets describe
+`library/retro-screens` (Rooftop Run, Island Village, Pixel Harbor) and `library/lantern-isle` are
+original in their characters, places, titles and text, except that the Pixel Harbor city behind the title
+screen is the `library/san-francisco` rebuild, with the photo caveat above. Console names in the era presets describe
 hardware limits only.

@@ -53,7 +53,7 @@
   "anatomy": [
     {
       "file": "art/projections.py",
-      "draws": "the cottage scene as one 3D description rendered through tools/iso.py CAMERAS into a five-view sheet; imports ../san-francisco/art (library/san-francisco), so it needs that piece beside it",
+      "draws": "the cottage scene as one 3D description rendered through tools/iso.py CAMERAS into a five-view sheet; its palette is a copy of the day palette from the san-francisco piece (art/cottage_palette.py)",
       "change_for": "the scene objects, the set of projections"
     },
     {

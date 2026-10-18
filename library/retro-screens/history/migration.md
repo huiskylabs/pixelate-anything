@@ -4,7 +4,7 @@ Moved with `git mv` from `examples/retro` into `library/retro-screens` on 2026-1
 
 ## Request and authorship
 
-The original request is not recorded anywhere in the repository, so `request` says so and quotes the source description instead of inventing a request. SOURCES notes describe the three screens as original: characters, places, titles and text; console names describe hardware limits only.
+The original request is not recorded anywhere in the repository, so `request` says so and quotes the source description instead of inventing a request. SOURCES notes describe the characters, places, titles and text as original; console names describe hardware limits only. The Pixel Harbor city is the san-francisco rebuild.
 Authorship is taken from git history only (the `by` field); it does not attest review.
 
 ## Status
@@ -21,13 +21,13 @@ Each output command was run from two independent clean copies of the tree (no `.
 
 Not checked: `pixelate judge`, `pixelate critique`, and any human or art-director review.
 
-## Dependency
+## Independence from other pieces
 
-`art/title_screen.py` imports city.py from ../san-francisco/art (library/san-francisco), so this piece is not self-contained. The import path was changed from `examples/san-francisco/art` to `library/san-francisco/art`; no other drawing code changed. A copy of this folder outside the kit tree (a remix) breaks until the shared helper moves into `tools/`.
+`art/title_screen.py` used to import `city.py` (and through it `palettes.py`) from `library/san-francisco/art`. `art/harbor_city.py` and `art/harbor_palettes.py` are now copies of those two files (first-party, MIT, attribution headers). Changes against the originals: `city.py` imports `harbor_palettes`, and its `export()` and `__main__` probe were removed, because the pack loads every `art/*.py` and would otherwise add a second `iso_city` output to this piece. `title_screen.py` imports `harbor_city`. No other drawing code changed. The copy is about 400 lines of the san-francisco city, kept because Pixel Harbor is that city retargeted to the NES preset. The copy was checked by rendering this piece alone: the kit copy had no `library/` folder, the piece sat in a folder of its own, and the output matched the committed 1x golden pixel for pixel (`tests/test_library_migration.py`, `IsolatedCopyTest`; `PIXELATE_SLOW_LIBRARY=1` for this slow pack). A remix copied out of library/ therefore needs only this folder and the installed kit.
 
 ## Licensing and provenance
 
-No reference photos or borrowed assets are used. The code is first-party and falls under the repository MIT license (docs/PLAN-library.md D1).
+The code is first-party and falls under the repository MIT license (docs/PLAN-library.md D1). Rooftop Run and Island Village use no reference photo. Pixel Harbor (`title-screen`) is the san-francisco city, which was rebuilt from an aerial photo supplied by the user; no license for that photo is recorded, so this piece shares the unresolved rights question of `san-francisco` (see its migration notes). This note asserts no redistribution right for the photo.
 
 ## To promote
 

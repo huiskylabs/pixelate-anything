@@ -1,5 +1,5 @@
-"""Pixel Harbor: an original title screen. The isometric San Francisco at night (library/
-san-francisco/art/city.py) is cropped to 256x224 and pushed through the NES-style preset
+"""Pixel Harbor: an original title screen. The isometric San Francisco at night (harbor_city.py,
+a copy of the san-francisco piece's city.py) is cropped to 256x224 and pushed through the NES-style preset
 (tools/era.py: snapped to the 2C02 master palette, cut to 25 colours), then a logo and a blinking
 menu go on top. Shows the point of the era presets: any scene, retargeted to an era.
 144 frames at 12 fps (the city's own loop).
@@ -11,7 +11,6 @@ from PIL import Image
 HERE = pathlib.Path(__file__).resolve().parent
 KIT = HERE.parents[2]
 sys.path.insert(0, str(KIT / 'tools'))
-sys.path.insert(0, str(KIT / 'library' / 'san-francisco' / 'art'))
 import colorlib as cl
 import pixfont, era
 
@@ -61,7 +60,7 @@ def night_ramp(rgb):
     return np.asarray(era.enforce(Image.fromarray(res, 'RGB'), 'nes').convert('RGB')).copy()
 
 def render_frames(frames=FRAMES):
-    import city
+    import harbor_city as city
     from iso import clone
     base = city.build_static()
     out = []

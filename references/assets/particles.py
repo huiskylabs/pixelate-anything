@@ -19,7 +19,7 @@ one const table; the engine draws it with drawBaked (ENGINE_JS) inside scenePart
     g = pet.grid(40, 320, 180)                                  # the layer at step 40, for a preview
     pet.draw(c, 40)                                             # or into a Canvas / slot grid
 
-Learned from Lantern Isle (this repo, examples/lantern-isle/fx.js): two- to five-pixel hand
+Learned from Lantern Isle (this repo, library/lantern-isle/fx.js): two- to five-pixel hand
 drawings tumbling through four keys, a stepped sway table, spawns hashed per generation from
 the particle index, depth layers that differ in size, tone, speed and sway, and periods that
 divide TICKS / 2. The hash is the engine's own (core.js hash/hash2/hash3), ported bit for bit.

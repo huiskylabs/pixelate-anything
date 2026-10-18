@@ -106,7 +106,7 @@ kRrrk
 - `.` or a space is transparent.
 - Separate animation frames with a line of `---`; every frame shares the same size.
 - Unknown keys are reported by `pixelate check`.
-- Python art modules return `('sprite', name, [Grid, ...], ax, ay)`; see `tools/artlib.py` and `examples/lantern-isle/art/`.
+- Python art modules return `('sprite', name, [Grid, ...], ax, ay)`; see `tools/artlib.py` and `library/lantern-isle/art/`.
 
 ## Debug page
 

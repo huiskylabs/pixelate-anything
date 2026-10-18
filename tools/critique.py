@@ -24,7 +24,7 @@ SPECIALIST_RUBRIC = KIT / 'references' / 'visual-specialists.md'
 MUSIC_RUBRIC = KIT / 'references' / 'music-review.md'
 ROLES = ('lead', 'composition', 'lighting', 'set', 'character')
 BAR = KIT / 'docs' / 'lantern-isle-winter.png'
-BAR_BRIEF = KIT / 'examples' / 'lantern-isle' / 'BRIEF.md'
+BAR_BRIEF = KIT / 'library' / 'lantern-isle' / 'brief.md'
 
 def thumbnails(frame, width=480, out=None):
     """write FRAME.thumb.png (width px, nearest neighbour) and FRAME.thumb-grey.png next to the frame,

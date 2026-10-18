@@ -7,7 +7,7 @@ This is the default for any photo of a place, a building or a scene. Converting 
 - a palette chosen for the mood,
 - and life added: light, weather, traffic, people, a day turning to night.
 
-`examples/san-francisco` is the quality bar. An aerial photo of the Financial District is rebuilt:
+`library/san-francisco` is the quality bar. An aerial photo of the Financial District is rebuilt:
 - in its own camera (`art/rebuild.py`),
 - and again as an isometric diorama (`art/city.py`).
 
@@ -37,7 +37,7 @@ Only when the parts read right, compose. Use `tools/sdf.py` for anything curved:
 - `Sub` with `Arch`, for openings cut in as real recesses,
 - `Terrain`, for curved terraces and slopes.
 
-Use `Iso.box` only where the place really is boxes. `examples/santorini/art/santorini.py` is the worked example.
+Use `Iso.box` only where the place really is boxes. `library/santorini/art/santorini.py` is the worked example.
 
 ## 2. Pick the camera
 
@@ -50,7 +50,7 @@ Run `pixelate reference PHOTO -o reference.json --marks reference.json` to valid
 hash and redraw your marks on the overlay. Leave uncertain fields unknown. This command is
 optional until it demonstrates a better next render on unseen references.
 
-The five views below are useful presets, not limits. Choose one when it fits the reference or the art's use. `tools/iso.py` renders these orthographic views from one 3D description; see `examples/projections`. It does not render vanishing-point perspective.
+The five views below are useful presets, not limits. Choose one when it fits the reference or the art's use. `tools/iso.py` renders these orthographic views from one 3D description; see `library/projections`. It does not render vanishing-point perspective.
 
 | camera | lines | pick it for |
 |---|---|---|
@@ -74,7 +74,7 @@ Read the reference and list what makes it *that* place:
 - the one or two signature details (a spire, a crown, a dome, a flag).
 
 Then place them:
-- **Front-on orthographic views:** place the photo's large forms on screen. `bld(x0, x1, roof_top, roof_front, height)` in `examples/san-francisco/art/rebuild.py` turns "the roof sits here on screen and the front is this tall" into a 3D box. Work landmark first, then the foreground, then fill the rest.
+- **Front-on orthographic views:** place the photo's large forms on screen. `bld(x0, x1, roof_top, roof_front, height)` in `library/san-francisco/art/rebuild.py` turns "the roof sits here on screen and the front is this tall" into a 3D box. Work landmark first, then the foreground, then fill the rest.
 - **Perspective views:** use the brief's horizon, vanishing points and native-pixel boxes to draw the landmark and the main receding planes first. Place near and far repeats by hand along the guides; do not feed them to `Iso.box`.
 - **Isometric:** lay out a street grid in world units. 16 units is one 32x16 tile.
 - **Fill:** use procedural blocks (row houses, trees) for the rest, seeded by `hash2` so they stay put, and keep them clear of the landmarks (`RESERVED`).
@@ -111,7 +111,7 @@ Photos are often grey, flat and hazy, and a rebuild should not copy that:
 - **Colour:** add colour the photo only hints at, such as pastel houses, green trees, red brick, and glass that reflects the sky.
 - **Haze:** fade the far distance into haze, one dithered step lighter.
 - **Light sources:** keep them as slots: window groups (`litA..litD`), lamps, headlights, a beacon. By day they match the wall or glass. At night they glow.
-- **More moods:** derive dusk and night by relighting the day palette in OKLab (`examples/san-francisco/art/palettes.py`). Then set the light sources by hand. One render, three palettes.
+- **More moods:** derive dusk and night by relighting the day palette in OKLab (`library/san-francisco/art/palettes.py`). Then set the light sources by hand. One render, three palettes.
 
 ## 6. Bring it to life
 

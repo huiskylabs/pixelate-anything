@@ -5,7 +5,7 @@ The judge: finds the pixel-art failures the gate passes and an art director reje
 they are and how to fix them. The gate (`pixelate check`) proves a frame is legal; the judge points
 at what still reads wrong. Each defect has a kind, a box in native pixels (x0, y0, x1, y1, inclusive),
 a severity 0..1, why it reads wrong and a fix. The detectors came from the art-director rounds of the
-examples/moments run:
+showcase moments run (the ten library pieces listed in docs/gallery/moments.md):
 
   masonry       straight seam grids with T-junctions: rock, cliff or bark that reads as brick
   repeat_units  rows of same-size units at even spacing: stamped houses, ribs, drips, windows

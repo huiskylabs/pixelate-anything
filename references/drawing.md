@@ -152,9 +152,9 @@ scanlines and chromatic aberration stay off unless the preset lists them.
 
 ## Examples to study
 
-- `examples/san-francisco`: an aerial photo rebuilt in its own 3/4 camera and as an isometric diorama, day to night. The quality bar for rebuilds.
-- `examples/projections`: one scene in the five projections (side, 3/4 top-down, 2:1 iso, oblique, military).
-- `examples/retro`: original classic-genre screens under console-era limits (8-bit platformer, Game Boy-style RPG, title screen).
-- `examples/lantern-isle`: a 4-season loop, the quality bar for scenes.
-- `examples/meadow-kit`: a hero, items, an autotile set and a map.
-- `examples/gallery`: what the `demo/` scripts make through the CLI and the MCP server.
+- `library/san-francisco`: an aerial photo rebuilt in its own 3/4 camera and as an isometric diorama, day to night. The quality bar for rebuilds.
+- `library/projections`: one scene in the five projections (side, 3/4 top-down, 2:1 iso, oblique, military).
+- `library/retro-screens`: original classic-genre screens under console-era limits (8-bit platformer, Game Boy-style RPG, title screen).
+- `library/lantern-isle`: a 4-season loop, the quality bar for scenes.
+- `library/meadow-kit`: a hero, items, an autotile set and a map.
+- `docs/gallery`: what the `demo/` scripts make through the CLI and the MCP server.

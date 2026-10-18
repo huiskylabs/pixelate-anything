@@ -43,7 +43,7 @@ The brief it writes is the template from references/brief.md with every section 
 already filled in. The scene-specific sections (the objects, the lived-in details, the palette by
 role, the light list, the motion table) are left as TODO prompts, each naming the section to read
 (references/brief.md, drawing.md, delivery.md) and the command to run (`pixelate style S`,
-`pixelate tools TOPIC`): write them to the density of examples/lantern-isle/BRIEF.md before building
+`pixelate tools TOPIC`): write them to the density of library/lantern-isle/brief.md before building
 anything.
 
 A one-line request ("make me a pixel island") is not a brief. gaps() lists what the request leaves
@@ -69,7 +69,7 @@ ROUTE = {
     'lofi': dict(
         pick_if='a calm looping cover for music: a cottage, an island, seasons, a window at night; light drawn '
                 'with palette colours only',
-        projection='side', example='examples/lantern-isle (BRIEF.md is the bar)', frames=(None, 30),
+        projection='side', example='library/lantern-isle (brief.md is the bar)', frames=(None, 30),
         signals=[(6, ['lantern isle', 'lantern-isle', '灯塔岛']),
                  (4, ['lofi', 'lo-fi', 'music video', 'study music', '音乐视频', '学习音乐', '助眠']),
                  (3, ['cover', 'loop for', 'hours', 'seasons', 'four seasons', 'chill', 'relax', 'cozy cottage',
@@ -88,7 +88,7 @@ ROUTE = {
     'pastel-cell': dict(
         pick_if='a high-key, one-hue mood (pink, violet, dusk), a tiny expressive hero in a big vertical world, '
                 'weather; soft glow but still whole pixels',
-        projection='side', example='examples/indie/art/rose_squall.py', frames=(120, 30),
+        projection='side', example='library/rose-squall/art/rose_squall.py', frames=(120, 30),
         signals=[(6, ['celeste', 'rose squall', '蔚蓝']),
                  (3, ['pastel', 'pink', 'rose', 'dreamy', 'platformer', 'kite', 'glide', 'gliding', 'sea of clouds',
                       '粉', '玫瑰', '梦幻', '平台跳跃', '风筝', '滑翔', '云海']),
@@ -168,7 +168,7 @@ ROUTE = {
         never=['any soft light layer', 'filters']),
     'tactics': dict(
         pick_if='a calm, readable strategy board: a 2:1 iso diorama floating in the dark, rationed colour, UI',
-        projection='2:1 iso', example='examples/projections', frames=(96, 12),
+        projection='2:1 iso', example='library/projections', frames=(96, 12),
         signals=[(6, ['into the breach', 'itb']),
                  (3, ['tactics', 'tactical', 'strategy', 'siege', 'battle', 'army', 'war', 'turn-based', 'turn based', 'board', 'grid', 'squad',
                       '战术', '策略', '回合', '棋盘', '网格']),
@@ -182,7 +182,7 @@ ROUTE = {
         never=['soft light', 'filters', 'saturated scenery']),
     'sticker-iso': dict(
         pick_if='a dense, sunny isometric town where the crowd and the little stories are the subject',
-        projection='2:1 iso', example='examples/san-francisco (iso diorama)', frames=(96, 12),
+        projection='2:1 iso', example='library/san-francisco (iso diorama)', frames=(96, 12),
         signals=[(6, ['freitas', 'eboy']),
                  (3, ['isometric city', 'iso city', 'street', 'market', 'crowd', 'busy', 'town square', 'traffic',
                       '等距城市', '街道', '集市', '人群', '热闹', '广场', '车流', '夜市', '古镇', '庙会', 'festival', 'fair']),

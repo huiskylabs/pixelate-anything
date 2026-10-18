@@ -9,7 +9,7 @@ library/*/out/*
 *.mp4
 __pycache__/
 *.preview.png
-examples/gallery/mcp/*.gif
+docs/gallery/mcp/*.gif
 .pixelate/
 *.judge.png
 render-report.json

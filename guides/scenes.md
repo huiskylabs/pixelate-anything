@@ -10,11 +10,11 @@ Outputs:
 - a **GIF**
 - **still PNGs** (wallpapers, thumbnails)
 
-`examples/lantern-isle` is the quality bar: an island cottage through four seasons. Read its files when you need to see how something is done well.
+`library/lantern-isle` is the quality bar: an island cottage through four seasons. Read its files when you need to see how something is done well.
 
 ## Workflow
 
-1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `examples/lantern-isle/BRIEF.md`), block it in and seek an A within the review budget (`pixelate critique --brief brief.md`, `references/delivery.md#art-director`), and show the full brief for approval only at A. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief, which skips brief-stage review.
+1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `library/lantern-isle/brief.md`), block it in and seek an A within the review budget (`pixelate critique --brief brief.md`, `references/delivery.md#art-director`), and show the full brief for approval only at A. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief, which skips brief-stage review.
    - **The subject.**
    - **Phases:** 1 to 6, each with a mood, a palette idea, signature elements and its music.
    - **The canvas:**

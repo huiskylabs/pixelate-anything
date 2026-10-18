@@ -7,13 +7,13 @@ the animation plan are in [delivery.md](delivery.md).
 ## Write the brief first
 
 A scene is only as good as its brief. Lantern Isle came out almost in one pass because its
-brief (`examples/lantern-isle/BRIEF.md`) decided everything before a pixel was placed: the
+brief (`library/lantern-isle/brief.md`) decided everything before a pixel was placed: the
 art rules, every object, the lived-in details, a palette and signature elements per phase,
 motion rates, and the technical numbers. Write every new scene's brief to that density, show
 it, and only then build. If you can't fill a section, you don't know the scene yet.
 
 Users usually give one line: "make me a pixel island". Turning that line into a brief at the
-density of `examples/lantern-isle/BRIEF.md` is the skill's main job. That brief is the floor, not
+density of `library/lantern-isle/brief.md` is the skill's main job. That brief is the floor, not
 the ceiling: it predates the light layer, so a brief today also decides the light regime and every
 emitter, the allowed post ops, the value budget and the depth planes, which Lantern Isle never had
 to. Do it in this order, before drawing anything.

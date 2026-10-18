@@ -294,14 +294,14 @@ def write_file(path: str, content: str) -> str:
 
 @server.tool()
 def read_file(path: str) -> str:
-    """Read a text file (a template, an example, your own files). Examples live under the kit:
-    use kit:examples/lantern-isle/scene.js style paths to read them."""
+    """Read a text file (a library piece, a starter, your own files). Library pieces live under the kit:
+    use kit:library/lantern-isle/scene.js style paths to read them."""
     q = KIT / path[4:] if path.startswith('kit:') else P(path)
     return q.read_text()[:60000]
 
 @server.tool()
 def list_files(path: str = '.') -> str:
-    """List files under a workspace folder (or kit:examples, kit:templates)."""
+    """List files under a workspace folder (or kit:library)."""
     q = KIT / path[4:] if path.startswith('kit:') else P(path)
     skip = ('dist', 'out', 'shots', '__pycache__', '.git')
     files = [str(f.relative_to(q)) for f in sorted(q.rglob('*')) if f.is_file() and not any(s in f.parts for s in skip)]

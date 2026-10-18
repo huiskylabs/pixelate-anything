@@ -99,7 +99,7 @@ A short preview clip with sound (`media/preview.mp4`, about 1–2 MB at most) ma
 
 ### 2.3 Manifest: `piece.json`
 
-Example for The Quarry Wakes, with real file names:
+Example for The Quarry Wakes, with real file names. It is a schema example (`references/piece.md` is the spec), not evidence that the piece has earned `accepted`:
 
 ```json
 {
@@ -122,15 +122,15 @@ Example for The Quarry Wakes, with real file names:
   "canvas": {"w": 304, "h": 224, "scale": 4},
   "runtime": "script",
   "outputs": [
-    {"name": "a", "run": "python3 art/scene.py A", "frame": "out/06-a.png",
+    {"name": "a", "kind": "image", "run": "python3 art/scene.py A", "frame": "out/06-a.png",
      "style": "arcade", "scale": 4, "brief": "brief.md", "pal": "out/palette.json"},
-    {"name": "b", "run": "python3 art/scene.py B", "frame": "out/06-b.png",
+    {"name": "b", "kind": "image", "run": "python3 art/scene.py B", "frame": "out/06-b.png",
      "style": "arcade", "scale": 4, "brief": "brief.md", "pal": "out/palette.json"},
-    {"name": "sound", "run": "python3 sound/sting.py", "file": "sound/06-sample.mp3"}
+    {"name": "sound", "kind": "audio", "run": "python3 sound/sting.py", "file": "sound/06-sample.mp3"}
   ],
   "knobs": {
     "time": {"values": ["day", "dusk"], "default": "day", "edits": "art/pal.py"},
-    "seed": {"type": "int", "default": 17}
+    "seed": {"type": "int", "default": 17, "edits": "art/scene.py"}
   },
   "anatomy": [
     {"file": "art/pal.py", "draws": "palette slots and ramps", "change_for": "colour, time of day"},
@@ -142,10 +142,10 @@ Example for The Quarry Wakes, with real file names:
   ],
   "recipes": ["rock_face"],
   "kit": {"tested": "1.0.0"},
-  "review": {"notes": "history/", "record": null},
-  "media": {"thumb": "media/thumb.png", "video": null},
+  "review": {"notes": "history/notes.md", "approved_by": "art-director", "record": null},
+  "media": {"thumb": "media/thumb.png", "contact": "media/contact.png", "video": null},
   "lineage": {"remixed_from": null},
-  "provenance": {"made": "2026-10-17", "by": "agent with art director", "tokens": null},
+  "provenance": {"made": "2026-10-17", "by": "agent with art director"},
   "license": "MIT"
 }
 ```

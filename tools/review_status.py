@@ -159,25 +159,43 @@ def record(brief, report, frame: str | pathlib.Path | None = ''):
     return f"RECORDED {grade} {payload['stage']} review: {manifest}"
 
 
+def _load(manifest, stage):
+    """Parse a canonical v1 manifest for `stage`; never follow a linked manifest."""
+    if manifest.is_symlink() or (manifest.exists() and not stat.S_ISREG(manifest.lstat().st_mode)):
+        raise ReviewError(f'unsafe manifest path: {manifest}')
+    raw = _file(manifest, MAX_MANIFEST)
+    try:
+        payload = json.loads(raw)
+    except (UnicodeError, ValueError, RecursionError) as exc:
+        raise ReviewError('invalid manifest') from exc
+    if not isinstance(payload, dict) or set(payload) != {'version', 'stage', 'brief', 'brief_sha256',
+                                                           'frame', 'frame_sha256', 'report', 'report_sha256', 'grade'}:
+        raise ReviewError('invalid manifest schema')
+    if raw != (json.dumps(payload, indent=2, sort_keys=True) + '\n').encode('utf-8'):
+        raise ReviewError('manifest bytes changed or noncanonical')
+    if type(payload['version']) is not int or payload['version'] != VERSION or payload['stage'] != stage:
+        raise ReviewError('manifest version or stage mismatch')
+    return payload
+
+
+def _graded(payload, report_data):
+    """Return (ready, reason) once artifact hashes already match: rebind and regrade the report bytes."""
+    if payload['report_sha256'] != _hash(report_data):
+        raise ReviewError('report changed since review')
+    grade = _report(report_data)
+    if payload['grade'] != grade:
+        raise ReviewError('manifest grade mismatch')
+    if grade != 'A':
+        return False, f'grade {grade} (requires A)'
+    return True, f"READY: matching A {payload['stage']} review"
+
+
 def status(brief, frame: str | pathlib.Path | None = ''):
     """Return (ready, reason). Revalidate both report rubric and exact artifact hashes."""
     try:
         brief, frame, brief_data, frame_data = _context(brief, frame)
         manifest = _manifest(brief, frame)
-        if manifest.is_symlink() or (manifest.exists() and not stat.S_ISREG(manifest.lstat().st_mode)):
-            raise ReviewError(f'unsafe manifest path: {manifest}')
-        raw = _file(manifest, MAX_MANIFEST)
-        try:
-            payload = json.loads(raw)
-        except (UnicodeError, ValueError) as exc:
-            raise ReviewError('invalid manifest') from exc
-        if not isinstance(payload, dict) or set(payload) != {'version', 'stage', 'brief', 'brief_sha256',
-                                                               'frame', 'frame_sha256', 'report', 'report_sha256', 'grade'}:
-            raise ReviewError('invalid manifest schema')
-        if raw != (json.dumps(payload, indent=2, sort_keys=True) + '\n').encode('utf-8'):
-            raise ReviewError('manifest bytes changed or noncanonical')
-        if type(payload['version']) is not int or payload['version'] != VERSION or payload['stage'] != ('still' if frame else 'brief'):
-            raise ReviewError('manifest version or stage mismatch')
+        payload = _load(manifest, 'still' if frame else 'brief')
         if payload['brief'] != str(brief) or payload['frame'] != (str(frame) if frame else None):
             raise ReviewError('manifest artifact mismatch')
         if payload['brief_sha256'] != _hash(brief_data):
@@ -189,14 +207,70 @@ def status(brief, frame: str | pathlib.Path | None = ''):
         report_path = payload['report']
         if not isinstance(report_path, str) or not pathlib.Path(report_path).is_absolute() or pathlib.Path(report_path).resolve() != pathlib.Path(report_path) or report_path in (str(brief), str(frame), str(manifest)):
             raise ReviewError('unsafe report path in manifest')
-        report_data = _file(report_path, MAX_REPORT)
-        if payload['report_sha256'] != _hash(report_data):
-            raise ReviewError('report changed since review')
-        grade = _report(report_data)
-        if payload['grade'] != grade:
-            raise ReviewError('manifest grade mismatch')
-        if grade != 'A':
-            return False, f'grade {grade} (requires A)'
-        return True, f"READY: matching A {payload['stage']} review ({manifest})"
+        ready, reason = _graded(payload, _file(report_path, MAX_REPORT))
+        return ready, f'{reason} ({manifest})' if ready else reason
+    except (ReviewError, OSError) as exc:
+        return False, f'NOT READY: {exc}'
+
+
+def _inside(root, relative):
+    """root/relative for a safe POSIX relative path whose every component exists and is not a link."""
+    if (not isinstance(relative, str) or '\\' in relative or '\x00' in relative or
+            any(p in ('', '.', '..') for p in relative.split('/'))):
+        raise ReviewError(f'unsafe relative path: {relative!r}')
+    path = root
+    for part in relative.split('/'):
+        path = path / part
+        if path.is_symlink():
+            raise ReviewError(f'symlink in piece path: {relative}')
+    if not stat.S_ISREG(path.lstat().st_mode):
+        raise ReviewError(f'not a regular file: {relative}')
+    return path
+
+
+def piece_status(root, brief, frame):
+    """Return (ready, reason) for a still review recorded inside one piece directory, wherever it now lives.
+
+    A v1 record stores the absolute paths it was made at. Here `brief` and `frame` are relative to the
+    piece directory `root`; the record's frame path must end in the same relative path under a
+    directory of the same name, its brief must sit at the same relative path under that directory, and
+    its report must have been inside it. Only those three paths are reanchored to `root`, with no link
+    followed; the canonical record, all three hashes and the A-grade rubric are then checked as `status` does.
+    """
+    try:
+        root = pathlib.Path(root)
+        if root.is_symlink() or not root.is_dir():
+            raise ReviewError(f'unsafe piece directory: {root}')
+        root = root.resolve()
+        brief_path, frame_path = _inside(root, brief), _inside(root, frame)
+        if brief == frame:
+            raise ReviewError('frame and brief must differ')
+        sidecar = frame + '.visual-review.json'
+        payload = _load(_inside(root, sidecar), 'still')
+        recorded = {}
+        for key in ('brief', 'frame', 'report'):
+            value = payload[key]
+            if (not isinstance(value, str) or not pathlib.PurePath(value).is_absolute() or
+                    os.path.normpath(value) != value):
+                raise ReviewError(f'unsafe {key} path in manifest')
+            recorded[key] = pathlib.PurePath(value)
+        depth = len(frame.split('/'))
+        original = pathlib.PurePath(*recorded['frame'].parts[:-depth])
+        if (recorded['frame'].parts[-depth:] != tuple(frame.split('/')) or original.name != root.name or
+                recorded['brief'] != original / brief):
+            raise ReviewError('manifest artifact paths do not match this piece')
+        try:
+            report = recorded['report'].relative_to(original).as_posix()
+        except ValueError:
+            raise ReviewError('report was outside the piece when recorded') from None
+        if report in (brief, frame, sidecar):
+            raise ReviewError('unsafe report path in manifest')
+        report_path = _inside(root, report)
+        if payload['brief_sha256'] != _hash(_file(brief_path)):
+            raise ReviewError('brief changed since review')
+        if payload['frame_sha256'] != _hash(_file(frame_path)):
+            raise ReviewError('frame changed since review')
+        ready, reason = _graded(payload, _file(report_path, MAX_REPORT))
+        return ready, f'{reason} ({root.name}/{sidecar})' if ready else reason
     except (ReviewError, OSError) as exc:
         return False, f'NOT READY: {exc}'

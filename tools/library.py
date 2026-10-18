@@ -7,10 +7,10 @@ import argparse
 import datetime
 import json
 import os
-from pathlib import Path
 import re
 import stat
 import tempfile
+from pathlib import Path
 from typing import NoReturn
 
 MAX_MANIFEST = 128 * 1024
@@ -26,6 +26,31 @@ ERAS = ('nes', 'gameboy', 'pico-8', 'genesis', 'gba', 'neogeo', 'snes', 'none')
 MOTIONS = ('stills', 'loop', 'sprite-sheet', 'none')
 SOUNDS = ('none', 'music', 'sting', 'sfx')
 TOKEN = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')
+RECIPE = re.compile(r'[a-z][a-z0-9_]*\Z')  # a function name in tools/recipes.py
+# Optional string gate inputs of a `tools/render.py` image; as there, an empty string means unset.
+IMAGE_GATE = ('style', 'era', 'scene', 'brief', 'pal', 'pre', 'actor', 'used', 'intent', 'judge_ignore')
+# Gate inputs the run command may write; they need not exist before a render.
+GENERATED = ('pal', 'pre', 'actor', 'intent')
+USED_OPS = re.compile(r'[a-z_]+(?::[a-z_]+)?(?:,[a-z_]+(?::[a-z_]+)?)*\Z')
+JUDGE_KINDS = re.compile(r'[a-z_]+(?:,[a-z_]+)*\Z')
+LIBRARY_EXTRAS = ('index.json', 'README.md', '.DS_Store')
+# Words that never make a piece relevant: function words and generic request filler.
+STOPWORDS = frozenset((
+    'a', 'about', 'above', 'across', 'after', 'again', 'against', 'all', 'also', 'am', 'an', 'and',
+    'any', 'are', 'around', 'as', 'at', 'away', 'back', 'be', 'been', 'before', 'behind', 'being',
+    'below', 'beneath', 'between', 'both', 'but', 'by', 'can', 'could', 'did', 'do', 'does',
+    'doing', 'down', 'during', 'each', 'every', 'few', 'for', 'from', 'further', 'get', 'gets',
+    'had', 'has', 'have', 'having', 'he', 'her', 'here', 'hers', 'him', 'his', 'how', 'i', 'if',
+    'in', 'inside', 'into', 'is', 'it', 'its', 'itself', 'just', 'like', 'me', 'more', 'most', 'my',
+    'near', 'no', 'nor', 'not', 'now', 'of', 'off', 'on', 'once', 'one', 'only', 'onto', 'or',
+    'other', 'our', 'out', 'outside', 'over', 'own', 'please', 'same', 'she', 'should', 'so',
+    'some', 'such', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they',
+    'this', 'those', 'through', 'to', 'too', 'two', 'under', 'until', 'up', 'upon', 'very', 'via',
+    'was', 'we', 'were', 'what', 'when', 'where', 'which', 'while', 'who', 'why', 'will', 'with',
+    'within', 'without', 'would', 'you', 'your', 'art', 'artwork', 'big', 'create', 'draw',
+    'drawing', 'generate', 'give', 'huge', 'image', 'large', 'little', 'make', 'new', 'nice', 'old',
+    'original', 'picture', 'piece', 'pixel', 'pixelart', 'pixelate', 'render', 'scene', 'show',
+    'small', 'style', 'tiny', 'want'))
 
 
 class LibraryError(ValueError):
@@ -77,7 +102,7 @@ def relative(value, where):
     return value
 
 
-def asset(root, value, where, directory=False):
+def asset(root, value, where):
     relative(value, where)
     path = root
     for component in value.split('/'):
@@ -88,9 +113,64 @@ def asset(root, value, where, directory=False):
             fail(where, f'missing path {value}: {exc}')
         if stat.S_ISLNK(mode):
             fail(where, f'symlink: {value}')
-    if not (path.is_dir() if directory else path.is_file() and stat.S_ISREG(path.stat().st_mode)):
+    if not (path.is_file() and stat.S_ISREG(path.stat().st_mode)):
         fail(where, f'wrong file type: {value}')
     return path
+
+
+def generated(root, value, where):
+    """A path a run command may write: safe and inside the piece, never a link, but not required yet."""
+    relative(value, where)
+    path = root
+    for component in value.split('/'):
+        path = path / component
+        try:
+            mode = path.lstat().st_mode
+        except FileNotFoundError:
+            return root / value
+        except OSError as exc:
+            fail(where, f'unsafe path {value}: {exc}')
+        if stat.S_ISLNK(mode):
+            fail(where, f'symlink: {value}')
+    if not path.is_file():
+        fail(where, f'wrong file type: {value}')
+    return path
+
+
+def image_output(root, output):
+    """Check one image entry against the `tools/render.py` image contract, plus a required run."""
+    fields(output, ('name', 'kind', 'run', 'frame'), ('scale', *IMAGE_GATE), 'output')
+    gate = {key: output[key] for key in IMAGE_GATE if key in output}
+    for key, value in gate.items():
+        if not isinstance(value, str):
+            fail(f'output.{key}', 'expected string (empty means unset)')
+    gate = {key: value for key, value in gate.items() if value}
+    if not ('style' in gate or 'era' in gate):
+        fail('output', 'image needs style or era for the gate')
+    if 'style' in gate:
+        choice(gate['style'], STYLES[:-1], 'output.style')
+    if 'era' in gate:
+        choice(gate['era'], ERAS[:-1], 'output.era')
+    if 'scene' in gate:
+        # styles is a trusted, pure-Python kit table; its scene variants are the gate's --scene values.
+        if __package__:
+            from . import styles
+        else:
+            import styles
+        if 'style' not in gate or gate['scene'] not in styles.STYLES[gate['style']].get('scenes', {}):
+            fail('output.scene', 'expected a scene variant of the output style')
+    if 'scale' in output:
+        positive(output['scale'], 'output.scale')
+    asset(root, output['frame'], 'output.frame')
+    if 'brief' in gate:
+        asset(root, gate['brief'], 'output.brief')
+    for key in GENERATED:
+        if key in gate:
+            generated(root, gate[key], f'output.{key}')
+    if 'used' in gate and not USED_OPS.fullmatch(gate['used']):
+        fail('output.used', 'expected comma-separated post ops')
+    if 'judge_ignore' in gate and not JUDGE_KINDS.fullmatch(gate['judge_ignore']):
+        fail('output.judge_ignore', 'expected comma-separated judge defect kinds')
 
 
 def unique_pairs(pairs):
@@ -108,25 +188,15 @@ def review_binding(root, manifest):
         from . import review_status
     else:
         import review_status
-    record = root / manifest['review']['record']
-    try:
-        payload = json.loads(record.read_text(encoding='utf-8'), object_pairs_hook=unique_pairs)
-        report = Path(payload['report'])
-        report_relative = report.relative_to(root)
-        asset(root, report_relative.as_posix(), 'review report')
-    except (ValueError, KeyError, TypeError, UnicodeError, OSError) as exc:
-        fail(root, f'unsafe review report: {exc}')
     for output in manifest['outputs']:
-        if output['kind'] != 'image':
-            continue
-        frame = root / output['frame']
-        brief = root / output['brief']
-        if record != frame.with_name(frame.name + '.visual-review.json'):
-            continue
-        ready, reason = review_status.status(brief, frame)
-        if ready:
-            return
-        fail(root, reason)
+        if output['kind'] == 'image' and manifest['review']['record'] == output['frame'] + '.visual-review.json':
+            if not output.get('brief'):
+                fail(root, 'reviewed image output needs its brief')
+            # Relocation-safe: only paths recorded inside this same piece are reanchored here.
+            ready, reason = review_status.piece_status(root, output['brief'], output['frame'])
+            if ready:
+                return
+            fail(root, reason)
     fail(root, 'review record does not match an image output')
 
 
@@ -147,6 +217,8 @@ def validate(root):
     try:
         manifest = json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_pairs,
                               parse_constant=lambda value: fail(path, f'nonfinite JSON number: {value}'))
+    except RecursionError:
+        fail(path, 'invalid JSON: nested too deeply')
     except (ValueError, UnicodeError) as exc:
         fail(path, f'invalid JSON: {exc}')
     fields(manifest, ('schema', 'id', 'title', 'summary', 'request', 'status', 'mode', 'runtime',
@@ -179,25 +251,17 @@ def validate(root):
     for output in outputs:
         if not isinstance(output, dict):
             fail('outputs', 'expected objects')
-        kind = output.get('kind')
-        choice(kind, ('image', 'audio', 'export'), 'output.kind')
-        if kind not in ('image', 'audio', 'export'):
-            fail('output.kind', 'invalid kind')
-        extra = {'image': ('frame', 'style', 'scale', 'brief'), 'audio': ('file',), 'export': ('file',)}[kind]
-        fields(output, ('name', 'kind', 'run', *extra), ('pal',) if kind == 'image' else (), 'output')
+        choice(output.get('kind'), ('image', 'audio', 'export'), 'output.kind')
+        if output['kind'] == 'image':
+            image_output(root, output)
+        else:
+            fields(output, ('name', 'kind', 'run', 'file'), where='output')
+            asset(root, output['file'], 'output.file')
         slug(output['name'], 'output.name')
         if output['name'] in seen:
             fail('outputs', 'duplicate name')
         seen.add(output['name'])
         text(output['run'], 'output.run')
-        if kind == 'image':
-            choice(output['style'], STYLES[:-1], 'output.style')
-            positive(output['scale'], 'output.scale')
-            for key in ('frame', 'brief', 'pal'):
-                if key in output:
-                    asset(root, output[key], f'output.{key}')
-        else:
-            asset(root, output['file'], 'output.file')
     anatomy = manifest['anatomy']
     if not isinstance(anatomy, list) or not anatomy:
         fail('anatomy', 'expected nonempty array')
@@ -237,7 +301,10 @@ def validate(root):
     if manifest['license'] != 'MIT':
         fail('license', 'expected MIT')
     if 'recipes' in manifest:
-        names(manifest['recipes'], 'recipes')
+        recipes = manifest['recipes']
+        if (not isinstance(recipes, list) or not all(isinstance(r, str) and RECIPE.fullmatch(r) for r in recipes) or
+                len(recipes) != len(set(recipes))):
+            fail('recipes', 'expected distinct recipe function names')
     if 'kit' in manifest:
         fields(manifest['kit'], ('tested',), where='kit')
         text(manifest['kit']['tested'], 'kit.tested')
@@ -280,7 +347,7 @@ def scan(library):
         fail(library, 'missing or unsafe library directory')
     pieces = {}
     for path in sorted(library.iterdir()):
-        if path.name == 'index.json':
+        if path.name in LIBRARY_EXTRAS and not path.is_symlink() and path.is_file():
             continue
         if path.is_symlink():
             fail(path, 'symlink in library')
@@ -331,11 +398,23 @@ def show(library, piece_id):
     return pieces[piece_id]
 
 
+def terms(value):
+    """Content words of free text, singularized; stopwords and single letters never count."""
+    found = set()
+    for word in TOKEN.findall(value.lower()):
+        if len(word) > 4 and word.endswith('ies'):
+            word = word[:-3] + 'y'
+        elif len(word) > 3 and word.endswith('s') and not word.endswith(('ss', 'us', 'is')):
+            word = word[:-1]
+        if len(word) > 1 and word not in STOPWORDS:
+            found.add(word)
+    return found
+
+
 def query_tags(request, mode=None):
     """Conservative router-style explicit signals; generic phrases never fabricate a match."""
     text(request, 'request')
     lower = request.lower()
-    tokens = set(TOKEN.findall(lower))
     def phrase(word):
         return bool(re.search(r'(?<![a-z0-9])' + re.escape(word) + r'(?![a-z0-9])', lower))
     detected = mode or next((m for m, terms in (
@@ -357,16 +436,20 @@ def query_tags(request, mode=None):
             'era': explicit({e: (e.replace('-', ' '), e) for e in ERAS[:-1]}),
             'motion': explicit({'loop': ('loop', 'looping'), 'stills': ('still', 'stills'),
                                 'sprite-sheet': ('sprite sheet', 'spritesheet')}),
-            'words': tokens - {'a', 'an', 'the', 'of', 'in', 'and', 'for', 'pixel', 'art', 'make', 'me',
-                               'with', 'scene', 'draw', 'please', 'my', 'at', 'on', 'to', 'create',
-                               'original', 'image', 'picture', 'some', 'this', 'show'}}
+            'words': terms(request)}
 
 
 def find(library, request, mode=None, limit=3):
-    """Return matched pieces and a fallback plan. Status only breaks relevant ties."""
+    """Return matched pieces and a fallback plan.
+
+    Only a subject-tag word makes a piece relevant. Setting tags (`day`, `outdoor`) and words of the
+    title, summary and request add score to a relevant piece but cannot make one; status only orders
+    relevant pieces. Otherwise find abstains and returns the starter or author plan.
+    """
     query = query_tags(request, mode)
     if type(limit) is not int or limit < 1:
         fail('limit', 'expected positive integer')
+    words = query['words']
     ranked, starters = [], []
     for piece in scan(library).values():
         if piece['mode'] != query['mode']:
@@ -375,26 +458,23 @@ def find(library, request, mode=None, limit=3):
             starters.append(piece['id'])
             continue
         tags = piece['tags']
-        differences, reasons = [], []
-        for key in ('camera', 'style', 'era', 'motion'):
-            if query[key]:
-                if tags[key] == query[key]:
-                    reasons.append(key)
-                else:
-                    differences.append(key)
-        relevant = query['words'] & (set(tags['subject']) | set(tags['setting']) |
-                   set(TOKEN.findall(' '.join((piece['title'], piece['summary'], piece['request'])).lower())))
-        reasons.extend(sorted(relevant))
-        # A tag-only camera/style match is not enough to recommend a base.
-        if differences or not relevant:
+        matched = [key for key in ('camera', 'style', 'era', 'motion') if query[key] and tags[key] == query[key]]
+        if any(query[key] and tags[key] != query[key] for key in ('camera', 'style', 'era', 'motion')):
             continue
-        intent_words = set(TOKEN.findall(' '.join(str(query[key]) for key in
-                        ('camera', 'style', 'era', 'motion') if query[key]).lower()))
-        differences = [f'unmatched term: {word}' for word in sorted(query['words'] - relevant - intent_words)]
-        score = 5 * len(relevant) + 4 * sum(k in reasons for k in ('camera', 'era')) + 3 * sum(
-            k in reasons for k in ('style', 'motion')) + {'study': 0, 'accepted': 1, 'reviewed': 2}[piece['status']]
-        ranked.append({'id': piece['id'], 'status': piece['status'], 'score': score, 'why': reasons,
-                       'differs': differences})
+        subject = words & terms(' '.join(tags['subject']))
+        if not subject:
+            continue
+        setting = words & terms(' '.join(tags['setting'])) - subject
+        described = words & terms(' '.join((piece['title'], piece['summary'], piece['request']))) - subject - setting
+        tag_words = terms(' '.join(query[key] for key in matched))
+        score = (5 * len(subject) + 2 * len(setting) + len(described) + 4 * sum(k in matched for k in ('camera', 'era')) +
+                 3 * sum(k in matched for k in ('style', 'motion')) + {'study': 0, 'accepted': 1, 'reviewed': 2}[piece['status']])
+        ranked.append({'id': piece['id'], 'status': piece['status'], 'score': score,
+                       'why': matched + [f'{field}: {word}' for field, found in
+                                         (('subject', subject), ('setting', setting), ('text', described))
+                                         for word in sorted(found)],
+                       'differs': [f'unmatched term: {word}' for word in
+                                   sorted(words - subject - setting - described - tag_words)]})
     ranked.sort(key=lambda result: (-result['score'], result['id']))
     return {'mode': query['mode'], 'matches': ranked[:limit],
             'fallback': {'kind': 'starter', 'ids': starters} if starters else

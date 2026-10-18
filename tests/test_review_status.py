@@ -1,6 +1,7 @@
 import importlib
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -181,6 +182,107 @@ class ReviewStatusTest(unittest.TestCase):
                     mcp_server.record_visual_review(str(outside_artifact), str(external))
                 self.assertFalse((pathlib.Path(external_dir.name) / 'brief.md.visual-review.json').exists())
                 self.assertIn('missing file', mcp_server.visual_review_status(str(outside_artifact)))
+
+
+class PieceStatusTest(unittest.TestCase):
+    """piece_status reanchors a v1 record made inside a piece directory that has since moved."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.work = pathlib.Path(self.tmp.name)
+        self.piece = self.work / 'checkout-a' / 'quarry'
+        (self.piece / 'out').mkdir(parents=True)
+        (self.piece / 'history').mkdir()
+        (self.piece / 'brief.md').write_text('# Full brief\n## 0. Choices\nA quarry\n')
+        (self.piece / 'out' / 'a.png').write_bytes(b'PNG still')
+        (self.piece / 'history' / 'lead.md').write_text(lead())
+
+    def record(self, report='history/lead.md'):
+        result = subprocess.run([sys.executable, str(ROOT / 'pixelate'), 'review', 'record', '--brief', 'brief.md',
+                                 '--frame', 'out/a.png', '--critique', str(report)],
+                                cwd=self.piece, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def moved(self, name='quarry'):
+        target = self.work / 'checkout-b' / 'deeper' / name
+        shutil.copytree(self.piece, target)
+        return target
+
+    def rewrite(self, piece, **changes):
+        sidecar = piece / 'out' / 'a.png.visual-review.json'
+        payload = json.loads(sidecar.read_text())
+        payload.update(changes)
+        sidecar.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
+        return payload
+
+    def test_copy_under_another_parent_is_ready_and_v1_status_unchanged(self):
+        self.record()
+        self.assertTrue(review_status.piece_status(self.piece, 'brief.md', 'out/a.png')[0])
+        moved = self.moved()
+        shutil.rmtree(self.piece)
+        ready, reason = review_status.piece_status(moved, 'brief.md', 'out/a.png')
+        self.assertTrue(ready, reason)
+        self.assertEqual(reason, 'READY: matching A still review (quarry/out/a.png.visual-review.json)')
+        # v1 status still binds absolute paths, so the moved copy fails closed there.
+        self.assertIn('manifest artifact mismatch', review_status.status(moved / 'brief.md', moved / 'out' / 'a.png')[1])
+        (moved / 'history' / 'lead.md').write_text(lead('B'))
+        self.assertIn('report changed', review_status.piece_status(moved, 'brief.md', 'out/a.png')[1])
+
+    def test_grade_b_tampered_bytes_and_unsafe_arguments(self):
+        (self.piece / 'history' / 'lead.md').write_text(lead('B'))
+        self.record()
+        moved = self.moved()
+        self.assertEqual(review_status.piece_status(moved, 'brief.md', 'out/a.png'), (False, 'grade B (requires A)'))
+        for brief, frame in (('../quarry/brief.md', 'out/a.png'), ('brief.md', '/out/a.png'), ('brief.md', 'out//a.png'),
+                             ('brief.md', 'out/./a.png'), ('brief.md', 'brief.md'), ('brief.md', None)):
+            with self.subTest(brief=brief, frame=frame):
+                self.assertFalse(review_status.piece_status(moved, brief, frame)[0])
+
+    def test_rewritten_paths_external_report_and_symlinks_fail(self):
+        self.record()
+        moved = self.moved()
+        original = json.loads((moved / 'out' / 'a.png.visual-review.json').read_text())
+        old_root = str(self.piece.resolve())
+        cases = {'report was outside': {'report': str(self.work / 'lead.md')},
+                 'unsafe report path': {'report': old_root + '/out/../history/lead.md'},
+                 'do not match': {'brief': str(self.work / 'brief.md')},
+                 'do not match this piece': {'frame': old_root + '/a.png'},
+                 'unsafe frame path': {'frame': 'out/a.png'}}
+        for expected, change in cases.items():
+            with self.subTest(change=change):
+                self.rewrite(moved, **{**original, **change})
+                self.assertIn(expected, review_status.piece_status(moved, 'brief.md', 'out/a.png')[1])
+        self.rewrite(moved, **original)
+        self.assertTrue(review_status.piece_status(moved, 'brief.md', 'out/a.png')[0])
+        renamed = self.moved('other')
+        self.assertIn('do not match this piece', review_status.piece_status(renamed, 'brief.md', 'out/a.png')[1])
+        report = moved / 'history' / 'lead.md'
+        (self.work / 'lead.md').write_bytes(report.read_bytes())
+        report.unlink()
+        report.symlink_to(self.work / 'lead.md')
+        self.assertIn('symlink', review_status.piece_status(moved, 'brief.md', 'out/a.png')[1])
+        report.unlink()
+        shutil.move(str(self.work / 'lead.md'), report)
+        (moved / 'out').rename(moved / 'real-out')
+        (moved / 'out').symlink_to(moved / 'real-out')
+        self.assertIn('symlink', review_status.piece_status(moved, 'brief.md', 'out/a.png')[1])
+        linked_root = self.work / 'link-to-quarry'
+        linked_root.symlink_to(moved)
+        self.assertIn('unsafe piece directory', review_status.piece_status(linked_root, 'brief.md', 'out/a.png')[1])
+
+    def test_report_recorded_outside_piece_is_never_portable(self):
+        external = self.work / 'lead.md'
+        external.write_text(lead())
+        self.record(external)
+        self.assertTrue(review_status.status(self.piece / 'brief.md', self.piece / 'out' / 'a.png')[0])
+        self.assertIn('outside the piece', review_status.piece_status(self.piece, 'brief.md', 'out/a.png')[1])
+
+    def test_deeply_nested_manifest_fails_closed(self):
+        review_status.record(self.piece / 'brief.md', self.piece / 'history' / 'lead.md', self.piece / 'out' / 'a.png')
+        (self.piece / 'out' / 'a.png.visual-review.json').write_text('[' * 5000)
+        self.assertIn('invalid manifest', review_status.status(self.piece / 'brief.md', self.piece / 'out' / 'a.png')[1])
+        self.assertIn('invalid manifest', review_status.piece_status(self.piece, 'brief.md', 'out/a.png')[1])
 
 
 if __name__ == '__main__':

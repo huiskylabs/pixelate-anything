@@ -4,7 +4,7 @@ Read this when authoring or migrating a `library/<id>/piece.json`. A catalog ent
 
 ## Layout and identity
 
-A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-z0-9]+(-[a-z0-9]+)*`) equal to its directory name; IDs are unique. JSON objects have unique keys. The catalog rejects symbolic links anywhere in a piece, including unreferenced files. All manifest file references are POSIX paths relative to the piece root, with no empty, `.` or `..` component, leading slash, backslash or NUL. File references must exist as regular files; directory references must exist as directories. The index is generated, sorted by id, and is not proof of quality. Keep full videos outside git.
+A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-z0-9]+(-[a-z0-9]+)*`) equal to its directory name; IDs are unique. JSON objects have unique keys. The catalog rejects symbolic links anywhere in a piece, including unreferenced files. All manifest file references are POSIX paths relative to the piece root, with no empty, `.` or `..` component, leading slash, backslash or NUL. File references must exist as regular files, except the image gate inputs a render writes (below). The library root holds only piece directories, the generated `index.json`, and an optional `README.md` or `.DS_Store`. The index is generated, sorted by id, and is not proof of quality. Keep full videos outside git.
 
 ## Required fields
 
@@ -20,13 +20,28 @@ A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-
 | `provenance` | `{made: "YYYY-MM-DD", by: nonempty string}`. This identifies who made the piece; it does not attest review. |
 | `license` | `MIT` for library contributions. |
 
-Optional: `recipes` (distinct slug array), `kit` (`{tested: nonempty version string}`), `media` (`thumb`, `contact`, `video`, `gif`: optional file paths), `lineage` (`{remixed_from: slug or null}`), `review` (see below). The manifest is limited to 128 KiB.
+Optional: `recipes` (distinct `tools/recipes.py` function names such as `rock_face`), `kit` (`{tested: nonempty version string}`), `media` (`thumb`, `contact`, `video`, `gif`: optional file paths), `lineage` (`{remixed_from: slug or null}`), `review` (see below). The manifest is limited to 128 KiB.
 
 ### Typed outputs
 
-Every output has a unique slug `name`, `kind`, and `run`. Image: `kind: "image"`, `frame` (declared golden 1x PNG), `style` (router style), `scale` (positive integer), `brief` (file), optional `pal` (file). Audio: `kind: "audio"`, `file` (audio file). Export: `kind: "export"`, `file` (exported artifact). Image-only gate fields do not belong on audio or export entries. An image output's frame, audio file and export file must exist at validation time. The command is metadata, not permission to execute contributed code.
+Every output has a unique slug `name`, `kind`, and `run`. The command is metadata, not permission to execute contributed code; unlike `render.json`, a library output always has `run`, because every piece must render in CI.
 
-Example (paths must exist inside `library/quarry-wakes/`; approval must be evidenced, not inferred):
+Image (`kind: "image"`) takes the `tools/render.py` `render.json` image fields, so a `render.json` entry plus `kind` is a valid image output:
+
+| Field | Contract |
+|---|---|
+| `frame` | Required. The golden frame; must exist. |
+| `style`, `era` | At least one is required for the gate. `style`: a router style (not `none`); `era`: an era above (not `none`). |
+| `scene` | A scene variant of `style` (`pixelate style S` lists them); needs `style`. |
+| `scale` | Positive integer; the gate defaults to 1. |
+| `brief` | A source file; must exist when given. Required on the image a `reviewed` record binds. |
+| `pal`, `pre`, `actor`, `intent` | Gate inputs the run command may write. Safe relative paths inside the piece; they need not exist before a render, but any component that exists must not be a link, and an existing target must be a regular file. |
+| `used` | Comma-separated post ops (`light,shaft`, `rain:hair`). |
+| `judge_ignore` | Comma-separated judge defect kinds (`masonry,repeat_units`). |
+
+As in `render.py`, an empty string means an optional string field is unset; no other fields are allowed. Audio: `kind: "audio"`, `file` (audio file). Export: `kind: "export"`, `file` (exported artifact). Gate fields do not belong on audio or export entries. Audio and export files must exist at validation time.
+
+Example (the frame, brief, sources and media must exist inside `library/quarry-wakes/`; `out/palette.json` and `out/06-a-actor.png` are written by the run command; approval must be evidenced, not inferred):
 
 ```json
 {
@@ -37,8 +52,8 @@ Example (paths must exist inside `library/quarry-wakes/`; approval must be evide
            "style": "arcade", "era": "neogeo", "motion": "stills", "sound": "sting"},
   "canvas": {"w": 304, "h": 224, "scale": 4},
   "outputs": [
-    {"name": "scene", "kind": "image", "run": "python3 art/scene.py",
-     "frame": "out/scene.png", "style": "arcade", "scale": 4, "brief": "brief.md"},
+    {"name": "a", "kind": "image", "run": "python3 art/scene.py A", "frame": "out/06-a.png",
+     "style": "arcade", "scale": 4, "brief": "brief.md", "pal": "out/palette.json", "actor": "out/06-a-actor.png"},
     {"name": "sting", "kind": "audio", "run": "python3 sound/sting.py", "file": "sound/sting.mp3"}
   ],
   "anatomy": [{"file": "art/scene.py", "draws": "quarry and machine", "change_for": "subject and composition"}],
@@ -58,10 +73,10 @@ Example (paths must exist inside `library/quarry-wakes/`; approval must be evide
 | `starter` | A tagged, anatomized piece with at least one output and provenance. | Render and gate on the *empty starter* before use. It is a fallback, not a recommended finished base. |
 | `study` | Same static declaration. | CI render; no approval implied. |
 | `accepted` | At least two knobs; at least one image output with a golden frame; `media.thumb` and `media.contact` files; `review.notes` file and `review.approved_by` (`user` or `art-director`). | Verify approval is genuine, render determinism and gate result. Review notes are not a technical gate result. |
-| `reviewed` | All accepted evidence plus `review.record` file (a visual-review sidecar) and matching A-grade artifact-bound review via `tools/review_status.py`. | Recheck exact-byte binding after any file change; review alone does not grant licensing or user approval. Relocation invalidates absolute-path review bindings: re-record against the final library paths rather than carrying an old record forward. |
+| `reviewed` | All accepted evidence plus `review.record` file (a visual-review sidecar) and matching A-grade artifact-bound review via `review_status.piece_status`. | Recheck exact-byte binding after any file change; review alone does not grant licensing or user approval. |
 
-`review` is `{notes: path or null, approved_by: "user" | "art-director" | null, record: path or null}`. For `starter`/`study` it may be absent; if supplied, all references are checked, but it cannot elevate status. `record` is a sidecar produced by `pixelate review record`, beside an image output's `frame`; its brief and frame must match that image output, and its report must live inside the piece. Accepted review notes must be nonempty. A grade B/C, missing file, changed bytes or mismatched path fails `reviewed` validation. For `accepted`, review notes/approval are declarations to audit, never inferred from a passing gate. Do not promote migrated work to accepted without evidence.
+`review` is `{notes: path or null, approved_by: "user" | "art-director" | null, record: path or null}`. For `starter`/`study` it may be absent; if supplied, all references are checked, but it cannot elevate status. `record` is a sidecar produced by `pixelate review record`, named `<frame>.visual-review.json` beside an image output's `frame`, with the critique report saved inside the piece (for example `history/lead.md`) before recording. The record keeps the absolute paths it was made at, so a moved piece is checked by `review_status.piece_status`: the recorded frame must end in the output's `frame` path under a directory with the piece's id, the recorded brief must be the output's `brief` under that same directory, and the report must have been inside it. Only those paths are reanchored to the piece's current folder; no link is followed. A report recorded outside the piece, a renamed piece, a different path relation, a link, noncanonical record bytes, changed brief/frame/report bytes, or a B/C grade fails `reviewed` validation. Plain `pixelate review status` keeps binding absolute paths. Accepted review notes must be nonempty. For `accepted`, review notes/approval are declarations to audit, never inferred from a passing gate. Do not promote migrated work to accepted without evidence.
 
 ## Search contract
 
-Search requires a mode match and a subject/setting or descriptive-text word match; explicit camera, style, era or motion mismatches are not interchangeable. Subject/setting terms and request/title/summary text supply relevance. A status bonus only orders relevant results; it cannot turn an unrelated popular or reviewed piece into a match. `find` returns at most three matched pieces plus `starter` fallback(s) for the requested mode. When nothing is close it abstains from recommending a finished piece and returns the starter plan, or an author-new-piece plan if no matching starter exists. The 20 labelled synthetic cases in `tests/test_library.py` test this contract; they are not evidence of real-corpus accuracy.
+Search requires a mode match and at least one request word that matches a `tags.subject` term; explicit camera, style, era or motion mismatches are not interchangeable. Words are lowercased and singularized, and common function and filler words (`its`, `out`, `up`, `old`, `make`, `pixel`) never count. Setting tags (`day`, `outdoor`) and words of the title, summary and request add score to a piece that already matches a subject, but cannot make a match on their own, so choose subject tags for what the piece can be remixed into. A status bonus only orders relevant results; it cannot turn an unrelated popular or reviewed piece into a match. `find` returns at most three matched pieces plus `starter` fallback(s) for the requested mode. When nothing is close it abstains from recommending a finished piece and returns the starter plan, or an author-new-piece plan if no matching starter exists. The 20 labelled synthetic cases and the realistic false-match cases in `tests/test_library.py` test this contract; they are not evidence of real-corpus accuracy.

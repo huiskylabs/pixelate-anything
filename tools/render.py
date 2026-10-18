@@ -24,15 +24,90 @@ required for the gate.
 
 piece.json outputs replace render.json: an image output takes the same fields plus `kind`, and audio
 and export outputs are run and hashed but never gated. Piece commands run with the kit's `tools/` first
-on PYTHONPATH and the kit root (the `pixelate` command) first on PATH. A folder with both files is an
+on PYTHONPATH and the kit root (the `pixelate` command) first on PATH. After a piece command, a frame,
+file or gate input reached through a link, or not a regular file, fails, and the hash is of the bytes
+read without following links; the gate and judge then reopen the paths. A folder with both files is an
 error.
 """
-import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, subprocess, sys, time
+import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, stat, subprocess, sys, time
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 PIXELATE = [sys.executable, str(KIT / 'pixelate')]
 GATE_FLAGS = (('style', '--style'), ('scene', '--scene'), ('era', '--era'), ('pal', '--pal'), ('pre', '--pre'),
               ('actor', '--actor'), ('used', '--used'), ('intent', '--intent'))
+# The files the image gate reads besides the frame.
+GATE_FILES = ('brief', 'pal', 'pre', 'actor', 'intent')
+
+class UnsafePath(OSError):
+    """a piece path that goes through a link or does not end at a regular file"""
+
+def _parent(root, rel):
+    """(descriptor of the folder holding rel under root, last component), reached without following
+    a link; rel is a validated piece path. The caller closes the descriptor."""
+    parts = rel.split('/')
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        for part in parts[:-1]:
+            try:
+                sub = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+            except FileNotFoundError:
+                raise
+            except OSError as exc:
+                raise UnsafePath('%s: %s is a link or not a folder (%s)' % (rel, part, exc.strerror)) from exc
+            os.close(fd)
+            fd = sub
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd, parts[-1]
+
+def read_regular(root, rel):
+    """the bytes of the regular file rel under root, opened without following any link; raises
+    FileNotFoundError when it is missing and UnsafePath for a link, folder, pipe or device"""
+    fd, name = _parent(root, rel)
+    try:
+        try:
+            # O_NONBLOCK: opening a pipe planted at rel must not hang the checker.
+            f = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=fd)
+        except FileNotFoundError:
+            raise
+        except OSError as exc:
+            raise UnsafePath('%s: a link or not a regular file (%s)' % (rel, exc.strerror)) from exc
+    finally:
+        os.close(fd)
+    with os.fdopen(f, 'rb') as fh:
+        if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+            raise UnsafePath('%s: not a regular file' % rel)
+        return fh.read()
+
+def remove_regular(root, rel):
+    """delete rel under root if it is there, without following a link in its folders; a link at rel
+    itself is removed, never its target"""
+    try:
+        fd, name = _parent(root, rel)
+    except FileNotFoundError:
+        return
+    try:
+        os.unlink(name, dir_fd=fd)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise UnsafePath('%s: cannot remove (%s)' % (rel, exc.strerror)) from exc
+    finally:
+        os.close(fd)
+
+def unsafe_inputs(d, im):
+    """the first gate input of a piece image that exists but is a link or not a regular file, else None;
+    a missing input is left for the gate to report"""
+    for key in GATE_FILES:
+        if im.get(key):
+            try:
+                read_regular(d, im[key])
+            except FileNotFoundError:
+                pass
+            except UnsafePath as exc:
+                return 'unsafe gate input: %s' % exc
+    return None
 
 def load(dirpath):
     """the outputs to render and the manifest they came from: 'piece.json' or 'render.json'"""
@@ -104,25 +179,50 @@ def run_command(command, cwd, env=None, timeout=None):
         rec['error'] = _tail(err or out)
     return rec
 
-def render_one(d, im, run=True, critique=False, env=None):
+def technical_gate(d, im):
+    """{'gate': ..., 'era': ...}: the image gate (`pixelate check`) on im's frame in d and, when im names
+    an era, the era check. A technical result, not a quality judgment."""
+    rec = {}
+    g = subprocess.run(PIXELATE + gate_args(im), cwd=d, capture_output=True, text=True)
+    fails = [l.strip() for l in g.stdout.splitlines() if re.match(r'^\s*FAIL\b', l)]
+    passes = [l for l in g.stdout.splitlines() if re.match(r'^\s*PASS\b', l)]
+    rec['gate'] = {'ok': g.returncode == 0, 'pass': len(passes), 'fail': fails[:8]}
+    # A gate that finished ends with its summary; any other failure is an error, not a gate verdict.
+    if g.returncode and not re.search(r'^(ALL PASS|FAIL: \d+ of \d+ checks)', g.stdout, re.M):
+        rec['gate']['error'] = _tail(g.stderr or g.stdout)
+    if im.get('era'):
+        e = subprocess.run(PIXELATE + ['era', im['frame'], '--era', im['era']], cwd=d, capture_output=True, text=True)
+        rec['era'] = {'ok': e.returncode == 0, 'report': _tail(e.stdout, 3)}
+    return rec
+
+def render_one(d, im, run=True, critique=False, env=None, piece=False):
+    """piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
+    without a link"""
     rec = {'name': im['name'], 'frame': im['frame']}
     if run and im.get('run'):
         rec['run'] = run_command(im['run'], d, env)
         if not rec['run']['ok']:
             return rec
-    if not (d / im['frame']).is_file():
+    if piece:
+        try:
+            data = read_regular(d, im['frame'])
+        except FileNotFoundError:
+            rec['error'] = 'frame not found: %s' % im['frame']
+            return rec
+        except UnsafePath as exc:
+            rec['error'] = 'unsafe frame: %s' % exc
+            return rec
+        unsafe = unsafe_inputs(d, im)
+        if unsafe:
+            rec['error'] = unsafe
+            return rec
+    elif (d / im['frame']).is_file():
+        data = (d / im['frame']).read_bytes()
+    else:
         rec['error'] = 'frame not found: %s' % im['frame']
         return rec
-    rec['sha256'] = hashlib.sha256((d / im['frame']).read_bytes()).hexdigest()   # the bytes gated and judged here
-    g = subprocess.run(PIXELATE + gate_args(im), cwd=d, capture_output=True, text=True)
-    fails = [l.strip() for l in g.stdout.splitlines() if re.match(r'^\s*FAIL\b', l)]
-    passes = [l for l in g.stdout.splitlines() if re.match(r'^\s*PASS\b', l)]
-    rec['gate'] = {'ok': g.returncode == 0, 'pass': len(passes), 'fail': fails[:8]}
-    if g.returncode and not fails:
-        rec['gate']['error'] = _tail(g.stderr or g.stdout)
-    if im.get('era'):
-        e = subprocess.run(PIXELATE + ['era', im['frame'], '--era', im['era']], cwd=d, capture_output=True, text=True)
-        rec['era'] = {'ok': e.returncode == 0, 'report': _tail(e.stdout, 3)}
+    rec['sha256'] = hashlib.sha256(data).hexdigest()   # the bytes gated and judged here
+    rec.update(technical_gate(d, im))
     frame = d / im['frame']
     overlay = frame.with_suffix('.judge.png')
     jargs = ['judge', im['frame'], '--json', '--overlay', str(overlay.relative_to(d))]
@@ -158,10 +258,12 @@ def render_file(d, out, run=True, env=None):
         rec['run'] = run_command(out['run'], d, env)
         if not rec['run']['ok']:
             return rec
-    if not (d / out['file']).is_file():
+    try:
+        rec['sha256'] = hashlib.sha256(read_regular(d, out['file'])).hexdigest()
+    except FileNotFoundError:
         rec['error'] = 'file not found: %s' % out['file']
-        return rec
-    rec['sha256'] = hashlib.sha256((d / out['file']).read_bytes()).hexdigest()
+    except UnsafePath as exc:
+        rec['error'] = 'unsafe file: %s' % exc
     return rec
 
 def line(rec):
@@ -240,7 +342,7 @@ def main(argv=None):
         recs = [render_one(d, im, not a.no_run, a.critique) for im in outputs]
     else:
         env = piece_env()
-        recs = [dict(render_one(d, o, not a.no_run, a.critique, env), kind='image') if o['kind'] == 'image'
+        recs = [dict(render_one(d, o, not a.no_run, a.critique, env, piece=True), kind='image') if o['kind'] == 'image'
                 else render_file(d, o, not a.no_run, env) for o in outputs]
     (d / 'render-report.json').write_text(json.dumps(recs, indent=1))
     log_run(d, recs)

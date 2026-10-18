@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Static piece manifest validation, deterministic catalog and conservative search.
 
-No contributed program, run command, or module is imported or executed here.
+`index`, `list`, `show` and `find` never import or execute piece code. Only `test` runs a piece: it
+renders a temporary copy of a trusted checked-in piece through `tools/render.py`, which runs the
+manifest's shell commands without a sandbox.
 """
 import argparse
 import datetime
+import hashlib
+import io
 import json
 import os
 import re
+import shutil
 import stat
 import tempfile
 from pathlib import Path
@@ -139,7 +144,7 @@ def generated(root, value, where):
 
 def image_output(root, output):
     """Check one image entry against the `tools/render.py` image contract, plus a required run."""
-    fields(output, ('name', 'kind', 'run', 'frame'), ('scale', *IMAGE_GATE), 'output')
+    fields(output, ('name', 'kind', 'run', 'frame'), ('scale', 'size', 'golden', *IMAGE_GATE), 'output')
     gate = {key: output[key] for key in IMAGE_GATE if key in output}
     for key, value in gate.items():
         if not isinstance(value, str):
@@ -161,7 +166,15 @@ def image_output(root, output):
             fail('output.scene', 'expected a scene variant of the output style')
     if 'scale' in output:
         positive(output['scale'], 'output.scale')
+    if 'size' in output:
+        fields(output['size'], ('w', 'h'), where='output.size')
+        for key, value in output['size'].items():
+            positive(value, f'output.size.{key}')
     asset(root, output['frame'], 'output.frame')
+    if 'golden' in output:
+        if output['golden'] != f"out/golden/{output['name']}.png" or output['golden'] == output['frame']:
+            fail('output.golden', 'expected out/golden/<output name>.png, distinct from frame')
+        asset(root, output['golden'], 'output.golden')
     if 'brief' in gate:
         asset(root, gate['brief'], 'output.brief')
     for key in GENERATED:
@@ -481,9 +494,171 @@ def find(library, request, mode=None, limit=3):
                         {'kind': 'author', 'reason': 'no matching starter; author a new piece'}}
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--library', type=Path, default=Path(__file__).resolve().parent.parent / 'library')
+def compare_golden(frame, golden, size, scale):
+    """Check a rendered frame is `size` at `scale`, then compare its nearest-neighbor 1x RGBA pixels
+    with the golden 1x frame. A missing golden (None) fails after the dimension check."""
+    import numpy as np
+    from PIL import Image
+    w, h = size['w'], size['h']
+    try:
+        with Image.open(frame) as image:
+            rendered = image.convert('RGBA')
+    except OSError as exc:
+        return {'ok': False, 'error': f'unreadable frame: {exc}'}
+    if rendered.size != (w * scale, h * scale):
+        return {'ok': False, 'error': f'dimension mismatch: frame {rendered.width}x{rendered.height}, '
+                                      f'expected {w * scale}x{h * scale} ({w}x{h} at scale {scale})'}
+    if golden is None:
+        return {'ok': False, 'error': 'missing golden: declare out/golden/<output name>.png'}
+    try:
+        with Image.open(golden) as image:
+            expected = image.convert('RGBA')
+    except OSError as exc:
+        return {'ok': False, 'error': f'unreadable golden: {exc}'}
+    if expected.size != (w, h):
+        return {'ok': False, 'error': f'golden is {expected.width}x{expected.height}, expected 1x {w}x{h}'}
+    delta = np.abs(np.asarray(rendered.resize((w, h), Image.Resampling.NEAREST), np.int16) -
+                   np.asarray(expected, np.int16)).max(axis=2)
+    ys, xs = np.nonzero(delta)
+    if not len(xs):
+        return {'ok': True, 'pixels': 0}
+    return {'ok': False, 'pixels': int(len(xs)), 'max_delta': int(delta.max()),
+            'box': [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1],
+            'error': f'{len(xs)} of {w * h} 1x pixels differ from the golden'}
+
+
+def kit_render():
+    # render is a trusted kit tool; importing it runs no piece code.
+    if __package__:
+        from . import render
+    else:
+        import render
+    return render
+
+
+def check_output(source, work, temp, output, canvas, status, result):
+    """Verify one output the group's run just wrote; records into `result`. The output is read once,
+    without following a link; those bytes are hashed, compared with the golden and, in a private
+    snapshot with the generated gate inputs from `work` and the brief from `source`, gated. A gate
+    failure blocks every status but `study`, where plan section 2.1 asks only for a render; a gate that
+    errors blocks every status."""
+    render = kit_render()
+    path = output.get('frame') or output['file']
+    try:
+        data = render.read_regular(work, path)
+    except FileNotFoundError:
+        result.update(status='failed', error=f'not produced: {path}')
+        return
+    except render.UnsafePath as exc:
+        result.update(status='failed', error=f'unsafe output: {exc}')
+        return
+    result['sha256'] = hashlib.sha256(data).hexdigest()
+    if output['kind'] != 'image':
+        if data:
+            result['status'] = 'passed'
+        else:
+            result.update(status='failed', error=f'empty file: {path}')
+        return
+    golden = None
+    if 'golden' in output:
+        try:
+            golden = io.BytesIO(render.read_regular(source, output['golden']))
+        except OSError as exc:
+            result.update(status='failed', error=f'unreadable golden: {exc}')
+            return
+    result['golden'] = compare_golden(io.BytesIO(data), golden, output.get('size') or canvas, output.get('scale', 1))
+    folder = Path(tempfile.mkdtemp(prefix=f"gate-{output['name']}-", dir=temp))
+    error = render.gate_snapshot(folder, output, data, work, source)
+    if error:
+        result.update(status='failed', error=error)
+        return
+    gate = render.technical_gate(folder, output)
+    result['gate'] = gate['gate']
+    if 'era' in gate:
+        # `pixelate era` prints violations yet exits 0, so its status says only that it ran; the gate's
+        # own --era lines decide era legality.
+        result['era'] = {'ran': gate['era']['ok'], 'report': gate['era']['report']}
+    era_ran = result.get('era', {'ran': True})['ran']
+    result['gate_ok'] = result['gate']['ok'] and era_ran
+    errored = 'error' in result['gate'] or not era_ran
+    if result['gate_ok'] or (status == 'study' and not errored):
+        result['status'] = 'passed' if result['golden']['ok'] else 'failed'
+        if not result['gate_ok']:
+            result['diagnostic'] = 'study: the technical gate failed; reported, not blocking'
+    else:
+        result['status'] = 'failed'
+
+
+def test_piece(root, quick=False, timeout=300):
+    """Render a temporary copy of a trusted piece; gate every image and compare it with its golden 1x frame.
+
+    Outputs with the same run command form a group, run once, for at most `timeout` seconds, in order
+    of first appearance. Before a group runs, its declared frames and files are deleted from the copy,
+    so neither a stale committed file nor another command's side effect can pass; each is checked
+    right after its group runs. Outputs are read without following links. Quick mode skips audio and
+    export outputs and reports them as skipped. The source piece is never written.
+    """
+    render = kit_render()
+    source = Path(root).absolute()
+    manifest = validate(source)
+    results, groups = {}, {}
+    for output in manifest['outputs']:
+        path = output.get('frame') or output['file']
+        results[output['name']] = {'name': output['name'], 'kind': output['kind'], 'path': path}
+        if quick and output['kind'] != 'image':
+            results[output['name']].update(status='skipped', reason=f"quick mode skips {output['kind']} outputs")
+        else:
+            groups.setdefault(output['run'], []).append(output)
+    with tempfile.TemporaryDirectory(prefix='pixelate-test-') as temp:
+        work = Path(temp) / source.name
+        shutil.copytree(source, work, symlinks=True, ignore=shutil.ignore_patterns('.pixelate', '__pycache__'))
+        env = render.piece_env()
+        for command, group in groups.items():
+            try:
+                for output in group:
+                    render.remove_regular(work, output.get('frame') or output['file'])
+            except render.UnsafePath as exc:
+                for output in group:
+                    results[output['name']].update(status='failed', error=f'unsafe output: {exc}')
+                continue
+            run = render.run_command(command, work, env, timeout)
+            for output in group:
+                result = results[output['name']]
+                result['run'] = run
+                if run['ok']:
+                    check_output(source, work, temp, output, manifest['canvas'], manifest['status'], result)
+                else:
+                    result.update(status='failed', error='run failed')
+    outputs = list(results.values())
+    return {'id': manifest['id'], 'ok': all(r['status'] != 'failed' for r in outputs),
+            'gate_ok': all(r.get('gate_ok') is True for r in outputs if r['kind'] == 'image'), 'outputs': outputs}
+
+
+def test(library, ids=(), quick=False, timeout=300):
+    """Render-test the named pieces, or every piece in the catalog, in temporary copies."""
+    library = Path(library).absolute()
+    positive(timeout, 'timeout')
+    if ids:
+        for piece_id in ids:
+            slug(piece_id, 'id')
+            if not (library / piece_id).is_dir():
+                fail(piece_id, 'unknown piece')
+        ids = list(dict.fromkeys(ids))
+    else:
+        ids = list(scan(library))
+    if not ids:
+        fail(library, 'no pieces to test')
+    pieces = [test_piece(library / piece_id, quick, timeout) for piece_id in ids]
+    return {'ok': all(p['ok'] for p in pieces), 'gate_ok': all(p['gate_ok'] for p in pieces), 'quick': quick,
+            'pieces': pieces}
+
+
+DEFAULT_LIBRARY = Path(__file__).resolve().parent.parent / 'library'
+
+
+def main(argv=None, prog=None):
+    parser = argparse.ArgumentParser(prog=prog, description=__doc__)
+    parser.add_argument('--library', type=Path, default=DEFAULT_LIBRARY)
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('index')
     commands.add_parser('list')
@@ -491,8 +666,17 @@ def main(argv=None):
     finding = commands.add_parser('find')
     finding.add_argument('request')
     finding.add_argument('--mode', choices=MODES)
+    testing = commands.add_parser('test', help='render pieces in temporary copies, gate each image and compare '
+                                               'golden 1x frames; runs trusted checked-in commands without a sandbox')
+    testing.add_argument('ids', nargs='*', metavar='ID')
+    testing.add_argument('--quick', action='store_true', help='skip audio and export outputs')
+    testing.add_argument('--timeout', type=int, default=300, help='seconds per run command (default 300)')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'test':
+            report = test(args.library, args.ids, args.quick, args.timeout)
+            print(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False))
+            raise SystemExit(0 if report['ok'] else 1)
         result = {'index': lambda: write_index(args.library).decode('utf-8'),
                   'list': lambda: list_pieces(args.library),
                   'show': lambda: show(args.library, args.id),
@@ -500,6 +684,35 @@ def main(argv=None):
     except LibraryError as exc:
         parser.exit(2, f'library: {exc}\n')
     print(result if isinstance(result, str) else json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+
+
+def find_main(argv=None):
+    """`pixelate find REQUEST [--mode M] [--json]`: the top pieces and the fallback, as text or JSON."""
+    parser = argparse.ArgumentParser(prog='pixelate find', description='Rank library pieces for a request. '
+                                     'Static: never runs piece code.')
+    parser.add_argument('request')
+    parser.add_argument('--mode', choices=MODES)
+    parser.add_argument('--json', action='store_true')
+    parser.add_argument('--library', type=Path, default=DEFAULT_LIBRARY)
+    args = parser.parse_args(argv)
+    try:
+        result = find(args.library, args.request, args.mode)
+    except LibraryError as exc:
+        parser.exit(2, f'find: {exc}\n')
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+        return
+    print(f"mode: {result['mode']}")
+    if not result['matches']:
+        print('no close piece')
+    for rank, match in enumerate(result['matches'], 1):
+        print(f"{rank}. {match['id']} ({match['status']}, score {match['score']})")
+        print('   why: ' + ', '.join(match['why']))
+        if match['differs']:
+            print('   differs: ' + ', '.join(match['differs']))
+    fallback = result['fallback']
+    print('fallback: ' + (f"starter {', '.join(fallback['ids'])}" if fallback['kind'] == 'starter'
+                          else fallback['reason']))
 
 
 if __name__ == '__main__':

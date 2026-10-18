@@ -87,7 +87,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ffmpeg
-          pip install pillow numpy scipy
+          pip install pillow==12.3.0 numpy==2.5.4 scipy==1.17.1
           python3 -c 'import PIL, numpy, scipy; print("Pillow", PIL.__version__, "numpy", numpy.__version__, "scipy", scipy.__version__)'
           node --version
           ffmpeg -version | head -1
@@ -99,12 +99,14 @@ jobs:
           python3 ./pixelate library index > /dev/null
           git diff --exit-code -- library/index.json
       - name: Render every piece (library test --quick)
+        id: render
         run: |
           set +e
           python3 ./pixelate library test --quick --timeout 300 > library-test.json
-          echo "library test exit code $?"
-          exit 0
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
       - name: Every piece tested, goldens equal, gate failures only on study pieces
+        env:
+          RENDER_EXIT_CODE: ${{ steps.render.outputs.exit_code }}
         run: |
           python3 - <<'EOF'
           import json, os, pathlib, sys
@@ -114,6 +116,8 @@ jobs:
           folders = sorted(p.parent.name for p in pathlib.Path('library').glob('*/piece.json'))
           tested = [p['id'] for p in report['pieces']]
           bad, notes = [], []
+          if os.environ.get('RENDER_EXIT_CODE') != '0':
+              bad.append(f'library test exited {os.environ.get("RENDER_EXIT_CODE")}')
           if not report.get('quick'):
               bad.append('report is not from --quick')
           if sorted(tested) != folders or sorted(status) != folders or len(set(tested)) != len(tested):

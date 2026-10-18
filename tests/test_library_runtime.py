@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -518,7 +519,142 @@ class ByteBinding(Fixture):
         self.assertIn('defects', record['judge'])
         judged = json.loads((self.piece / '.pixelate' / 'judge-log.jsonl').read_text().splitlines()[-1])
         self.assertEqual(judged['sha256'], sha(drawn))
+        # The judged frame outlives the render: the kept snapshot holds exactly the bytes logged.
+        self.assertEqual(record['snapshot'], f'.pixelate/snapshots/{sha(drawn)}/a.png')
+        self.assertEqual(judged['frame'], str(self.piece / record['snapshot']))
+        self.assertEqual(sha(Path(judged['frame']).read_bytes()), judged['sha256'])
         self.assertTrue((self.piece / 'out' / 'a.judge.png').is_file())  # the overlay stays beside the frame
+
+
+# Stands in for the art director: records the frame and brief the prompt names, with the frame's hash.
+CRITIC = '''import hashlib, re, sys
+text = sys.stdin.read()
+frame = re.search(r'^- Frame at delivered size \\(\\d+x\\d+\\): (.+)$', text, re.M).group(1)
+brief = re.search(r'^- The brief: (.+)$', text, re.M).group(1)
+with open(frame, 'rb') as f:
+    digest = hashlib.sha256(f.read()).hexdigest()
+with open(sys.argv[1], 'a') as f:
+    f.write(frame + ' ' + digest + ' ' + brief + '\\n')
+print('GRADE: B')
+'''
+BRIEF = 'Request: a harbour wall at night\n'
+
+
+class Snapshots(Fixture):
+    """A logged piece render keeps the frame bytes it checked; its logs name a file that still holds them."""
+
+    def setUp(self):
+        super().setUp()
+        (self.piece / 'brief.md').write_text(BRIEF, encoding='utf-8')
+        self.data['outputs'][0]['brief'] = 'brief.md'
+        save(self.piece, self.data)
+        critic, self.seen = self.library.parent / 'critic.py', self.library.parent / 'seen.txt'
+        critic.write_text(CRITIC, encoding='utf-8')
+        patch = mock.patch.dict(os.environ, PIXELATE_CRITIC_CMD=shlex.join([sys.executable, str(critic), str(self.seen)]))
+        patch.start()
+        self.addCleanup(patch.stop)
+        os.environ.pop('PIXELATE_NO_LOG', None)
+
+    def render(self, *args):
+        """pixelate render in this process, so a test can patch it; returns (exit code, records)"""
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(SystemExit) as exit:
+            render.main([str(self.piece), '--image', 'a', '--json', *args])
+        return exit.exception.code, json.loads(out.getvalue())
+
+    def logs(self, name):
+        return [json.loads(line) for line in (self.piece / '.pixelate' / name).read_text().splitlines()]
+
+    def test_a_later_render_never_replaces_a_kept_snapshot(self):
+        first = self.render('--no-run')[1][0]
+        kept = self.piece / first['snapshot']
+        (self.piece / 'out' / 'a.png').write_bytes(png((250, 250, 250)))
+        second = self.render('--no-run')[1][0]
+        self.assertEqual(second['sha256'], sha(png((250, 250, 250))))
+        self.assertNotEqual(second['snapshot'], first['snapshot'])
+        self.assertEqual(sha(kept.read_bytes()), first['sha256'])
+        # The same bytes again reuse the kept file; a kept file that no longer matches its hash fails
+        # the image and stays as it is.
+        (self.piece / 'out' / 'a.png').write_bytes(kept.read_bytes())
+        self.assertEqual(self.render('--no-run')[1][0]['snapshot'], first['snapshot'])
+        kept.chmod(0o644)
+        kept.write_bytes(b'tampered')
+        code, records = self.render('--no-run')
+        self.assertEqual(code, 1)
+        self.assertEqual(records[0]['error'], f'unsafe snapshot: {first["snapshot"]}: holds other bytes than its hash')
+        for key in ('sha256', 'gate', 'judge'):
+            self.assertNotIn(key, records[0])
+        self.assertEqual(kept.read_bytes(), b'tampered')
+        self.assertEqual([j['sha256'] for j in self.logs('judge-log.jsonl')],
+                         [first['sha256'], second['sha256'], first['sha256']])
+
+    def test_critique_grades_the_snapshot_the_gate_checked(self):
+        drawn, later = (self.piece / 'out' / 'a.png').read_bytes(), png((250, 250, 250))
+        real = render.technical_gate
+        def gate(folder, im):
+            result = real(folder, im)
+            (self.piece / 'out' / 'a.png').write_bytes(later)   # a lingering writer, after the gate
+            (self.piece / 'brief.md').write_text('Request: something else\n', encoding='utf-8')
+            return result
+        with mock.patch.object(render, 'technical_gate', gate):
+            records = self.render('--no-run', '--critique')[1]
+        self.assertEqual((self.piece / 'out' / 'a.png').read_bytes(), later)
+        record, run = records[0], self.logs('runs.jsonl')[-1]['images'][0]
+        critiqued = [r for r in self.logs('judge-log.jsonl') if r['type'] == 'critique']
+        self.assertEqual(len(critiqued), 1)
+        self.assertEqual((record['sha256'], run['sha256'], critiqued[0]['sha256']), (sha(drawn),) * 3)
+        self.assertEqual((run['snapshot'], run['grade']), (record['snapshot'], 'B'))
+        frame, seen, brief = self.seen.read_text().split()
+        self.assertEqual((frame, seen), (str(self.piece / record['snapshot']), sha(drawn)))
+        self.assertEqual(critiqued[0]['frame'], frame)
+        # The brief the critic read is the one the gate read, kept beside the frame snapshot.
+        self.assertEqual((critiqued[0]['brief'], brief),
+                         (str(self.piece / '.pixelate' / 'snapshots' / sha(BRIEF.encode()) / 'brief.md'),) * 2)
+        self.assertEqual(Path(brief).read_text(encoding='utf-8'), BRIEF)
+        saved = self.piece / 'out' / 'critique-a-lead-r1.md'
+        self.assertEqual((record['critique']['file'], critiqued[0]['critique']), (str(saved),) * 2)
+        self.assertEqual(saved.read_text(encoding='utf-8'), 'GRADE: B\n')
+
+    def test_no_log_keeps_no_snapshot_and_saves_the_critique_beside_the_frame(self):
+        drawn = (self.piece / 'out' / 'a.png').read_bytes()
+        with mock.patch.dict(os.environ, PIXELATE_NO_LOG='1'):
+            records = self.render('--no-run', '--critique')[1]
+        self.assertFalse((self.piece / '.pixelate').exists())
+        self.assertEqual(json.loads((self.piece / 'render-report.json').read_text()), records)
+        record = records[0]
+        self.assertNotIn('snapshot', record)
+        frame, seen, brief = self.seen.read_text().split()
+        self.assertEqual((seen, record['sha256']), (sha(drawn),) * 2)
+        for path in (frame, brief):
+            self.assertFalse(Path(path).is_relative_to(self.piece), path)   # the private copy, now gone
+            self.assertFalse(Path(path).exists())
+        saved = self.piece / 'out' / 'critique-a-lead-r1.md'
+        self.assertEqual((record['critique']['file'], record['critique']['grade']), (str(saved), 'B'))
+        self.assertTrue(saved.is_file())
+
+    def test_a_linked_snapshot_folder_is_never_written_through(self):
+        outside = self.library.parent / 'outside'
+        outside.mkdir()
+        draw = self.data['outputs'][0]['run']
+        for link, error in (('.pixelate', '.pixelate is a link'),
+                            ('.pixelate/snapshots', 'snapshots is a link')):
+            with self.subTest(link=link):
+                self.data['outputs'][0]['run'] = f'mkdir -p .pixelate && rm -rf {link} && ln -s {outside} {link} && {draw}'
+                save(self.piece, self.data)
+                result = pixelate('render', str(self.piece), '--image', 'a', '--critique', '--json')
+                self.assertEqual(result.returncode, 1)
+                record = json.loads(result.stdout)[0]
+                self.assertTrue(record['run']['ok'])
+                self.assertTrue(record['error'].startswith('unsafe snapshot: .pixelate/snapshots/'), record['error'])
+                self.assertIn(error, record['error'])
+                for key in ('sha256', 'snapshot', 'gate', 'judge', 'critique'):
+                    self.assertNotIn(key, record)
+                self.assertEqual(list(outside.iterdir()), [])
+                if link == '.pixelate':
+                    self.assertIn('run log not written: .pixelate: .pixelate is a link', result.stderr)
+                else:
+                    self.assertFalse(self.logs('runs.jsonl')[-1]['ok'])
+                (self.piece / link).unlink()
 
 
 class EraLegality(unittest.TestCase):

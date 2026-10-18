@@ -27,9 +27,13 @@ piece.json outputs replace render.json: an image output takes the same fields pl
 and export outputs are run and hashed but never gated. Piece commands run with the kit's `tools/` first
 on PYTHONPATH and the kit root (the `pixelate` command) first on PATH. After a piece command, a frame,
 file or gate input reached through a link, or not a regular file, fails. The frame is read once without
-following links, and the gate, era check and judge run on a private copy of those bytes and of the gate
-inputs, so the hash is of the bytes they checked; --critique reads the frame in DIR. render.json images
-are hashed, gated and judged in place. A folder with both files is an error.
+following links, and the gate and era check run on a private copy of those bytes and of the gate inputs;
+the judge and --critique read the same bytes, so the hash is of the bytes they all checked. With logging
+on, the frame (and, for --critique, the brief the gate read) is kept write-once at
+DIR/.pixelate/snapshots/<sha256>/<file name>, the path the judge and critique logs name; with
+PIXELATE_NO_LOG=1 they read the private copy. The critique's thumbnails and saved critique go beside the
+frame in DIR. render.json images are hashed, gated, judged and critiqued in place. A folder with both
+files is an error.
 """
 import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, stat, subprocess, sys, tempfile, time
 
@@ -39,6 +43,8 @@ GATE_FLAGS = (('style', '--style'), ('scene', '--scene'), ('era', '--era'), ('pa
               ('actor', '--actor'), ('used', '--used'), ('intent', '--intent'))
 # The files the image gate reads besides the frame.
 GATE_FILES = ('brief', 'pal', 'pre', 'actor', 'intent')
+# Under a piece: the frame and brief bytes a logged render checked, each kept at <sha256>/<file name>.
+SNAPSHOTS = '.pixelate/snapshots'
 
 class UnsafePath(OSError):
     """a piece path that goes through a link or does not end at a regular file"""
@@ -63,24 +69,76 @@ def _parent(root, rel):
         raise
     return fd, parts[-1]
 
+def _read_at(fd, name, rel):
+    """the bytes of the regular file name in the folder fd, opened without following a link; rel
+    names it in errors"""
+    try:
+        # O_NONBLOCK: opening a pipe planted at rel must not hang the checker.
+        f = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=fd)
+    except FileNotFoundError:
+        raise
+    except OSError as exc:
+        raise UnsafePath('%s: a link or not a regular file (%s)' % (rel, exc.strerror)) from exc
+    with os.fdopen(f, 'rb') as fh:
+        if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+            raise UnsafePath('%s: not a regular file' % rel)
+        return fh.read()
+
 def read_regular(root, rel):
     """the bytes of the regular file rel under root, opened without following any link; raises
     FileNotFoundError when it is missing and UnsafePath for a link, folder, pipe or device"""
     fd, name = _parent(root, rel)
     try:
-        try:
-            # O_NONBLOCK: opening a pipe planted at rel must not hang the checker.
-            f = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=fd)
-        except FileNotFoundError:
-            raise
-        except OSError as exc:
-            raise UnsafePath('%s: a link or not a regular file (%s)' % (rel, exc.strerror)) from exc
+        return _read_at(fd, name, rel)
     finally:
         os.close(fd)
-    with os.fdopen(f, 'rb') as fh:
-        if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
-            raise UnsafePath('%s: not a regular file' % rel)
-        return fh.read()
+
+def _folder(root, rel):
+    """descriptor of the folder rel under root, each missing component made, every one reached
+    without following a link; raises UnsafePath for a link or a file on the way. The caller closes it"""
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        for part in rel.split('/'):
+            with contextlib.suppress(FileExistsError):
+                os.mkdir(part, dir_fd=fd)
+            try:
+                sub = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+            except OSError as exc:
+                raise UnsafePath('%s: %s is a link or not a folder (%s)' % (rel, part, exc.strerror)) from exc
+            os.close(fd)
+            fd = sub
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+def keep_snapshot(d, data, name):
+    """store data at .pixelate/snapshots/<its sha256>/name under d and return that path relative to d.
+    A file already there is never replaced: it must hold exactly data. Nothing on the way may be a
+    link; raises UnsafePath otherwise"""
+    digest = hashlib.sha256(data).hexdigest()
+    rel = '%s/%s' % (SNAPSHOTS, digest)
+    fd = _folder(d, rel)
+    try:
+        try:
+            kept = _read_at(fd, name, rel + '/' + name)
+        except FileNotFoundError:
+            # Written whole under a private name, then linked in: a link never replaces a file.
+            tmp = '.%s.%s.tmp' % (name, os.urandom(6).hex())
+            f = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o444, dir_fd=fd)
+            try:
+                with os.fdopen(f, 'wb') as fh:
+                    fh.write(data)
+                with contextlib.suppress(FileExistsError):
+                    os.link(tmp, name, src_dir_fd=fd, dst_dir_fd=fd, follow_symlinks=False)
+            finally:
+                os.unlink(tmp, dir_fd=fd)
+            kept = _read_at(fd, name, rel + '/' + name)
+        if hashlib.sha256(kept).hexdigest() != digest:
+            raise UnsafePath('%s/%s: holds other bytes than its hash' % (rel, name))
+    finally:
+        os.close(fd)
+    return rel + '/' + name
 
 def remove_regular(root, rel):
     """delete rel under root if it is there, without following a link in its folders; a link at rel
@@ -226,10 +284,26 @@ def judge(d, im, frame):
     return {'defects': [{k: x[k] for k in ('id', 'kind', 'box', 'severity')} for x in found],
             'overlay': str(overlay.relative_to(d)) if found else None}
 
+def critique_frame(d, frame, brief, out=None):
+    """`pixelate critique --run` on frame with brief (paths from d); out: the folder for its
+    thumbnails, overlay and saved critique, else beside the frame"""
+    c = subprocess.run(PIXELATE + ['critique', str(frame), '--brief', str(brief), '--run']
+                       + (['--out', str(out)] if out else []) + (['--log'] if logging() else []),
+                       cwd=d, capture_output=True, text=True)
+    saved = re.search(r'^saved: (.+)$', c.stdout, re.M)
+    grade = re.search(r'^GRADE:\s*([ABC])', c.stdout, re.M)
+    rec = {'ok': c.returncode == 0, 'grade': grade.group(1) if grade else None,
+           'file': saved.group(1) if saved else None}
+    if c.returncode:
+        rec['error'] = _tail(c.stderr or c.stdout, 2)
+    return rec
+
 def render_one(d, im, run=True, critique=False, env=None, piece=False):
     """piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
-    without a link; its frame is read once and the gate, era check and judge run on a private snapshot
-    of those bytes and of the gate inputs, so the recorded hash is of the bytes they checked"""
+    without a link; its frame is read once, the gate and era check run on a private copy of those
+    bytes and of the gate inputs, and the judge and critique read the same bytes, so the recorded hash
+    is of the bytes they checked. With logging on, the frame the judge and critique logs name is kept under
+    DIR/.pixelate/snapshots (rec['snapshot']), and so is the brief the critique reads"""
     rec = {'name': im['name'], 'frame': im['frame']}
     if run and im.get('run'):
         rec['run'] = run_command(im['run'], d, env)
@@ -250,10 +324,29 @@ def render_one(d, im, run=True, critique=False, env=None, piece=False):
             if unsafe:
                 rec['error'] = unsafe
                 return rec
+            frame = folder / im['frame']
+            if logging():
+                try:
+                    rec['snapshot'] = keep_snapshot(d, data, frame.name)
+                except UnsafePath as exc:
+                    rec['error'] = 'unsafe snapshot: %s' % exc
+                    return rec
+                frame = d / rec['snapshot']
             rec['sha256'] = hashlib.sha256(data).hexdigest()
             rec.update(technical_gate(folder, im))
-            rec['judge'] = judge(d, im, folder / im['frame'])
-    elif (d / im['frame']).is_file():
+            rec['judge'] = judge(d, im, frame)
+            if critique and im.get('brief'):
+                # The brief the gate read; a missing one is left for critique to report.
+                brief = folder / im['brief']
+                try:
+                    if logging() and brief.is_file():
+                        brief = d / keep_snapshot(d, brief.read_bytes(), brief.name)
+                except UnsafePath as exc:
+                    rec['critique'] = {'ok': False, 'grade': None, 'file': None, 'error': 'unsafe snapshot: %s' % exc}
+                else:
+                    rec['critique'] = critique_frame(d, frame, brief, (d / im['frame']).parent)
+        return rec
+    if (d / im['frame']).is_file():
         data = (d / im['frame']).read_bytes()
         rec['sha256'] = hashlib.sha256(data).hexdigest()   # the gate and judge reopen the path
         rec.update(technical_gate(d, im))
@@ -262,15 +355,7 @@ def render_one(d, im, run=True, critique=False, env=None, piece=False):
         rec['error'] = 'frame not found: %s' % im['frame']
         return rec
     if critique and im.get('brief'):
-        c = subprocess.run(PIXELATE + ['critique', im['frame'], '--brief', im['brief'], '--run']
-                           + (['--log'] if logging() else []),
-                           cwd=d, capture_output=True, text=True)
-        saved = re.search(r'^saved: (.+)$', c.stdout, re.M)
-        grade = re.search(r'^GRADE:\s*([ABC])', c.stdout, re.M)
-        rec['critique'] = {'ok': c.returncode == 0, 'grade': grade.group(1) if grade else None,
-                           'file': saved.group(1) if saved else None}
-        if c.returncode:
-            rec['critique']['error'] = _tail(c.stderr or c.stdout, 2)
+        rec['critique'] = critique_frame(d, im['frame'], im['brief'])
     return rec
 
 def render_file(d, out, run=True, env=None):
@@ -320,11 +405,12 @@ def ok(rec):
     return rec.get('run', {'ok': True})['ok'] and not rec.get('error') and rec.get('gate', {}).get('ok', False) \
         and rec.get('era', {'ok': True})['ok']
 
-def log_run(d, recs):
+def log_run(d, recs, piece=False):
     """append this render to DIR/.pixelate/runs.jsonl (next to the judge log), the run record the
-    library's flywheel is built from"""
+    library's flywheel is built from. piece: the log is opened without following a link, and an
+    error is returned instead of writing through one"""
     if not logging():
-        return
+        return None
     sys.path.insert(0, str(KIT / 'tools'))
     from version import VERSION
     images, files = [], []
@@ -338,14 +424,35 @@ def log_run(d, recs):
                        'gate_fail': len(r.get('gate', {}).get('fail', [])),
                        'judge': sorted({x['kind'] for x in r.get('judge', {}).get('defects', [])}),
                        'grade': r.get('critique', {}).get('grade'), 'ok': ok(r)})
+        if 'snapshot' in r:
+            images[-1]['snapshot'] = r['snapshot']
     record = {'type': 'render', 'time': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
               'kit': VERSION, 'dir': d.name, 'images': images, 'ok': all(i['ok'] for i in images + files)}
     if files:
         record['files'] = files
-    p = d / '.pixelate' / 'runs.jsonl'
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open('a', encoding='utf-8') as fh:
-        fh.write(json.dumps(record, ensure_ascii=False) + '\n')
+    text = json.dumps(record, ensure_ascii=False) + '\n'
+    if not piece:
+        p = d / '.pixelate' / 'runs.jsonl'
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open('a', encoding='utf-8') as fh:
+            fh.write(text)
+        return None
+    try:
+        fd = _folder(d, '.pixelate')
+        try:
+            f = os.open('runs.jsonl', os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK
+                        | os.O_CLOEXEC, 0o644, dir_fd=fd)
+        except OSError as exc:
+            raise UnsafePath('.pixelate/runs.jsonl: a link or not a regular file (%s)' % exc.strerror) from exc
+        finally:
+            os.close(fd)
+    except UnsafePath as exc:
+        return 'run log not written: %s' % exc
+    with os.fdopen(f, 'a', encoding='utf-8') as fh:
+        if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+            return 'run log not written: .pixelate/runs.jsonl: not a regular file'
+        fh.write(text)
+    return None
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='pixelate render', description=(__doc__ or '').split('\n\n')[1])
@@ -367,14 +474,16 @@ def main(argv=None):
         recs = [dict(render_one(d, o, not a.no_run, a.critique, env, piece=True), kind='image') if o['kind'] == 'image'
                 else render_file(d, o, not a.no_run, env) for o in outputs]
     (d / 'render-report.json').write_text(json.dumps(recs, indent=1))
-    log_run(d, recs)
+    unlogged = log_run(d, recs, piece=source == 'piece.json')
+    if unlogged:
+        print(unlogged, file=sys.stderr)
     if a.json:
         print(json.dumps(recs, indent=1))
     else:
         for r in recs:
             print(line(r))
         print('report: %s' % (d / 'render-report.json'))
-    sys.exit(0 if all(ok(r) for r in recs) else 1)
+    sys.exit(0 if all(ok(r) for r in recs) and not unlogged else 1)
 
 if __name__ == '__main__':
     main()

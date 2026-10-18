@@ -26,6 +26,10 @@
   pixelate reference PHOTO -o reference.json [--marks reference.json]   correctable photo evidence + overlay (experimental)
   pixelate render DIR [--image NAME] [--critique]   draw, gate, era-check and judge every image in DIR/piece.json or DIR/render.json
                          [--set KNOB=VALUE ...]   a variant from the piece's declared knobs (script, engine and pack pieces)
+  pixelate deliver DIR [--set KNOB=VALUE ...] [--timeout S]   render every output once more, require each image's gate,
+                                         package the outputs and DELIVERY.md (facts written by the script) in DIR/dist/delivery
+                                         (runs the trusted piece's commands without a sandbox; runs no critique)
+  pixelate deliver DIR --verify          check DELIVERY.md's facts, fingerprint and hashes (runs no piece code)
   pixelate find "REQUEST" [--mode M] [--json]   the closest library pieces, or a starter (static: runs no piece code)
   pixelate library list | show ID | index      browse the library and rebuild library/index.json (static)
   pixelate library test [ID...] [--quick]      render trusted pieces in temporary copies and compare golden 1x frames
@@ -208,6 +212,10 @@ def main(argv=None):
         sys.path.insert(0, str(TOOLS))
         import remix
         sys.exit(remix.main(rest))
+    elif cmd == 'deliver':
+        sys.path.insert(0, str(TOOLS))
+        import deliver
+        sys.exit(deliver.main(rest))
     elif cmd == 'topx':
         run('assets.py', ['--topx'] + rest)
     elif cmd == 'video':

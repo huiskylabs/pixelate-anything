@@ -96,15 +96,17 @@ class AuthoringDocsTest(unittest.TestCase):
             self.assertIn(f'pixelate {command}', help_text, f'authoring.md offers `pixelate {command}`')
             if command in ('library', 'review'):
                 self.assertIn(sub, help_text, f'authoring.md offers `pixelate {command} {sub}`')
-        for unbuilt in ('pixelate deliver', 'pixelate library add'):
-            self.assertNotIn(unbuilt, offered)
-            self.assertNotIn(unbuilt, help_text)
+        self.assertNotIn('pixelate library add', offered)
+        self.assertNotIn('pixelate library add', help_text)
         self.assertIn('render DIR --set name=value', offered)
         self.assertIn('renders a variant for any of the three runtimes', offered)
         self.assertIn('--set', help_text)
         self.assertIn('(script, engine and pack pieces)', help_text)
         self.assertNotIn('--set', not_built)
-        self.assertIn('pixelate deliver', not_built)
+        self.assertIn('pixelate deliver DIR --verify', offered)
+        self.assertIn('pixelate deliver DIR --verify', help_text)
+        self.assertNotIn('pixelate deliver', not_built)
+        self.assertIn('MCP tools for find, remix or deliver', not_built)
         self.assertNotRegex(offered, r'(?i)\bMCP (tools? )?(for )?(find|remix|deliver)')
 
     def test_skill_still_describes_today_not_the_planned_loop(self):

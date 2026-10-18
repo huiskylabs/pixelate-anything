@@ -1,43 +1,29 @@
 # evals: does the skill beat a bare model?
 
-The claim to prove (docs/PLAN-moat.md, workstream 4): given the same long prompt, an agent with the
-pixelate-anything skill delivers a better result, faster, than the same model without it.
+This harness is for exploratory paired runs, not a proof that the skill wins. The ten bundled prompts are derived from `examples/moments`; their answers are available in the repository and **must not be used for a comparative claim**. Dry runs can list them, but `--go` requires a separate, held-out prompt directory outside this checkout. Exact copies of bundled prompts are rejected; a human must also check for paraphrases or other prior exposure.
 
-## Corpus
-
-`prompts/01..10-*.md` are the ten showcase requests from `examples/moments`, written as the
-user would send them. The rebuild tasks expect a reference photo: put `NN.jpg` files in a folder and
-pass `--refs DIR`; each one is copied into its run's workspace as `reference.jpg`.
-
-## Arms
+## Arms and contract
 
 - **bare**: the model with a shell and Python (Pillow, numpy, ffmpeg); no skill.
-- **skill**: the same model, told where the kit is and to follow its `SKILL.md`.
+- **skill**: the same model and deliverable contract, told to use a filtered snapshot of the kit. The snapshot omits `examples/moments`, `evals`, `docs` and `tests` so prior answers and maintainer notes are not in the advertised kit.
 
-Both get the same prompt, the same deliverable contract (`out/a.png`, `out/b.png`, `out/sample.wav`),
-the same timeout and no human coaching. The steps that ask the user to confirm are skipped.
+Both get the same prompt, requested `out/a.png`, `out/b.png` and `out/sample.wav`, timeout and per-run provider spend ceiling. The harness does **not** sandbox the agent's filesystem, enforce a token cap, or prove the prompt is genuinely unseen. Run agents in isolated environments for a defensible comparison, with identical tool access apart from the skill and pinned model/provider. Supply reference images as `NN.jpg` files in a `--refs` directory for tasks that require them; confirm that both arms receive the same file. Do not run a reference-dependent prompt without its photo.
 
 ## Running
 
-    python3 evals/run.py --tasks 01,05,08                # dry run: prints the plan, runs nothing
-    python3 evals/run.py --tasks 01,05,08 --go           # the pilot: 3 prompts x 2 arms x 1 run
-    python3 evals/score.py evals/runs/<stamp>            # judge, sample checks, per-arm summary
-    python3 evals/score.py evals/runs/<stamp> --critique # plus blind art-director grades (tokens)
+    python3 evals/run.py --tasks 01,05,08        # bundled dry run only
+    python3 evals/run.py --prompts /outside/held-out --refs /outside/refs --budget-usd 5 --go
+    python3 evals/score.py evals/runs/<stamp>   # diagnostic scores, not a winner
+    python3 evals/score.py evals/runs/<stamp> --critique  # model grades cost extra
 
-The agent command defaults to `claude -p --output-format json --permission-mode bypassPermissions`
-(set `--agent-cmd` or `PIXELATE_EVAL_AGENT` to use another). It reads the prompt on stdin and runs in
-the workspace; when it prints JSON usage, tokens and cost go into `meta.json`.
+With `--go`, `--prompts` and a positive `--budget-usd` are required. The default `claude -p` command receives `--max-budget-usd`; custom `--agent-cmd` commands must include one `{budget_usd}` placeholder and their wrapper must enforce it at the provider. The harness cannot independently verify that an arbitrary wrapper honours the cap. Runs are sequential and cost real money; get approval before using `--go`. Use a fresh `--out` per run: it contains the filtered `_kit` and run workspaces. Setup, queueing and any external critic costs must also be reported when comparing total cost.
 
-Each run is a full agent session: the pilot costs real tokens. `evals/runs/` is not committed.
+`meta.json` records reported input/output/cache tokens, total tokens when both input and output usage are present, cost, wall time, model command, kit revision and ceiling. Missing usage is **unknown**, not zero. A dollar ceiling is not an equal token ceiling; if equal tokens are the experimental constraint, enforce them through the provider/wrapper and retain its configuration as evidence.
 
-## What is measured
+## Reading results
 
-Per run: delivered files, wall time, output tokens, cost, turns, `pixelate judge` defects and
-severity on both stills, the sample's length, peak and clipping, and (with `--critique`) a grade from
-an art director who does not know which arm made the image. Both arms are scored by the same tools.
-The judge was calibrated on accepted art, not on either arm's output.
+`score.py` checks delivered files, judge warnings and audio format/peak. With `--critique`, it copies each frame into a randomized arm-neutral temporary path before showing it to a model critic. This removes the arm label from the shown image path, but a model grade is not independent human preference. Judge defects are diagnostic: an empty image may have none, and the skill arm is trained to respond to that judge. Use held-out blind human pairwise ratings of brief fit, readability, composition and pixel craft, plus technical legality and valid exports. Predeclare success: better human-rated art without a material cost regression, **or** non-inferior art in less time and fewer tokens. Include failures and uncertainty; do not choose a winner from three pairs or from detector counts.
 
 ## Status
 
-The harness is built and tested (`tests/test_evals.py`, using a fake agent). No benchmark has been
-run yet. Re-run the pilot after each workstream lands and publish the paired results.
+The harness and fake-agent tests exist. **No paid skill-vs-bare run or human study has been performed.** For a broader product comparison, an image-generation arm needs an explicit, equal usable-asset contract and full cost accounting; it is not silently equivalent to these two code-drawing arms.

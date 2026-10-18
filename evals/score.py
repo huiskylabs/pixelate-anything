@@ -6,12 +6,13 @@ usage: python3 evals/score.py RUNS_DIR [--critique] [--json]
 For every run it checks the deliverables (out/a.png, out/b.png, out/sample.wav), judges both stills
 with `pixelate judge` (defect count and summed severity: lower is better), measures the sample
 (seconds, peak, clipping) and, with --critique, asks a blind art director for a grade
-(`pixelate critique --run` against a brief made from the task prompt; the critic never sees which
-arm made the image). It writes RUNS_DIR/scores.json and prints one table per task and a summary
-per arm: delivered, wall time, tokens, cost, judge defects and grades. Both arms are judged by the
-same repo tools, so the judge favours neither: it was calibrated on accepted art, not on arm output.
+(`pixelate critique --run` against a brief made from the task prompt; image paths are anonymized
+before the critic sees them). It writes RUNS_DIR/scores.json and prints one table per task and a
+summary per arm: delivered, wall time, tokens, cost, judge defects and grades. Detector counts are
+diagnostic, not an independent quality measure; neither the critic nor the detectors are calibrated
+on held-out human ratings.
 """
-import argparse, json, pathlib, re, subprocess, sys, wave
+import argparse, json, pathlib, re, shutil, subprocess, sys, tempfile, wave
 
 HERE = pathlib.Path(__file__).resolve().parent
 KIT = HERE.parent
@@ -50,17 +51,28 @@ def critique(img, prompt_md, work):
     g = re.search(r'^GRADE:\s*([ABC])', r.stdout, re.M)
     return g.group(1) if g else None
 
+def blind_grade(img, prompt_md):
+    """Keep arm labels out of all paths shown to the external critic."""
+    with tempfile.TemporaryDirectory(prefix='pixelate-blind-') as tmp:
+        work = pathlib.Path(tmp)
+        anonymous = work / 'frame.png'
+        shutil.copyfile(img, anonymous)
+        return critique(anonymous, prompt_md, work)
+
+
 def score_run(d, do_critique=False):
     meta = json.loads((d / 'meta.json').read_text())
     ws = d / 'workspace'
-    rec = {k: meta.get(k) for k in ('task', 'arm', 'run', 'exit', 'wall_s', 'output_tokens', 'input_tokens', 'cost_usd', 'turns')}
+    rec = {k: meta.get(k) for k in ('task', 'arm', 'run', 'exit', 'wall_s', 'output_tokens', 'input_tokens',
+                                   'cache_read_tokens', 'cache_write_tokens', 'total_tokens', 'cost_usd',
+                                   'budget_usd', 'turns')}
     files = {k: ws / 'out' / f for k, f in (('a', 'a.png'), ('b', 'b.png'), ('sample', 'sample.wav'))}
     rec['delivered'] = {k: p.is_file() for k, p in files.items()}
     for k in ('a', 'b'):
         if files[k].is_file():
             rec['judge_' + k] = judge(files[k])
             if do_critique:
-                rec['grade_' + k] = critique(files[k], d / 'prompt.md', d)
+                rec['grade_' + k] = blind_grade(files[k], d / 'prompt.md')
     if files['sample'].is_file():
         rec['sample'] = sample_info(files['sample'])
     return rec
@@ -68,11 +80,12 @@ def score_run(d, do_critique=False):
 def summarise(recs):
     arms = {}
     for r in recs:
-        s = arms.setdefault(r['arm'], {'runs': 0, 'delivered_all': 0, 'wall_s': [], 'output_tokens': [], 'cost_usd': [],
+        s = arms.setdefault(r['arm'], {'runs': 0, 'delivered_all': 0, 'wall_s': [], 'output_tokens': [],
+                                       'total_tokens': [], 'cost_usd': [],
                                        'defects': [], 'severity': [], 'grades': []})
         s['runs'] += 1
         s['delivered_all'] += all(r['delivered'].values())
-        for k in ('wall_s', 'output_tokens', 'cost_usd'):
+        for k in ('wall_s', 'output_tokens', 'total_tokens', 'cost_usd'):
             if isinstance(r.get(k), (int, float)):
                 s[k].append(r[k])
         for k in ('a', 'b'):
@@ -84,7 +97,8 @@ def summarise(recs):
                 s['grades'].append(r['grade_' + k])
     mean = lambda v: round(sum(v) / len(v), 2) if v else None
     return {arm: {'runs': s['runs'], 'delivered_all': s['delivered_all'], 'mean_wall_s': mean(s['wall_s']),
-                  'mean_output_tokens': mean(s['output_tokens']), 'mean_cost_usd': mean(s['cost_usd']),
+                  'mean_output_tokens': mean(s['output_tokens']), 'mean_total_tokens': mean(s['total_tokens']),
+                  'mean_cost_usd': mean(s['cost_usd']),
                   'mean_defects_per_still': mean(s['defects']), 'mean_severity_per_still': mean(s['severity']),
                   'grades': {g: s['grades'].count(g) for g in 'ABC' if g in s['grades']}}
             for arm, s in sorted(arms.items())}

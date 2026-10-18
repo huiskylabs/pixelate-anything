@@ -212,6 +212,112 @@ class StarterSceneLoopTest(unittest.TestCase):
         self.assertEqual([o['name'] for o in images(manifest('starter-scene-loop'))], phases)
 
 
+def manifest_without_request(piece_id):
+    """piece.json as text with `request` removed: it must quote the old source description, which names the old subject."""
+    data = manifest(piece_id)
+    del data['request']
+    return json.dumps(data)
+
+
+class StarterAssetsTest(unittest.TestCase):
+    """`starter-assets` is an empty piece (docs/PLAN-library.md section 2.1): placeholder slots, no finished item."""
+    ROOT = LIBRARY / 'starter-assets'
+    SUBJECT_WORDS = re.compile(r'\b(coin|heart|gold\d?|red\d?|leaf\d?|spin|items?|icons?)\b', re.I)
+
+    def sources(self):
+        texts = {str(p.relative_to(self.ROOT)): p.read_text(encoding='utf-8')
+                 for p in [self.ROOT / 'pack.json', self.ROOT / 'palette.json', *sorted((self.ROOT / 'sprites').iterdir())]}
+        texts['piece.json'] = manifest_without_request('starter-assets')
+        texts['history/migration.md'] = ''     # notes may say what was replaced
+        return texts
+
+    def test_no_finished_subject_remains(self):
+        for name, text in self.sources().items():
+            with self.subTest(file=name):
+                self.assertIsNone(self.SUBJECT_WORDS.search(text), name)
+
+    def test_only_two_placeholder_slots_in_one_sprite_file(self):
+        self.assertEqual([p.name for p in (self.ROOT / 'sprites').iterdir()], ['slots.px'])
+        text = (self.ROOT / 'sprites' / 'slots.px').read_text(encoding='utf-8')
+        self.assertEqual(re.findall(r'^sprite: (\w+)$', text, re.M), ['slot_a', 'slot_b'])
+
+    def test_palette_is_a_neutral_ramp_pair(self):
+        palette = json.loads((self.ROOT / 'palette.json').read_text(encoding='utf-8'))
+        self.assertEqual(sorted(palette), ['base0', 'base1', 'base2', 'base3', 'mark0', 'mark1', 'mark2', 'mark3', 'ol', 'wh'])
+
+    def test_exports_hold_exactly_the_two_slots(self):
+        atlas = json.loads((self.ROOT / 'out' / 'atlas.json').read_text(encoding='utf-8'))
+        self.assertEqual(sorted(atlas['frames']), ['slot_a 0', 'slot_a 1', 'slot_a 2', 'slot_a 3', 'slot_b 0'])
+
+    def test_media_shows_the_committed_contact_sheet(self):
+        contact = load(self.ROOT / 'out' / 'contact.png').convert('RGB')
+        self.assertEqual(load(self.ROOT / 'media' / 'contact.png').convert('RGB').tobytes(), contact.tobytes())
+        self.assertEqual(load(self.ROOT / 'media' / 'thumb.png').width, 256)
+
+    def test_manifest_makes_no_frame_gate_claim_an_atlas_cannot_back(self):
+        # `pixelate check FRAME --style lofi` is for composed pictures: on the atlas strip it fails the
+        # `L<0.1`, `black` and `median_C` budgets (transparent pixels read as black), so no gate is claimed.
+        data = manifest('starter-assets')
+        self.assertEqual({o['kind'] for o in data['outputs']}, {'export'})
+        self.assertNotRegex(data['summary'], r'(?i)gate|pass')
+        notes = (self.ROOT / 'history' / 'migration.md').read_text(encoding='utf-8')
+        self.assertIn('frame gate does not apply', notes)
+
+
+class StarterMusicTest(unittest.TestCase):
+    """`starter-music` is an empty piece (docs/PLAN-library.md section 2.1): a generic scaffold, no authored theme."""
+    ROOT = LIBRARY / 'starter-music'
+    SUBJECT_WORDS = re.compile(r'overworld|drift|radio|theme|zelda|mario|motif|hook', re.I)
+
+    def sources(self):
+        names = ('config.js', 'music.js', 'palettes.js', 'scene.js', 'scene.json')
+        texts = {n: (self.ROOT / n).read_text(encoding='utf-8') for n in names}
+        texts['piece.json'] = manifest_without_request('starter-music')
+        return texts
+
+    def test_no_authored_theme_remains(self):
+        for name, text in self.sources().items():
+            with self.subTest(file=name):
+                self.assertIsNone(self.SUBJECT_WORDS.search(text), name)
+
+    def test_tags_do_not_claim_the_old_theme(self):
+        tags = manifest('starter-music')['tags']
+        self.assertTrue({'chiptune', 'overworld', 'ambient', 'radio', 'indoor'}.isdisjoint(tags['subject'] + tags['setting']))
+
+    def test_phases_agree_across_config_palettes_music_and_outputs(self):
+        text = self.sources()
+        phases = re.findall(r"name: '(\w+)', bpm", text['config.js'])
+        self.assertEqual(phases, ['part_a', 'part_b'])
+        self.assertEqual(re.findall(r"^  (\w+): \{ BG0", text['palettes.js'], re.M), phases)
+        self.assertEqual(re.findall(r"\{ name: '(\w+)', style", text['music.js']), phases)
+
+    def test_melody_is_generated_from_a_small_scale_not_written_out(self):
+        # no note list longer than a chord or a five-note scale, and the melody chance stays modest
+        music = self.sources()['music.js']
+        for scale in re.findall(r'scale: \[([^\]]*)\]', music):
+            self.assertLessEqual(len(scale.split(',')), 5)
+        for chance in re.findall(r'mel: ([\d.]+)', music):
+            self.assertLessEqual(float(chance), 0.5)
+
+    @unittest.skipUnless(HAVE_NODE and shutil.which('ffmpeg'), 'the music gate decodes with ffmpeg')
+    def test_committed_loop_passes_the_music_loop_gate(self):
+        # Checks the committed file only. Rendering needs Playwright's Chromium and is not byte-reproducible
+        # (about -51 to -70 dB between runs), so the notes record the render and the gate, not a hash.
+        result = subprocess.run([sys.executable, str(REPO / 'pixelate'), 'check', str(self.ROOT / 'out' / 'loop.ogg'),
+                                 '--use', 'loop'], capture_output=True, text=True, timeout=600)
+        self.assertEqual(result.returncode, 0, result.stdout[-800:])
+        self.assertNotIn('FAIL', result.stdout)
+        self.assertIn('48.0 s', result.stdout)
+
+
+class StarterManifestsTest(unittest.TestCase):
+    def test_anatomy_names_files_that_exist(self):
+        for piece_id in ('starter-scene-loop', 'starter-music', 'starter-assets'):
+            for entry in manifest(piece_id)['anatomy']:
+                with self.subTest(piece=piece_id, file=entry['file']):
+                    self.assertTrue((LIBRARY / piece_id / entry['file']).is_file())
+
+
 class KitCopyTest(unittest.TestCase):
     """Run each declared command from a copy of the kit and compare with the committed files."""
     KEEP_LIBRARY = True

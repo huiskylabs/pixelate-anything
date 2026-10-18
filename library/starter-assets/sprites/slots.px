@@ -1,0 +1,57 @@
+# Placeholder slots, 8 px. Replace the drawings and keep the headers: anchor, fps, tags, key.
+# Light from the upper left: highlight top-left, shade bottom-right.
+
+sprite: slot_a
+anchor: 4 7
+fps: 4
+tags: cycle 0-3
+key: o=ol L=base3 B=base2 b=base1 d=base0 M=mark2
+frame
+oooooooo
+oLLLLBbo
+oLMBBbdo
+oLBBBbdo
+oLBBBbdo
+oBbbbbdo
+oddddddo
+oooooooo
+frame
+oooooooo
+oLLLLBbo
+oLBBMbdo
+oLBBBbdo
+oLBBBbdo
+oBbbbbdo
+oddddddo
+oooooooo
+frame
+oooooooo
+oLLLLBbo
+oLBBBbdo
+oLBBBbdo
+oLBBMbdo
+oBbbbbdo
+oddddddo
+oooooooo
+frame
+oooooooo
+oLLLLBbo
+oLBBBbdo
+oLBBBbdo
+oLMBBbdo
+oBbbbbdo
+oddddddo
+oooooooo
+
+sprite: slot_b
+anchor: 4 7
+key: o=ol L=mark3 B=mark2 b=mark1 d=mark0
+frame
+oooooooo
+oLLLLBbo
+oLBBBbdo
+oLBBBbdo
+oLBBBbdo
+oBbbbbdo
+oddddddo
+oooooooo

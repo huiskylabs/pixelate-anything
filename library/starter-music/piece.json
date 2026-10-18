@@ -3,23 +3,20 @@
   "id": "starter-music",
   "title": "Starter: Music",
   "status": "starter",
-  "summary": "A music-first template: a generative soundtrack that moves from a chiptune overworld theme into an ambient drift and back, over a twelve-band pixel equaliser.",
-  "request": "Unknown: the original request was not recorded in the repository. Template from the initial kit commit; no request exists. Source description: Pixel Radio: a music-first template.",
+  "summary": "A neutral music scaffold to copy: two plain generative phases (a pulse-wave one and a pad-and-drone one) with a generic hand-off each way, over a twelve-band pixel equaliser. No tune or story is written out; its first frame passes the lofi frame gate and its 48 s loop passes the music loop gate.",
+  "request": "Unknown: the original request was not recorded in the repository. Template from the initial kit commit; no request exists. Source description: Pixel Radio: a music-first template. The chiptune overworld theme and ambient drift were replaced by a generic two-phase scaffold in the starter-empty follow-up.",
   "mode": "music",
   "tags": {
     "subject": [
       "music",
-      "chiptune",
-      "overworld",
-      "ambient",
+      "scaffold",
+      "placeholder",
       "equaliser",
       "soundtrack",
-      "loop",
-      "radio"
+      "loop"
     ],
     "setting": [
-      "abstract",
-      "indoor"
+      "abstract"
     ],
     "camera": "none",
     "style": "lofi",
@@ -58,8 +55,8 @@
   "anatomy": [
     {
       "file": "music.js",
-      "draws": "the generative music: an overworld chiptune phase and an ambient drift phase",
-      "change_for": "the tune, tempo, instruments"
+      "draws": "the generative music scaffold: a pulse-wave phase (part_a) and a pad-and-drone phase (part_b), five-note melody scales and a hand-off each way",
+      "change_for": "the chords, scale, tempo, instruments"
     },
     {
       "file": "scene.js",
@@ -68,12 +65,12 @@
     },
     {
       "file": "config.js",
-      "draws": "canvas size, the two phases with tempos, loop length and slot names",
+      "draws": "canvas size, the two phases (part_a, part_b) with tempos, loop length and slot names",
       "change_for": "tempo, loop length"
     },
     {
       "file": "palettes.js",
-      "draws": "the equaliser colours",
+      "draws": "the equaliser colours for each phase (slate blues)",
       "change_for": "colour"
     },
     {

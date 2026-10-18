@@ -1,6 +1,6 @@
 {
-  "title": "Pixel Radio",
-  "description": "A generative soundtrack that moves from a chiptune overworld theme into an ambient drift and back.",
-  "alt": "A small pixel-art equaliser that changes colour with the music.",
+  "title": "Music Starter",
+  "description": "A generic two-phase generative soundtrack scaffold over a twelve-band pixel equaliser.",
+  "alt": "A small pixel-art equaliser that changes colour between the two phases.",
   "files": ["palettes.js", "scene.js"]
 }

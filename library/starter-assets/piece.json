@@ -3,18 +3,17 @@
   "id": "starter-assets",
   "title": "Starter: Assets",
   "status": "starter",
-  "summary": "A minimal asset pack to copy: a palette and two hand-drawn items (an animated coin and a heart) exported as strips, Aseprite-style JSON, an atlas and a contact sheet.",
-  "request": "Unknown: the original request was not recorded in the repository. Template from the initial kit commit; no request exists. Source description: My Pack.",
+  "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own.",
+  "request": "Unknown: the original request was not recorded in the repository. Template from the initial kit commit; no request exists. Source description: My Pack. The coin and heart were replaced by neutral placeholder slots in the starter-empty follow-up.",
   "mode": "assets",
   "tags": {
     "subject": [
-      "coin",
-      "heart",
-      "item",
+      "placeholder",
+      "slot",
       "sprite",
-      "icon",
       "pack",
-      "palette"
+      "palette",
+      "template"
     ],
     "setting": [
       "abstract"
@@ -54,9 +53,9 @@
   "knobs": {},
   "anatomy": [
     {
-      "file": "sprites/items.px",
-      "draws": "two hand-drawn items: an animated coin (4 frames, spin tag) and a heart",
-      "change_for": "the items, the .px format"
+      "file": "sprites/slots.px",
+      "draws": "two placeholder slots: slot_a (8 px, 4 frames, a marker pixel moving round the centre, tag cycle) and slot_b (8 px, one frame)",
+      "change_for": "the sprites, the .px format"
     },
     {
       "file": "pack.json",
@@ -65,7 +64,7 @@
     },
     {
       "file": "palette.json",
-      "draws": "the pack palette slots",
+      "draws": "the pack palette slots: outline, white, a grey ramp (base0-3) and a blue ramp (mark0-3)",
       "change_for": "colour"
     }
   ],

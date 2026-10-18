@@ -67,7 +67,7 @@ frame
 ## Items, icons and props
 
 - Read first, detail second: a coin is a circle with a highlight, a potion a bottle with liquid and a glint.
-- **Spin animations:** full face, then three-quarter, then edge, then a mirrored three-quarter (see the coin in `sprites/items.px`).
+- **Spin animations:** full face, then three-quarter, then edge, then a mirrored three-quarter (four frames, hand-drawn; `library/starter-assets` ships only neutral placeholder slots).
 - Props stand on their base. Set the anchor at the base, so maps can place them by their ground point.
 
 ## Tilesets

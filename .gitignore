@@ -1,6 +1,9 @@
 dist/
 shots/
 out/
+!library/*/out/
+library/*/out/*
+!library/*/out/golden/
 .pixelate-tmp/
 *.wav
 *.mp4

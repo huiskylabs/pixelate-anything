@@ -1,6 +1,6 @@
 # Piece manifest (schema 1)
 
-Read this when authoring or migrating a `library/<id>/piece.json`. A catalog entry is a *declaration*, not a certificate that its commands were run. `pixelate find REQUEST` and `pixelate library list|show ID|index` (also `python3 tools/library.py`) validate declarations without executing a piece. Only `pixelate render DIR` runs a piece's commands. Render, gate, golden comparison and independent review verification are separate steps. In particular, a technical gate pass is not approval.
+Read this when authoring or migrating a `library/<id>/piece.json`. A catalog entry is a *declaration*, not a certificate that its commands were run. `pixelate find REQUEST` and `pixelate library list|show ID|index` (also `python3 tools/library.py`) validate declarations without executing a piece. Only `pixelate render DIR` and `pixelate library test` run a piece's commands. Render, gate, golden comparison and independent review verification are separate steps. In particular, a technical gate pass is not approval.
 
 ## Layout and identity
 
@@ -14,7 +14,7 @@ A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-
 | `status`, `mode`, `runtime` | Status: `starter`, `study`, `accepted`, `reviewed`. Mode: `scene`, `rebuild`, `era`, `assets`, `music`. Runtime: `script`, `pack`, `engine`. |
 | `tags` | `subject`, `setting`: nonempty arrays of distinct lowercase ASCII slug terms (hyphen permitted). `camera`: `side`, `2:1 iso`, `3/4 top-down`, `one-point perspective`, `two-point perspective`, `oblique`, `military`, `none`. `style`: one of the router styles (`lofi`, `pastel-cell`, `native-glow`, `hd-overworld`, `arcade`, `tactics`, `sticker-iso`, `illustrated`, `neon-noir`, `cosy-lightmap`, `contre-jour`) or `none`. `era`: `nes`, `gameboy`, `pico-8`, `genesis`, `gba`, `neogeo`, `snes`, `none`. `motion`: `stills`, `loop`, `sprite-sheet`, `none`. `sound`: `none`, `music`, `sting`, `sfx`. No other tag fields. Use `none` when a field does not apply. |
 | `canvas` | `w`, `h`, `scale`: positive integers (not booleans). |
-| `outputs` | Nonempty array of distinctly named typed output records below. `run` is a nonempty shell command that `pixelate render` runs; index, list, show and find never run it. |
+| `outputs` | Nonempty array of distinctly named typed output records below. `run` is a nonempty shell command that `pixelate render` and `pixelate library test` run; index, list, show and find never run it. |
 | `anatomy` | Array of `{file, draws, change_for}`: an existing source file, and nonempty plain-language descriptions of what it draws and what to edit for a change. At least one entry for every status. |
 | `knobs` | Object keyed by slug. Each value is either `{values: [distinct JSON scalars], default: one of values, edits: source path}` or `{type: "int", default: integer, edits: source path}`. `edits` names an existing source file. Future `--set` and `PIXELATE_KNOBS` support will consume this contract; catalog does not apply knobs. |
 | `provenance` | `{made: "YYYY-MM-DD", by: nonempty string}`. This identifies who made the piece; it does not attest review. |
@@ -73,6 +73,20 @@ Example (the frame, brief, sources and media must exist inside `library/quarry-w
 `pixelate render DIR` reads `DIR/piece.json` (validated as above, so the folder name must equal `id`) or a legacy `DIR/render.json`; a folder with both is an error. Image outputs get the `render.json` behavior: run, gate, era check, judge, optional critique, `render-report.json` and a run record. Audio and export outputs are run and hashed, and their records carry `kind` and `file`. They are never gated: an audio file does not pass the image gate. `--image NAME` selects any output by name.
 
 Piece commands run in the piece folder through the shell, with the kit's `tools/` first on `PYTHONPATH` and the kit root first on `PATH`. A program imports kit modules and calls `pixelate assets .`, `pixelate shot . 0` or `pixelate audio . music.wav` without a hard-coded kit path. Legacy `render.json` commands run with the caller's environment, as before.
+
+`pixelate library test [ID...] [--quick] [--timeout S]` tests the named pieces, or every piece:
+
+1. Validate the manifest and copy the piece to a temporary folder. The source piece is never written.
+2. Delete every declared `frame` and `file` from the copy, so a stale committed file cannot pass.
+3. Run each distinct `run` command once, in output order. A command that runs longer than `--timeout` seconds (default 300) is killed with its process group.
+4. For an image: the frame must exist and be `size` × `scale` pixels. The frame is reduced to 1x with nearest-neighbor sampling, and its RGBA pixels must equal `golden` exactly. A difference reports the pixel count, the bounding box `[x0, y0, x1, y1]` and the largest channel delta. To accept a change, update the golden in the same commit.
+5. For audio and export: the file must exist and be nonempty; its SHA-256 is reported. `--quick` skips audio and export outputs and reports each as `skipped`.
+
+The command prints JSON: `{ok, quick, pieces: [{id, ok, outputs: [{name, kind, path, status, ...}]}]}`, where `status` is `passed`, `failed` or `skipped`. It exits 0 when no output failed, 1 when one did, and 2 for a malformed or unknown ID or an invalid manifest. A golden match is a regression test, not a quality judgment.
+
+`library test` is for trusted, checked-in pieces. The shell is not a sandbox: a run command can read and write anything the user can. Do not run it on contributed or pull-request code until the project adopts a trust and sandbox policy.
+
+The root `.gitignore` ignores `out/` folders. Under `library/<id>/out/` it ignores everything except `golden/`, so `git add` picks up golden frames. A scaled frame needs `git add -f` unless git already tracks it.
 
 ## Status evidence
 

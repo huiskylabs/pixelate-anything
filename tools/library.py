@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Static piece manifest validation, deterministic catalog and conservative search.
 
-`index`, `list`, `show` and `find` never import or execute piece code.
+`index`, `list`, `show` and `find` never import or execute piece code. Only `test` runs a piece: it
+renders a temporary copy of a trusted checked-in piece through `tools/render.py`, which runs the
+manifest's shell commands without a sandbox.
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
+import shutil
 import stat
 import tempfile
 from pathlib import Path
@@ -489,6 +493,105 @@ def find(library, request, mode=None, limit=3):
                         {'kind': 'author', 'reason': 'no matching starter; author a new piece'}}
 
 
+def compare_golden(frame, golden, size, scale):
+    """Check a rendered frame is `size` at `scale`, then compare its nearest-neighbor 1x RGBA pixels
+    with the golden 1x frame. A missing golden (None) fails after the dimension check."""
+    import numpy as np
+    from PIL import Image
+    w, h = size['w'], size['h']
+    try:
+        with Image.open(frame) as image:
+            rendered = image.convert('RGBA')
+    except OSError as exc:
+        return {'ok': False, 'error': f'unreadable frame: {exc}'}
+    if rendered.size != (w * scale, h * scale):
+        return {'ok': False, 'error': f'dimension mismatch: frame {rendered.width}x{rendered.height}, '
+                                      f'expected {w * scale}x{h * scale} ({w}x{h} at scale {scale})'}
+    if golden is None:
+        return {'ok': False, 'error': 'missing golden: declare out/golden/<output name>.png'}
+    try:
+        with Image.open(golden) as image:
+            expected = image.convert('RGBA')
+    except OSError as exc:
+        return {'ok': False, 'error': f'unreadable golden: {exc}'}
+    if expected.size != (w, h):
+        return {'ok': False, 'error': f'golden is {expected.width}x{expected.height}, expected 1x {w}x{h}'}
+    delta = np.abs(np.asarray(rendered.resize((w, h), Image.Resampling.NEAREST), np.int16) -
+                   np.asarray(expected, np.int16)).max(axis=2)
+    ys, xs = np.nonzero(delta)
+    if not len(xs):
+        return {'ok': True, 'pixels': 0}
+    return {'ok': False, 'pixels': int(len(xs)), 'max_delta': int(delta.max()),
+            'box': [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1],
+            'error': f'{len(xs)} of {w * h} 1x pixels differ from the golden'}
+
+
+def test_piece(root, quick=False, timeout=300):
+    """Render a temporary copy of a trusted piece and compare every image with its golden 1x frame.
+
+    Declared frames and files are deleted from the copy first, so a stale file never passes. Each
+    distinct run command runs once, for at most `timeout` seconds. Quick mode skips audio and export
+    outputs and reports them as skipped. The source piece is never written.
+    """
+    if __package__:
+        from . import render
+    else:
+        import render
+    source = Path(root).absolute()
+    manifest = validate(source)
+    results, runs = [], {}
+    with tempfile.TemporaryDirectory(prefix='pixelate-test-') as temp:
+        work = Path(temp) / source.name
+        shutil.copytree(source, work, ignore=shutil.ignore_patterns('.pixelate', '__pycache__'))
+        for output in manifest['outputs']:
+            (work / (output.get('frame') or output['file'])).unlink(missing_ok=True)
+        env = render.piece_env()
+        for output in manifest['outputs']:
+            path = output.get('frame') or output['file']
+            result = {'name': output['name'], 'kind': output['kind'], 'path': path}
+            results.append(result)
+            if quick and output['kind'] != 'image':
+                result.update(status='skipped', reason=f"quick mode skips {output['kind']} outputs")
+                continue
+            if output['run'] not in runs:
+                runs[output['run']] = render.run_command(output['run'], work, env, timeout)
+            result['run'] = runs[output['run']]
+            if not result['run']['ok']:
+                result.update(status='failed', error='run failed')
+                continue
+            produced = work / path
+            if not produced.is_file():
+                result.update(status='failed', error=f'not produced: {path}')
+                continue
+            result['sha256'] = hashlib.sha256(produced.read_bytes()).hexdigest()
+            if output['kind'] == 'image':
+                size = output.get('size') or manifest['canvas']
+                golden = source / output['golden'] if 'golden' in output else None
+                result['golden'] = compare_golden(produced, golden, size, output.get('scale', 1))
+                result['status'] = 'passed' if result['golden']['ok'] else 'failed'
+            elif produced.stat().st_size == 0:
+                result.update(status='failed', error=f'empty file: {path}')
+            else:
+                result['status'] = 'passed'
+    return {'id': manifest['id'], 'ok': all(r['status'] != 'failed' for r in results), 'outputs': results}
+
+
+def test(library, ids=(), quick=False, timeout=300):
+    """Render-test the named pieces, or every piece in the catalog, in temporary copies."""
+    library = Path(library).absolute()
+    positive(timeout, 'timeout')
+    if ids:
+        for piece_id in ids:
+            slug(piece_id, 'id')
+            if not (library / piece_id).is_dir():
+                fail(piece_id, 'unknown piece')
+        ids = list(dict.fromkeys(ids))
+    else:
+        ids = list(scan(library))
+    pieces = [test_piece(library / piece_id, quick, timeout) for piece_id in ids]
+    return {'ok': all(p['ok'] for p in pieces), 'quick': quick, 'pieces': pieces}
+
+
 DEFAULT_LIBRARY = Path(__file__).resolve().parent.parent / 'library'
 
 
@@ -502,8 +605,17 @@ def main(argv=None, prog=None):
     finding = commands.add_parser('find')
     finding.add_argument('request')
     finding.add_argument('--mode', choices=MODES)
+    testing = commands.add_parser('test', help='render pieces in temporary copies and compare golden 1x frames; '
+                                               'runs trusted checked-in commands without a sandbox')
+    testing.add_argument('ids', nargs='*', metavar='ID')
+    testing.add_argument('--quick', action='store_true', help='skip audio and export outputs')
+    testing.add_argument('--timeout', type=int, default=300, help='seconds per run command (default 300)')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'test':
+            report = test(args.library, args.ids, args.quick, args.timeout)
+            print(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False))
+            raise SystemExit(0 if report['ok'] else 1)
         result = {'index': lambda: write_index(args.library).decode('utf-8'),
                   'list': lambda: list_pieces(args.library),
                   'show': lambda: show(args.library, args.id),

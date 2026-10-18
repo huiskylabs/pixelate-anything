@@ -523,6 +523,115 @@ class LibraryTest(Fixture):
         self.assertIn('duplicate JSON key', result.stderr)
 
 
+class QuickCoverage(Fixture):
+    """`--quick` tests one kind per piece and never reports a piece green from skipped outputs alone."""
+
+    def keep(self, *names):
+        self.data['outputs'] = [o for o in self.data['outputs'] if o['name'] in names]
+        save(self.piece, self.data)
+
+    def test_images_are_tested_and_other_kinds_are_reported_untested(self):
+        result, report = self.library_test('--quick', 'harbour')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        piece = report['pieces'][0]
+        self.assertEqual(piece['kinds'], {'image': {'declared': 1, 'tested': 1}, 'audio': {'declared': 1, 'tested': 0},
+                                          'export': {'declared': 1, 'tested': 0}})
+        self.assertEqual({n: o['tested'] for n, o in self.outputs(report).items()},
+                         {'a': True, 'tone': False, 'version': False})
+        full, report = self.library_test('harbour')
+        self.assertEqual(full.returncode, 0, full.stdout)
+        self.assertEqual(report['pieces'][0]['kinds']['export'], {'declared': 1, 'tested': 1})
+
+    def test_export_only_piece_runs_its_exports_in_quick_mode(self):
+        self.keep('version')
+        before = snapshot(self.piece)
+        result, report = self.library_test('--quick', 'harbour')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = self.outputs(report)['version']
+        self.assertEqual((output['status'], output['tested']), ('passed', True))
+        self.assertNotEqual(output['sha256'], sha(b'stale committed export'))
+        self.assertTrue(report['ok'])
+        self.assertEqual(snapshot(self.piece), before)
+
+    def test_export_only_piece_fails_when_the_command_is_a_no_op_despite_a_stale_export(self):
+        self.keep('version')
+        self.assertEqual((self.piece / 'out' / 'version.txt').read_text(), 'stale committed export')
+        for run in ('true', 'exit 3'):
+            with self.subTest(run=run):
+                self.data['outputs'][0]['run'] = run
+                save(self.piece, self.data)
+                result, report = self.library_test('--quick', 'harbour')
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertFalse(report['ok'])
+                output = self.outputs(report)['version']
+                self.assertEqual(output['status'], 'failed')
+                self.assertNotIn('sha256', output)
+
+    def test_export_only_piece_does_not_run_its_audio(self):
+        self.keep('version', 'tone')
+        next(o for o in self.data['outputs'] if o['name'] == 'tone')['run'] = 'exit 3'
+        save(self.piece, self.data)
+        result, report = self.library_test('--quick', 'harbour')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        outputs = self.outputs(report)
+        self.assertEqual((outputs['version']['status'], outputs['tone']['status']), ('passed', 'skipped'))
+        self.assertEqual(report['pieces'][0]['kinds']['audio'], {'declared': 1, 'tested': 0})
+
+    def test_audio_only_piece_runs_its_first_audio_command_and_reports_the_rest_untested(self):
+        self.keep('tone')
+        self.data['outputs'].append({'name': 'tone2', 'kind': 'audio', 'run': 'exit 3', 'file': 'sound/tone2.wav'})
+        save(self.piece, self.data)
+        result, report = self.library_test('--quick', 'harbour')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        outputs = self.outputs(report)
+        self.assertEqual((outputs['tone']['status'], outputs['tone']['tested']), ('passed', True))
+        self.assertEqual((outputs['tone2']['status'], outputs['tone2']['tested']), ('skipped', False))
+        self.assertEqual(outputs['tone2']['reason'], 'quick mode runs only the first audio command')
+        self.assertEqual(report['pieces'][0]['kinds']['audio'], {'declared': 2, 'tested': 1})
+        self.data['outputs'][0]['run'] = 'true'
+        save(self.piece, self.data)
+        result, report = self.library_test('--quick', 'harbour')
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(self.outputs(report)['tone']['error'], 'not produced: sound/tone.wav')
+
+    def test_a_piece_with_no_passed_output_is_never_ok(self):
+        # validate() requires an output, so reach the all-skipped state through the function's own selection.
+        self.keep('tone')
+        with mock.patch.object(library, 'check_output', lambda *args: args[-1].update(status='skipped')):
+            piece = library.test_piece(self.piece, quick=True)
+        self.assertFalse(piece['ok'])
+
+    def test_gate_ok_is_null_without_an_image_and_never_implies_pack_legality(self):
+        self.keep('version')
+        result, report = self.library_test('--quick', 'harbour')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIsNone(report['pieces'][0]['gate_ok'])
+        self.assertIsNone(report['gate_ok'])
+        self.assertNotIn('gate_ok', self.outputs(report)['version'])
+        # Mixed with an image that fails its gate, the aggregate reports the image, not the exports.
+        second, data = make_piece(self.library, 'dockside')
+        data['outputs'][0]['style'] = 'pastel-cell'
+        data['outputs'] = data['outputs'][:1]
+        save(second, data)
+        result, report = self.library_test('--quick')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual({p['id']: p['gate_ok'] for p in report['pieces']}, {'dockside': False, 'harbour': None})
+        self.assertIs(report['gate_ok'], False)
+
+    def test_actual_export_only_pieces_run_in_a_clean_copy(self):
+        for piece_id, count in (('meadow-kit', 4), ('starter-assets', 3)):
+            for label, env in (('unset', caller_env()), ('spoofed', caller_env('/nonexistent/kit'))):
+                with self.subTest(piece=piece_id, PIXELATE_KIT=label):
+                    result = pixelate('library', 'test', '--quick', piece_id, env=env)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    piece = json.loads(result.stdout)['pieces'][0]
+                    self.assertTrue(piece['ok'])
+                    self.assertIsNone(piece['gate_ok'])
+                    self.assertEqual(piece['kinds'], {'export': {'declared': count, 'tested': count}})
+                    self.assertEqual({o['status'] for o in piece['outputs']}, {'passed'})
+                    self.assertTrue(all(o['sha256'] and o['run']['ok'] for o in piece['outputs']))
+
+
 class ByteBinding(Fixture):
     """A process the run leaves behind may rewrite the frame between checks; one read binds them all."""
 

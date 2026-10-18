@@ -598,18 +598,26 @@ def test_piece(root, quick=False, timeout=300):
     Outputs with the same run command form a group, run once, for at most `timeout` seconds, in order
     of first appearance. Before a group runs, its declared frames and files are deleted from the copy,
     so neither a stale committed file nor another command's side effect can pass; each is checked
-    right after its group runs. Outputs are read without following links. Quick mode skips audio and
-    export outputs and reports them as skipped. The source piece is never written.
+    right after its group runs. Outputs are read without following links. Quick mode tests one kind:
+    the images when the piece has any, else its exports, else the audio outputs of the first audio command;
+    every other output is reported as skipped. A piece is `ok` only if nothing failed and at least one
+    output passed, so a piece whose outputs were all skipped never reads as green. `gate_ok` is null when
+    the piece has no image to gate. The source piece is never written.
     """
     render = kit_render()
     source = Path(root).absolute()
     manifest = validate(source)
     results, groups = {}, {}
+    declared = {output['kind'] for output in manifest['outputs']}
+    quick_kind = next(kind for kind in ('image', 'export', 'audio') if kind in declared)
+    quick_audio = next((o['run'] for o in manifest['outputs'] if o['kind'] == 'audio'), None)
     for output in manifest['outputs']:
         path = output.get('frame') or output['file']
         results[output['name']] = {'name': output['name'], 'kind': output['kind'], 'path': path}
-        if quick and output['kind'] != 'image':
+        if quick and output['kind'] != quick_kind:
             results[output['name']].update(status='skipped', reason=f"quick mode skips {output['kind']} outputs")
+        elif quick and quick_kind == 'audio' and output['run'] != quick_audio:
+            results[output['name']].update(status='skipped', reason='quick mode runs only the first audio command')
         else:
             groups.setdefault(output['run'], []).append(output)
     with tempfile.TemporaryDirectory(prefix='pixelate-test-') as temp:
@@ -633,8 +641,17 @@ def test_piece(root, quick=False, timeout=300):
                 else:
                     result.update(status='failed', error='run failed')
     outputs = list(results.values())
-    return {'id': manifest['id'], 'ok': all(r['status'] != 'failed' for r in outputs),
-            'gate_ok': all(r.get('gate_ok') is True for r in outputs if r['kind'] == 'image'), 'outputs': outputs}
+    kinds = {}
+    for result in outputs:
+        result['tested'] = result['status'] != 'skipped'
+        count = kinds.setdefault(result['kind'], {'declared': 0, 'tested': 0})
+        count['declared'] += 1
+        count['tested'] += result['tested']
+    images = [r for r in outputs if r['kind'] == 'image']
+    return {'id': manifest['id'],
+            'ok': all(r['status'] != 'failed' for r in outputs) and any(r['status'] == 'passed' for r in outputs),
+            'gate_ok': all(r.get('gate_ok') is True for r in images) if images else None,
+            'kinds': kinds, 'outputs': outputs}
 
 
 def test(library, ids=(), quick=False, timeout=300):
@@ -652,7 +669,8 @@ def test(library, ids=(), quick=False, timeout=300):
     if not ids:
         fail(library, 'no pieces to test')
     pieces = [test_piece(library / piece_id, quick, timeout) for piece_id in ids]
-    return {'ok': all(p['ok'] for p in pieces), 'gate_ok': all(p['gate_ok'] for p in pieces), 'quick': quick,
+    gated = [p['gate_ok'] for p in pieces if p['gate_ok'] is not None]
+    return {'ok': all(p['ok'] for p in pieces), 'gate_ok': all(gated) if gated else None, 'quick': quick,
             'pieces': pieces}
 
 
@@ -672,7 +690,7 @@ def main(argv=None, prog=None):
     testing = commands.add_parser('test', help='render pieces in temporary copies, gate each image and compare '
                                                'golden 1x frames; runs trusted checked-in commands without a sandbox')
     testing.add_argument('ids', nargs='*', metavar='ID')
-    testing.add_argument('--quick', action='store_true', help='skip audio and export outputs')
+    testing.add_argument('--quick', action='store_true', help='test one kind per piece: its images, else its exports, else its first audio command')
     testing.add_argument('--timeout', type=int, default=300, help='seconds per run command (default 300)')
     args = parser.parse_args(argv)
     try:

@@ -1,6 +1,6 @@
 # Piece manifest (schema 1)
 
-Read this when authoring or migrating a `library/<id>/piece.json`. A catalog entry is a *declaration*, not a certificate that its commands were run. `python3 tools/library.py index|list|show ID|find REQUEST` validates declarations without executing a piece. Render, gate, golden comparison and independent review verification are separate later steps. In particular, a technical gate pass is not approval.
+Read this when authoring or migrating a `library/<id>/piece.json`. A catalog entry is a *declaration*, not a certificate that its commands were run. `pixelate find REQUEST` and `pixelate library list|show ID|index` (also `python3 tools/library.py`) validate declarations without executing a piece. Only `pixelate render DIR` runs a piece's commands. Render, gate, golden comparison and independent review verification are separate steps. In particular, a technical gate pass is not approval.
 
 ## Layout and identity
 
@@ -14,7 +14,7 @@ A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-
 | `status`, `mode`, `runtime` | Status: `starter`, `study`, `accepted`, `reviewed`. Mode: `scene`, `rebuild`, `era`, `assets`, `music`. Runtime: `script`, `pack`, `engine`. |
 | `tags` | `subject`, `setting`: nonempty arrays of distinct lowercase ASCII slug terms (hyphen permitted). `camera`: `side`, `2:1 iso`, `3/4 top-down`, `one-point perspective`, `two-point perspective`, `oblique`, `military`, `none`. `style`: one of the router styles (`lofi`, `pastel-cell`, `native-glow`, `hd-overworld`, `arcade`, `tactics`, `sticker-iso`, `illustrated`, `neon-noir`, `cosy-lightmap`, `contre-jour`) or `none`. `era`: `nes`, `gameboy`, `pico-8`, `genesis`, `gba`, `neogeo`, `snes`, `none`. `motion`: `stills`, `loop`, `sprite-sheet`, `none`. `sound`: `none`, `music`, `sting`, `sfx`. No other tag fields. Use `none` when a field does not apply. |
 | `canvas` | `w`, `h`, `scale`: positive integers (not booleans). |
-| `outputs` | Nonempty array of distinctly named typed output records below. `run` is a nonempty command string for a future trusted renderer; indexing/search never executes or shells it. |
+| `outputs` | Nonempty array of distinctly named typed output records below. `run` is a nonempty shell command that `pixelate render` runs; index, list, show and find never run it. |
 | `anatomy` | Array of `{file, draws, change_for}`: an existing source file, and nonempty plain-language descriptions of what it draws and what to edit for a change. At least one entry for every status. |
 | `knobs` | Object keyed by slug. Each value is either `{values: [distinct JSON scalars], default: one of values, edits: source path}` or `{type: "int", default: integer, edits: source path}`. `edits` names an existing source file. Future `--set` and `PIXELATE_KNOBS` support will consume this contract; catalog does not apply knobs. |
 | `provenance` | `{made: "YYYY-MM-DD", by: nonempty string}`. This identifies who made the piece; it does not attest review. |
@@ -30,10 +30,12 @@ Image (`kind: "image"`) takes the `tools/render.py` `render.json` image fields, 
 
 | Field | Contract |
 |---|---|
-| `frame` | Required. The golden frame; must exist. |
+| `frame` | Required. The frame the run command writes and the gate checks, at `scale`; must exist. |
+| `golden` | The golden 1x frame for `library test`: exactly `out/golden/<name>.png`, never the same file as `frame`; must exist when given. `library test` fails an image without it. |
+| `size` | `{w, h}`: positive integers, the 1x size of this image. Defaults to the piece `canvas` `w` and `h`. |
 | `style`, `era` | At least one is required for the gate. `style`: a router style (not `none`); `era`: an era above (not `none`). |
 | `scene` | A scene variant of `style` (`pixelate style S` lists them); needs `style`. |
-| `scale` | Positive integer; the gate defaults to 1. |
+| `scale` | Positive integer; the gate defaults to 1. The frame must be `size` times `scale`; `canvas.scale` is not used. |
 | `brief` | A source file; must exist when given. Required on the image a `reviewed` record binds. |
 | `pal`, `pre`, `actor`, `intent` | Gate inputs the run command may write. Safe relative paths inside the piece; they need not exist before a render, but any component that exists must not be a link, and an existing target must be a regular file. |
 | `used` | Comma-separated post ops (`light,shaft`, `rain:hair`). |
@@ -66,13 +68,19 @@ Example (the frame, brief, sources and media must exist inside `library/quarry-w
 }
 ```
 
+## Render and test
+
+`pixelate render DIR` reads `DIR/piece.json` (validated as above, so the folder name must equal `id`) or a legacy `DIR/render.json`; a folder with both is an error. Image outputs get the `render.json` behavior: run, gate, era check, judge, optional critique, `render-report.json` and a run record. Audio and export outputs are run and hashed, and their records carry `kind` and `file`. They are never gated: an audio file does not pass the image gate. `--image NAME` selects any output by name.
+
+Piece commands run in the piece folder through the shell, with the kit's `tools/` first on `PYTHONPATH` and the kit root first on `PATH`. A program imports kit modules and calls `pixelate assets .`, `pixelate shot . 0` or `pixelate audio . music.wav` without a hard-coded kit path. Legacy `render.json` commands run with the caller's environment, as before.
+
 ## Status evidence
 
 | Status | Required static evidence | Still requires outside catalog validation |
 |---|---|---|
 | `starter` | A tagged, anatomized piece with at least one output and provenance. | Render and gate on the *empty starter* before use. It is a fallback, not a recommended finished base. |
 | `study` | Same static declaration. | CI render; no approval implied. |
-| `accepted` | At least two knobs; at least one image output with a golden frame; `media.thumb` and `media.contact` files; `review.notes` file and `review.approved_by` (`user` or `art-director`). | Verify approval is genuine, render determinism and gate result. Review notes are not a technical gate result. |
+| `accepted` | At least two knobs; at least one image output; `media.thumb` and `media.contact` files; `review.notes` file and `review.approved_by` (`user` or `art-director`). | Verify approval is genuine, render determinism and gate result. Review notes are not a technical gate result. |
 | `reviewed` | All accepted evidence plus `review.record` file (a visual-review sidecar) and matching A-grade artifact-bound review via `review_status.piece_status`. | Recheck exact-byte binding after any file change; review alone does not grant licensing or user approval. |
 
 `review` is `{notes: path or null, approved_by: "user" | "art-director" | null, record: path or null}`. For `starter`/`study` it may be absent; if supplied, all references are checked, but it cannot elevate status. `record` is a sidecar produced by `pixelate review record`, named `<frame>.visual-review.json` beside an image output's `frame`, with the critique report saved inside the piece (for example `history/lead.md`) before recording. The record keeps the absolute paths it was made at, so a moved piece is checked by `review_status.piece_status`: the recorded frame must end in the output's `frame` path under a directory with the piece's id, the recorded brief must be the output's `brief` under that same directory, and the report must have been inside it. Only those paths are reanchored to the piece's current folder; no link is followed. A report recorded outside the piece, a renamed piece, a different path relation, a link, noncanonical record bytes, changed brief/frame/report bytes, or a B/C grade fails `reviewed` validation. Plain `pixelate review status` keeps binding absolute paths. Accepted review notes must be nonempty. For `accepted`, review notes/approval are declarations to audit, never inferred from a passing gate. Do not promote migrated work to accepted without evidence.

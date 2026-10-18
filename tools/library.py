@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Static piece manifest validation, deterministic catalog and conservative search.
 
-No contributed program, run command, or module is imported or executed here.
+`index`, `list`, `show` and `find` never import or execute piece code.
 """
 import argparse
 import datetime
@@ -139,7 +139,7 @@ def generated(root, value, where):
 
 def image_output(root, output):
     """Check one image entry against the `tools/render.py` image contract, plus a required run."""
-    fields(output, ('name', 'kind', 'run', 'frame'), ('scale', *IMAGE_GATE), 'output')
+    fields(output, ('name', 'kind', 'run', 'frame'), ('scale', 'size', 'golden', *IMAGE_GATE), 'output')
     gate = {key: output[key] for key in IMAGE_GATE if key in output}
     for key, value in gate.items():
         if not isinstance(value, str):
@@ -161,7 +161,15 @@ def image_output(root, output):
             fail('output.scene', 'expected a scene variant of the output style')
     if 'scale' in output:
         positive(output['scale'], 'output.scale')
+    if 'size' in output:
+        fields(output['size'], ('w', 'h'), where='output.size')
+        for key, value in output['size'].items():
+            positive(value, f'output.size.{key}')
     asset(root, output['frame'], 'output.frame')
+    if 'golden' in output:
+        if output['golden'] != f"out/golden/{output['name']}.png" or output['golden'] == output['frame']:
+            fail('output.golden', 'expected out/golden/<output name>.png, distinct from frame')
+        asset(root, output['golden'], 'output.golden')
     if 'brief' in gate:
         asset(root, gate['brief'], 'output.brief')
     for key in GENERATED:
@@ -481,9 +489,12 @@ def find(library, request, mode=None, limit=3):
                         {'kind': 'author', 'reason': 'no matching starter; author a new piece'}}
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--library', type=Path, default=Path(__file__).resolve().parent.parent / 'library')
+DEFAULT_LIBRARY = Path(__file__).resolve().parent.parent / 'library'
+
+
+def main(argv=None, prog=None):
+    parser = argparse.ArgumentParser(prog=prog, description=__doc__)
+    parser.add_argument('--library', type=Path, default=DEFAULT_LIBRARY)
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('index')
     commands.add_parser('list')
@@ -500,6 +511,35 @@ def main(argv=None):
     except LibraryError as exc:
         parser.exit(2, f'library: {exc}\n')
     print(result if isinstance(result, str) else json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+
+
+def find_main(argv=None):
+    """`pixelate find REQUEST [--mode M] [--json]`: the top pieces and the fallback, as text or JSON."""
+    parser = argparse.ArgumentParser(prog='pixelate find', description='Rank library pieces for a request. '
+                                     'Static: never runs piece code.')
+    parser.add_argument('request')
+    parser.add_argument('--mode', choices=MODES)
+    parser.add_argument('--json', action='store_true')
+    parser.add_argument('--library', type=Path, default=DEFAULT_LIBRARY)
+    args = parser.parse_args(argv)
+    try:
+        result = find(args.library, args.request, args.mode)
+    except LibraryError as exc:
+        parser.exit(2, f'find: {exc}\n')
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+        return
+    print(f"mode: {result['mode']}")
+    if not result['matches']:
+        print('no close piece')
+    for rank, match in enumerate(result['matches'], 1):
+        print(f"{rank}. {match['id']} ({match['status']}, score {match['score']})")
+        print('   why: ' + ', '.join(match['why']))
+        if match['differs']:
+            print('   differs: ' + ', '.join(match['differs']))
+    fallback = result['fallback']
+    print('fallback: ' + (f"starter {', '.join(fallback['ids'])}" if fallback['kind'] == 'starter'
+                          else fallback['reason']))
 
 
 if __name__ == '__main__':

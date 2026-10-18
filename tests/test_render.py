@@ -63,6 +63,7 @@ class RenderTest(unittest.TestCase):
         recs = json.loads(r.stdout)
         self.assertEqual([x['name'] for x in recs], ['a', 'b'])
         for rec in recs:
+            self.assertNotIn('kind', rec)
             self.assertTrue(rec['run']['ok'])
             self.assertIn('gate', rec)
             self.assertIn('defects', rec['judge'])
@@ -70,6 +71,7 @@ class RenderTest(unittest.TestCase):
         self.assertTrue((self.d / 'render-report.json').exists())
         runs = [json.loads(l) for l in (self.d / '.pixelate' / 'runs.jsonl').read_text().splitlines()]
         self.assertEqual(runs[-1]['type'], 'render')
+        self.assertNotIn('files', runs[-1])
         self.assertEqual([i['name'] for i in runs[-1]['images']], ['a', 'b'])
         self.assertEqual(len(runs[-1]['images'][0]['sha256']), 64)
         one = json.loads(self.cli('--image', 'b', '--no-run', '--json').stdout)

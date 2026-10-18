@@ -22,7 +22,10 @@
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
   pixelate judge FRAME.png [--overlay OUT.png] [--json] [--log]   locate what the gate passes and an art director rejects
   pixelate reference PHOTO -o reference.json [--marks reference.json]   correctable photo evidence + overlay (experimental)
-  pixelate render DIR [--image NAME] [--critique]   draw, gate, era-check and judge every image in DIR/render.json
+  pixelate render DIR [--image NAME] [--critique]   draw, gate, era-check and judge every image in DIR/piece.json or DIR/render.json
+  pixelate find "REQUEST" [--mode M] [--json]   the closest library pieces, or a starter (static: runs no piece code)
+  pixelate library list | show ID | index      browse the library and rebuild library/index.json (static)
+  pixelate library test [ID...] [--quick]      render trusted pieces in temporary copies and compare golden 1x frames
   pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review (--run: run it and save the critique)
   pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]   prompt an independent listening agent after the music gate
   pixelate review record --brief B [--frame F] --critique REPORT   bind external lead critique to artifact
@@ -140,6 +143,14 @@ def main(argv=None):
     elif cmd == 'review':
         sys.path.insert(0, str(TOOLS))
         sys.exit(review(rest))
+    elif cmd == 'find':
+        sys.path.insert(0, str(TOOLS))
+        import library
+        library.find_main(rest)
+    elif cmd == 'library':
+        sys.path.insert(0, str(TOOLS))
+        import library
+        library.main(rest, prog='pixelate library')
     elif cmd == 'topx':
         run('assets.py', ['--topx'] + rest)
     elif cmd == 'video':

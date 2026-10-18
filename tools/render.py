@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """pixelate render DIR [--image NAME] [--no-run] [--critique] [--json]
 
-One command from art to a verified still. DIR/render.json names each image: the command that draws
-it, the frame it writes and how it is gated. For every image, render runs the command, gates the
-frame (`pixelate check`, with the brief's `## Image NAME` lines via --image), era-checks it when it
-names an era, judges it (`pixelate judge`, overlay beside the frame, logged to the corpus) and, with
---critique, runs the art director (`pixelate critique --run`). It prints one compact line per image
-and writes DIR/render-report.json, plus one record in DIR/.pixelate/runs.jsonl; it exits 1 when any
-image fails its command or its gate. PIXELATE_NO_LOG=1 turns off all of its logs (run, judge, critique).
+One command from art to a verified still. DIR/piece.json (a library piece, `references/piece.md`) or
+DIR/render.json names each image: the command that draws it, the frame it writes and how it is
+gated. For every image, render runs the command, gates the frame (`pixelate check`, with the brief's
+`## Image NAME` lines via --image), era-checks it when it names an era, judges it (`pixelate judge`,
+overlay beside the frame, logged to the corpus) and, with --critique, runs the art director
+(`pixelate critique --run`). It prints one compact line per image and writes DIR/render-report.json,
+plus one record in DIR/.pixelate/runs.jsonl; it exits 1 when any image fails its command or its
+gate. PIXELATE_NO_LOG=1 turns off all of its logs (run, judge, critique).
 
 render.json:
 
@@ -20,8 +21,13 @@ render.json:
 
 Paths are relative to DIR. `run` may be omitted for a frame drawn some other way; `style` or `era` is
 required for the gate.
+
+piece.json outputs replace render.json: an image output takes the same fields plus `kind`, and audio
+and export outputs are run and hashed but never gated. Piece commands run with the kit's `tools/` first
+on PYTHONPATH and the kit root (the `pixelate` command) first on PATH. A folder with both files is an
+error.
 """
-import argparse, datetime, hashlib, json, os, pathlib, re, shlex, subprocess, sys, time
+import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, subprocess, sys, time
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 PIXELATE = [sys.executable, str(KIT / 'pixelate')]
@@ -29,9 +35,19 @@ GATE_FLAGS = (('style', '--style'), ('scene', '--scene'), ('era', '--era'), ('pa
               ('actor', '--actor'), ('used', '--used'), ('intent', '--intent'))
 
 def load(dirpath):
-    spec = pathlib.Path(dirpath) / 'render.json'
+    """the outputs to render and the manifest they came from: 'piece.json' or 'render.json'"""
+    piece, spec = pathlib.Path(dirpath) / 'piece.json', pathlib.Path(dirpath) / 'render.json'
+    if piece.is_file() and spec.is_file():
+        raise SystemExit('%s has both piece.json and render.json; piece.json outputs replace render.json, '
+                         'so remove one' % dirpath)
+    if piece.is_file():
+        import library
+        try:
+            return library.validate(dirpath)['outputs'], 'piece.json'
+        except library.LibraryError as exc:
+            raise SystemExit('piece.json: %s' % exc)
     if not spec.is_file():
-        raise SystemExit('no render.json in %s (see `pixelate render --help`)' % dirpath)
+        raise SystemExit('no piece.json or render.json in %s (see `pixelate render --help`)' % dirpath)
     data = json.loads(spec.read_text())
     images = data.get('images') if isinstance(data, dict) else data
     if not images:
@@ -42,7 +58,7 @@ def load(dirpath):
                 raise SystemExit('every image in render.json needs "%s"' % k)
         if not (im.get('style') or im.get('era')):
             raise SystemExit('image %s needs "style" or "era" for the gate' % im['name'])
-    return images
+    return images, 'render.json'
 
 def _tail(text, n=6):
     lines = [l for l in text.strip().splitlines() if l.strip()]
@@ -62,14 +78,37 @@ def logging():
     corpus records"""
     return not os.environ.get('PIXELATE_NO_LOG')
 
-def render_one(d, im, run=True, critique=False):
+def piece_env():
+    """the environment piece commands run in: the kit's tools/ importable and `pixelate` on PATH, so a
+    checked-in program runs from any folder without a hard-coded kit path"""
+    env = dict(os.environ)
+    for key, path in (('PYTHONPATH', KIT / 'tools'), ('PATH', KIT)):
+        env[key] = os.pathsep.join(filter(None, (str(path), env.get(key))))
+    return env
+
+def run_command(command, cwd, env=None, timeout=None):
+    """run one shell command; with a timeout, kill its whole process group when time runs out. The
+    shell is not a sandbox: run only trusted commands"""
+    t = time.time()
+    proc = subprocess.Popen(command, shell=True, cwd=cwd, env=env, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True, start_new_session=timeout is not None)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        proc.communicate()
+        return {'ok': False, 'seconds': round(time.time() - t, 1), 'error': 'timed out after %ss' % timeout}
+    rec = {'ok': proc.returncode == 0, 'seconds': round(time.time() - t, 1)}
+    if proc.returncode:
+        rec['error'] = _tail(err or out)
+    return rec
+
+def render_one(d, im, run=True, critique=False, env=None):
     rec = {'name': im['name'], 'frame': im['frame']}
     if run and im.get('run'):
-        t = time.time()
-        r = subprocess.run(im['run'], shell=True, cwd=d, capture_output=True, text=True)
-        rec['run'] = {'ok': r.returncode == 0, 'seconds': round(time.time() - t, 1)}
-        if r.returncode:
-            rec['run']['error'] = _tail(r.stderr or r.stdout)
+        rec['run'] = run_command(im['run'], d, env)
+        if not rec['run']['ok']:
             return rec
     if not (d / im['frame']).is_file():
         rec['error'] = 'frame not found: %s' % im['frame']
@@ -112,12 +151,27 @@ def render_one(d, im, run=True, critique=False):
             rec['critique']['error'] = _tail(c.stderr or c.stdout, 2)
     return rec
 
+def render_file(d, out, run=True, env=None):
+    """run an audio or export output and hash the file it writes; these files are never gated"""
+    rec = {'name': out['name'], 'kind': out['kind'], 'file': out['file']}
+    if run:
+        rec['run'] = run_command(out['run'], d, env)
+        if not rec['run']['ok']:
+            return rec
+    if not (d / out['file']).is_file():
+        rec['error'] = 'file not found: %s' % out['file']
+        return rec
+    rec['sha256'] = hashlib.sha256((d / out['file']).read_bytes()).hexdigest()
+    return rec
+
 def line(rec):
     parts = [rec['name']]
     if 'run' in rec:
         parts.append('run ok %.1fs' % rec['run']['seconds'] if rec['run']['ok'] else 'RUN FAILED')
     if rec.get('error'):
         parts.append(rec['error'])
+    if 'file' in rec and 'sha256' in rec:
+        parts.append('%s %s (not gated)' % (rec['kind'], rec['file']))
     if 'gate' in rec:
         g = rec['gate']
         parts.append('gate PASS (%d lines)' % g['pass'] if g['ok'] else 'gate FAIL: ' + ('; '.join(g['fail'][:3]) or g.get('error', '')))
@@ -137,6 +191,8 @@ def line(rec):
     return ' | '.join(parts)
 
 def ok(rec):
+    if 'file' in rec:
+        return rec.get('run', {'ok': True})['ok'] and 'sha256' in rec
     return rec.get('run', {'ok': True})['ok'] and not rec.get('error') and rec.get('gate', {}).get('ok', False) \
         and rec.get('era', {'ok': True})['ok']
 
@@ -147,15 +203,21 @@ def log_run(d, recs):
         return
     sys.path.insert(0, str(KIT / 'tools'))
     from version import VERSION
-    images = []
+    images, files = [], []
     for r in recs:
+        if 'file' in r:
+            files.append({'name': r['name'], 'kind': r['kind'], 'file': r['file'], 'sha256': r.get('sha256'),
+                          'run_ok': r.get('run', {'ok': True})['ok'], 'ok': ok(r)})
+            continue
         images.append({'name': r['name'], 'frame': r['frame'], 'sha256': r.get('sha256'),
                        'run_ok': r.get('run', {'ok': True})['ok'], 'gate_ok': r.get('gate', {}).get('ok'),
                        'gate_fail': len(r.get('gate', {}).get('fail', [])),
                        'judge': sorted({x['kind'] for x in r.get('judge', {}).get('defects', [])}),
                        'grade': r.get('critique', {}).get('grade'), 'ok': ok(r)})
     record = {'type': 'render', 'time': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
-              'kit': VERSION, 'dir': d.name, 'images': images, 'ok': all(i['ok'] for i in images)}
+              'kit': VERSION, 'dir': d.name, 'images': images, 'ok': all(i['ok'] for i in images + files)}
+    if files:
+        record['files'] = files
     p = d / '.pixelate' / 'runs.jsonl'
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open('a', encoding='utf-8') as fh:
@@ -164,16 +226,22 @@ def log_run(d, recs):
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='pixelate render', description=(__doc__ or '').split('\n\n')[1])
     ap.add_argument('dir')
-    ap.add_argument('--image', default=None, help='only this image')
+    ap.add_argument('--image', default=None, help='only this image (with piece.json: this output)')
     ap.add_argument('--no-run', action='store_true', help='skip the draw commands; gate and judge what is there')
     ap.add_argument('--critique', action='store_true', help='also run the art director (pixelate critique --run)')
     ap.add_argument('--json', action='store_true')
     a = ap.parse_args(argv)
     d = pathlib.Path(a.dir).resolve()
-    images = [im for im in load(d) if not a.image or im['name'] == a.image]
-    if not images:
-        raise SystemExit('no image named %s in render.json' % a.image)
-    recs = [render_one(d, im, not a.no_run, a.critique) for im in images]
+    outputs, source = load(d)
+    outputs = [o for o in outputs if not a.image or o['name'] == a.image]
+    if not outputs:
+        raise SystemExit('no %s named %s in %s' % ('output' if source == 'piece.json' else 'image', a.image, source))
+    if source == 'render.json':
+        recs = [render_one(d, im, not a.no_run, a.critique) for im in outputs]
+    else:
+        env = piece_env()
+        recs = [dict(render_one(d, o, not a.no_run, a.critique, env), kind='image') if o['kind'] == 'image'
+                else render_file(d, o, not a.no_run, env) for o in outputs]
     (d / 'render-report.json').write_text(json.dumps(recs, indent=1))
     log_run(d, recs)
     if a.json:

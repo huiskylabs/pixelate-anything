@@ -85,3 +85,69 @@ Taste (composition, light, "it looks great") is the second claim, carried by the
 People should use pixelate-anything when they need pixel art that **works as an asset**: on the grid, palette-exact, era-legal, seamless and exportable, with sound, and editable as code. No image model or bare model gives that reliably, and it can be checked by machine. That is our REA-style core.
 
 "It looks better" is our second claim, and right now it rests on taste and a critic. Prove it with blind pairwise runs, not with our own judge.
+
+---
+
+# Round three: mode by mode, on main at d713b00
+
+The question for each mode: **where does the kit make the final pixels better than a model writing them from scratch?** Rules of thumb, docs and gates help the process. Quality comes from code that has already been proven to draw the hard part well, and from feedback that names a specific place in the image. In the showcase run, painters imported only `canvas`, `palette` and `colorlib`, and wrote 1,200 to 2,300 lines of art code by hand (handoff section 1). Until more of the final image comes from kit code, the skill mostly changes the process, not the pixels.
+
+**What changed since round two:** `pixelate reference` (#29) writes an editable record of a photo (value bands, a 12×12 lightness grid, edge directions, manual camera and landmark marks, all tied to the photo's hash). The evals now refuse bundled prompts for live runs, copy a filtered kit, require a spend ceiling, and anonymize what the critic sees. Both changes are sound and honest about their limits.
+
+## Scoreboard
+
+| Mode | What a bare model gets wrong | What the kit already does better | Biggest gap | Advantage today |
+|---|---|---|---|---|
+| **era** | Hard hardware limits: NES 4-colour attribute blocks, 3-colour sprites, sprites per scanline, unique tile counts, Game Boy 4 shades | `era.check` and `enforce`, `check_sprites`, scanline counts, `check_tiles`, era gate lines | No `pixelate new era` starter; no hardware export (CHR tiles, nametable, palette bytes) | **Strong and provable** |
+| **assets** | Frame-to-frame consistency, pivots, sheet packing, tags, silhouettes that read | `.px` format, Aseprite-style JSON, atlas, contact sheet, silhouette sheet, lone-pixel and colour checks, `topx` | No checks that the animation reads (drift across frames, volume kept, arcs) and no directional sets (4 or 8 facings) | **Strong for the technical part, weak for motion** |
+| **scene** | Loops that seam, palette cycling, light done in palette steps, muddy values, repeated stamps | Slot canvas, light, sky, water, veg and fx modules, recipes, judge, loop-seam check, Lantern Isle as the bar | Too few recipes (aurora, light pools, foliage masses); the starter is the JS engine while painters write Python | **Real for loops, thin for stills** |
+| **rebuild** | Keeping the photo's camera; simplifying into readable masses; picking the few details that make the place itself | `iso.py` (five orthographic views), `Perspective` recipe, guide, now `pixelate reference` | **No comparison of the render against the reference**; no perspective starter | **Weak; the most to gain** |
+| **music** | Seamless loops, genre feel, mixing levels | Lofi, chiptune and ambient engine, `musiccheck`, music critic prompt | Missing instruments (bells, FM, strings), no fixed melody, no one-shot events, no SFX (handoff 2.4, all still open) | **Moderate** |
+
+## Per mode: what would move quality most
+
+### era: lead with it, and finish it
+This is the one mode where a machine can prove the skill beats both a bare model and an image model. A bare model draws an "NES-style" screen with 40 colours and 9-colour sprites; `era check` fails it with numbers. Two additions turn "checked" into "usable":
+1. **`pixelate new era --era nes`**: a starter canvas that passes `era check` empty, with the palette, attribute grid and sprite layer already wired.
+2. **Hardware export**: write CHR tiles, a nametable, attribute and palette bytes (and the Game Boy equivalents), plus a tiny ROM or emulator-loadable test. "It runs on the console" is our version of REA's byte-exact showcase.
+
+### assets: add motion checks
+The export side is already better than anything a model writes in one session. The quality gap is motion. Cheap, located checks:
+- **Volume drift:** the sprite's pixel area per frame should stay within a band, apart from squash and stretch.
+- **Pivot jitter:** the anchor moves only when the brief says so.
+- **Palette consistency:** every frame uses the same slots.
+- **Facings:** the same character's 4 or 8 directions keep height and colour mass.
+
+Each comes back as a frame index and a box, like the judge's findings.
+
+### scene: more recipes, in the medium agents actually use
+- Painters write Python stills; `pixelate new scene` gives a JS engine. Add a Python still starter (`new still`) that wires the canvas, palette, export at scale, `render.json` and the brief, and passes the gate empty.
+- Recipes named in the handoff but still missing: **aurora curtains, light pools and spills in palette steps, foliage masses, waterline and submerged areas.** These are where the coordinator's fixes went in the showcase run.
+- A recipe must take the scene's palette slots, geometry and seed, and the judge's repeated-units detector should catch the same recipe stamped twice with the same parameters.
+
+### rebuild: compare the render with the reference
+`pixelate reference` already computes a 12×12 lightness grid on the photo. Computing the same grid on the block-in or the render gives a **located fidelity report** at no cost:
+- where the value layout differs from the photo (cells far apart in rank);
+- whether the marked horizon and vanishing points line up with the render's receding edges;
+- whether each marked landmark box holds a distinct mass in the render.
+
+That is "review the render against the source", not the artist's account of it, and it answers "did the perspective problem actually get fixed?" from round to round. It should stay a diagnostic (a stylised rebuild is allowed to move values), but it turns the rebuild guide's "put the render next to the reference" into a measurement. Then add **`pixelate new rebuild-perspective`**, which builds the `Perspective` scaffold from the marked horizon and vanishing points.
+
+### music: close the four known gaps
+Fixed melody per phase, a one-shot event layer (bells, thunder), a few FM and plucked instruments, and a small SFX set for asset packs. Half the showcase samples needed custom numpy synths, so these gaps are measured, not guessed.
+
+## Cross-cutting
+
+1. **Measure how much of each image comes from the kit.** Log the kit functions each run imports and calls (handoff 2.3). If agents still write everything by hand, recipes and starters are not reaching them, and a better `SKILL.md` will not fix that.
+2. **Starters per mode are the cheapest quality lever.** Only `scene` (JS), `music` and `assets` exist. A starter that passes the gate empty removes hundreds of lines of from-scratch code, which is where the masonry rock and stamped rows came from.
+3. **One ordered report.** `render` should return the gate failures, then judge findings, then (for rebuilds) reference differences, then the lead's top fixes, each with a place. Specialists only with a stated question.
+4. **Bug fixed in this round:** `pixelate new --help` (or `new` with missing arguments) crashed with an `IndexError`; it now prints the usage and the template kinds.
+
+## Recommended order
+
+1. **Era:** a starter, then hardware export. It is our provable advantage and the smallest amount of work.
+2. **Rebuild:** `pixelate reference --compare RENDER` plus a perspective starter built from the marks.
+3. **Scene:** a Python still starter plus four recipes (aurora, light pools, foliage masses, waterline).
+4. **Assets:** motion checks with frame-and-box findings.
+5. **Music:** melody, events, instruments, SFX.
+6. **Throughout:** log kit usage per run. Run the held-out benchmark only once 1 to 3 have landed, so the paid runs measure the kit we want to defend.

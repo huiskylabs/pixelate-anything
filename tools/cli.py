@@ -142,6 +142,8 @@ def main(argv=None):
     elif cmd == 'gif':
         run('render_video.py', [rest[0], '--gif'] + rest[1:])
     elif cmd == 'new':
+        if len(rest) != 2 or rest[0] in ('-h', '--help'):
+            sys.exit('usage: pixelate new KIND DIR   (kinds: %s)' % ', '.join(TEMPLATES))
         new(rest[0], rest[1])
     elif cmd == 'doctor':
         doctor()

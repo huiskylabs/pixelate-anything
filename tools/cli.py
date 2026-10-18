@@ -35,6 +35,7 @@
   pixelate library test [ID...] [--quick]      render trusted pieces in temporary copies and compare golden 1x frames
   pixelate library add DIR [--status study|accepted|reviewed] --trust-local-code   run a trusted local piece twice,
                                          stage it with 1x goldens and rebuild the index (NO sandbox; never in PR CI)
+  pixelate gallery [--check]              generate/check rights-filtered README cards and static docs/gallery page
   pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review (--run: run it and save the critique)
   pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]   prompt an independent listening agent after the music gate
   pixelate review record --brief B [--frame F] --critique REPORT   bind external lead critique to artifact
@@ -59,7 +60,7 @@ KIT = TOOLS.parent
 SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
            'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py', 'critique-music': 'critique_music.py',
-           'judge': 'judge.py', 'render': 'render.py', 'reference': 'reference.py'}
+           'judge': 'judge.py', 'render': 'render.py', 'reference': 'reference.py', 'gallery': 'gallery.py'}
 STARTERS = {'scene': 'starter-scene-loop', 'music': 'starter-music', 'assets': 'starter-assets'}
 GUIDES = {'scene': 'scenes', 'music': 'music', 'assets': 'assets'}
 NEW_USAGE = '''usage: pixelate new KIND DIR   (kinds: %s)

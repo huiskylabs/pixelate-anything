@@ -6,6 +6,14 @@
 
 *Lantern Isle in winter, one season of a seamless four-season loop with its own lofi soundtrack. Every pixel, the aurora, the snowfall and the lamplight on the water are drawn in code by the kit.*
 
+<!-- library gallery: generated start -->
+## Library gallery
+
+No library cards are published yet: source redistribution permissions still need human review.
+<!-- library gallery: generated end -->
+
+The [static gallery page](docs/gallery/index.html) and these cards are generated from `library/index.json` and an explicit rights-evidence ledger; the ledger is not proof of permission. Generation reads capped image bytes but neither decodes them nor runs piece code.
+
 It ships three ways:
 - **An agent skill** (`SKILL.md`), which carries the craft.
 - **A CLI** (`pixelate`), which does the work.

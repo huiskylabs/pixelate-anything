@@ -1,0 +1,739 @@
+{
+  "pieces": [
+    {
+      "id": "canyon-cycle",
+      "media": {
+        "contact": "canyon-cycle/media/contact.png",
+        "thumb": "canyon-cycle/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "canyon-cycle/piece.json",
+      "status": "study",
+      "summary": "A gorge where two waterfalls meet, with a rope bridge, a forge and a mesa under storm clouds, decoded from one index array: A rose sunset at the lightning instant, B indigo night.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "outdoor",
+          "sunset",
+          "night"
+        ],
+        "sound": "music",
+        "style": "lofi",
+        "subject": [
+          "canyon",
+          "waterfall",
+          "bridge",
+          "forge",
+          "river",
+          "lantern",
+          "mesa",
+          "storm",
+          "lightning"
+        ]
+      },
+      "title": "The Canyon That Moves Without Moving"
+    },
+    {
+      "id": "endless-ascent",
+      "media": {
+        "contact": "endless-ascent/media/contact.png",
+        "thumb": "endless-ascent/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "endless-ascent/piece.json",
+      "status": "study",
+      "summary": "A gondola with one lantern-holding passenger climbs a giant trunk: A it passes the clock of a town carved into the trunk, B it rises out of a cloud sea under the aurora.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "fantasy",
+          "dusk",
+          "night",
+          "sky"
+        ],
+        "sound": "music",
+        "style": "lofi",
+        "subject": [
+          "gondola",
+          "lantern",
+          "passenger",
+          "tree",
+          "trunk",
+          "town",
+          "clock",
+          "cloud",
+          "aurora"
+        ]
+      },
+      "title": "The Endless Ascent"
+    },
+    {
+      "id": "four-machines",
+      "media": {
+        "contact": "four-machines/media/contact.png",
+        "thumb": "four-machines/media/thumb.png"
+      },
+      "mode": "era",
+      "path": "four-machines/piece.json",
+      "status": "study",
+      "summary": "One moment drawn four times under four console limits: a postmaster launches a mail glider off a cliff-top post office at sunrise over a waking fishing town, as Game Boy-, NES-, SNES- and GBA-style panels.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "coastal",
+          "sunrise",
+          "outdoor"
+        ],
+        "sound": "music",
+        "style": "lofi",
+        "subject": [
+          "glider",
+          "pilot",
+          "post",
+          "office",
+          "town",
+          "harbour",
+          "cliff",
+          "gull",
+          "boat"
+        ]
+      },
+      "title": "One Morning, Four Machines"
+    },
+    {
+      "id": "lantern-isle",
+      "media": {
+        "contact": "lantern-isle/media/contact.png",
+        "thumb": "lantern-isle/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "lantern-isle/piece.json",
+      "status": "study",
+      "summary": "A small island cottage in a calm night sea, looping through four seasons with its own generative lofi soundtrack.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "loop",
+        "setting": [
+          "night",
+          "twilight",
+          "outdoor",
+          "coastal"
+        ],
+        "sound": "music",
+        "style": "lofi",
+        "subject": [
+          "island",
+          "cottage",
+          "sea",
+          "lantern",
+          "dock",
+          "boat",
+          "tree",
+          "pine",
+          "blossom",
+          "firefly",
+          "snow",
+          "aurora",
+          "lighthouse",
+          "moon",
+          "rain",
+          "season",
+          "spring",
+          "summer",
+          "fall",
+          "winter",
+          "leaf",
+          "petal",
+          "smoke"
+        ]
+      },
+      "title": "Lantern Isle"
+    },
+    {
+      "id": "lanternmoss-mire",
+      "media": {
+        "contact": "lanternmoss-mire/media/contact.png",
+        "thumb": "lanternmoss-mire/media/thumb.png"
+      },
+      "mode": "assets",
+      "path": "lanternmoss-mire/piece.json",
+      "status": "study",
+      "summary": "A 16x16 tile and sprite asset pack for a bog (tiles, a bog-ferrier hero, six creatures, items, props), shown as its 320x192 map: A by day, B the same tiles at night, glowing.",
+      "tags": {
+        "camera": "3/4 top-down",
+        "era": "none",
+        "motion": "sprite-sheet",
+        "setting": [
+          "wetland",
+          "day",
+          "night"
+        ],
+        "sound": "sfx",
+        "style": "lofi",
+        "subject": [
+          "bog",
+          "mire",
+          "hero",
+          "tileset",
+          "creature",
+          "boardwalk",
+          "lantern",
+          "moss",
+          "moth",
+          "heron"
+        ]
+      },
+      "title": "Lanternmoss Mire"
+    },
+    {
+      "id": "market-day",
+      "media": {
+        "contact": "market-day/media/contact.png",
+        "thumb": "market-day/media/thumb.png"
+      },
+      "mode": "rebuild",
+      "path": "market-day/piece.json",
+      "status": "study",
+      "summary": "Strasbourg's old-town street and squares at noon, rebuilt after an aerial photo and full of market stories: A the whole frame, B the wedding on the hall steps at 8x.",
+      "tags": {
+        "camera": "2:1 iso",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "city",
+          "noon",
+          "outdoor",
+          "festive"
+        ],
+        "sound": "music",
+        "style": "sticker-iso",
+        "subject": [
+          "market",
+          "town",
+          "wedding",
+          "street",
+          "square",
+          "hall",
+          "band",
+          "stall",
+          "crowd"
+        ]
+      },
+      "title": "Market Day, From the Bell Tower"
+    },
+    {
+      "id": "meadow-kit",
+      "media": {
+        "contact": "meadow-kit/media/contact.png",
+        "thumb": "meadow-kit/media/thumb.png"
+      },
+      "mode": "assets",
+      "path": "meadow-kit/piece.json",
+      "status": "study",
+      "summary": "A complete asset pack: a 16x16 hero with idle and walk animations, items, props, an autotiling grass-and-dirt set, animated water and a sample map.",
+      "tags": {
+        "camera": "3/4 top-down",
+        "era": "none",
+        "motion": "sprite-sheet",
+        "setting": [
+          "meadow",
+          "outdoor",
+          "day"
+        ],
+        "sound": "none",
+        "style": "none",
+        "subject": [
+          "hero",
+          "tileset",
+          "grass",
+          "dirt",
+          "water",
+          "coin",
+          "heart",
+          "potion",
+          "bush",
+          "flower",
+          "rock",
+          "item",
+          "map",
+          "tile",
+          "sprite"
+        ]
+      },
+      "title": "Meadow Kit"
+    },
+    {
+      "id": "monsoon-street",
+      "media": {
+        "contact": "monsoon-street/media/contact.png",
+        "thumb": "monsoon-street/media/thumb.png"
+      },
+      "mode": "rebuild",
+      "path": "monsoon-street/piece.json",
+      "status": "study",
+      "summary": "A one-point-perspective shopping street rebuilt after a photo: A the tram crosses the vanishing point in a downpour, B at 2 a.m. the puddle mirrors the street.",
+      "tags": {
+        "camera": "one-point perspective",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "urban",
+          "rain",
+          "night"
+        ],
+        "sound": "music",
+        "style": "cosy-lightmap",
+        "subject": [
+          "street",
+          "tram",
+          "shop",
+          "puddle",
+          "cat",
+          "lantern",
+          "bicycle"
+        ]
+      },
+      "title": "Monsoon Street, After Hours"
+    },
+    {
+      "id": "projections",
+      "media": {
+        "contact": "projections/media/contact.png",
+        "thumb": "projections/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "projections/piece.json",
+      "status": "study",
+      "summary": "One little scene (a cottage, a tree, a well, a pond, a fence) rendered from a single 3D description in the five projections pixel art uses: side, 3/4 top-down, 2:1 isometric, oblique and military.",
+      "tags": {
+        "camera": "2:1 iso",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "outdoor",
+          "day",
+          "village"
+        ],
+        "sound": "none",
+        "style": "tactics",
+        "subject": [
+          "cottage",
+          "tree",
+          "well",
+          "pond",
+          "fence",
+          "projection",
+          "diorama",
+          "house"
+        ]
+      },
+      "title": "Projections"
+    },
+    {
+      "id": "quarry-wakes",
+      "media": {
+        "contact": "quarry-wakes/media/contact.png",
+        "thumb": "quarry-wakes/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "quarry-wakes/piece.json",
+      "status": "study",
+      "summary": "A colossal rusted dredging machine claws up out of a flooded quarry at dusk while a soldier in a mustard coat crouches behind a toppled crane: A it rises, B its leg slams the rim.",
+      "tags": {
+        "camera": "side",
+        "era": "neogeo",
+        "motion": "stills",
+        "setting": [
+          "industrial",
+          "dusk",
+          "outdoor"
+        ],
+        "sound": "sting",
+        "style": "arcade",
+        "subject": [
+          "quarry",
+          "machine",
+          "boss",
+          "dredger",
+          "soldier",
+          "water",
+          "rock",
+          "crane"
+        ]
+      },
+      "title": "The Quarry Wakes"
+    },
+    {
+      "id": "retro-screens",
+      "media": {
+        "contact": "retro-screens/media/contact.png",
+        "thumb": "retro-screens/media/thumb.png"
+      },
+      "mode": "era",
+      "path": "retro-screens/piece.json",
+      "status": "study",
+      "summary": "Three classic-genre screens under console-era limits: an 8-bit rooftop platformer, a Game Boy-style village RPG and an 8-bit title screen whose city is the san-francisco rebuild (its photo has no recorded license).",
+      "tags": {
+        "camera": "side",
+        "era": "nes",
+        "motion": "loop",
+        "setting": [
+          "outdoor",
+          "sunset",
+          "night",
+          "urban",
+          "coastal"
+        ],
+        "sound": "none",
+        "style": "none",
+        "subject": [
+          "platformer",
+          "rpg",
+          "title",
+          "rooftop",
+          "village",
+          "courier",
+          "windmill",
+          "cat",
+          "harbor",
+          "pigeon",
+          "skyline",
+          "city",
+          "menu",
+          "dialogue",
+          "sprite"
+        ]
+      },
+      "title": "Retro Screens"
+    },
+    {
+      "id": "rose-squall",
+      "media": {
+        "contact": "rose-squall/media/contact.png",
+        "thumb": "rose-squall/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "rose-squall/piece.json",
+      "status": "study",
+      "summary": "A courier clings to a sea stack under a lighthouse in a rose-coloured squall at dusk: a 120-frame pastel platformer loop with a turning beam, rain, waves and one lightning fork.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "loop",
+        "setting": [
+          "dusk",
+          "outdoor",
+          "coastal",
+          "stormy"
+        ],
+        "sound": "none",
+        "style": "pastel-cell",
+        "subject": [
+          "lighthouse",
+          "courier",
+          "sea",
+          "stack",
+          "rock",
+          "storm",
+          "rain",
+          "lightning",
+          "wave",
+          "beam",
+          "cliff",
+          "scarf",
+          "cloud",
+          "platformer"
+        ]
+      },
+      "title": "Rose Squall"
+    },
+    {
+      "id": "san-francisco",
+      "media": {
+        "contact": "san-francisco/media/contact.png",
+        "thumb": "san-francisco/media/thumb.png"
+      },
+      "mode": "rebuild",
+      "path": "san-francisco/piece.json",
+      "status": "study",
+      "summary": "An aerial photo of the Financial District rebuilt twice: in its own 3/4 top-down camera and as a 2:1 isometric diorama that turns from day to dusk to night.",
+      "tags": {
+        "camera": "2:1 iso",
+        "era": "none",
+        "motion": "loop",
+        "setting": [
+          "urban",
+          "outdoor",
+          "day",
+          "dusk",
+          "night"
+        ],
+        "sound": "none",
+        "style": "sticker-iso",
+        "subject": [
+          "city",
+          "skyline",
+          "building",
+          "skyscraper",
+          "tower",
+          "street",
+          "park",
+          "church",
+          "car",
+          "boat",
+          "francisco",
+          "downtown",
+          "aerial"
+        ]
+      },
+      "title": "San Francisco"
+    },
+    {
+      "id": "santorini",
+      "media": {
+        "contact": "santorini/media/contact.png",
+        "thumb": "santorini/media/thumb.png"
+      },
+      "mode": "rebuild",
+      "path": "santorini/piece.json",
+      "status": "study",
+      "summary": "A cliffside Cycladic village rebuilt as a 2:1 isometric diorama from an aerial photo: white cubes on terraces, plunge pools, a blue-domed chapel and a windmill, from day through golden sunset to blue hour.",
+      "tags": {
+        "camera": "2:1 iso",
+        "era": "none",
+        "motion": "loop",
+        "setting": [
+          "coastal",
+          "outdoor",
+          "day",
+          "sunset",
+          "dusk"
+        ],
+        "sound": "none",
+        "style": "sticker-iso",
+        "subject": [
+          "village",
+          "cliff",
+          "house",
+          "dome",
+          "chapel",
+          "windmill",
+          "pool",
+          "stairs",
+          "caldera",
+          "boat",
+          "sea",
+          "santorini",
+          "greece",
+          "terrace",
+          "aerial"
+        ]
+      },
+      "title": "Santorini"
+    },
+    {
+      "id": "starter-assets",
+      "media": {
+        "contact": "starter-assets/media/contact.png",
+        "thumb": "starter-assets/media/thumb.png"
+      },
+      "mode": "assets",
+      "path": "starter-assets/piece.json",
+      "status": "starter",
+      "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own.",
+      "tags": {
+        "camera": "none",
+        "era": "none",
+        "motion": "sprite-sheet",
+        "setting": [
+          "abstract"
+        ],
+        "sound": "none",
+        "style": "none",
+        "subject": [
+          "placeholder",
+          "slot",
+          "sprite",
+          "pack",
+          "palette",
+          "template"
+        ]
+      },
+      "title": "Starter: Assets"
+    },
+    {
+      "id": "starter-music",
+      "media": {
+        "contact": "starter-music/media/contact.png",
+        "thumb": "starter-music/media/thumb.png"
+      },
+      "mode": "music",
+      "path": "starter-music/piece.json",
+      "status": "starter",
+      "summary": "A neutral music scaffold to copy: two plain generative phases (a pulse-wave one and a pad-and-drone one) with a generic hand-off each way, over a twelve-band pixel equaliser. No tune or story is written out; its first frame passes the lofi frame gate and its 48 s loop passes the music loop gate.",
+      "tags": {
+        "camera": "none",
+        "era": "none",
+        "motion": "loop",
+        "setting": [
+          "abstract"
+        ],
+        "sound": "music",
+        "style": "lofi",
+        "subject": [
+          "music",
+          "scaffold",
+          "placeholder",
+          "equaliser",
+          "soundtrack",
+          "loop"
+        ]
+      },
+      "title": "Starter: Music"
+    },
+    {
+      "id": "starter-scene-loop",
+      "media": {
+        "contact": "starter-scene-loop/media/contact.png",
+        "thumb": "starter-scene-loop/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "starter-scene-loop/piece.json",
+      "status": "starter",
+      "summary": "A neutral looping scene to copy: a sky over flat ground with placeholder shapes (a grey box, a drifting block, a pulsing marker, a few night motes) across a day and a night phase, with a lofi soundtrack. It draws no subject of its own; its day frame (the first picture) and its night frame pass the lofi frame gate.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "loop",
+        "setting": [
+          "abstract",
+          "day",
+          "night"
+        ],
+        "sound": "music",
+        "style": "lofi",
+        "subject": [
+          "scene",
+          "scaffold",
+          "placeholder",
+          "sky",
+          "ground",
+          "horizon",
+          "loop",
+          "box"
+        ]
+      },
+      "title": "Starter: Scene Loop"
+    },
+    {
+      "id": "tide-procession",
+      "media": {
+        "contact": "tide-procession/media/contact.png",
+        "thumb": "tide-procession/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "tide-procession/piece.json",
+      "status": "study",
+      "summary": "A tidal island monastery as a black silhouette against a low moon: A nine lanterns cross the causeway, B the monastery door opens and spills light down the steps.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "coastal",
+          "night",
+          "devotional"
+        ],
+        "sound": "music",
+        "style": "contre-jour",
+        "subject": [
+          "monastery",
+          "island",
+          "causeway",
+          "lantern",
+          "pilgrim",
+          "moon",
+          "tide",
+          "sea"
+        ]
+      },
+      "title": "The Tide Road Procession"
+    },
+    {
+      "id": "tidewater-signal",
+      "media": {
+        "contact": "tidewater-signal/media/contact.png",
+        "thumb": "tidewater-signal/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "tidewater-signal/piece.json",
+      "status": "study",
+      "summary": "A cassette J-card cover: a lighthouse keeper's radio on a windowsill with its amber dial the only warm light in a storm night, A the radio in the storm, B the lightning frame.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "coastal",
+          "night",
+          "indoor"
+        ],
+        "sound": "music",
+        "style": "lofi",
+        "subject": [
+          "radio",
+          "lighthouse",
+          "window",
+          "storm",
+          "cassette",
+          "sill",
+          "sea",
+          "lightning"
+        ]
+      },
+      "title": "Signal from Tidewater"
+    },
+    {
+      "id": "turntable-shipyard",
+      "media": {
+        "contact": "turntable-shipyard/media/contact.png",
+        "thumb": "turntable-shipyard/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "turntable-shipyard/piece.json",
+      "status": "study",
+      "summary": "A tactics-style canal boatyard diorama floating in darkness, turned like a model on a lazy susan: A dawn with bare ribs on the keel, B night with the finished ship a quarter-turn later.",
+      "tags": {
+        "camera": "2:1 iso",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "waterfront",
+          "dawn",
+          "night"
+        ],
+        "sound": "music",
+        "style": "tactics",
+        "subject": [
+          "shipyard",
+          "ship",
+          "boat",
+          "canal",
+          "diorama",
+          "crane",
+          "dock",
+          "lantern"
+        ]
+      },
+      "title": "Turntable Shipyard"
+    }
+  ],
+  "schema": 1
+}

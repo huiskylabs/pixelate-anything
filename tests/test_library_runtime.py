@@ -1107,5 +1107,117 @@ class GoldenComparison(unittest.TestCase):
             self.assertIn('unreadable frame', library.compare_golden(temp / 'frame.png', None, size, 3)['error'])
 
 
+STARTERS = {'scene': 'starter-scene-loop', 'music': 'starter-music', 'assets': 'starter-assets'}
+
+
+def starter_copy_files(source):
+    """The files `pixelate new` keeps: everything but generated outputs and out/ other than out/golden."""
+    manifest = json.loads((source / 'piece.json').read_text(encoding='utf-8'))
+    generated = {o.get('frame') or o['file'] for o in manifest['outputs']}
+    return {name for name in snapshot(source) if name not in generated and
+            (not name.startswith('out/') or name.startswith('out/golden/'))}
+
+
+class NewCommand(unittest.TestCase):
+    """`pixelate new KIND DIR` copies a library starter into a new piece; it is not remix."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.work = Path(temp.name)
+
+    def test_each_kind_copies_its_starter_as_a_valid_piece_named_by_its_folder(self):
+        for kind, starter in STARTERS.items():
+            with self.subTest(kind=kind):
+                dest = self.work / 'pieces' / f'my-{kind}'
+                result = pixelate('new', kind, str(dest.relative_to(self.work)), cwd=self.work, env=caller_env())
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(f'as a copy of library/{starter}', result.stdout)
+                self.assertNotIn('remix', result.stdout)
+                source = REPO / 'library' / starter
+                manifest = library.validate(dest)
+                self.assertEqual(manifest['id'], f'my-{kind}')
+                self.assertEqual(manifest, {**json.loads((source / 'piece.json').read_text(encoding='utf-8')),
+                                            'id': f'my-{kind}'})
+                copied = snapshot(dest)
+                expected = starter_copy_files(source)
+                self.assertEqual(set(copied), expected)
+                self.assertTrue(any(name.startswith('out/golden/') for name in expected) or kind == 'assets')
+                for name in expected - {'piece.json'}:
+                    self.assertEqual(copied[name], snapshot(source)[name], name)
+        self.assertEqual(sorted(p.name for p in (self.work / 'pieces').iterdir()), ['my-assets', 'my-music', 'my-scene'])
+
+    def test_run_data_and_stale_generated_outputs_are_not_copied(self):
+        fake = self.work / 'library'
+        shutil.copytree(REPO / 'library' / 'starter-scene-loop', fake / 'starter-scene-loop')
+        source = fake / 'starter-scene-loop'
+        for name in ('.pixelate/runs.jsonl', 'out/t0000.00.png', 'out/stray.png', 'dist/index.html',
+                     'shots/t0.png', 'render-report.json', '__pycache__/scene.cpython-312.pyc'):
+            (source / name).parent.mkdir(parents=True, exist_ok=True)
+            (source / name).write_bytes(b'stale')
+        spec = importlib.util.spec_from_file_location('pixelate_cli', TOOLS / 'cli.py')
+        assert spec is not None and spec.loader is not None
+        cli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cli)
+        dest = self.work / 'fresh'
+        with mock.patch.dict(sys.modules, library=library), mock.patch.object(library, 'DEFAULT_LIBRARY', fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            cli.new('scene', str(dest))
+        self.assertEqual(set(snapshot(dest)), starter_copy_files(REPO / 'library' / 'starter-scene-loop'))
+        self.assertEqual(library.validate(dest)['id'], 'fresh')
+
+    def test_unsafe_or_occupied_destinations_are_refused_untouched(self):
+        (self.work / 'busy').mkdir()
+        (self.work / 'busy' / 'keep.txt').write_text('mine', encoding='utf-8')
+        (self.work / 'target').mkdir()
+        (self.work / 'linked').symlink_to(self.work / 'target')
+        (self.work / 'file').write_text('mine', encoding='utf-8')
+        before = snapshot(self.work)
+        for name, message in (('busy', 'exists and is not an empty folder'), ('file', 'exists and is not an empty folder'),
+                              ('linked', 'is a symbolic link'), ('My Scene', 'use a lowercase slug'),
+                              ('.', 'use a lowercase slug')):
+            with self.subTest(dest=name):
+                result = pixelate('new', 'scene', name, cwd=self.work, env=caller_env())
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(message, result.stderr)
+        self.assertEqual(snapshot(self.work), before)
+        self.assertEqual(list((self.work / 'target').iterdir()), [])
+        self.assertEqual(sorted(p.name for p in self.work.iterdir()), ['busy', 'file', 'linked', 'target'])
+        (self.work / 'empty').mkdir()
+        result = pixelate('new', 'music', 'empty', cwd=self.work, env=caller_env())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(library.validate(self.work / 'empty')['id'], 'empty')
+
+    def test_help_and_usage(self):
+        for flag in ('-h', '--help'):
+            with self.subTest(flag=flag):
+                result = pixelate('new', flag)
+                self.assertEqual(result.returncode, 0)
+                self.assertIn('usage: pixelate new KIND DIR', result.stdout)
+                self.assertIn('It is a plain copy', result.stdout)
+                self.assertIn('alias of\n`pixelate remix STARTER DIR` once remix exists', result.stdout)
+        missing = pixelate('new', 'scene')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn('usage: pixelate new KIND DIR', missing.stderr)
+        unknown = pixelate('new', 'robot', 'robot', cwd=self.work)
+        self.assertEqual(unknown.returncode, 1)
+        self.assertIn('kinds: scene, music, assets', unknown.stderr)
+        self.assertFalse((self.work / 'robot').exists())
+
+    def test_new_pieces_render_in_quick_mode_without_an_exported_kit(self):
+        pieces = self.work / 'pieces'
+        for kind in STARTERS:
+            self.assertEqual(pixelate('new', kind, str(pieces / f'new-{kind}'), env=caller_env()).returncode, 0)
+        result = pixelate('library', '--library', str(pieces), 'test', '--quick', env=caller_env())
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = json.loads(result.stdout)
+        self.assertTrue(report['ok'])
+        kinds = {p['id']: (p['ok'], p['gate_ok'], p['kinds']) for p in report['pieces']}
+        self.assertEqual(kinds, {
+            'new-assets': (True, None, {'export': {'declared': 3, 'tested': 3}}),
+            'new-music': (True, True, {'image': {'declared': 1, 'tested': 1}, 'audio': {'declared': 1, 'tested': 0}}),
+            'new-scene': (True, True, {'image': {'declared': 2, 'tested': 2}})})
+
+
 if __name__ == '__main__':
     unittest.main()

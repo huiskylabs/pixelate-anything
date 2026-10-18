@@ -57,6 +57,9 @@ STOPWORDS = frozenset((
     'drawing', 'generate', 'give', 'huge', 'image', 'large', 'little', 'make', 'new', 'nice', 'old',
     'original', 'picture', 'piece', 'pixel', 'pixelart', 'pixelate', 'render', 'scene', 'show',
     'small', 'style', 'tiny', 'want'))
+# Words that name an asset deliverable rather than what it shows ("a sprite sheet of a spaceship"). Some pieces
+# list them as subject tags, so they add score to a piece another subject word matched, but never make one.
+FORMAT_WORDS = frozenset(('asset', 'icon', 'sheet', 'sprite', 'spritesheet', 'tile', 'tileset'))
 
 
 class LibraryError(ValueError):
@@ -377,9 +380,11 @@ def scan(library):
 
 
 def index(library):
-    """Generate stable catalog bytes; callers may write these to index.json."""
+    """Generate stable catalog bytes; callers may write these to index.json. Paths are relative to the
+    library root; `media` lists the manifest's declared media files."""
     return (json.dumps({'schema': 1, 'pieces': [{'id': p['id'], 'title': p['title'], 'status': p['status'],
-                  'mode': p['mode'], 'summary': p['summary'], 'tags': p['tags'], 'path': f"{p['id']}/piece.json"}
+                  'mode': p['mode'], 'summary': p['summary'], 'tags': p['tags'], 'path': f"{p['id']}/piece.json",
+                  'media': {key: f"{p['id']}/{value}" for key, value in p.get('media', {}).items() if value}}
                   for p in scan(library).values()]}, indent=2, sort_keys=True, ensure_ascii=False) + '\n').encode('utf-8')
 
 
@@ -458,9 +463,9 @@ def query_tags(request, mode=None):
 def find(library, request, mode=None, limit=3):
     """Return matched pieces and a fallback plan.
 
-    Only a subject-tag word makes a piece relevant. Setting tags (`day`, `outdoor`) and words of the
-    title, summary and request add score to a relevant piece but cannot make one; status only orders
-    relevant pieces. Otherwise find abstains and returns the starter or author plan.
+    Only a subject-tag word that is not an asset format word (FORMAT_WORDS) makes a piece relevant.
+    Setting tags (`day`, `outdoor`), format words and words of the title, summary and request add score
+    to a relevant piece but cannot make one; status only orders relevant pieces. Otherwise find abstains and returns the starter or author plan.
     """
     query = query_tags(request, mode)
     if type(limit) is not int or limit < 1:
@@ -478,7 +483,7 @@ def find(library, request, mode=None, limit=3):
         if any(query[key] and tags[key] != query[key] for key in ('camera', 'style', 'era', 'motion')):
             continue
         subject = words & terms(' '.join(tags['subject']))
-        if not subject:
+        if not subject - FORMAT_WORDS:
             continue
         setting = words & terms(' '.join(tags['setting'])) - subject
         described = words & terms(' '.join((piece['title'], piece['summary'], piece['request']))) - subject - setting

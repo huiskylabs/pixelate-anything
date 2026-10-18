@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from PIL import Image
+
 REPO = Path(__file__).resolve().parents[1]
 TOOLS = REPO / 'tools'
 QUARRY = REPO / 'library' / 'quarry-wakes'
@@ -357,6 +359,31 @@ class RealLibrary(unittest.TestCase):
         self.assertIn('lantern-isle', pieces)
         self.assertTrue(all(p['status'] in library.STATUSES for p in pieces.values()))
 
+    def test_committed_index_is_the_generated_catalog(self):
+        # Regenerate with `pixelate library index`. The index is data, not evidence of a gate pass or approval.
+        root = REPO / 'library'
+        committed = (root / 'index.json').read_bytes()
+        self.assertEqual(committed, library.index(root))
+        entries = json.loads(committed)['pieces']
+        ids = [entry['id'] for entry in entries]
+        folders = sorted(p.name for p in root.iterdir() if p.is_dir())
+        self.assertEqual(ids, folders)
+        self.assertEqual(len(ids), len(set(ids)))
+        pieces = library.scan(root)
+        for entry in entries:
+            with self.subTest(piece=entry['id']):
+                manifest = pieces[entry['id']]
+                self.assertEqual(entry['path'], f"{entry['id']}/piece.json")
+                self.assertEqual({k: entry[k] for k in ('title', 'status', 'mode', 'summary', 'tags')},
+                                 {k: manifest[k] for k in ('title', 'status', 'mode', 'summary', 'tags')})
+                self.assertEqual(entry['media'], {key: f"{entry['id']}/{value}"
+                                                  for key, value in manifest['media'].items() if value})
+                self.assertIn('thumb', entry['media'])
+                for path in entry['media'].values():
+                    self.assertTrue((root / path).is_file() and not (root / path).is_symlink(), path)
+                with Image.open(root / entry['media']['thumb']) as thumb:
+                    self.assertLessEqual(max(thumb.size), 256)
+
 
 def documented_example(path, marker):
     """The JSON example after `marker` in a doc, written into a temporary piece with stand-in files."""
@@ -489,7 +516,9 @@ class CatalogSearch(unittest.TestCase):
         fixture(self.root, 'ocean', 'study', subject='ocean')
         fixture(self.root, 'castle', 'study', subject='castle')
         fixture(self.root, 'starter-scene', 'starter', subject='blank')
-        fixture(self.root, 'tiles', 'study', 'assets', subject='tileset')
+        _, tiles = fixture(self.root, 'tiles', 'study', 'assets', subject='dungeon')
+        tiles['tags']['subject'].append('tileset')
+        save(self.root / 'tiles', tiles)
 
     def test_stable_index_list_show_and_entry_point(self):
         first = library.write_index(self.root)
@@ -544,8 +573,10 @@ class CatalogSearch(unittest.TestCase):
         self.assertIn('nested too deeply', result.stderr)
 
     def test_mode_required_conflicts_and_no_match(self):
-        self.assertEqual(library.find(self.root, 'tileset', mode='assets')['matches'][0]['id'], 'tiles')
-        self.assertEqual(library.find(self.root, 'tileset', mode='scene')['matches'], [])
+        self.assertEqual(library.find(self.root, 'a dungeon tileset', mode='assets')['matches'][0]['id'], 'tiles')
+        self.assertEqual(library.find(self.root, 'a dungeon tileset', mode='scene')['matches'], [])
+        # A deliverable format word is not a subject: alone it never makes a piece that lists it relevant.
+        self.assertEqual(library.find(self.root, 'a tileset with sprites', mode='assets')['matches'], [])
         self.assertEqual(library.find(self.root, 'quarry top-down')['matches'], [])
         self.assertEqual(library.find(self.root, 'quarry nes')['matches'], [])
         self.assertEqual(library.find(self.root, 'unicorn galaxies')['matches'], [])

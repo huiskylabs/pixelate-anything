@@ -109,10 +109,13 @@ class AuthoringDocsTest(unittest.TestCase):
         self.assertIn('MCP tools for find, remix or deliver', not_built)
         self.assertNotRegex(offered, r'(?i)\bMCP (tools? )?(for )?(find|remix|deliver)')
 
-    def test_skill_still_describes_today_not_the_planned_loop(self):
+    def test_the_ten_steps_live_here_and_skill_points_here(self):
+        text = AUTHORING.read_text(encoding='utf-8')
+        self.assertEqual(len(re.findall(r'^(?:[1-9]|10)\. \*\*', text.split('## The ten steps')[1].split('\n## ')[0], re.M)), 10)
+        self.assertIn('live only in this file', text)
         skill = (REPO / 'SKILL.md').read_text(encoding='utf-8')
-        self.assertIn('Copy these 10 steps into your todo list first', skill)
-        self.assertNotIn('pixelate deliver', skill)
+        self.assertIn('[references/authoring.md](references/authoring.md)', skill)
+        self.assertNotIn('Copy these 10 steps', skill)
 
 
 if __name__ == '__main__':

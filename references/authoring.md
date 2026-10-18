@@ -2,7 +2,7 @@
 
 This is the **author path**: the full process for making new work from a brief. It is not the default remix path (`pixelate find`, then `pixelate remix`, which skips the brief, block-in and specialist reviewers; see [remix.md](remix.md)). Use it when `pixelate find "REQUEST"` shows nothing close, the user asks for something new, or the work is meant to become a reusable library piece. The rigor pays off because others copy what comes out.
 
-It is the same ten steps `SKILL.md` lists, with the commands and stop rules in one place. Nothing here changes `SKILL.md`; it points back to [brief.md](brief.md), [drawing.md](drawing.md), [delivery.md](delivery.md) and [art-director.md](art-director.md) for depth and uses only commands that exist today.
+`SKILL.md` sends authoring here; the ten steps, their commands and stop rules live only in this file. It points to [brief.md](brief.md), [drawing.md](drawing.md), [delivery.md](delivery.md) and [art-director.md](art-director.md) for depth and uses only commands that exist today.
 
 ## Hard rules
 
@@ -30,7 +30,7 @@ A starter is a neutral placeholder piece, a place to begin. Copy one and replace
 | sprites, items, tiles | [assets.md](../guides/assets.md) | `starter-assets` | `pixelate new assets work/NAME` |
 | music alone | [music.md](../guides/music.md) | `starter-music` | `pixelate new music work/NAME` |
 
-`NAME` becomes the new piece id, so it is a lowercase slug and the folder must not exist yet. Both commands run the starter's own checked-in commands without a sandbox: copy only checked-in starters, and never run contributed or user-supplied drawing code this way. `remix` also renders the unedited copy once and writes `REMIX.md` ([remix.md](remix.md)); on this path read it for the anatomy table (which file draws what) and ignore its remix-only plan. Each guide names the worked examples for its mode.
+`NAME` becomes the new piece id, so it is a lowercase slug and the folder must not exist yet. `new` only copies; `remix` runs the starter's own checked-in commands without a sandbox, as `pixelate render` does on either copy. Copy only checked-in starters, and never run contributed or user-supplied drawing code this way. `remix` also renders the unedited copy once and writes `REMIX.md` ([remix.md](remix.md)); on this path read it for the anatomy table (which file draws what) and ignore its remix-only plan. Each guide names the worked examples for its mode.
 
 ## The ten steps
 

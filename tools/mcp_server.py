@@ -651,11 +651,21 @@ def remix_piece(piece: str, dest: str, request: str) -> list:
         summary['stderr'] = tail(err, 4000)
     return report(summary)
 
+def distance_summary(value):
+    """Bound a render's diagnostic for an MCP summary; never use it as gate or grade."""
+    if not isinstance(value, dict):
+        return {'reason': 'render did not report distance'}
+    keys = ('base', 'baseline_sha256', 'pixels', 'palette', 'request_differs', 'under_remixed',
+            'warning', 'reason', 'thresholds', 'note')
+    return {key: value[key][:700] if isinstance(value[key], str) else value[key]
+            for key in keys if key in value}
+
+
 @server.tool()
 def render_piece(piece_dir: str, image: str = '', sets: list[str] | None = None, timeout: int = 3600) -> list:
     """Render a workspace piece folder (its piece.json) and gate it, as `pixelate render DIR --json`: runs each
     output's shell command (without a sandbox: only trusted library copies and code you wrote), gates and
-    judges each frame. Returns JSON per output (run, gate, era, judge, hash) and an Image of each frame
+    judges each frame. Returns JSON per output (run, gate, era, judge, distance, hash) and an Image of each frame
     only when it is the file this render just produced (its bytes match the hash the render recorded, reached
     without a link). A failed run or an error returns no image. image: render only that output.
     sets: knob variants as typed 'KNOB=VALUE' strings, e.g. ['time=dusk', 'seed=4']; a variant is not
@@ -680,6 +690,8 @@ def render_piece(piece_dir: str, image: str = '', sets: list[str] | None = None,
                 item[key] = rec[key]
         if 'run' in rec and not rec['run']['ok']:
             item['run_error'] = rec['run'].get('error')
+        if item['kind'] == 'image':
+            item['distance'] = distance_summary(rec.get('distance'))
         if 'gate' in rec:
             item['gate'] = {key: gate[key] for key in ('ok', 'pass', 'fail', 'error') if key in gate}
         if 'era' in rec:
@@ -708,7 +720,8 @@ def deliver_piece(piece_dir: str, sets: list[str] | None = None, verify: bool = 
     image. With verify=true it only checks an existing package's facts and hashes: it runs no piece code and
     takes no sets. sets: typed 'KNOB=VALUE' strings as in render_piece. Delivery never runs a critique or
     rates, and it does NOT mean the art is good, that anyone approved it, or that rights and the license are
-    cleared: a declared approver in piece.json is reported as unverified."""
+    cleared: a declared approver in piece.json is reported as unverified. Successful image summaries include
+    the uncalibrated distance or its unavailable reason; neither changes delivery's technical gate."""
     folder = work_folder(piece_dir)
     if verify:
         if sets:
@@ -737,6 +750,11 @@ def deliver_piece(piece_dir: str, sets: list[str] | None = None, verify: bool = 
                     images.append(preview)
                     o['preview_image'] = len(images)
     facts = result.get('facts') or {}
+    if delivered:
+        by_name = {o['name']: o for o in facts.get('outputs', [])}
+        for o in outputs:
+            if o.get('kind') == 'image':
+                o['distance'] = distance_summary(by_name.get(o['name'], {}).get('distance'))
     summary = {'ok': delivered, 'delivered': delivered, 'refused': bool(result.get('refused')), 'exit_code': code,
                'piece': result.get('piece'), 'errors': result['errors'], 'outputs': outputs,
                'fingerprint': result.get('fingerprint'),

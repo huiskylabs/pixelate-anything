@@ -115,7 +115,7 @@ until it passes (`guides/music.md`).
 ## Art director
 
 The gate passes weak drafts; an outside eye catches what it can't. A full brief is reviewed before
-drawing ([brief.md](brief.md#art-director-on-the-brief)); a short brief skips brief-stage review.
+detailed drawing ([brief.md](brief.md#art-director-on-the-brief)); the gated greyscale block-in is the sole pre-approval drawing. A short brief skips brief-stage review, not the block-in gate.
 The still is reviewed after it passes the gate. Run
 `pixelate judge FRAME.png --overlay judge.png` first: it boxes what the gate passes and an art director
 rejects (masonry-like rock, rows of identical units, scalloped edges, masses drawn as 1 px outlines,
@@ -221,7 +221,7 @@ render DIR --critique` and `pixelate review record` first if you want a bound gr
 
 On success the outputs are copied to `DIR/dist/delivery/` (git ignores `dist/`; remix and `new` never copy it)
 with `DELIVERY.md`. Its facts block, between two marker comments, is written by the script: the request and
-lineage, the remix baseline hash when there is one, the kit version, the knob values, the SHA-256 of `piece.json`
+lineage, the remix baseline hash when there is one (checked against the hash render used before any piece command; a baseline that changes or disappears during render blocks packaging), the kit version, the knob values, the SHA-256 of `piece.json`
 and the files it references, every output's path, hash and size, and, kept apart, the gate, era, judge, review
 and byte-bound distance-from-base evidence (or its unavailable reason), the declared approval (always `verified: false`, never treated as approval), a rights-not-verified line
 and a list of what was not tested. It ends with `Fingerprint: sha256:...` of the canonical JSON; the time is left

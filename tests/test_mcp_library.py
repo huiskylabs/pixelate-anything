@@ -546,6 +546,20 @@ class Deliver(Server):
         self.assertFalse(broken['verified'] or broken['ok'])
         self.assertTrue([c for c in broken['checks'] if not c['ok']])
 
+    def test_mcp_remix_render_and_delivery_expose_distance_warning(self):
+        copied, _ = self.call('remix_piece', 'starter-scene-still', 'harbour', 'a harbour at dusk')
+        self.assertTrue(copied['created'])
+        rendered, _ = self.call('render_piece', 'harbour')
+        self.assertTrue(rendered['ok'])
+        distance = rendered['outputs'][0]['distance']
+        self.assertTrue(distance['under_remixed'])
+        self.assertIn('under-remixed', distance['warning'])
+        self.assertEqual(len(distance['baseline_sha256']), 64)
+        delivered, _ = self.deliver('harbour')
+        self.assertTrue(delivered['ok'])
+        self.assertEqual(delivered['outputs'][0]['distance'], distance)
+        self.assertEqual(delivered['evidence']['critique'], 'NOT REVIEWED')
+
     def test_verify_runs_nothing_and_takes_no_sets(self):
         root = make_piece(self.work)
         self.deliver('harbour')

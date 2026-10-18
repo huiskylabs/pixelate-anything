@@ -414,14 +414,22 @@ def untested(manifest, outputs):
     return notes
 
 
-def build_facts(d, manifest, outputs, knobs, sources):
+def baseline_hash(d):
+    """SHA-256 of the local remix baseline, or None when absent; reject an unsafe file."""
+    try:
+        return hash_regular(d, '.pixelate/remix-baseline.json')[0]
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise DeliveryError(f'remix baseline: {exc}') from None
+
+
+def build_facts(d, manifest, outputs, knobs, sources, baseline_sha256):
     review = manifest.get('review') or {}
     images = [o for o in outputs if o['kind'] == 'image']
     reviews = {o['name']: o['review']['status'] for o in images}
-    try:
-        baseline = {'path': '.pixelate/remix-baseline.json', 'sha256': hash_regular(d, '.pixelate/remix-baseline.json')[0]}
-    except (OSError, DeliveryError):
-        baseline = None
+    baseline = ({'path': '.pixelate/remix-baseline.json', 'sha256': baseline_sha256}
+                if baseline_sha256 is not None else None)
     return {
         'schema': SCHEMA, 'type': 'pixelate-delivery', 'kit': VERSION, 'package': PACKAGE,
         'piece': {'id': manifest['id'], 'title': manifest['title'], 'status': manifest['status'],
@@ -729,6 +737,7 @@ def deliver(d, sets=(), timeout=DEFAULT_TIMEOUT):
     library.positive(timeout, 'timeout')
     manifest = load_piece(d)
     sources = source_hashes(d, manifest)
+    before_baseline = baseline_hash(d)
     result = {'ok': False, 'piece': manifest['id'], 'errors': [], 'outputs': [], 'fingerprint': None,
               'package': None, 'delivery_sha256': None, 'refused': False}
     code, out, err = run_render(d, sets, timeout)
@@ -757,8 +766,15 @@ def deliver(d, sets=(), timeout=DEFAULT_TIMEOUT):
             result['errors'].append(str(exc))
         result['outputs'] = [{k: o[k] for k in ('name', 'kind', 'path', 'sha256')} for o in outputs]
         if not result['errors'] and knobs:
-            facts = build_facts(d, manifest, outputs, knobs, sources)
             try:
+                after_baseline = baseline_hash(d)
+                if after_baseline != before_baseline:
+                    raise DeliveryError('remix baseline changed or disappeared while rendering')
+                for image in (o for o in outputs if o['kind'] == 'image'):
+                    used = image['distance'].get('baseline_sha256')
+                    if used != after_baseline and (used is not None or (manifest.get('lineage') or {}).get('remixed_from')):
+                        raise DeliveryError(f"{image['name']}: render measured distance with a different remix baseline")
+                facts = build_facts(d, manifest, outputs, knobs, sources, after_baseline)
                 text = write_package(d, facts, artifacts)
             except (OSError, DeliveryError) as exc:
                 result['errors'].append(f'package not written: {exc}')
@@ -839,9 +855,17 @@ def verify(d):
             check('remix baseline', isinstance(expected, str) and
                   re.fullmatch(r'[0-9a-f]{64}', expected) is not None and now == expected,
                   'unchanged' if now == expected else f'{record_path} changed or appeared since delivery')
+        expected_baseline = baseline.get('sha256') if isinstance(baseline, dict) else None
         for o in outputs:
             if o['kind'] != 'image':
                 continue
+            distance = o.get('distance')
+            used = distance.get('baseline_sha256') if isinstance(distance, dict) else None
+            measured = isinstance(distance, dict) and (distance.get('pixels') is not None or
+                                                       distance.get('palette') is not None)
+            check(f"{o['name']} distance baseline", isinstance(distance, dict) and used == expected_baseline and
+                  (not measured or used is not None),
+                  'matches the packaged baseline' if used == expected_baseline else 'render used another baseline')
             record = o['path'] + SIDECAR
             try:
                 now = hash_regular(d, record)[0]

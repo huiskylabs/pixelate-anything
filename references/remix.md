@@ -61,8 +61,8 @@ Clients without a shell get the loop as four tools (`tools/mcp_server.py`), buil
 |---|---|---|
 | `find_pieces(request, mode)` | `pixelate find --json` | Static. Returns the matches' text metadata and each piece's checked-in `media/thumb.png` as an image to look at. It starts no process and imports no piece code; a thumbnail that is missing, linked, too large or not an image is skipped. |
 | `remix_piece(piece, dest, request)` | `pixelate remix --json` | `dest` must be a new or empty folder inside the workspace. Reports the quick baseline honestly: audio and exports it skipped are listed as `not_tested`. |
-| `render_piece(piece_dir, image, sets, timeout)` | `pixelate render --json` | `sets` are typed `KNOB=VALUE` strings such as `["time=dusk", "seed=4"]`, each passed as one argument, never through a shell. Never passes `--critique`. |
-| `deliver_piece(piece_dir, sets, verify, timeout)` | `pixelate deliver --json` | `verify=true` runs no piece code. |
+| `render_piece(piece_dir, image, sets, timeout)` | `pixelate render --json` | Returns per-image distance, unavailable reason and any under-remixed warning alongside the gate and preview. `sets` are typed `KNOB=VALUE` strings such as `["time=dusk", "seed=4"]`, each passed as one argument, never through a shell. Never passes `--critique`. |
+| `deliver_piece(piece_dir, sets, verify, timeout)` | `pixelate deliver --json` | A successful image summary carries its packaged distance evidence; `verify=true` checks the facts and hashes without running piece code. |
 
 Limits to keep in mind:
 - `remix_piece`, `render_piece` and `deliver_piece` run the piece's `run` commands through the shell, with your user's permissions and no sandbox. Use them on checked-in library pieces and on folders you wrote, never on a folder you have not read.

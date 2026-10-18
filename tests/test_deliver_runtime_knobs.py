@@ -65,6 +65,7 @@ class DeliveryRuntimeKnobs(unittest.TestCase):
         (image,) = delivered['facts']['outputs']
         distance = image['distance']
         self.assertEqual(distance['base']['id'], 'starter-scene-still')
+        self.assertEqual(distance['baseline_sha256'], delivered['facts']['remix_baseline']['sha256'])
         self.assertEqual(distance['pixels']['differ'], 0)
         self.assertTrue(distance['under_remixed'])
         self.assertIn('under-remixed', distance['warning'])
@@ -79,6 +80,28 @@ class DeliveryRuntimeKnobs(unittest.TestCase):
         report = json.loads(verified.stdout)
         self.assertFalse(report['ok'])
         self.assertTrue(any(c['check'] == 'remix baseline' and not c['ok'] for c in report['checks']))
+
+    def test_render_command_cannot_remove_or_change_baseline_while_delivering(self):
+        for action, command in (('remove', 'rm .pixelate/remix-baseline.json'),
+                                ('change', "printf ' ' >> .pixelate/remix-baseline.json")):
+            with self.subTest(action=action):
+                root = self.work / f'harbour-{action}'
+                copied = subprocess.run([sys.executable, str(REPO / 'pixelate'), 'remix', 'starter-scene-still',
+                                         str(root), '--request', 'a harbour at dusk', '--json'],
+                                        capture_output=True, text=True, timeout=360)
+                self.assertEqual(copied.returncode, 0, copied.stdout[-1200:] + copied.stderr[-1200:])
+                piece_file = root / 'piece.json'
+                manifest = json.loads(piece_file.read_text())
+                manifest['outputs'][0]['run'] += f' && {command}'
+                piece_file.write_text(json.dumps(manifest))
+                process = subprocess.run([sys.executable, str(REPO / 'pixelate'), 'deliver', str(root), '--json'],
+                                         capture_output=True, text=True, timeout=360)
+                self.assertEqual(process.returncode, 1, process.stdout[-1200:] + process.stderr[-1200:])
+                result = json.loads(process.stdout)
+                self.assertFalse(result['ok'])
+                self.assertTrue(any('remix baseline changed or disappeared' in e for e in result['errors']),
+                                result['errors'])
+                self.assertFalse((root / 'dist/delivery').exists())
 
 
 if __name__ == '__main__':

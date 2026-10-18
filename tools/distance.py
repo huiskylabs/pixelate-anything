@@ -45,7 +45,7 @@ def same_request(a, b):
 
 
 def recorded_base(d, manifest, base_id):
-    """(the base piece.json SHA-256, the copied file hashes) that the remix baseline of the piece at d
+    """(the base piece.json SHA-256, copied file hashes, baseline SHA-256) that the remix baseline at d
     records, or raise ValueError with the reason. The file is read without following a link. It is not
     signed: a match with it is a consistency check, not proof of where the piece came from."""
     render = library.kit_render()
@@ -75,7 +75,7 @@ def recorded_base(d, manifest, base_id):
                          'measure distance')
     if not isinstance(digest, str) or not SHA256.fullmatch(digest):
         raise ValueError(f'invalid remix baseline {BASELINE}: base.piece_sha256 is not a SHA-256')
-    return digest, baseline['files']
+    return digest, baseline['files'], hashlib.sha256(data).hexdigest()
 
 
 def lookup(d, manifest, library_root=None):
@@ -89,9 +89,10 @@ def lookup(d, manifest, library_root=None):
     root = (DEFAULT_LIBRARY if library_root is None else library_root).absolute()
     base = {'id': base_id, 'library': str(root)}
     try:
-        digest, files = recorded_base(d, manifest, base_id)
+        digest, files, baseline_hash = recorded_base(d, manifest, base_id)
     except ValueError as exc:
         return dict(base, error=str(exc))
+    base['baseline_sha256'] = baseline_hash
     source = root / base_id
     if root.is_symlink() or not root.is_dir():
         return dict(base, error=f'the kit library {root} is missing or a link')
@@ -141,6 +142,7 @@ def lookup(d, manifest, library_root=None):
 def unavailable(base, name, reason):
     """The distance record of output name when nothing could be measured"""
     rec = {'base': None if base is None else {'id': base['id'], 'library': base['library'], 'output': name},
+           'baseline_sha256': None if base is None else base.get('baseline_sha256'),
            'pixels': None, 'palette': None, 'request_differs': None, 'under_remixed': None, 'warning': None,
            'reason': reason}
     if base is not None and 'status' in base:

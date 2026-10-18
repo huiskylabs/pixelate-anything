@@ -70,6 +70,49 @@ class Contribution(unittest.TestCase):
         self.assertTrue(tested['ok'], tested)
         self.assertEqual(tested['pieces'][0]['outputs'][0]['golden']['pixels'], 0)
 
+    def test_clean_copy_removes_generated_gate_inputs_but_keeps_declared_sources(self):
+        source = self.source / 'out/palette.json'
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text('{"stale":true}')
+        manifest_file = self.source / 'piece.json'
+        manifest = json.loads(manifest_file.read_text())
+        manifest['outputs'][0]['pal'] = 'out/palette.json'
+        manifest_file.write_text(json.dumps(manifest))
+        copied = self.root / 'copy' / 'harbour'
+        contribute.clean_copy(self.source, copied, library.validate(self.source))
+        self.assertFalse((copied / 'out/palette.json').exists())
+        self.assertTrue((copied / 'art/scene.py').is_file())
+
+    def test_no_replace_publish_preserves_racing_empty_destination(self):
+        original = contribute.publish_no_replace
+
+        def raced(staged, target):
+            target.mkdir()
+            original(staged, target)
+
+        with mock.patch.object(contribute, 'publish_no_replace', side_effect=raced):
+            with self.assertRaisesRegex(contribute.ContributionError, 'could not stage'):
+                contribute.add(self.source, self.catalog, status='study', trust_local_code=True)
+        target = self.catalog / 'harbour'
+        self.assertTrue(target.is_dir())
+        self.assertEqual(list(target.iterdir()), [])
+        self.assertFalse((self.catalog / 'index.json').exists())
+
+    def test_image_free_piece_reports_no_gate(self):
+        script = self.source / 'art/export.py'
+        script.write_text("from pathlib import Path\nPath('out/export.txt').write_text('deterministic')\n")
+        manifest_file = self.source / 'piece.json'
+        manifest = json.loads(manifest_file.read_text())
+        manifest['outputs'] = [{'name': 'export', 'kind': 'export', 'run': 'python3 art/export.py',
+                                'file': 'out/export.txt'}]
+        manifest['anatomy'] = [{'file': 'art/export.py', 'draws': 'export', 'change_for': 'text'}]
+        manifest_file.write_text(json.dumps(manifest))
+        result = self.command('--status', 'study', '--trust-local-code')
+        self.assertEqual(result.returncode, 0, result.stdout[-1000:] + result.stderr[-1000:])
+        self.assertIsNone(json.loads(result.stdout)['gate_ok'])
+        trail = json.loads((self.catalog / 'harbour/history/add-report.json').read_text())
+        self.assertIsNone(trail['outputs'][0]['gate_ok'])
+
     def test_gate_fail_blocks_even_a_study(self):
         self.run_line(" && python3 -c 'from PIL import Image; p="
                       "\"out/still.png\"; im=Image.open(p); Image.new(\"RGB\",im.size,\"white\").save(p)'")

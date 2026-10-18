@@ -5,6 +5,7 @@ This command runs the source piece's shell commands twice without a sandbox. It 
 technical gate legality and byte-for-byte reproducibility, not quality, approval or rights.
 """
 import argparse
+import ctypes
 import io
 import json
 import os
@@ -27,6 +28,11 @@ def clean_copy(source, dest, manifest, keep_reviewed=False):
     record = (manifest.get('review') or {}).get('record') if keep_reviewed else None
     generated = {o.get('frame') or o.get('file') for o in manifest['outputs']
                  if o.get('frame', '') + '.visual-review.json' != record}
+    checked_in_inputs = {a['file'] for a in manifest['anatomy']} | {k['edits'] for k in manifest['knobs'].values()}
+    for output in manifest['outputs']:
+        if output['kind'] == 'image':
+            generated.update(output[key] for key in library.GENERATED
+                             if output.get(key) and output[key] not in checked_in_inputs)
 
     def ignore(folder, entries):
         rel = Path(folder).relative_to(source)
@@ -63,6 +69,19 @@ def golden_bytes(data, output, canvas):
         buf = io.BytesIO()
         small.save(buf, format='PNG')
         return buf.getvalue()
+
+
+def publish_no_replace(staged, target):
+    """Linux atomic directory rename without replacing an ID another writer just created."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    rename = getattr(libc, 'renameat2', None)
+    if rename is None:
+        raise ContributionError('atomic no-replace directory rename unavailable; catalog left unchanged')
+    rename.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
+    rename.restype = ctypes.c_int
+    if rename(-100, os.fsencode(staged), -100, os.fsencode(target), 1) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), str(target))
 
 
 def add(source, catalog, status=None, timeout=300, trust_local_code=False):
@@ -135,17 +154,20 @@ def add(source, catalog, status=None, timeout=300, trust_local_code=False):
                                     indent=2, sort_keys=True) + '\n', encoding='utf-8')
         library.validate(staged)
         try:
-            os.rename(staged, target)
+            staged_inode = staged.stat().st_ino
+            publish_no_replace(staged, target)
             try:
                 library.write_index(catalog)
             except BaseException:
-                shutil.rmtree(target)
+                if target.is_dir() and not target.is_symlink() and target.stat().st_ino == staged_inode:
+                    shutil.rmtree(target)
                 raise
         except OSError as exc:
             raise ContributionError(f'could not stage {target}: {exc}') from None
+    gated = True if any(o['kind'] == 'image' for o in first_outputs) else None
     return {'ok': True, 'piece': piece_id, 'status': first_manifest['status'],
             'outputs': [{'name': o['name'], 'kind': o['kind'], 'sha256': o['sha256']}
-                        for o in first_outputs], 'renders': 2, 'deterministic': True, 'gate_ok': True,
+                        for o in first_outputs], 'renders': 2, 'deterministic': True, 'gate_ok': gated,
             'path': str(target), 'index': str(catalog / 'index.json'),
             'notice': 'Technical evidence only. No independent art grade, user approval or redistribution '
                       'rights were established. Inspect every source and file before a manual pull request.'}

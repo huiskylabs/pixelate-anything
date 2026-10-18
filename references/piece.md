@@ -24,7 +24,7 @@ Optional: `recipes` (distinct `tools/recipes.py` function names such as `rock_fa
 
 ### Typed outputs
 
-Every output has a unique slug `name`, `kind`, and `run`. The command is metadata, not permission to execute contributed code; unlike `render.json`, a library output always has `run`, because every piece must render in CI.
+Every output has a unique slug `name`, `kind`, and `run`. The command is metadata, not permission to execute contributed code; unlike `render.json`, a library output always has `run`, because every trusted checked-in piece is rendered by main-branch CI. Pull-request CI is static and never executes contributed programs.
 
 Image (`kind: "image"`) takes the `tools/render.py` `render.json` image fields, so a `render.json` entry plus `kind` is a valid image output:
 
@@ -119,7 +119,7 @@ The root `.gitignore` ignores `out/` folders. Under `library/<id>/out/` it ignor
 | Status | Required static evidence | Still requires outside catalog validation |
 |---|---|---|
 | `starter` | A tagged, anatomized piece with at least one output and provenance. | Render and gate on the *empty starter* before use. It is a fallback, not a recommended finished base. |
-| `study` | Same static declaration. | CI render; no approval implied. |
+| `study` | Same static declaration. | Trusted-main CI render after review of the exact contribution head; no approval implied. Pull-request CI only checks data syntax. |
 | `accepted` | At least two knobs; at least one image output; `media.thumb` and `media.contact` files; `review.notes` file and `review.approved_by` (`user` or `art-director`). | Verify approval is genuine, render determinism and gate result. Review notes are not a technical gate result. |
 | `reviewed` | All accepted evidence plus `review.record` file (a visual-review sidecar) and matching A-grade artifact-bound review via `review_status.piece_status`, so the exact reviewed frame must exist even though frames are otherwise generated. | Recheck exact-byte binding after any file change; review alone does not grant licensing or user approval. |
 

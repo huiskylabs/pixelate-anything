@@ -787,10 +787,12 @@ def add_piece(piece_dir: str, library_dir: str = 'library', status: str = 'study
     seconds = check_timeout(timeout)
     if seconds > 900:
         raise ValueError('timeout must be at most 900 seconds per render')
-    source = work_folder(piece_dir)
     catalog = P(library_dir, write=True)
+    if catalog == LIBRARY and WORK != KIT:
+        raise ValueError('kit library catalog can be selected only when the kit root is the workspace')
     if catalog == WORK or catalog.is_symlink() or not catalog.is_dir():
         raise ValueError('library_dir must be an existing real catalog folder inside the workspace')
+    source = work_folder(piece_dir)
     code, out, err = cli_full('library', '--library', catalog, 'add', source, '--status', status,
                               '--trust-local-code', '--timeout', seconds, timeout=seconds * 2 + 120)
     result = json_report(out)

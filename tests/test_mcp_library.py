@@ -143,6 +143,13 @@ class Surface(Server):
                 with self.subTest(trust=trust), self.assertRaisesRegex(ValueError, 'trust_local_code=true'):
                     self.tools['add_piece']('harbour', trust_local_code=trust)
 
+    def test_add_cannot_write_kit_catalog_from_an_ancestor_workspace(self):
+        with mock.patch.object(self.mcp, 'WORK', REPO.parent), \
+                mock.patch.object(self.mcp, 'cli_full', side_effect=AssertionError('ran')):
+            with self.assertRaisesRegex(ValueError, 'kit root is the workspace'):
+                self.tools['add_piece']('not-a-piece', library_dir=str(REPO / 'library'),
+                                        trust_local_code=True)
+
     def test_add_stages_only_in_a_workspace_catalog_and_claims_no_review_or_rights(self):
         copied, _ = self.call('remix_piece', 'starter-scene-still', 'harbour', 'a harbour at dusk')
         self.assertTrue(copied['created'])

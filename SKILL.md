@@ -1,6 +1,8 @@
 ---
 name: pixelate-anything
 description: Hand-crafted pixel art of any kind. Use it to rebuild a photo or a place as real pixel art while preserving its camera, convert images, build palettes, draw sprites, characters, items and tilesets with sheets and GIFs, make pixel scenes and seamless animated loops with a generative soundtrack (lofi, chiptune, ambient) as a live page, MP4 or GIF, or make loopable game music.
+metadata:
+  version: "1.0.0"
 ---
 
 # pixelate-anything

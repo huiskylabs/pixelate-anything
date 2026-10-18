@@ -6,7 +6,8 @@ it, the frame it writes and how it is gated. For every image, render runs the co
 frame (`pixelate check`, with the brief's `## Image NAME` lines via --image), era-checks it when it
 names an era, judges it (`pixelate judge`, overlay beside the frame, logged to the corpus) and, with
 --critique, runs the art director (`pixelate critique --run`). It prints one compact line per image
-and writes DIR/render-report.json; it exits 1 when any image fails its command or its gate.
+and writes DIR/render-report.json, plus one record in DIR/.pixelate/runs.jsonl; it exits 1 when any
+image fails its command or its gate.
 
 render.json:
 
@@ -20,7 +21,7 @@ render.json:
 Paths are relative to DIR. `run` may be omitted for a frame drawn some other way; `style` or `era` is
 required for the gate.
 """
-import argparse, json, os, pathlib, re, shlex, subprocess, sys, time
+import argparse, datetime, hashlib, json, os, pathlib, re, shlex, subprocess, sys, time
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 PIXELATE = [sys.executable, str(KIT / 'pixelate')]
@@ -130,6 +131,29 @@ def ok(rec):
     return rec.get('run', {'ok': True})['ok'] and not rec.get('error') and rec.get('gate', {}).get('ok', False) \
         and rec.get('era', {'ok': True})['ok']
 
+def log_run(d, recs):
+    """append this render to DIR/.pixelate/runs.jsonl (next to the judge log), the run record the
+    library's flywheel is built from; PIXELATE_NO_LOG=1 turns it off"""
+    if os.environ.get('PIXELATE_NO_LOG'):
+        return
+    sys.path.insert(0, str(KIT / 'tools'))
+    from version import VERSION
+    images = []
+    for r in recs:
+        f = d / r['frame']
+        images.append({'name': r['name'], 'frame': r['frame'],
+                       'sha256': hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else None,
+                       'run_ok': r.get('run', {'ok': True})['ok'], 'gate_ok': r.get('gate', {}).get('ok'),
+                       'gate_fail': len(r.get('gate', {}).get('fail', [])),
+                       'judge': sorted({x['kind'] for x in r.get('judge', {}).get('defects', [])}),
+                       'grade': r.get('critique', {}).get('grade'), 'ok': ok(r)})
+    record = {'type': 'render', 'time': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
+              'kit': VERSION, 'dir': d.name, 'images': images, 'ok': all(i['ok'] for i in images)}
+    p = d / '.pixelate' / 'runs.jsonl'
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open('a', encoding='utf-8') as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + '\n')
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='pixelate render', description=(__doc__ or '').split('\n\n')[1])
     ap.add_argument('dir')
@@ -144,6 +168,7 @@ def main(argv=None):
         raise SystemExit('no image named %s in render.json' % a.image)
     recs = [render_one(d, im, not a.no_run, a.critique) for im in images]
     (d / 'render-report.json').write_text(json.dumps(recs, indent=1))
+    log_run(d, recs)
     if a.json:
         print(json.dumps(recs, indent=1))
     else:

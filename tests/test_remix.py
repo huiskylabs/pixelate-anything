@@ -244,6 +244,10 @@ class Baseline(Fixture):
                                                  'reason': 'quick mode skips audio outputs'}])
         self.assertEqual((baseline['quick'], baseline['piece'], baseline['request'], baseline['base']['id']),
                          (True, 'temple', 'an old temple at night', 'harbour'))
+        # The base's identity, which render's distance checks the kit piece against.
+        self.assertEqual(baseline['base']['piece_sha256'], sha((self.piece / 'piece.json').read_bytes()))
+        self.assertIn("with the hash of every copied file and of the base's `piece.json`",
+                      (self.dest / 'REMIX.md').read_text(encoding='utf-8'))
         self.assertTrue(baseline['test']['ok'])
 
     def test_a_no_op_failing_or_drifting_command_creates_nothing(self):
@@ -425,6 +429,7 @@ class MigratedPieces(unittest.TestCase):
                     self.assertEqual(baseline['files'], {name: digest for name, digest in snapshot(dest).items()
                                                          if name not in ('REMIX.md', remix.BASELINE)})
                     self.assertEqual(snapshot(source), before)
+                    self.assertEqual(baseline['base']['piece_sha256'], before['piece.json'])
                     if piece == 'market-day':
                         outputs = {o['name']: o for o in baseline['test']['outputs']}
                         self.assertEqual((outputs['b']['status'], outputs['b']['gate_ok']), ('passed', False))

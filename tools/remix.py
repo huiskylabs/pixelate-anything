@@ -3,8 +3,8 @@
 
 Copy library piece PIECE into the new folder DIR as a piece whose id is DIR's name, render the
 unedited copy once in a clean temporary copy (`pixelate library test --quick` semantics), and only
-if it passes move it into place with REMIX.md and the baseline evidence .pixelate/remix-baseline.json.
-A copy that does not pass leaves DIR as it was.
+if it passes move it into place with REMIX.md and the baseline evidence .pixelate/remix-baseline.json,
+which also records the SHA-256 of the base's piece.json. A copy that does not pass leaves DIR as it was.
 
 The copy keeps sources, media, history and 1x goldens, but no generated outputs, run data or review
 sidecar. Its manifest records the request, `lineage.remixed_from` and status `study`; a starter
@@ -124,7 +124,8 @@ def remix_md(manifest, base, baseline, baseline_sha):
               'Rendered once in a clean temporary copy before any edit (`pixelate library test --quick` semantics), so a '
               'later failure is your edit, not the base. A golden match is a regression test and a gate pass is a '
               'technical check; neither is a quality judgment or approval.', '',
-              f"Evidence: `{BASELINE}` (sha256 `{baseline_sha}`), with the hash of every copied file.", '',
+              f"Evidence: `{BASELINE}` (sha256 `{baseline_sha}`), with the hash of every copied file and of the "
+              "base's `piece.json`.", '',
               '| Output | Kind | Result |', '|---|---|---|']
     lines += [f"| {r['name']} | {r['kind']} | {cell(describe(r))} |" for r in baseline['test']['outputs']]
     lines += ['', '## Anatomy', '', '| File | Draws | Change for |', '|---|---|---|']
@@ -179,6 +180,14 @@ def remix(piece_id, dest, request, library_root=library.DEFAULT_LIBRARY, timeout
     if not source.is_dir() and not source.is_symlink():
         raise RemixError(f'{piece_id}: unknown piece in {library_root}')
     base = library.validate(source)  # rejects a link anywhere in the piece; runs nothing
+    # The base's identity in the baseline, which render's distance checks the kit piece against.
+    base_manifest = library.kit_render().read_regular(source, 'piece.json')
+    try:
+        unchanged = json.loads(base_manifest) == base
+    except ValueError:
+        unchanged = False
+    if not unchanged:
+        raise RemixError(f'{piece_id}: piece.json changed while it was read')
     if not library.SLUG.fullmatch(Path(dest).name):  # before absolute(), so `.` is no name
         raise RemixError(f'{dest}: the folder name becomes the piece id; use a lowercase slug such as my-{piece_id}')
     dest = Path(dest).absolute()
@@ -211,7 +220,8 @@ def remix(piece_id, dest, request, library_root=library.DEFAULT_LIBRARY, timeout
             'time': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
             'kit': VERSION, 'piece': dest.name, 'request': request, 'status': manifest['status'],
             'base': {'id': base['id'], 'title': base['title'], 'status': base['status'],
-                     'review': base.get('review'), 'license': base['license']},
+                     'review': base.get('review'), 'license': base['license'],
+                     'piece_sha256': hashlib.sha256(base_manifest).hexdigest()},
             'quick': True, 'files': files,
             'files_sha256': hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest(),
             'test': report,

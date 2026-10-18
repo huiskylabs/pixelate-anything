@@ -55,9 +55,11 @@ A piece whose lineage.remixed_from names a base gets a `distance` in each image 
 and its line (tools/distance.py): how many 1x pixels and what share of distinct colours of the hashed
 frame bytes differ from the golden of the base output of the same name. The base is looked up only in
 the kit's checked-in library, validated statically and read before any command runs; none of its code
-runs. A missing or invalid base, an output or golden it lacks, or a frame that was not read leaves the
-distance unavailable with a reason, and a size change leaves the pixel count unavailable; neither is
-reported as 0. When the request differs from the base's and both shares are small, the record carries
+runs. It must match the SHA-256 of the base piece.json and goldens that DIR/.pixelate/remix-baseline.json
+records (a consistency check; the file is not signed). No usable baseline, a kit piece that does not
+match it, a missing or invalid base, an output or golden it lacks, or a frame that was not read leaves
+the distance unavailable with a reason, and a size change leaves the pixel count unavailable; neither
+is reported as 0. When the request differs from the base's and both shares are small, the record carries
 an "under-remixed" WARNING. It is an uncalibrated heuristic, not a grade or a gate: it never changes
 the exit status. Other pieces' images record `distance` with base null and the reason.
 """
@@ -523,7 +525,7 @@ def log_run(d, recs, piece=False, knobs=None, base=None):
     if knobs:
         record['knobs'] = knobs
     if base:
-        record['base'] = {k: base[k] for k in ('id', 'library', 'status', 'error') if k in base}
+        record['base'] = {k: base[k] for k in ('id', 'library', 'status', 'piece_sha256', 'error') if k in base}
     text = json.dumps(record, ensure_ascii=False) + '\n'
     if not piece:
         p = d / '.pixelate' / 'runs.jsonl'

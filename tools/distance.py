@@ -7,10 +7,15 @@ golden, and the share of distinct colours the two do not have in common. The fra
 bytes render read once and hashed; nothing is read again from DIR.
 
 The base is looked up only in the kit's checked-in library (`library/<id>`), never in another
-folder, and is validated statically: none of its code runs. Its goldens are read once, before the
-remix's commands run, without following a link. A base that is missing or invalid, an output it
-does not have, a golden it lacks and a frame that cannot be read leave the distance unavailable,
-with the reason; a size change leaves the pixel share unavailable. None of them reads as 0.
+folder, and is validated statically: none of its code runs. Its piece.json and goldens are read once,
+before the remix's commands run, without following a link. It counts as the remix's base only when
+the SHA-256 of its piece.json matches the one `pixelate remix` recorded in .pixelate/remix-baseline.json
+and each golden matches the hash of the copy the baseline recorded under `files`. The baseline is not
+signed, so this is a consistency check, not proof of origin; the remix's own edited files are not
+rehashed. A missing, linked, corrupt or older baseline, a kit piece of the same id that does not match
+it, a base that is missing or invalid, an output it does not have, a golden it lacks and a frame that
+cannot be read leave the distance unavailable, with the reason; a size change leaves the pixel share
+unavailable. None of them reads as 0, and none warns.
 
 When the remix's request differs from the base's and both shares are under UNDER_REMIX, the record
 carries an "under-remixed" warning. The thresholds are an uncalibrated heuristic chosen to warn only
@@ -18,30 +23,75 @@ on near-copies: not a quality grade, not approval and not a gate, so a warning n
 """
 import hashlib
 import io
+import json
+import re
 
 import library  # the static manifest checks; tools/ is on the path, as for render.py
 
 DEFAULT_LIBRARY = library.DEFAULT_LIBRARY
+BASELINE = '.pixelate/remix-baseline.json'  # remix.BASELINE, written by `pixelate remix`
+SHA256 = re.compile('[0-9a-f]{64}')
 # Under both shares, with a changed request, a remix is reported as under-remixed. Uncalibrated:
 # no labelled set of remixes backs these numbers, so they stay a warning (plan section 7.3).
 UNDER_REMIX = {'pixels': 0.02, 'palette': 0.05}
 NOTE = ('Uncalibrated heuristic against the base golden: not a quality grade, not approval and not a '
-        'gate. Look at the frame to judge whether the request changed it.')
+        'gate. Look at the frame to judge whether the request changed it. The base is the kit piece whose '
+        'piece.json and golden match the SHA-256 the remix baseline records: a consistency check against an '
+        'unsigned local file, not proof of where the remix came from.')
 
 
 def same_request(a, b):
     return ' '.join(a.lower().split()) == ' '.join(b.lower().split())
 
 
+def recorded_base(d, manifest, base_id):
+    """(the base piece.json SHA-256, the copied file hashes) that the remix baseline of the piece at d
+    records, or raise ValueError with the reason. The file is read without following a link. It is not
+    signed: a match with it is a consistency check, not proof of where the piece came from."""
+    render = library.kit_render()
+    try:
+        data = render.read_regular(d, BASELINE)
+    except FileNotFoundError:
+        raise ValueError(f'no remix baseline {BASELINE}: distance is measured only for a copy `pixelate remix` '
+                         'made, against the base identity it recorded') from None
+    except OSError as exc:
+        raise ValueError(f'unreadable remix baseline {BASELINE}: {exc}') from None
+    try:
+        baseline = json.loads(data)
+    except (ValueError, RecursionError) as exc:
+        raise ValueError(f'invalid remix baseline {BASELINE}: {exc}') from None
+    if (not isinstance(baseline, dict) or baseline.get('schema') != 1 or baseline.get('type') != 'remix-baseline'
+            or not isinstance(baseline.get('base'), dict) or not isinstance(baseline.get('files'), dict)):
+        raise ValueError(f'invalid remix baseline {BASELINE}: not a schema 1 remix-baseline with base and files')
+    if baseline.get('piece') != manifest.get('id'):
+        raise ValueError(f"remix baseline {BASELINE} is of piece {baseline.get('piece')!r}, not {manifest.get('id')!r}")
+    if baseline['base'].get('id') != base_id:
+        raise ValueError(f"remix baseline {BASELINE} names base {baseline['base'].get('id')!r}, but "
+                         f'lineage.remixed_from names {base_id!r}')
+    digest = baseline['base'].get('piece_sha256')
+    if digest is None:
+        raise ValueError(f"remix baseline {BASELINE} records no SHA-256 of the base's piece.json (an older "
+                         '`pixelate remix` made it), so the base cannot be identified; remix the base again to '
+                         'measure distance')
+    if not isinstance(digest, str) or not SHA256.fullmatch(digest):
+        raise ValueError(f'invalid remix baseline {BASELINE}: base.piece_sha256 is not a SHA-256')
+    return digest, baseline['files']
+
+
 def lookup(d, manifest, library_root=None):
     """The base of the piece at d with its validated manifest: None when it is not a remix, else
-    {'id', 'library', and 'error' or 'status', 'request', 'images'}, where images maps each base
-    image output name to {'golden', 'sha256', 'data'} or {'error'}. Static: runs no piece code."""
+    {'id', 'library', and 'error' or 'status', 'request', 'piece_sha256', 'images'}, where images maps
+    each base image output name to {'golden', 'sha256', 'data'} or {'error'}. The base is the kit piece
+    only when its piece.json and each golden hash as the remix baseline recorded. Static: runs no piece code."""
     base_id = (manifest.get('lineage') or {}).get('remixed_from')
     if not base_id:
         return None
     root = (DEFAULT_LIBRARY if library_root is None else library_root).absolute()
     base = {'id': base_id, 'library': str(root)}
+    try:
+        digest, files = recorded_base(d, manifest, base_id)
+    except ValueError as exc:
+        return dict(base, error=str(exc))
     source = root / base_id
     if root.is_symlink() or not root.is_dir():
         return dict(base, error=f'the kit library {root} is missing or a link')
@@ -50,11 +100,18 @@ def lookup(d, manifest, library_root=None):
                                 'against checked-in kit pieces')
     if source.resolve() == d.resolve():
         return dict(base, error='the base is this piece itself')
+    render = library.kit_render()
     try:
         found = library.validate(source)  # rejects a link anywhere in the base; runs nothing
-    except (library.LibraryError, OSError) as exc:
+        piece_json = render.read_regular(source, 'piece.json')
+        if json.loads(piece_json) != found:
+            raise library.LibraryError(f'{source}/piece.json changed while it was read')
+    except (library.LibraryError, OSError, ValueError) as exc:
         return dict(base, error=f'base {base_id} is not a valid library piece: {exc}')
-    render = library.kit_render()
+    if hashlib.sha256(piece_json).hexdigest() != digest:
+        return dict(base, error=f'base {base_id} in the kit library is not the base this remix recorded: its '
+                                f'piece.json SHA-256 {hashlib.sha256(piece_json).hexdigest()} differs from {digest} '
+                                f'in {BASELINE} (remixed from another library, or the kit piece changed since)')
     images = {}
     for output in found['outputs']:
         if output['kind'] != 'image':
@@ -67,8 +124,18 @@ def lookup(d, manifest, library_root=None):
         except OSError as exc:
             images[output['name']] = {'error': f"base golden {output['golden']} unreadable: {exc}"}
             continue
-        images[output['name']] = {'golden': output['golden'], 'sha256': hashlib.sha256(data).hexdigest(), 'data': data}
-    return dict(base, status=found['status'], request=found['request'], images=images)
+        golden = hashlib.sha256(data).hexdigest()
+        if output['golden'] not in files:
+            images[output['name']] = {'error': f"{BASELINE} records no copied {output['golden']}"}
+            continue
+        if files[output['golden']] != golden:
+            images[output['name']] = {'error': (
+                f"base golden {output['golden']} is not the one this remix copied: SHA-256 {golden} in the kit "
+                f"library, {files[output['golden']]} in {BASELINE} (the kit golden changed since the remix, or "
+                'the remix was made from another library)')}
+            continue
+        images[output['name']] = {'golden': output['golden'], 'sha256': golden, 'data': data}
+    return dict(base, status=found['status'], request=found['request'], piece_sha256=digest, images=images)
 
 
 def unavailable(base, name, reason):
@@ -77,7 +144,7 @@ def unavailable(base, name, reason):
            'pixels': None, 'palette': None, 'request_differs': None, 'under_remixed': None, 'warning': None,
            'reason': reason}
     if base is not None and 'status' in base:
-        rec['base']['status'] = base['status']
+        rec['base'].update(status=base['status'], piece_sha256=base['piece_sha256'])
     return rec
 
 

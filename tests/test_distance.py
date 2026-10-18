@@ -18,6 +18,7 @@ from PIL import Image
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'tools'))
 import distance  # noqa: E402
+import remix  # noqa: E402
 
 library = distance.library  # the module distance validates with
 render = library.kit_render()  # the render module distance reads the base golden with
@@ -84,6 +85,20 @@ def frame_bytes(piece, scale=4):
         return png(golden.resize((golden.width * scale, golden.height * scale), Image.Resampling.NEAREST))
 
 
+def evidence(d, base, piece='temple', **fields):
+    """The remix baseline `pixelate remix` writes into d for a copy of base, built from base's current files:
+    the SHA-256 of its piece.json and of every file, as copied. fields replace or, as None, drop base fields."""
+    files = {p.relative_to(base).as_posix(): sha(p.read_bytes()) for p in sorted(base.rglob('*'))
+             if p.is_file() and not p.is_symlink()}
+    record = {'schema': 1, 'type': 'remix-baseline', 'piece': piece, 'files': files,
+              'base': {'id': base.name, 'piece_sha256': sha((base / 'piece.json').read_bytes())}}
+    record['base'].update(fields)
+    record['base'] = {k: v for k, v in record['base'].items() if v is not None}
+    (d / '.pixelate').mkdir(parents=True, exist_ok=True)
+    (d / distance.BASELINE).write_text(json.dumps(record), encoding='utf-8')
+    return record
+
+
 class Fixture(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
@@ -103,6 +118,7 @@ class Fixture(unittest.TestCase):
         (dest / 'piece.json').write_text(json.dumps(data), encoding='utf-8')
         if draw:
             (dest / 'art' / 'draw.py').write_text(draw, encoding='utf-8')
+        evidence(dest, self.base)
         return dest
 
     def render(self, d, *args, env=None):
@@ -144,7 +160,9 @@ class Measure(Fixture):
         self.assertIn('not a quality grade', rec['note'])
         golden = (self.base / 'out' / 'golden' / 'a.png').read_bytes()
         self.assertEqual(rec['base'], {'id': 'harbour', 'library': str(self.library), 'output': 'a', 'status': 'study',
+                                       'piece_sha256': sha((self.base / 'piece.json').read_bytes()),
                                        'golden': 'out/golden/a.png', 'golden_sha256': sha(golden)})
+        self.assertIn('consistency check against an unsigned local file', rec['note'])
         self.assertIn('WARNING under-remixed', distance.line(rec))
 
     def test_the_same_request_never_warns(self):
@@ -209,7 +227,8 @@ class Measure(Fixture):
         clear = self.temp / 'clear'
         piece = make_piece(clear, 'harbour', BASE_REQUEST)
         Image.new('RGBA', (64, 48), (255, 0, 0, 0)).save(piece / 'out' / 'golden' / 'a.png')
-        base = distance.lookup(self.temp / 'temple', {'lineage': {'remixed_from': 'harbour'}}, clear)
+        evidence(self.temp / 'temple', piece)
+        base = distance.lookup(self.temp / 'temple', {'id': 'temple', 'lineage': {'remixed_from': 'harbour'}}, clear)
         rec = distance.measure(png(Image.new('RGBA', (256, 192), (0, 0, 255, 0))), {'name': 'a', 'scale': 4},
                                {'w': 64, 'h': 48}, REQUEST, base)
         self.assertEqual((rec['pixels']['differ'], rec['palette']['share']), (0, 0.0))
@@ -218,8 +237,14 @@ class Measure(Fixture):
 class Lookup(Fixture):
     """The base comes only from the kit library, validated statically; anything else is unavailable."""
 
-    def lookup(self, base_id, root=None, d=None):
-        return distance.lookup(d or self.temp / 'temple', {'lineage': {'remixed_from': base_id}}, root)
+    def lookup(self, base_id, root=None, d=None, recorded=None):
+        """lookup for the piece d (default temp/temple) after `pixelate remix` recorded the piece at recorded
+        (default the base's folder in root, when there is one) as its base"""
+        d = d or self.temp / 'temple'
+        recorded = recorded or (root or self.library) / base_id
+        if recorded.is_dir():
+            evidence(d, recorded, piece=d.name, id=base_id)
+        return distance.lookup(d, {'id': d.name, 'lineage': {'remixed_from': base_id}}, root)
 
     def test_a_piece_without_lineage_is_not_a_remix(self):
         self.assertIsNone(distance.lookup(self.base, {'lineage': {'remixed_from': None}}))
@@ -242,7 +267,7 @@ class Lookup(Fixture):
         # As for `pixelate remix --library L`: render looks only in the kit library and searches no other path.
         other = self.temp / 'other'
         make_piece(other, 'lighthouse', BASE_REQUEST)
-        base = self.lookup('lighthouse')
+        base = self.lookup('lighthouse', recorded=other / 'lighthouse')
         self.assertIn('base lighthouse is not in the kit library', base['error'])
         rec = distance.measure(b'', {'name': 'a'}, {'w': 64, 'h': 48}, REQUEST, base)
         self.assertEqual((rec['pixels'], rec['palette'], rec['under_remixed']), (None, None, None))
@@ -274,7 +299,7 @@ class Lookup(Fixture):
     def test_a_checked_in_kit_piece_is_read_statically(self):
         # A real kit study whose own gate fails is still a base: its golden is the comparison, unrun.
         with mock.patch.object(distance, 'DEFAULT_LIBRARY', library.DEFAULT_LIBRARY):
-            base = self.lookup('quarry-wakes')
+            base = self.lookup('quarry-wakes', recorded=library.DEFAULT_LIBRARY / 'quarry-wakes')
         self.assertNotIn('error', base)
         self.assertEqual(base['library'], str(library.DEFAULT_LIBRARY))
         golden = library.DEFAULT_LIBRARY / 'quarry-wakes' / 'out' / 'golden' / 'a.png'
@@ -303,7 +328,8 @@ class Render(Fixture):
         self.assertIn('| distance from harbour/a: 0.0% of 1x pixels differ (0 of 3072), 0.0% of colours | WARNING '
                       'under-remixed', out)
         [run] = self.runs(d)
-        self.assertEqual(run['base'], {'id': 'harbour', 'library': str(self.library), 'status': 'study'})
+        self.assertEqual(run['base'], {'id': 'harbour', 'library': str(self.library), 'status': 'study',
+                                       'piece_sha256': sha((self.base / 'piece.json').read_bytes())})
         self.assertEqual(run['images'][0]['distance'], rec['distance'])
         self.assertTrue(run['ok'])
 
@@ -347,7 +373,7 @@ class Render(Fixture):
         d = self.remix()
         code, out, [rec] = self.render(d, env={'PIXELATE_NO_LOG': '1'})
         self.assertNotIn('snapshot', rec)
-        self.assertFalse((d / '.pixelate').exists())
+        self.assertEqual(sorted(p.name for p in (d / '.pixelate').iterdir()), ['remix-baseline.json'])
         self.assertTrue(rec['distance']['under_remixed'])
         self.assertIn('WARNING under-remixed', out)
 
@@ -385,6 +411,126 @@ class Render(Fixture):
         self.assertEqual(rec['distance']['reason'], 'not a remix: piece.json names no lineage.remixed_from')
         self.assertNotIn('distance', out)
         self.assertNotIn('base', self.runs(self.base)[-1])
+
+
+class Provenance(Fixture):
+    """The kit piece is the base only when it matches the base identity the remix baseline records."""
+
+    def remixed(self, library_root, base_id='harbour', request=REQUEST):
+        """work/temple as `pixelate remix --library library_root` makes it (fixture code runs once)"""
+        dest = self.temp / 'work' / 'temple'
+        created, baseline = remix.remix(base_id, dest, request, library_root, timeout=60)
+        self.assertTrue(created, baseline)
+        return dest
+
+    def assert_unavailable(self, d, reason, logged_error=True):
+        code, out, [rec] = self.render(d)
+        self.assertEqual(code, 0 if render.ok(rec) else 1)   # an unavailable distance never fails a render
+        self.assertIn(reason, rec['distance']['reason'])
+        self.assertEqual({k: rec['distance'][k] for k in ('pixels', 'palette', 'under_remixed', 'warning')},
+                         dict.fromkeys(('pixels', 'palette', 'under_remixed', 'warning')))
+        self.assertIn('distance from harbour/a unavailable: ', out)
+        self.assertIn(reason, out)
+        self.assertNotIn('WARNING', out)
+        run = self.runs(d)[-1]
+        self.assertEqual(run['images'][0]['distance'], rec['distance'])
+        if logged_error:
+            self.assertIn(reason, run['base']['error'])
+        return rec
+
+    def test_a_remix_of_its_own_kit_base_measures_and_its_edits_are_not_rehashed(self):
+        d = self.remixed(self.library)
+        recorded = json.loads((d / remix.BASELINE).read_text())['base']['piece_sha256']
+        self.assertEqual(recorded, sha((self.base / 'piece.json').read_bytes()))
+        code, out, [rec] = self.render(d)
+        self.assertTrue(rec['distance']['under_remixed'])
+        self.assertEqual(rec['distance']['base']['piece_sha256'], recorded)
+        self.assertIn('WARNING under-remixed', out)
+        # Edits to the copy, its own golden included, are intended: only the kit base is checked.
+        (d / 'art' / 'draw.py').write_text(TEMPLE, encoding='utf-8')
+        Image.new('RGB', (64, 48), (255, 255, 255)).save(d / 'out' / 'golden' / 'a.png')
+        code, out, [rec] = self.render(d)
+        self.assertGreater(rec['distance']['pixels']['share'], 0.5)
+        self.assertNotIn('WARNING', out)
+
+    def test_a_colliding_base_from_another_library_with_another_golden_is_unavailable(self):
+        other = self.temp / 'other'
+        make_piece(other, 'harbour', BASE_REQUEST, TEMPLE)
+        self.assertEqual((other / 'harbour' / 'piece.json').read_bytes(), (self.base / 'piece.json').read_bytes())
+        d = self.remixed(other)
+        self.assert_unavailable(d, 'base golden out/golden/a.png is not the one this remix copied', logged_error=False)
+
+    def test_a_colliding_base_with_the_same_golden_but_another_manifest_is_unavailable(self):
+        other = self.temp / 'other'
+        make_piece(other, 'harbour', 'a harbour wall at dusk')
+        golden = 'out/golden/a.png'
+        self.assertEqual((other / 'harbour' / golden).read_bytes(), (self.base / golden).read_bytes())
+        d = self.remixed(other)
+        self.assert_unavailable(d, 'base harbour in the kit library is not the base this remix recorded')
+
+    def test_a_base_missing_from_the_kit_library_is_unavailable(self):
+        other = self.temp / 'other'
+        make_piece(other, 'lighthouse', BASE_REQUEST)
+        d = self.remixed(other, 'lighthouse')
+        code, out, [rec] = self.render(d)
+        self.assertIn('base lighthouse is not in the kit library', rec['distance']['reason'])
+        self.assertIsNone(rec['distance']['pixels'])
+        self.assertNotIn('WARNING', out)
+
+    def test_a_kit_base_changed_after_the_remix_is_unavailable(self):
+        d = self.remix()
+        golden = self.base / 'out' / 'golden' / 'a.png'
+        before = golden.read_bytes()
+        with Image.open(golden) as image:
+            image = image.convert('RGB')
+        image.putpixel((0, 0), (250, 20, 200))
+        image.save(golden)
+        self.assert_unavailable(d, 'base golden out/golden/a.png is not the one this remix copied', logged_error=False)
+        golden.write_bytes(before)
+        data = json.loads((self.base / 'piece.json').read_text())
+        (self.base / 'piece.json').write_text(json.dumps(dict(data, request='a harbour wall at dawn')))
+        self.assert_unavailable(d, 'is not the base this remix recorded')
+
+    def test_a_missing_legacy_or_corrupt_baseline_is_unavailable_without_a_warning(self):
+        d = self.remix()
+        path = d / distance.BASELINE
+        good = path.read_text()
+        record = json.loads(good)
+        legacy = dict(record, base={'id': 'harbour', 'title': 'Harbour', 'status': 'study'})
+        cases = {'no remix baseline .pixelate/remix-baseline.json': None,
+                 "records no SHA-256 of the base's piece.json": json.dumps(legacy),
+                 'invalid remix baseline .pixelate/remix-baseline.json: ': '{',
+                 'not a schema 1 remix-baseline': '[]',
+                 "is of piece 'other', not 'temple'": json.dumps(dict(record, piece='other')),
+                 "names base 'lighthouse', but lineage.remixed_from names 'harbour'":
+                     json.dumps(dict(record, base=dict(record['base'], id='lighthouse'))),
+                 'base.piece_sha256 is not a SHA-256': json.dumps(dict(record, base=dict(record['base'], piece_sha256='ab'))),
+                 '.pixelate/remix-baseline.json records no copied out/golden/a.png':
+                     json.dumps(dict(record, files={'piece.json': record['files']['piece.json']}))}
+        for reason, text in cases.items():
+            with self.subTest(reason=reason):
+                path.unlink(missing_ok=True)
+                if text is not None:
+                    path.write_text(text)
+                self.assert_unavailable(d, reason, logged_error='records no copied' not in reason)
+
+    def test_a_linked_baseline_or_baseline_folder_is_never_followed(self):
+        # Render refuses a piece with a link anywhere in it first; lookup on its own refuses one too.
+        d = self.remix()
+        data = json.loads((d / 'piece.json').read_text())
+        (d / '.pixelate').rename(self.temp / 'pixelate')
+        (d / '.pixelate').symlink_to(self.temp / 'pixelate')
+        self.assert_link_refused(d, data)
+        (d / '.pixelate').unlink()
+        (d / '.pixelate').mkdir()
+        (d / distance.BASELINE).symlink_to(self.temp / 'pixelate' / 'remix-baseline.json')
+        self.assert_link_refused(d, data)
+
+    def assert_link_refused(self, d, data):
+        base = distance.lookup(d, data)
+        self.assertIn('unreadable remix baseline .pixelate/remix-baseline.json: ', base['error'])
+        rec = distance.measure(frame_bytes(self.base), {'name': 'a', 'scale': 4}, {'w': 64, 'h': 48}, REQUEST, base)
+        self.assertEqual((rec['pixels'], rec['palette'], rec['warning']), (None, None, None))
 
 
 if __name__ == '__main__':

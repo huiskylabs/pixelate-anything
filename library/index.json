@@ -547,7 +547,7 @@
       "mode": "assets",
       "path": "starter-assets/piece.json",
       "status": "starter",
-      "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own.",
+      "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own. One knob, scale (8 or 4; default 8, as pack.json), sets the export scale of the contact sheet and the scaled strips; the atlas stays 1x.",
       "tags": {
         "camera": "none",
         "era": "none",
@@ -674,7 +674,7 @@
       "mode": "scene",
       "path": "starter-scene-loop/piece.json",
       "status": "starter",
-      "summary": "A neutral looping scene to copy: a sky over flat ground with placeholder shapes (a grey box, a drifting block, a pulsing marker, a few night motes) across a day and a night phase, with a lofi soundtrack. It draws no subject of its own; its day frame (the first picture) and its night frame pass the lofi frame gate.",
+      "summary": "A neutral looping scene to copy: a sky over flat ground with placeholder shapes (a grey box, a drifting block, a pulsing marker, a few night motes) across a day and a night phase, with a lofi soundtrack. It draws no subject of its own; its day frame (the first picture) and its night frame pass the lofi frame gate. One knob, horizon (80, 84 or 88; default 84, the golden frames), sets the row where the ground begins.",
       "tags": {
         "camera": "side",
         "era": "none",

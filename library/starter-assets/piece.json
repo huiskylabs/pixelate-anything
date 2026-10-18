@@ -3,7 +3,7 @@
   "id": "starter-assets",
   "title": "Starter: Assets",
   "status": "starter",
-  "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own.",
+  "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own. One knob, scale (8 or 4; default 8, as pack.json), sets the export scale of the contact sheet and the scaled strips; the atlas stays 1x.",
   "request": "Unknown: the original request was not recorded in the repository. Template from the initial kit commit; no request exists. Source description: My Pack. The coin and heart were replaced by neutral placeholder slots in the starter-empty follow-up.",
   "mode": "assets",
   "tags": {
@@ -50,7 +50,16 @@
       "file": "out/contact.png"
     }
   ],
-  "knobs": {},
+  "knobs": {
+    "scale": {
+      "values": [
+        8,
+        4
+      ],
+      "default": 8,
+      "edits": "pack.json"
+    }
+  },
   "anatomy": [
     {
       "file": "sprites/slots.px",
@@ -59,8 +68,8 @@
     },
     {
       "file": "pack.json",
-      "draws": "pack name, export scale, preview background and the (empty) map list",
-      "change_for": "pack name, export scale, maps"
+      "draws": "pack name, export scale, preview background and the (empty) map list; the scale knob sets its export scale for one render",
+      "change_for": "pack name, export scale (the scale knob), maps"
     },
     {
       "file": "palette.json",

@@ -8,11 +8,13 @@
 chosen values as a JSON object to a temporary file outside DIR and passes its absolute path in
 PIXELATE_KNOBS to the piece's commands only; the file is deleted after the render. Without --set, and
 in `pixelate library test`, PIXELATE_KNOBS is removed from the commands' environment, so knobs()
-returns the defaults whatever the caller exported. knobs() reads the manifest from the folder the
-command runs in (the piece root) and checks the file again: it must be an absolute path to a regular
-file owned by this user and writable by no one else, opened without following a link, holding a JSON
-object of declared knob names and values of the declared type. Anything else raises KnobError, so a
-program never draws with a value its manifest does not allow.
+returns the defaults whatever the caller exported. Engine and pack pieces read the same file through
+the kit rather than knobs(): `tools/build.py` puts js_constant() of the merged values before the engine
+scripts, and `tools/assets.py` sets the declared PACK_OPTIONS from it. knobs() reads the manifest from
+the folder the command runs in (the piece root) and checks the file again: it must be an absolute path
+to a regular file owned by this user and writable by no one else, opened without following a link,
+holding a JSON object of declared knob names and values of the declared type. Anything else raises
+KnobError, so a program never draws with a value its manifest does not allow.
 """
 import json, os, pathlib, re, stat
 
@@ -21,6 +23,16 @@ MAX_SET = 64 * 1024
 # The integers JSON carries exactly to every runtime, JavaScript included.
 INT_LIMIT = 2 ** 53 - 1
 INT = re.compile(r'(0|-?[1-9][0-9]*)\Z')
+# The engine constant that holds every knob of an engine piece (see js_constant).
+JS_NAME = 'PIXELATE_KNOBS'
+# String characters js_constant writes as themselves; any other is a \u escape.
+JS_PLAIN = re.compile(r'[A-Za-z0-9_-]\Z')
+# pack.json options a pack knob may set: the knob is named as the option (a knob name is a slug), `edits`
+# is pack.json, and every value must pass the option's check. Scalars that change the export only, never a
+# path or a list: `scale`, the export scale of the scaled strips, GIFs, contact sheet and maps.
+PACK_OPTIONS = {
+    'scale': ('an integer from 1 to 64', lambda value: type(value) is int and 1 <= value <= 64),
+}
 
 
 class KnobError(ValueError):
@@ -74,6 +86,49 @@ def parse_sets(spec, sets):
 def merge(spec, chosen):
     """every knob of spec at its default, unless chosen sets it"""
     return {name: chosen.get(name, knob['default']) for name, knob in spec.items()}
+
+
+def _js_string(text):
+    """text as a double-quoted JavaScript string of plain characters and \\u escapes of UTF-16 units"""
+    out = []
+    for ch in text:
+        if JS_PLAIN.match(ch):
+            out.append(ch)
+        else:
+            units = ch.encode('utf-16-be')
+            out += [f'\\u{units[i]:02x}{units[i + 1]:02x}' for i in range(0, len(units), 2)]
+    return '"' + ''.join(out) + '"'
+
+
+def js_constant(merged):
+    """`const PIXELATE_KNOBS = Object.freeze({...});` holding merged, {name: value} of declared knobs, as a
+    JavaScript object literal. Keys and string values are written in double quotes with every character
+    other than an ASCII letter, digit, `_` or `-` as a \\u escape, so no value can end the string, close
+    the page's <script> element or match a text the builder replaces"""
+    items = []
+    for name, value in merged.items():
+        if isinstance(value, bool):
+            literal = 'true' if value else 'false'
+        elif isinstance(value, int):
+            literal = str(check_value(name, {'type': 'int'}, value))
+        elif isinstance(value, float) and value == value and abs(value) != float('inf'):
+            literal = repr(value)
+        elif isinstance(value, str):
+            literal = _js_string(value)
+        else:
+            raise KnobError(f'knob {name}: {value!r} is not a JSON scalar')
+        items.append(f'{_js_string(name)}: {literal}')
+    return f"const {JS_NAME} = Object.freeze({{{', '.join(items)}}});\n"
+
+
+def pack_option(name, value):
+    """value, when pack.json option name may take it from a knob; else KnobError"""
+    if name not in PACK_OPTIONS:
+        raise KnobError(f"knob {name}: a pack knob sets a pack.json option ({', '.join(PACK_OPTIONS)}) of its name")
+    expected, ok = PACK_OPTIONS[name]
+    if not ok(value):
+        raise KnobError(f'knob {name}: pack.json {name} must be {expected}, got {json.dumps(value)}')
+    return value
 
 
 def _unique(pairs):

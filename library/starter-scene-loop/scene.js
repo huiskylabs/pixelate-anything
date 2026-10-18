@@ -10,7 +10,9 @@
    a foreground strip, one drifting block, a cycled colour and a few motes. Draw your own subject over it.
    ========================================================================== */
 const DAY = 0, NIGHT = 1;
-const HORIZON = 84;                          // where the ground begins
+// where the ground begins: the `horizon` knob (piece.json), 80, 84 or 88; the build puts it in
+// PIXELATE_KNOBS (`pixelate render . --set horizon=88`)
+const HORIZON = PIXELATE_KNOBS.horizon;
 
 // sky gradients: [first row, slot, dithered transition rows above this stop]
 const SKY = [

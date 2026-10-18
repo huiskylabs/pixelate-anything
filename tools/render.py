@@ -39,14 +39,17 @@ PIXELATE_NO_LOG=1 they read the private copy. The critique's thumbnails and save
 frame in DIR. render.json images are hashed, gated, judged and critiqued in place. A folder with both
 files is an error.
 
---set KNOB=VALUE (repeatable) renders a variant of a script piece: each value is checked against the
-manifest's knobs, the chosen values go to a temporary JSON file outside DIR whose path the piece's
-commands get in PIXELATE_KNOBS, and `knobs()` (tools/piece.py) merges them with the defaults. Neither
-piece.json nor any source is changed, and the file is deleted afterwards. The values, the merged
-settings and the file's SHA-256 go into the report and the run record; they say what the commands were
-given, not that the program read them. A variant is not compared with golden frames. --set is refused
-for render.json, for engine and pack pieces (not supported yet) and with --no-run. Without --set,
-PIXELATE_KNOBS is removed from the piece commands' environment, so they draw the defaults.
+--set KNOB=VALUE (repeatable) renders a variant of a script, engine or pack piece: each value is checked
+against the manifest's knobs, the chosen values go to a temporary JSON file outside DIR whose path the
+piece's commands get in PIXELATE_KNOBS, and the runtime reads it: a script's `knobs()` (tools/piece.py)
+merges them with the defaults; an engine build (tools/build.py, so `pixelate shot`, `video`, `gif`,
+`audio`, `build`) puts every knob in a PIXELATE_KNOBS constant before the scene's scripts; a pack export
+(`pixelate assets`) sets the pack.json options its knobs name. Neither piece.json, scene.json, pack.json
+nor any source is changed, and the file is deleted afterwards. The values, the merged settings and the
+file's SHA-256 go into the report and the run record; they say what the commands were given, not that
+the program drew them. A variant is not compared with golden frames. --set is refused for render.json
+and with --no-run. Without --set, PIXELATE_KNOBS is removed from the piece commands' environment, so
+they draw the defaults.
 """
 import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, stat, subprocess, sys, tempfile, time
 
@@ -523,7 +526,7 @@ def main(argv=None):
     ap.add_argument('--no-run', action='store_true', help='skip the draw commands; gate and judge what is there')
     ap.add_argument('--critique', action='store_true', help='also run the art director (pixelate critique --run)')
     ap.add_argument('--set', action='append', default=[], metavar='KNOB=VALUE',
-                    help='render a variant of a script piece with this knob value (repeatable; see tools/piece.py)')
+                    help='render a variant with this knob value: script, engine and pack pieces (repeatable; see tools/piece.py)')
     ap.add_argument('--json', action='store_true')
     a = ap.parse_args(argv)
     d = pathlib.Path(a.dir).resolve()
@@ -532,9 +535,6 @@ def main(argv=None):
     if a.set:
         if source == 'render.json':
             ap.error('--set needs a piece.json that declares knobs; render.json images take no knobs')
-        if manifest['runtime'] != 'script':
-            ap.error('--set supports script pieces only for now; knobs for %s pieces are not supported yet'
-                     % manifest['runtime'])
         if a.no_run:
             ap.error('--set cannot be used with --no-run: the frames there were not drawn with those knobs')
         helper = knob_helper()

@@ -100,8 +100,10 @@ class AuthoringDocsTest(unittest.TestCase):
             self.assertNotIn(unbuilt, offered)
             self.assertNotIn(unbuilt, help_text)
         self.assertIn('render DIR --set name=value', offered)
+        self.assertIn('renders a variant for any of the three runtimes', offered)
         self.assertIn('--set', help_text)
-        self.assertIn('engine/pack `render --set`', not_built)
+        self.assertIn('(script, engine and pack pieces)', help_text)
+        self.assertNotIn('--set', not_built)
         self.assertIn('pixelate deliver', not_built)
         self.assertNotRegex(offered, r'(?i)\bMCP (tools? )?(for )?(find|remix|deliver)')
 

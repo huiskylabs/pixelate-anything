@@ -1,4 +1,5 @@
-"""`knobs()` (tools/piece.py) and `pixelate render DIR --set`, on a synthetic script piece; trusted fixture code only."""
+"""`knobs()` (tools/piece.py) and `pixelate render DIR --set`, on a synthetic script piece; trusted fixture code only.
+Engine and pack pieces: tests/test_runtime_knobs.py."""
 import hashlib
 import json
 import os
@@ -333,19 +334,11 @@ class RenderSet(Temp):
         self.assertIn('seed: default: knob seed: expected an integer from', result.stderr)
         self.assertEqual(tree(self.root), before)
 
-    def test_set_is_refused_with_no_run_for_engine_and_pack_pieces_and_for_render_json(self):
+    def test_set_is_refused_with_no_run_and_for_render_json(self):
         before = tree(self.root)
         result, _ = self.render('--set', 'seed=1', '--no-run')
         self.assertEqual(result.returncode, 2)
         self.assertIn('--set cannot be used with --no-run', result.stderr)
-        for runtime in ('engine', 'pack'):
-            with self.subTest(runtime=runtime):
-                (self.root / 'piece.json').write_text(json.dumps(dict(self.data, runtime=runtime)), encoding='utf-8')
-                result, _ = self.render('--set', 'seed=1')
-                self.assertEqual(result.returncode, 2)
-                self.assertIn('--set supports script pieces only for now; knobs for %s pieces are not supported yet'
-                              % runtime, result.stderr)
-        (self.root / 'piece.json').write_text(json.dumps(self.data), encoding='utf-8')
         self.assertEqual(tree(self.root), before)
         (self.root / 'piece.json').unlink()
         (self.root / 'render.json').write_text(json.dumps({'images': [
@@ -354,6 +347,20 @@ class RenderSet(Temp):
         self.assertEqual(result.returncode, 2)
         self.assertIn('--set needs a piece.json that declares knobs; render.json images take no knobs', result.stderr)
         self.assertFalse((self.root / 'EXECUTED').exists())
+
+    def test_engine_and_pack_knobs_this_script_never_reads_are_refused_by_the_catalog(self):
+        # The script program reads knobs(); declared as an engine or pack piece, nothing would read them.
+        before = tree(self.root)
+        for runtime, message in (('engine', 'scene.json: missing path'),
+                                 ('pack', 'pack.json: missing path')):
+            with self.subTest(runtime=runtime):
+                (self.root / 'piece.json').write_text(json.dumps(dict(self.data, runtime=runtime)), encoding='utf-8')
+                result, _ = self.render('--set', 'seed=1')
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertFalse((self.root / 'render-report.json').exists())
+        (self.root / 'piece.json').write_text(json.dumps(self.data), encoding='utf-8')
+        self.assertEqual(tree(self.root), before)
 
     def test_a_program_given_an_invalid_value_fails_its_command(self):
         # A value only reaches the program through render's checks; a direct run with a bad file fails loudly.

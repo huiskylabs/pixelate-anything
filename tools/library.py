@@ -264,6 +264,62 @@ def check_knobs(root, knobs):
         asset(root, knob['edits'], f'knobs.{name}.edits')
 
 
+def source_json(root, rel):
+    """The strict JSON of the source file rel of the piece root (unique keys, finite numbers)."""
+    path = asset(root, rel, rel)
+    try:
+        return json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_pairs,
+                          parse_constant=lambda value: fail(rel, f'nonfinite JSON number: {value}'))
+    except RecursionError:
+        fail(rel, 'invalid JSON: nested too deeply')
+    except (ValueError, UnicodeError) as exc:
+        fail(rel, f'invalid JSON: {exc}')
+
+
+def engine_reads(source, name):
+    """Whether the JavaScript source names the knob: PIXELATE_KNOBS.name or PIXELATE_KNOBS['name']."""
+    name = re.escape(name)
+    pattern = rf'\b{piece.JS_NAME}(?:\.{name}(?![\w$])|\[\s*([\'"]){name}\1\s*\])'
+    return re.search(pattern, source) is not None
+
+
+def check_runtime_knobs(root, manifest):
+    """Check that an engine or pack piece's knobs reach its program (script knobs are read by knobs()).
+    A pack knob is an enum named as the pack.json option it sets (`edits: pack.json`), every value one the
+    option takes, its default pack.json's own value. An engine knob's `edits` is a script the build loads
+    (config.js, a scene.json file, music.js) that names it as PIXELATE_KNOBS.name. A declaration check:
+    only a render shows the program draws a value differently."""
+    knobs = manifest['knobs']
+    if not knobs or manifest['runtime'] == 'script':
+        return
+    if manifest['runtime'] == 'pack':
+        pack = source_json(root, 'pack.json')
+        if not isinstance(pack, dict):
+            fail('pack.json', 'expected object')
+        for name, knob in knobs.items():
+            if knob['edits'] != 'pack.json' or 'values' not in knob:
+                fail(f'knobs.{name}', 'a pack knob is an enum of values with edits pack.json, the file whose option it sets')
+            try:
+                for value in knob['values']:
+                    piece.pack_option(name, value)
+            except piece.KnobError as exc:
+                fail(f'knobs.{name}', str(exc))
+            default = knob['default']
+            if name not in pack or type(pack[name]) is not type(default) or pack[name] != default:
+                fail(f'knobs.{name}', f'default {json.dumps(default)} must equal pack.json {name} {json.dumps(pack.get(name))}')
+        return
+    scene = source_json(root, 'scene.json')
+    files = scene.get('files') if isinstance(scene, dict) else None
+    if not isinstance(files, list) or not all(isinstance(f, str) for f in files):
+        fail('scene.json', 'expected files: an array of script paths')
+    loaded = {'config.js', 'music.js', *files}
+    for name, knob in knobs.items():
+        if knob['edits'] not in loaded:
+            fail(f'knobs.{name}', f"edits {knob['edits']} is not a script the build loads (config.js, scene.json files, music.js)")
+        if not engine_reads(asset(root, knob['edits'], f'knobs.{name}.edits').read_text(encoding='utf-8'), name):
+            fail(f'knobs.{name}', f"{knob['edits']} does not read {piece.JS_NAME}.{name}")
+
+
 def validate(root):
     """Return validated manifest for one piece directory; never execute its run commands."""
     root = Path(root).absolute()
@@ -328,6 +384,7 @@ def validate(root):
             text(entry[key], f'anatomy.{key}')
     knobs = manifest['knobs']
     check_knobs(root, knobs)
+    check_runtime_knobs(root, manifest)
     provenance = manifest['provenance']
     fields(provenance, ('made', 'by'), where='provenance')
     text(provenance['by'], 'provenance.by')

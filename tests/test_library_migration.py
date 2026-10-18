@@ -69,6 +69,11 @@ def load(path):
         return im.convert('RGBA')
 
 
+# The knobs added after migration, each one a variant the program draws (tests/test_piece_knobs.py).
+STARTER_KNOBS = {'starter-scene-loop': {'horizon': {'values': [80, 84, 88], 'default': 84, 'edits': 'scene.js'}},
+                 'starter-assets': {'scale': {'values': [8, 4], 'default': 8, 'edits': 'pack.json'}}}
+
+
 class MigratedPieceTest(unittest.TestCase):
     def test_ten_pieces_with_expected_identity_and_honest_status(self):
         self.assertTrue(set(MIGRATED) <= {p.name for p in LIBRARY.iterdir() if p.is_dir()})
@@ -77,9 +82,10 @@ class MigratedPieceTest(unittest.TestCase):
                 data = manifest(piece_id)
                 self.assertEqual((data['id'], data['status'], data['mode'], data['runtime']),
                                  (piece_id, status, mode, runtime))
-                # no review, approval or knob is claimed that the migration could not evidence
+                # no review, approval or knob is claimed that the migration could not evidence; the two
+                # starter knobs are rendered as variants by tests/test_piece_knobs.py
                 self.assertNotIn('review', data)
-                self.assertEqual(data['knobs'], {})
+                self.assertEqual(data['knobs'], STARTER_KNOBS.get(piece_id, {}))
                 self.assertEqual(data['license'], 'MIT')
                 self.assertTrue((LIBRARY / piece_id / 'history' / 'migration.md').is_file())
 

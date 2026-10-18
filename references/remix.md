@@ -55,7 +55,7 @@ Exit status: 0 when DIR was created; 1 when the baseline failed or DIR could not
 
 ## MCP tools
 
-Clients without a shell get the loop as four tools (`tools/mcp_server.py`), built on the same commands. There is no `add_piece` tool yet: `pixelate library add` is not built.
+Clients without a shell get the loop as four tools (`tools/mcp_server.py`), built on the same commands. There is no `add_piece` tool yet; local `pixelate library add` needs explicit trust and runs unsandboxed commands, never in PR CI.
 
 | Tool | Command | Notes |
 |---|---|---|

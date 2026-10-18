@@ -115,14 +115,14 @@ class AuthoringDocsTest(unittest.TestCase):
     def test_only_existing_commands_are_offered(self):
         help_text = subprocess.run([sys.executable, str(REPO / 'pixelate'), '--help'], capture_output=True, text=True, check=True).stdout
         text = AUTHORING.read_text(encoding='utf-8')
-        not_built = text[text.index('Not built yet'):]
-        offered = text[:text.index('Not built yet')]
+        not_built = text[text.index('MCP `add_piece` is not yet built'):]
+        offered = text[:text.index('MCP `add_piece` is not yet built')]
         for command, sub in re.findall(r'`pixelate ([a-z-]+)(?: ([a-z-]+))?', offered):
             self.assertIn(f'pixelate {command}', help_text, f'authoring.md offers `pixelate {command}`')
             if command in ('library', 'review'):
                 self.assertIn(sub, help_text, f'authoring.md offers `pixelate {command} {sub}`')
-        self.assertNotIn('pixelate library add', offered)
-        self.assertNotIn('pixelate library add', help_text)
+        self.assertIn('pixelate library add', offered)
+        self.assertIn('pixelate library add', help_text)
         self.assertIn('render DIR --set name=value', offered)
         self.assertIn('renders a variant for any of the three runtimes', offered)
         self.assertIn('--set', help_text)
@@ -133,7 +133,7 @@ class AuthoringDocsTest(unittest.TestCase):
         self.assertNotIn('pixelate deliver', not_built)
         for tool in ('find_pieces', 'remix_piece', 'render_piece', 'deliver_piece'):
             self.assertIn(f'`{tool}`', offered)
-        self.assertIn('MCP `add_piece`', not_built)
+        self.assertIn('MCP `add_piece` is not yet built', not_built)
         self.assertNotIn('distance from the base', not_built)
 
     def test_the_ten_steps_live_here_and_skill_points_here(self):

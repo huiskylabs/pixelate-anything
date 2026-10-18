@@ -43,8 +43,8 @@ approved budget and a reviewer who did not make the work. With no budget or revi
 prompt and say NO INDEPENDENT REVIEW, with no art-quality claim. deliver_piece runs every output
 again and writes facts (or verifies them without running code); an unreviewed remix may be packaged
 as NOT REVIEWED but needs separate user approval before being called finished. No check clears
-redistribution rights or raises a piece's status. Library add is not built: give back by a manual
-pull request with evidence. Shell-based remix, render and deliver execute trusted code with your
+redistribution rights or raises a piece's status. Local library add needs explicit trust and two
+unsandboxed renders; MCP add_piece is not built. Give back by a manual pull request with evidence. Shell-based remix, render and deliver execute trusted code with your
 permissions, without a sandbox; never run contributed programs in PR CI.
 Author path: read guide('authoring') for the full ten steps. The independent lead owns each grade
 with three graded rounds per full stage by default; specialists observe. The greyscale block-in

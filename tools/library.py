@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Static piece manifest validation, deterministic catalog and conservative search.
 
-`index`, `list`, `show` and `find` never import or execute piece code. Only `test` runs a piece: it
-renders a temporary copy of a trusted checked-in piece through `tools/render.py`, which runs the
-manifest's shell commands without a sandbox.
+`index`, `list`, `show` and `find` never import or execute piece code. `test` renders trusted
+checked-in pieces and `add --trust-local-code` renders a trusted local candidate twice. Their
+manifest shell commands run without a sandbox; never invoke them in pull-request CI.
 """
 import argparse
 import datetime
@@ -774,8 +774,21 @@ def main(argv=None, prog=None):
     testing.add_argument('ids', nargs='*', metavar='ID')
     testing.add_argument('--quick', action='store_true', help='test one kind per piece: its images, else its exports, else its first audio command')
     testing.add_argument('--timeout', type=int, default=300, help='seconds per run command (default 300)')
+    adding = commands.add_parser('add', help='stage a trusted local piece after two full renders; NEVER use in PR CI')
+    adding.add_argument('dir', metavar='DIR')
+    adding.add_argument('--status', choices=('study', 'accepted', 'reviewed'))
+    adding.add_argument('--timeout', type=int, default=300)
+    adding.add_argument('--trust-local-code', action='store_true', help='explicitly allow unsandboxed piece execution')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'add':
+            import contribute
+            try:
+                result = contribute.add(args.dir, args.library, args.status, args.timeout, args.trust_local_code)
+            except (contribute.ContributionError, contribute.deliver.DeliveryError, OSError) as exc:
+                parser.exit(1, f'library add: {exc}\n')
+            print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+            return
         if args.command == 'test':
             report = test(args.library, args.ids, args.quick, args.timeout)
             print(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False))

@@ -87,8 +87,8 @@ class SkillRouterTest(unittest.TestCase):
             self.assertIn(phrase, (REPO / 'references' / 'authoring.md').read_text(encoding='utf-8'), phrase)
 
     def test_nothing_unbuilt_is_offered(self):
-        self.assertNotIn('library add', TEXT)
-        self.assertNotIn('library add', self.help)
+        self.assertIn('pixelate library add work/NAME', TEXT)
+        self.assertIn('pixelate library add', self.help)
         self.assertIn('manual pull request', section('The remix loop'))
         for tool in ('find_pieces', 'remix_piece', 'render_piece', 'deliver_piece'):
             self.assertIn(f'`{tool}`', TEXT)

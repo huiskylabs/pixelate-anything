@@ -23,47 +23,35 @@ except ImportError:                     # mcp 1.x
 
 GUIDES = {p.stem: p for p in sorted((KIT / 'guides').glob('*.md'))}
 GUIDES.update({'brief': KIT / 'references' / 'brief.md', 'drawing': KIT / 'references' / 'drawing.md',
+               'authoring': KIT / 'references' / 'authoring.md', 'remix': KIT / 'references' / 'remix.md',
                'delivery': KIT / 'references' / 'delivery.md', 'craft': KIT / 'references' / 'craft.md',
                'scene-contract': KIT / 'references' / 'scene-contract.md', 'skill': KIT / 'SKILL.md',
                'art-director': KIT / 'references' / 'art-director.md',
                'visual-specialists': KIT / 'references' / 'visual-specialists.md',
                'music-review': KIT / 'references' / 'music-review.md'})
 
-INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read only what each step needs.
-1. intake_request: if disposition is offer, optionally ask its two questions. Accept answers in the user's
-   own words, or skip; combine explicit answers with the original request before writing the brief.
-   If direct, proceed without intake questions. Read the intent (guide('brief')).
-2. route_request: ranks styles and names the mode; a hint, not the decision. Read the mode's guide:
-   scenes (+ music), rebuild, eras, assets, music; a quick conversion is pixelate, a palette is palettes.
-3. write_brief (a short brief for a small ask), fill every TODO (each names its section and command),
-   lint_brief until it says ready. style_card(name) prints one style's rules, light, budgets and limits.
-4. Draw a greyscale block-in of the layout (flat value shapes from the brief's boxes; its gate is
-   `pixelate check BLOCKIN.png --blockin --brief brief.md`), then critique_prompt(brief, block=...):
-   send the prompt to a separate agent that did not write the brief, apply its changes, lint_brief
-   again within the stage's review budget (guide('delivery'), Art director). A short brief skips
-   brief-stage review. Save the external lead report, call record_visual_review(brief, report),
-   and require visual_review_status(brief) to return READY for an A full brief. If the budget ends
-   below A, report grade and unresolved ranked fixes and ask whether to continue or change the brief.
-5. Show the user an A full brief (or a short brief, which skips brief-stage review)
-   with section 0 and wait for OK.
-6. Draw everything yourself in code (guide('drawing')). kit_tools() lists topics and modules,
-   kit_tools('rain') the techniques for a subject, kit_tools('post.Post.lightmap') one signature.
-   references/assets holds examples to read, never to call.
-7. check_frame and redraw until every line passes (guide('delivery')); then judge_frame and fix each
-   box it finds or say why it stays.
-8. critique_prompt(brief, frame, prev=last lead critique): the same for the still; optional
-   role=composition|lighting|set|character consults observe only; pass at most two notes total
-   via consults to a later lead round. The lead alone grades and reconciles notes. Apply its fixes,
-   check_frame again within the stage's review budget (guide('delivery'), Art director). Save the
-   lead report, call record_visual_review(brief, report, frame), and require
-   visual_review_status(brief, frame) to return READY for this still. If the budget ends below A,
-   stop automatic review, report grade and unresolved ranked fixes and ask whether to continue or
-   change the brief. Passing the gate means legal, not good: never self-grade.
-9. Show one still for go/no-go only once it is graded A; never present a below-A still as finished.
-10. Confirm the animation plan (loop length, what moves, rates), then animate.
-Library path, the default for a new request: find_pieces (look at the thumbnails), remix_piece, edit
-what REMIX.md names, render_piece, deliver_piece. These run the piece's own shell commands without a
-sandbox; a gate pass or a delivery is a technical result, not quality, approval or rights.
+INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read guide('skill') for the router.
+Default for every model: find_pieces(request) searches checked-in manifests without running piece code;
+look at its thumbnails and choose a close subject with changes you can make. If no piece is close, or
+someone asks for original work, read guide('authoring') and follow its ten-step author path instead.
+Remix loop: read guide('remix'), then remix_piece copies a trusted checked-in base and tests its
+unedited copy; REMIX.md names what stays and what changes. Edit knob and anatomy files, then
+render_piece; inspect every current frame and gate/judge result, and redraw until each gate passes.
+The distance-from-base warning is uncalibrated and never a grade or gate. Check music with
+check_music; audio and exports are not image-gated. An independent critique at the end needs an
+approved budget and a reviewer who did not make the work. With no budget or reviewer, print the
+prompt and say NO INDEPENDENT REVIEW, with no art-quality claim. deliver_piece runs every output
+again and writes facts (or verifies them without running code); an unreviewed remix may be packaged
+as NOT REVIEWED but needs separate user approval before being called finished. No check clears
+redistribution rights or raises a piece's status. Library add is not built: give back by a manual
+pull request with evidence. Shell-based remix, render and deliver execute trusted code with your
+permissions, without a sandbox; never run contributed programs in PR CI.
+Author path: read guide('authoring') for the full ten steps. The independent lead owns each grade
+with three graded rounds per full stage by default; specialists observe. The greyscale block-in
+is the sole pre-approval drawing and must pass its gate. A full brief needs a bound independent A
+before user confirmation; a short brief skips brief-stage review, not block-in gate or confirmation.
+For an external lead report, record_visual_review(brief, report) and require
+visual_review_status(brief, frame) on the still. Without approved budget, stop that author stage.
 Hard rules: the five orthographic views (side, 3/4 top-down, 2:1 iso, oblique, military) are
 presets, not limits. Keep a reference's camera or an explicit one- or two-point perspective;
 draw converging edges on the native-pixel grid. Draw original scenes without borrowed characters,
@@ -268,10 +256,9 @@ def kit_tools(query: str = '', style: str = '') -> str:
 # ---------------------------------------------------------------- guides and files
 @server.tool()
 def guide(name: str) -> str:
-    """Read a guide. names: rebuild, eras, pixelate, palettes, assets, scenes, music, styles, toolkit, brief,
-    drawing, delivery, craft (an index of the last three), scene-contract, skill, art-director. Read the guide
-    for the task's mode first, 'brief' to write the brief, 'drawing' before drawing, 'delivery' for the gate,
-    'art-director' only if you are the art director."""
+    """Read a guide. Start with skill for the default loop, remix for a copy or authoring for new work;
+    mode guides: rebuild, eras, pixelate, palettes, assets, scenes, music, styles, toolkit. Also brief,
+    drawing, delivery, craft, scene-contract and art-director (for the independent reviewer)."""
     if name not in GUIDES:
         return 'guides: ' + ', '.join(GUIDES)
     return GUIDES[name].read_text()

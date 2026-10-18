@@ -131,8 +131,10 @@ class AuthoringDocsTest(unittest.TestCase):
         self.assertIn('pixelate deliver DIR --verify', offered)
         self.assertIn('pixelate deliver DIR --verify', help_text)
         self.assertNotIn('pixelate deliver', not_built)
-        self.assertIn('MCP tools for find, remix or deliver', not_built)
-        self.assertNotRegex(offered, r'(?i)\bMCP (tools? )?(for )?(find|remix|deliver)')
+        for tool in ('find_pieces', 'remix_piece', 'render_piece', 'deliver_piece'):
+            self.assertIn(f'`{tool}`', offered)
+        self.assertIn('MCP `add_piece`', not_built)
+        self.assertNotIn('distance from the base', not_built)
 
     def test_the_ten_steps_live_here_and_skill_points_here(self):
         text = AUTHORING.read_text(encoding='utf-8')

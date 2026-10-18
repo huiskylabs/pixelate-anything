@@ -90,8 +90,10 @@ class SkillRouterTest(unittest.TestCase):
         self.assertNotIn('library add', TEXT)
         self.assertNotIn('library add', self.help)
         self.assertIn('manual pull request', section('The remix loop'))
-        self.assertNotRegex(TEXT, r'(?i)MCP[^.]*\b(find|remix|render|deliver)\b')
-        self.assertIn('where render prints one, which is uncalibrated and never blocks', TEXT)
+        for tool in ('find_pieces', 'remix_piece', 'render_piece', 'deliver_piece'):
+            self.assertIn(f'`{tool}`', TEXT)
+        self.assertNotIn('`add_piece`', TEXT)
+        self.assertIn('render\'s distance-from-base or under-remixed warning, which is uncalibrated and never blocks', TEXT)
 
     def test_nothing_is_called_ready_or_approved(self):
         self.assertNotIn('READY', TEXT)

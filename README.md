@@ -116,7 +116,7 @@ Tools that make pictures return them as images, so the agent can judge its own w
 
 | path | what |
 |---|---|
-| `SKILL.md` | lean entry point: the ten steps, each naming one command and one file to read |
+| `SKILL.md` | lean find → remix → render → deliver router; the ten-step author path lives in `references/authoring.md` |
 | `guides/` | one guide per mode: rebuild, eras, pixelate, palettes, assets, scenes, music |
 | `references/` | `brief.md` (intent to approved brief), `drawing.md` (how to draw), `delivery.md` (gate, art director, still, animation plan), `art-director.md` (the critique rubric); the scene engine API |
 | `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: orthographic projections and boxes; `sdf.py`: curved solids) |

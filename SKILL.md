@@ -7,7 +7,7 @@ metadata:
 
 # pixelate-anything
 
-Every piece here is a program. `library/` holds runnable pieces; each `piece.json` says what the piece draws, which file to change for what, and which knobs make variants. The default for every model is the remix loop: find the closest piece, copy it, edit it, render and check it, deliver it. Authoring a new piece from a brief is the fallback. Run `pixelate` (`<skill>/pixelate`); `pixelate --help` lists every command, `pixelate doctor` what is installed. The loop runs in a shell; without one, the MCP server (`pixelate mcp`) offers the author-path tools.
+Every piece here is a program. `library/` holds runnable pieces; each `piece.json` says what the piece draws, which file to change for what, and which knobs make variants. The default for every model is the remix loop: find the closest piece, copy it, edit it, render and check it, deliver it. Authoring a new piece from a brief is the fallback. Run `pixelate` (`<skill>/pixelate`); `pixelate --help` lists every command, `pixelate doctor` what is installed. The loop runs in a shell; without one, the MCP server (`pixelate mcp`) offers `find_pieces`, `remix_piece`, `render_piece` and `deliver_piece` plus the author-path tools. MCP execution still runs trusted piece code on the server without a sandbox.
 
 ## The remix loop
 
@@ -33,7 +33,7 @@ Author when `find` prints `no close piece`, the person asks for something new, o
 ## Trust and evidence
 
 - `find`, `library list|show|index`, `new` (a plain copy) and `deliver --verify` run no piece code. `remix`, `render`, `deliver` and `library test` run a piece's commands through the shell with your permissions, without a sandbox: run them on checked-in library pieces and your own edits, never on contributed or user-supplied code.
-- Keep five things apart; none proves another: the technical gate, heuristic warnings (judge boxes, the `repeat` WARN, and a distance-from-base or under-remixed warning where render prints one, which is uncalibrated and never blocks), an independent grade, user approval, and rights to every source. No gate pass, golden match, heuristic or self-assessment raises a piece's status or approves it. Never grade your own work.
+- Keep five things apart; none proves another: the technical gate, heuristic warnings (judge boxes, the `repeat` WARN, and render's distance-from-base or under-remixed warning, which is uncalibrated and never blocks), an independent grade, user approval, and rights to every source. No gate pass, golden match, heuristic or self-assessment raises a piece's status or approves it. Never grade your own work.
 - Paid review or evaluation (`--run`, another model, a person's time) needs a budget the user has given. Without one, print the prompt and stop at that stage: on the author path the stage stops for a budget or a lead; a remix continues only as the unreviewed branch of step 7.
 - A remix copies the base's `license` as declared; nobody has verified it, and it grants no rights to a photo or other source.
 

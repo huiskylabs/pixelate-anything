@@ -138,6 +138,18 @@ class Surface(Server):
         self.assertNotIn('add_piece', self.tools)
         self.assertNotIn('critique', ' '.join(n for n in self.tools if n.endswith('_piece')))
 
+    def test_mcp_instructions_route_to_the_same_remix_loop(self):
+        instructions = self.mcp.INSTRUCTIONS
+        self.assertLess(instructions.index('find_pieces(request)'), instructions.index('remix_piece copies'))
+        self.assertLess(instructions.index('remix_piece copies'), instructions.index('render_piece;'))
+        self.assertLess(instructions.index('render_piece;'), instructions.index('deliver_piece runs'))
+        self.assertIn("guide('authoring')", instructions)
+        self.assertIn('NO INDEPENDENT REVIEW', instructions)
+        self.assertIn('NOT REVIEWED', instructions)
+        self.assertIn('without a sandbox', instructions)
+        self.assertIn('The ten steps', self.tools['guide']('authoring'))
+        self.assertIn('`pixelate remix`', self.tools['guide']('remix'))
+
 
 class Find(Server):
     def test_find_is_static_and_returns_checked_in_thumbnails(self):

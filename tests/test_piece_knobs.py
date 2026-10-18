@@ -11,6 +11,7 @@ from unittest import mock
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'tools'))
+import library  # noqa: E402
 import piece  # noqa: E402
 import render  # noqa: E402
 
@@ -190,6 +191,26 @@ class KnobsHelper(Temp):
         with self.assertRaises(piece.KnobError):
             self.knobs()
 
+    def set_seed_default(self, default):
+        self.data['knobs'] = dict(KNOBS, seed={'type': 'int', 'default': default, 'edits': 'art/draw.py'})
+        (self.root / 'piece.json').write_text(json.dumps(self.data), encoding='utf-8')
+
+    def test_an_int_default_is_held_to_the_bound_of_set_values_by_validate_and_knobs(self):
+        limit = piece.INT_LIMIT
+        for default in (limit, -limit):
+            with self.subTest(default=default):
+                self.set_seed_default(default)
+                self.assertEqual(library.validate(self.root)['knobs']['seed']['default'], default)
+                self.assertEqual(self.knobs()['seed'], default)
+        for default in (limit + 1, -limit - 1, 2 ** 60, True, False, 1.0, '3'):
+            with self.subTest(default=default):
+                self.set_seed_default(default)
+                with self.assertRaises(library.LibraryError):
+                    library.validate(self.root)
+                with self.assertRaises(piece.KnobError) as caught:
+                    self.knobs()
+                self.assertIn('seed', str(caught.exception))
+
     def test_piece_env_never_passes_an_inherited_value(self):
         with mock.patch.dict(os.environ, {piece.ENV: '/inherited/knobs.json'}):
             self.assertNotIn(piece.ENV, render.piece_env())
@@ -301,6 +322,16 @@ class RenderSet(Temp):
                 self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
                 self.assertIn(message, result.stderr)
                 self.assertEqual(tree(self.root), before)
+
+    def test_an_out_of_range_int_default_is_refused_before_anything_runs_or_is_deleted(self):
+        self.data['knobs'] = dict(KNOBS, seed={'type': 'int', 'default': piece.INT_LIMIT + 1, 'edits': 'art/draw.py'})
+        (self.root / 'piece.json').write_text(json.dumps(self.data), encoding='utf-8')
+        (self.root / 'out' / 'stale.png').write_bytes(b'stale')
+        before = tree(self.root)
+        result, _ = self.render('--set', 'seed=1')
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('seed: default: knob seed: expected an integer from', result.stderr)
+        self.assertEqual(tree(self.root), before)
 
     def test_set_is_refused_with_no_run_for_engine_and_pack_pieces_and_for_render_json(self):
         before = tree(self.root)

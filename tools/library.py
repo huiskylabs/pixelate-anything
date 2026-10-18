@@ -18,6 +18,8 @@ import tempfile
 from pathlib import Path
 from typing import NoReturn
 
+import piece  # stdlib-only; its knob bounds are shared with `--set` and PIXELATE_KNOBS
+
 MAX_MANIFEST = 128 * 1024
 SLUG = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*\Z')
 MODES = ('scene', 'rebuild', 'era', 'assets', 'music')
@@ -253,8 +255,12 @@ def check_knobs(root, knobs):
                 fail(name, 'expected distinct scalar values and matching default')
         else:
             fields(knob, ('type', 'default', 'edits'), where=name)
-            if knob['type'] != 'int' or type(knob['default']) is not int:
+            if knob['type'] != 'int':
                 fail(name, 'expected integer knob')
+            try:
+                piece.check_value(name, knob, knob['default'])
+            except piece.KnobError as exc:
+                fail(name, f'default: {exc}')
         asset(root, knob['edits'], f'knobs.{name}.edits')
 
 

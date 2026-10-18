@@ -124,7 +124,8 @@ class StarterManifestTest(unittest.TestCase):
 
     @unittest.skipUnless((REPO / '.git').exists(), 'needs a git checkout')
     def test_golden_and_media_are_tracked_and_the_full_size_frame_is_not(self):
-        listed = subprocess.run(['git', 'ls-files', '--cached', '--others', '--exclude-standard', 'library'],
+        # --cached alone: an untracked file would pass a check that includes --others
+        listed = subprocess.run(['git', 'ls-files', '--cached', 'library'],
                                 cwd=REPO, capture_output=True, text=True, check=True).stdout.split('\n')
         for piece_id in STARTERS:
             output, media = image_output(piece_id), manifest(piece_id)['media']

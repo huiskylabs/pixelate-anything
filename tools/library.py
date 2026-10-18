@@ -454,7 +454,7 @@ def query_tags(request, mode=None):
         return matches[0] if len(matches) == 1 else None
     return {'mode': detected, 'camera': explicit(camera_terms),
             'style': explicit({s: (s,) for s in STYLES[:-1]}),
-            'era': explicit({e: (e.replace('-', ' '), e) for e in ERAS[:-1]}),
+            'era': explicit({e: (e.replace('-', ' '), e) + (('game boy',) if e == 'gameboy' else ()) for e in ERAS[:-1]}),
             'motion': explicit({'loop': ('loop', 'looping'), 'stills': ('still', 'stills'),
                                 'sprite-sheet': ('sprite sheet', 'spritesheet')}),
             'words': terms(request)}
@@ -466,6 +466,7 @@ def find(library, request, mode=None, limit=3):
     Only a subject-tag word that is not an asset format word (FORMAT_WORDS) makes a piece relevant.
     Setting tags (`day`, `outdoor`), format words and words of the title, summary and request add score
     to a relevant piece but cannot make one; status only orders relevant pieces. Otherwise find abstains and returns the starter or author plan.
+    A starter is offered only when it meets every explicit camera, style, era and motion of the request, as a finished piece must.
     """
     query = query_tags(request, mode)
     if type(limit) is not int or limit < 1:
@@ -475,12 +476,12 @@ def find(library, request, mode=None, limit=3):
     for piece in scan(library).values():
         if piece['mode'] != query['mode']:
             continue
-        if piece['status'] == 'starter':
-            starters.append(piece['id'])
-            continue
         tags = piece['tags']
         matched = [key for key in ('camera', 'style', 'era', 'motion') if query[key] and tags[key] == query[key]]
         if any(query[key] and tags[key] != query[key] for key in ('camera', 'style', 'era', 'motion')):
+            continue
+        if piece['status'] == 'starter':
+            starters.append(piece['id'])
             continue
         subject = words & terms(' '.join(tags['subject']))
         if not subject - FORMAT_WORDS:

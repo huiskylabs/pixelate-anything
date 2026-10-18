@@ -32,6 +32,9 @@ cases = load('library_search_cases', TOOLS / 'library_search_cases.py')
 CASES, NO_MATCH_CASES = cases.CASES, cases.NO_MATCH_CASES
 
 THRESHOLD = 16  # plan section 12: the expected piece in the top 3 for at least 80% of 20 requests
+AUTHOR = {'kind': 'author', 'reason': 'no matching starter; author a new piece'}
+# no-match requests whose explicit tags exclude every starter of their mode: the honest plan is to author
+AUTHOR_NO_MATCH = {'a Game Boy style dungeon crawler with skeletons and torches'}
 
 
 def tree(root):
@@ -113,9 +116,39 @@ class LabelledCases(unittest.TestCase):
                 result = library.find(LIBRARY, request)
                 self.assertEqual(result['mode'], mode)
                 self.assertEqual(result['matches'], [])
-                # a mode with no starter gets the author-new-piece plan instead.
-                self.assertEqual(result['fallback'], {'kind': 'starter', 'ids': starters[mode]} if mode in starters
-                                 else {'kind': 'author', 'reason': 'no matching starter; author a new piece'})
+                # a mode with no starter, or only starters its explicit tags exclude, gets the author plan.
+                self.assertEqual(result['fallback'], {'kind': 'starter', 'ids': starters[mode]}
+                                 if mode in starters and request not in AUTHOR_NO_MATCH else AUTHOR)
+
+    def test_explicit_tags_gate_starters_like_finished_pieces(self):
+        # (request, expected fallback ids or None for the author plan)
+        for request, ids in [
+            ('a Game Boy quiet meadow screen', None),                       # the only era starter is NES
+            ('a gameboy title screen', None),
+            ('an NES quiet meadow screen', ['starter-era-nes']),
+            ('a quiet meadow on the nes console, no tags', ['starter-era-nes']),
+            ('rebuild my photo in one-point perspective', None),          # the only rebuild starter is two-point
+            ('rebuild my photo in two-point perspective', ['starter-rebuild-perspective']),
+            ('rebuild my photo', ['starter-rebuild-perspective']),
+            ('a looping seaside scene', ['starter-scene-loop']),
+            ('a still seaside scene', ['starter-scene-still']),
+            ('a seaside scene', ['starter-scene-loop', 'starter-scene-still']),
+            ('a seaside scene in pico-8 style', None),
+            ('a pastel-cell seaside scene', None),                         # both scene starters are lofi
+            ('a lofi seaside scene', ['starter-scene-loop', 'starter-scene-still']),
+            ('an isometric seaside scene', None),                          # both scene starters are side
+            ('a side view seaside scene', ['starter-scene-loop', 'starter-scene-still']),
+        ]:
+            with self.subTest(request=request):
+                result = library.find(LIBRARY, request)
+                self.assertEqual(result['matches'], [])
+                self.assertEqual(result['fallback'], {'kind': 'starter', 'ids': ids} if ids else AUTHOR)
+
+    def test_mode_without_explicit_tags_offers_every_starter_of_the_mode(self):
+        for mode, ids in mode_starters().items():
+            with self.subTest(mode=mode):
+                result = library.find(LIBRARY, 'zzz', mode=mode)
+                self.assertEqual(result['fallback'], {'kind': 'starter', 'ids': ids})
 
     def test_search_runs_no_piece_code_and_writes_nothing(self):
         before = tree(LIBRARY)

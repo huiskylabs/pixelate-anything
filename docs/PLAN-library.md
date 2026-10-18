@@ -43,7 +43,7 @@ The repo already proves the variant claim:
 | People with a place to rebuild | A photo of a city, a street, a landmark | Rebuild pieces in the photo's own camera, ready to relight |
 | Agent users in general | "Make me pixel art of X" | A good starting point instead of a blank page |
 
-**What it is not for:** single pretty stills (image models win on speed), or sprites and characters as standalone products (PixelLab and Retro Diffusion win, and they already plug into the same agents). See decision D2 for using their sprites inside our pieces.
+**What it is not for:** single pretty stills (image models win on speed), or sprites and characters as standalone products (PixelLab and Retro Diffusion win, and they already plug into the same agents).
 
 ### 1.3 The four parts
 
@@ -91,11 +91,11 @@ library/<id>/
   art/            the program (Python runtimes); engine pieces keep scene.js and friends at the root
   sound/          music or SFX program, when the piece has sound
   out/            golden 1x frames used by the library test (small PNGs)
-  media/          thumb.png (256 px), contact.png, preview.gif when it moves (each under about 1 MB)
+  media/          thumb.png (256 px), contact.png, preview.gif or preview.mp4 (short, with sound) when it moves
   history/        optional: draft frames at 1x, critiques and fixes (the critique trail)
 ```
 
-Videos and full-size renders are not committed. They go to GitHub Releases, and `piece.json` links to them.
+A short preview clip with sound (`media/preview.mp4`, about 1–2 MB at most) may be committed so a piece shows both picture and audio. Full-length videos and full-size renders are not committed; they go on the project website later, and `piece.json` links to them.
 
 ### 2.3 Manifest: `piece.json`
 
@@ -260,7 +260,6 @@ Outline:
    - original subjects only;
    - effects in code;
    - no borrowed characters, logos or UI;
-   - external sprites only as decision D2 allows.
 6. **Modes:** a one-line pointer each to the starter pieces and the mode guides.
 
 Path selection is by task, not by model name. If `find` returns a close piece, any model remixes; strong models may still author when they choose. This is more reliable than asking a model to identify itself, which is what huashu-art-motion does.
@@ -356,7 +355,7 @@ Remix only helps when a close piece exists, so the library has to cover the requ
 | Scene loops with sound | island (Lantern Isle), storm at a window (Tidewater), rainy street (Monsoon), sky and clouds (Endless Ascent), canyon (Canyon Cycle), causeway (Tide Procession) | **cosy interior**, **night sky and space**, **underwater**, train or road journey, café or shop front, vertical cover |
 | Rebuild | one-point street (Monsoon), aerial iso (San Francisco, Market Day), coastal town (Santorini) | **two-point street corner**, landmark facade, interior from a photo |
 | Console screens | four consoles (Four Machines), NES platformer and Game Boy town (retro), Neo Geo boss (Quarry) | **RPG overworld**, shmup stage, battle screen, menu and dialogue UI |
-| Assets | tileset and hero (Lanternmoss, Meadow Kit) | **item and icon set**, **UI kit**, character set (see D2) |
+| Assets | tileset and hero (Lanternmoss, Meadow Kit) | **item and icon set**, **UI kit**, character set |
 | Isometric | shipyard (Turntable), projections, San Francisco | small diorama starter, interior room |
 | Music only | engine projects inside pieces | lofi, chiptune overworld, ambient bed as standalone pieces |
 
@@ -395,7 +394,7 @@ Each phase is one to three PRs and ends with something that can be checked.
 
 | Phase | Scope | Done when |
 |---|---|---|
-| **0. Groundwork** | Decisions D1–D5 (section 14); CI running the unit tests; `pixelate --version`; `.pixelate/runs.jsonl` logging from `render`, `critique` and `deliver` | CI green on main; a render writes a run record |
+| **0. Groundwork** | CI running the unit tests; `pixelate --version`; `.pixelate/runs.jsonl` logging from `render`, `critique` and `deliver` | CI green on main; a render writes a run record |
 | **1. Pieces and library** | `references/piece.md` (the spec); `tools/library.py` (schema, index, `list`, `show`, `find`, `test`); migrate all 17 examples and 3 templates with manifests, anatomy, golden frames and thumbnails; `render` reads `piece.json`; CI runs `library test --quick` | Every piece renders in CI; `find` puts the expected piece in its top 3 for at least 80% of 20 labelled requests |
 | **2. Remix loop and new `SKILL.md`** | `pixelate remix`, `render --set`, distance from the base, `pixelate deliver` with script-written facts; MCP tools; `SKILL.md` rewritten (≤1,500 words) with `references/authoring.md`; guides cite pieces; three new starters (scene still, NES, rebuild in perspective) that pass the gate empty | A dry pilot by us: three remixes to new requests on a mid-tier model reach gate pass and critique B or better, with tokens recorded |
 | **3. Give back and gallery** | `pixelate library add`; `history/` trails; curated rejects; gallery generated in the README and a Pages site; `CONTRIBUTING.md` with the piece checklist; recipes list their pieces | Adding a piece is one command and one PR; the gallery rebuilds from the index |
@@ -416,15 +415,17 @@ The benchmark comes after phase 2 on purpose: the paid runs should measure the p
 | Library growth | Accepted pieces per month, and how many come from outside contributors | Growing |
 | Benchmark | Blind win rate of C against A and B | Published, whatever it says |
 
-## 14. Decisions for you
+## 14. Decisions
 
-| # | Decision | Recommendation |
+Taken on 2026-10-18:
+
+| # | Decision | Outcome |
 |---|---|---|
-| D1 | **License.** Keep everything MIT, or go open core later (open kit, hosted library) | Stay MIT now. Adoption and proof matter more than protection at 17 pieces; the code is easy to split later. |
-| D2 | **External sprites.** May pieces include characters from the user or from a sprite generator (PixelLab, Retro Diffusion), cleaned through our gate? | Yes, as declared "imported" assets with source and license recorded in `piece.json`. Gallery showcase pieces stay drawn in code. This removes our weakest area. |
-| D3 | **Media hosting.** | Thumbnails and short preview GIFs in git (each under about 1 MB); videos as Release assets; keep the repo under 50 MB. |
-| D4 | **Naming.** "Library" and "piece", commands `find`, `remix`, `deliver` | As proposed, unless you prefer other words |
-| D5 | **Who writes the held-out requests and who rates the results** | Two or three people outside the project; we never see the requests in advance |
+| D1 | License | **MIT** for everything, including the library. |
+| D2 | External sprites (characters from the user or a sprite generator) | **Not pursued.** Pieces stay drawn in code; no import path is planned. |
+| D3 | Media | **Thumbnails, preview GIFs and short preview clips with sound in git** (each about 1–2 MB at most, so a piece shows both picture and audio); full-length videos go on the project website later. Keep the repo under 50 MB. |
+| D4 | Naming | **As proposed:** library, piece, `find`, `remix`, `deliver`. |
+| D5 | Who writes the held-out requests and rates the benchmark | **Deferred** to phase 4. |
 
 ## 15. Risks
 
@@ -436,6 +437,6 @@ The benchmark comes after phase 2 on purpose: the paid runs should measure the p
 | Weak models break a working program | Render the untouched copy first; knobs before code; anatomy names the files to edit; small diffs; revert to the base |
 | Contributions lower the bar | Statuses with requirements; review binding for `reviewed`; CI checks |
 | Borrowed IP slips in through contributions | The original-subjects rule; source and license fields; a review checklist |
-| Repo bloat | Media policy (D3) |
+| Repo bloat | Media policy (D3): short clips only; full videos on the website |
 | Process creeps back | `SKILL.md` word limit enforced by a test; new process goes into the author path only |
 | The benchmark says no | The decision rules in section 11; even then the library has value as a gallery with source code |

@@ -2,7 +2,6 @@
 rim with a toppled lattice crane. Two canvases: far (behind the boss) and near (in front of the
 soldier). Every pixel is a palette slot; no dither, hard bands of uneven height."""
 import sys, math
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
 import numpy as np
 from canvas import Canvas, seam
 import morph
@@ -309,7 +308,6 @@ def build(slam=False):
     return far, near
 
 if __name__ == '__main__':
-    sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/06-quarry-wakes/art')
     from pal import PAL
     f, n = build()
     f.paste(n)

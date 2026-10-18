@@ -17,7 +17,7 @@
 ## 2. Style and light regime
 
 - Era mode, light regime none: light is palette steps per machine; no light layer, no blending, no blur.
-- Learns from examples/retro (Rooftop Run, Island Village, Pixel Harbor): read, never imported. Copies no game, character, logo or UI layout; captions name no console.
+- Learns from library/retro-screens (Rooftop Run, Island Village, Pixel Harbor): read, never imported. Copies no game, character, logo or UI layout; captions name no console.
 
 ## 3. Art direction rules
 

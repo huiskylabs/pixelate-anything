@@ -4,9 +4,7 @@ Night, 270x480 native, 4x nearest to 1080x1920. Below: three cloud masses of ver
 (long flat tops, a lit top tier, a deeper belly) with two kite-sailed skiffs; above: aurora curtains
 and three kinds of hand-placed stars. The passenger's lantern is the only warm peak.
 """
-import sys, math
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
-sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/02-endless-ascent/art')
+import math
 import numpy as np
 from canvas import Canvas
 from common import (W, H, YY, XX, hsh, hsh_arr, noise1, bayer, build, new_grid, put, stamp, nb4, shift,

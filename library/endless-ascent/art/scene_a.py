@@ -3,9 +3,7 @@
 Dusk-blue, 270x480 native, 4x nearest to 1080x1920. Light: cool skylight from the upper left; the
 passenger's lantern is the one warm peak. Everything is a slot on the integer grid.
 """
-import sys, math
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
-sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/02-endless-ascent/art')
+import math
 import numpy as np
 from canvas import Canvas
 from common import (W, H, YY, XX, hsh, hsh_arr, noise1, bayer, build, new_grid, put, stamp, art_mask,

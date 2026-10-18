@@ -22,7 +22,7 @@ Request: one 320x180 still of a gorge at the meeting of two waterfalls: a rope b
 - Ramps `lofi` shape, written per mood in OKLCh (`palette.from_lch`); flash frames via `palette.flash` on the storm and mesa slots only.
 - Outline own (darkest step of each material); dither bayer4 in the sky only, transitions 10-16 rows.
 - Budget (lofi): L<0.1 <= 1%, L>=0.7 <= 4%, L>0.8 <= 2%, median C 0.02-0.1; the forge interior and lantern core are the only L>0.8 masses.
-- Original work: no characters, logos or places from any game; studied examples/lantern-isle and references/assets/props.py (lantern) only as examples to read.
+- Original work: no characters, logos or places from any game; studied library/lantern-isle and references/assets/props.py (lantern) only as examples to read.
 
 ## 3. Art direction rules
 - Every object is a hand-placed slot map in art/*.py on the kit's canvas; no stamped units.

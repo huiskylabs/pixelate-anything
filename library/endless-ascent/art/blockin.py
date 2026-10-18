@@ -1,7 +1,4 @@
 """Greyscale block-ins at native size: flat value masses, one grey per plane, no detail."""
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
-sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/02-endless-ascent/art')
 import numpy as np
 from common import W, H, YY, XX, OUT, hsh, new_grid, save
 import geometry as G

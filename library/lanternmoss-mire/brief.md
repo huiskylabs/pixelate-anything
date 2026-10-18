@@ -69,8 +69,8 @@ caps, a moth and the key (north-east); sunken cart with the bell snail and a pot
 lantern-pool mask around the hero (its core swaps every plank and water slot to a lamp slot, its
 rim only the light ones). Day and night use the same tile indices and frames.
 
-Rebuild: `./pixelate assets examples/moments/09-lanternmoss-mire`, then
-`python3 examples/moments/09-lanternmoss-mire/maps/render_map.py --gif`.
+From the kit root, rebuild with `./pixelate assets library/lanternmoss-mire`, then
+`python3 library/lanternmoss-mire/maps/render_map.py --gif`.
 
 ## Sound plan (sound/09-sample.wav, 5.0 s)
 

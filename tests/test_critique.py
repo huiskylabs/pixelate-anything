@@ -105,7 +105,7 @@ class CritiqueTest(unittest.TestCase):
                                  critique.music_prompt(self.track, self.brief))
                 with self.assertRaisesRegex(ValueError, 'at most two'):
                     mcp_server.critique_prompt('brief.md', consults=['lighting.md', 'set.md', 'character.md'])
-                external = ROOT / 'examples/lantern-isle/BRIEF.md'
+                external = ROOT / 'library/lantern-isle/brief.md'
                 self.assertIn(str(external), mcp_server.critique_prompt(str(external)))
                 self.assertIn(str(external), mcp_server.music_critique_prompt('track.wav', str(external)))
                 with self.assertRaisesRegex(ValueError, 'inside the workspace'):

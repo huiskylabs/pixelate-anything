@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "id": "starter-scene-loop",
+  "title": "Starter: Scene Loop",
+  "status": "study",
+  "summary": "A minimal looping scene to copy: a cabin and a pine on a hill from a warm dusk into a rainy night, with a lofi soundtrack and sprites as hand-drawn pixel maps.",
+  "request": "Unknown: the original request was not recorded in the repository. Template from the first kit commits; no request exists. Source description: Hilltop Cabin: a starter scene for pixelate-anything.",
+  "mode": "scene",
+  "tags": {
+    "subject": [
+      "cabin",
+      "pine",
+      "hill",
+      "rain",
+      "cloud",
+      "moon",
+      "star",
+      "window",
+      "house"
+    ],
+    "setting": [
+      "dusk",
+      "night",
+      "outdoor",
+      "rainy"
+    ],
+    "camera": "side",
+    "style": "lofi",
+    "era": "none",
+    "motion": "loop",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 240,
+    "h": 135,
+    "scale": 8
+  },
+  "runtime": "engine",
+  "outputs": [
+    {
+      "name": "rain",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 30 --zoom 8 --out out",
+      "frame": "out/t0030.00.png",
+      "golden": "out/golden/rain.png",
+      "size": {
+        "w": 240,
+        "h": 135
+      },
+      "scale": 8,
+      "style": "lofi"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "config.js",
+      "draws": "canvas size, the two phases (dusk, rain) with tempos, cycle length and palette slot names",
+      "change_for": "canvas size, phases, loop length"
+    },
+    {
+      "file": "palettes.js",
+      "draws": "a palette per phase",
+      "change_for": "colour and mood"
+    },
+    {
+      "file": "sprites.js",
+      "draws": "hand-drawn pixel maps: cabin, pine, moon, clouds, twinkle",
+      "change_for": "sprites"
+    },
+    {
+      "file": "scene.js",
+      "draws": "composition and the engine hooks: sky bands, hills, stars, clouds, cabin, rain",
+      "change_for": "the scene"
+    },
+    {
+      "file": "music.js",
+      "draws": "the generative soundtrack for both phases",
+      "change_for": "the music"
+    },
+    {
+      "file": "scene.json",
+      "draws": "page title, description and the file list",
+      "change_for": "page metadata"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,225 @@
+{
+  "schema": 1,
+  "id": "lantern-isle",
+  "title": "Lantern Isle",
+  "status": "study",
+  "summary": "A small island cottage in a calm night sea, looping through four seasons with its own generative lofi soundtrack.",
+  "request": "Make an animated pixel-art diorama of a small island in a calm sea, built to be the looping cover for a 10-hour lofi music video, with its own generative lofi soundtrack that changes with the seasons.\n\nArt direction: It must look hand-pixeled by a skilled artist, at the quality of hand-crafted indie game key art, with no AI or procedural feel.\n- Draw every object as a hand-authored sprite (pixel maps defined in code), not shapes built from circles, rectangles, or math curves.\n- Use a strict limited palette per season and manual pixel techniques: selective anti-aliasing, clean pixel clusters, no stray single pixels, no pillow shading, no smooth gradients. Use dithering only where it adds texture, such as in the sky and water.\n- Give careful silhouettes so every shape reads clearly, and use soft rim lighting where warm light hits cool surfaces. Favor restraint and atmosphere over clutter.\n- Avoid symmetry and perfection. Trees lean slightly, the roof sags a little, shutters don't match, the dock has a missing plank, rocks have uneven edges.\n- Animate with stepped, frame-by-frame timing (3 to 6 frame cycles at about 8 to 12 fps for flames, leaves, and water) instead of smooth interpolation. Motion should feel drawn, not simulated.\n- Hand-place particles and vary them: petals, leaves, and snowflakes use several small sprite variants with irregular paths, not uniform random sprays.\n- No glow blur, bloom, lens effects, or soft shadows. Express light with color shifts and a few deliberate highlight pixels.\n- Add lived-in storytelling details: a worn path to the door, a patched roof tile, firewood stacked by the wall, a laundry line, a cat sleeping on the windowsill, a mug on the porch rail, and small items that change with each season.\n- Keep a consistent pixel scale everywhere; nothing drawn at a different resolution.\n\nScene: A fixed, centered side-on view of one small island with a cozy cottage (chimney, glowing windows, small porch), two or three trees, a little dock with a rowboat, a lantern post, and a garden patch. Gentle waves lap the shore, and the sea reflects the sky and the window light. The island fills roughly the middle 60% of the frame.\n\nSeasons: The scene cycles through spring, summer, fall, and winter, about 90 seconds each, with soft 10-second crossfades in both visuals and music. Winter blends back into spring so the cycle loops seamlessly. All seasons are set at twilight or night so the warm cottage glow always contrasts with a cool sky and sea.\n\n- Spring\n  Palette: misty teal, sage green, blossom pink, warm amber windows.\n  Elements: soft rain, cherry blossoms, falling petals, a puddle shimmer on the dock, a small kite tied to the porch.\n  Music: Fmaj7 / Em7 / Dm7 / Cmaj7, light Rhodes piano, gentle rain ambience, around 72 BPM.\n\n- Summer\n  Palette: deep indigo sky, magenta-orange horizon, lush green, golden lantern light.\n  Elements: fireflies, full canopy, a hammock between trees, sparkles on the water, a distant lighthouse beam sweeping the sea.\n  Music: Dmaj9 / Bm7 / Gmaj7 / A6, warm guitar, soft cicadas and waves, around 78 BPM.\n\n- Fall\n  Palette: dusky violet, burnt orange, rust red, honey-yellow windows.\n  Elements: drifting red and orange leaves, chimney smoke, low mist on the sea, pumpkins on the porch, a few migrating birds crossing the sky.\n  Music: Am9 / Fmaj7 / Dm9 / E7, muted piano, wind and rustling leaves, around 70 BPM.\n\n- Winter\n  Palette: cold navy, icy blue, snow white, deep fire orange.\n  Elements: falling snow, snow on the roof and trees, icicles on the eaves, frost on the shore, a bright fireplace glow, faint aurora in the sky.\n  Music: Cmaj7 / Am7 / Fmaj7 / G6, sparse music box and pad, crackling fire, around 66 BPM.\n\nMusic: Generate the lofi soundtrack procedurally with the Web Audio API: soft drums with swing, a warm bass, the seasonal chord progression and instrument, light vinyl crackle, and seasonal ambience. Add small random variations in melody and drum fills so it doesn't feel repetitive over hours. Start audio on a single click (browsers require it) with a clean play button that hides afterward.\n\nMotion: Keep everything slow and calm. Subtle ambient effects throughout: flickering window light, drifting smoke, swaying trees, rippling water, and the seasonal particles. No sudden movement, no text, no people.\n\nTechnical: Render at a native 480x270 pixel canvas, scaled 4x with nearest-neighbor to a crisp 1920x1080. Run at a steady frame rate and loop smoothly for hours without drift, audio glitches, or visible seams. Deliver it as a single self-contained HTML page with a canvas.",
+  "mode": "scene",
+  "tags": {
+    "subject": [
+      "island",
+      "cottage",
+      "sea",
+      "lantern",
+      "dock",
+      "boat",
+      "tree",
+      "pine",
+      "blossom",
+      "firefly",
+      "snow",
+      "aurora",
+      "lighthouse",
+      "moon",
+      "rain",
+      "season",
+      "spring",
+      "summer",
+      "fall",
+      "winter",
+      "leaf",
+      "petal",
+      "smoke"
+    ],
+    "setting": [
+      "night",
+      "twilight",
+      "outdoor",
+      "coastal"
+    ],
+    "camera": "side",
+    "style": "lofi",
+    "era": "none",
+    "motion": "loop",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 480,
+    "h": 270,
+    "scale": 4
+  },
+  "runtime": "engine",
+  "outputs": [
+    {
+      "name": "spring",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 15 --zoom 4 --out out",
+      "frame": "out/t0015.00.png",
+      "golden": "out/golden/spring.png",
+      "size": {
+        "w": 480,
+        "h": 270
+      },
+      "scale": 4,
+      "style": "lofi"
+    },
+    {
+      "name": "summer",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 45 --zoom 4 --out out",
+      "frame": "out/t0045.00.png",
+      "golden": "out/golden/summer.png",
+      "size": {
+        "w": 480,
+        "h": 270
+      },
+      "scale": 4,
+      "style": "lofi"
+    },
+    {
+      "name": "fall",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 75 --zoom 4 --out out",
+      "frame": "out/t0075.00.png",
+      "golden": "out/golden/fall.png",
+      "size": {
+        "w": 480,
+        "h": 270
+      },
+      "scale": 4,
+      "style": "lofi"
+    },
+    {
+      "name": "winter",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 105 --zoom 4 --out out",
+      "frame": "out/t0105.00.png",
+      "golden": "out/golden/winter.png",
+      "size": {
+        "w": 480,
+        "h": 270
+      },
+      "scale": 4,
+      "style": "lofi"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "config.js",
+      "draws": "canvas size, the four season phases with tempos, cycle length and every palette slot name",
+      "change_for": "canvas size, number or order of phases, loop length"
+    },
+    {
+      "file": "palettes.js",
+      "draws": "one strict hand-picked palette per season, slots keep their meaning across seasons",
+      "change_for": "colour, season mood, time of day"
+    },
+    {
+      "file": "scene.js",
+      "draws": "composition and the engine hooks that draw each frame",
+      "change_for": "framing, layer order, what is drawn when"
+    },
+    {
+      "file": "objects.js",
+      "draws": "the island objects back to front with hand-set positions and their animation",
+      "change_for": "what stands on the island and where"
+    },
+    {
+      "file": "sky.js",
+      "draws": "stars, moons, clouds, aurora, the far lighthouse and migrating birds",
+      "change_for": "sky and night features"
+    },
+    {
+      "file": "sea.js",
+      "draws": "swell glints, moon, sunset and aurora reflections, rain rings",
+      "change_for": "water look and reflections"
+    },
+    {
+      "file": "fx.js",
+      "draws": "reflections, light on the water, low mist and weather particles",
+      "change_for": "weather, particles, mist"
+    },
+    {
+      "file": "music.js",
+      "draws": "one generative music entry per season phase: chords, instruments, drums, ambience",
+      "change_for": "the soundtrack: chords, tempo, instruments"
+    },
+    {
+      "file": "sprites.js",
+      "draws": "generated pixel maps for every sprite (do not edit by hand; run `pixelate sprites .`)",
+      "change_for": "nothing directly; regenerate after editing art/*.py"
+    },
+    {
+      "file": "scene.json",
+      "draws": "page title, description and the file and art-module lists",
+      "change_for": "page metadata, added or removed modules"
+    },
+    {
+      "file": "brief.md",
+      "draws": "the original prompt that produced the scene and its soundtrack",
+      "change_for": "the intent of a variant"
+    },
+    {
+      "file": "art/art_island.py",
+      "draws": "the island: grassy cap over stacked boulders, pebble beach, shore rocks, worn path",
+      "change_for": "the ground the scene stands on"
+    },
+    {
+      "file": "art/art_cottage.py",
+      "draws": "the cottage as hand-drawn layers",
+      "change_for": "the building"
+    },
+    {
+      "file": "art/art_trees.py",
+      "draws": "a cherry tree in four states, a young tree and a pine",
+      "change_for": "trees and plants"
+    },
+    {
+      "file": "art/art_props.py",
+      "draws": "dock, rowboat, lantern post, far lighthouse, moons and small sky sprites",
+      "change_for": "props and sky sprites"
+    },
+    {
+      "file": "art/art_details.py",
+      "draws": "lived-in details and seasonal props: cat, mug, kite, hammock, pumpkins, firewood, laundry",
+      "change_for": "story details"
+    },
+    {
+      "file": "art/art_sky.py",
+      "draws": "clouds and low mist sprites",
+      "change_for": "clouds"
+    },
+    {
+      "file": "art/art_fx.py",
+      "draws": "smoke puffs, weather particles and water ring sprites",
+      "change_for": "particle looks"
+    },
+    {
+      "file": "art/art_winter.py",
+      "draws": "snow laid over the roof, sills, dock, boat, lantern and shore stones, and icicles",
+      "change_for": "winter overlays"
+    },
+    {
+      "file": "art/art_ground.py",
+      "draws": "fallen petals and leaves scattered on the grass",
+      "change_for": "seasonal ground scatter"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Huisky Labs and Claude (agent), per git history"
+  },
+  "license": "MIT"
+}

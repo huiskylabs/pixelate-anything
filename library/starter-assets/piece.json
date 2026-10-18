@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "id": "starter-assets",
+  "title": "Starter: Assets",
+  "status": "starter",
+  "summary": "A minimal asset pack to copy: a palette and two hand-drawn items (an animated coin and a heart) exported as strips, Aseprite-style JSON, an atlas and a contact sheet.",
+  "request": "Unknown: the original request was not recorded in the repository. Template from the initial kit commit; no request exists. Source description: My Pack.",
+  "mode": "assets",
+  "tags": {
+    "subject": [
+      "coin",
+      "heart",
+      "item",
+      "sprite",
+      "icon",
+      "pack",
+      "palette"
+    ],
+    "setting": [
+      "abstract"
+    ],
+    "camera": "none",
+    "style": "none",
+    "era": "none",
+    "motion": "sprite-sheet",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 8,
+    "h": 8,
+    "scale": 8
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "atlas-image",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/atlas.png"
+    },
+    {
+      "name": "atlas-data",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/atlas.json"
+    },
+    {
+      "name": "contact-sheet",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/contact.png"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "sprites/items.px",
+      "draws": "two hand-drawn items: an animated coin (4 frames, spin tag) and a heart",
+      "change_for": "the items, the .px format"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scale, preview background and the (empty) map list",
+      "change_for": "pack name, export scale, maps"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the pack palette slots",
+      "change_for": "colour"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

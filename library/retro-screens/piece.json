@@ -1,0 +1,130 @@
+{
+  "schema": 1,
+  "id": "retro-screens",
+  "title": "Retro Screens",
+  "status": "study",
+  "summary": "Three original classic-genre screens under console-era limits: an 8-bit rooftop platformer, a Game Boy-style village RPG and an 8-bit title screen.",
+  "request": "Unknown: the original request was not recorded in the repository. SOURCES notes describe the three screens as original: characters, places, titles and text; console names describe hardware limits only. Source description: original classic-genre screens under console-era limits: an 8-bit platformer, a Game Boy-style RPG, an 8-bit title screen.",
+  "mode": "era",
+  "tags": {
+    "subject": [
+      "platformer",
+      "rpg",
+      "title",
+      "rooftop",
+      "village",
+      "courier",
+      "windmill",
+      "cat",
+      "harbor",
+      "pigeon",
+      "skyline",
+      "city",
+      "menu",
+      "dialogue",
+      "sprite"
+    ],
+    "setting": [
+      "outdoor",
+      "sunset",
+      "night",
+      "urban",
+      "coastal"
+    ],
+    "camera": "side",
+    "style": "none",
+    "era": "nes",
+    "motion": "loop",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 256,
+    "h": 224,
+    "scale": 3
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "rooftop-run",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/rooftop_run@3x.png",
+      "golden": "out/golden/rooftop-run.png",
+      "size": {
+        "w": 256,
+        "h": 224
+      },
+      "scale": 3,
+      "era": "nes"
+    },
+    {
+      "name": "island-village",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/island_village@3x.png",
+      "golden": "out/golden/island-village.png",
+      "size": {
+        "w": 160,
+        "h": 144
+      },
+      "scale": 3,
+      "era": "gameboy"
+    },
+    {
+      "name": "title-screen",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/title_screen@3x.png",
+      "golden": "out/golden/title-screen.png",
+      "size": {
+        "w": 256,
+        "h": 224
+      },
+      "scale": 3,
+      "era": "nes"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/rooftop_run.py",
+      "draws": "Rooftop Run: NES-style side-scrolling platformer over San Francisco rooftops, parallax layers, 160 frames; imports ../san-francisco/art (library/san-francisco), so it needs that piece beside it",
+      "change_for": "the platformer screen, its hero and skyline"
+    },
+    {
+      "file": "art/island_village.py",
+      "draws": "Island Village: Game Boy-style top-down RPG village with windmill, cat, gull and dialogue box (4 shades, 160x144); imports ../san-francisco/art (library/san-francisco), so it needs that piece beside it",
+      "change_for": "the Game Boy screen, its village and characters"
+    },
+    {
+      "file": "art/title_screen.py",
+      "draws": "Pixel Harbor: the isometric night city from the san-francisco piece cropped to 256x224, pushed through the NES preset, with logo and blinking menu; imports ../san-francisco/art (library/san-francisco), so it needs that piece beside it",
+      "change_for": "the title screen text and menu; the era retarget"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scales and preview background for pixelate assets",
+      "change_for": "export scale"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the NES master palette slots for the exporter",
+      "change_for": "nothing for the scenes"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

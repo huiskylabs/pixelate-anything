@@ -50,12 +50,12 @@ It ships three ways:
 ```sh
 git clone https://github.com/huiskylabs/pixelate-anything
 cd pixelate-anything
-pip install -r requirements.txt     # pinned Pillow, NumPy and SciPy reproduce library goldens
+pip install -r requirements.txt     # pins the Pillow, NumPy and SciPy versions used for the goldens
 ./pixelate doctor                   # shows what each mode needs (node for scenes, ffmpeg for video)
 ./pixelate setup                    # registers the MCP server and the skill with your agents (asks first)
 ```
 
-The library's Python art and audio include SciPy programs; the pinned image dependencies match the checked-in 1× goldens. Scenes need Node.js, and music/page renders also need Playwright's Chromium browser (`python3 -m playwright install chromium`); `pixelate doctor` checks these separately. The library's quick test skips audio on image pieces and does not certify music playback.
+The library's Python art and audio include SciPy programs; these pins match the environment used to verify the checked-in 1× goldens, but cross-platform equality still needs a render test. Scenes need Node.js, and music/page renders also need Playwright's Chromium browser (`python3 -m playwright install chromium`); `pixelate doctor` checks these separately. The library's quick test skips audio on image pieces and does not certify music playback.
 
 `setup` covers:
 - **Claude Code:** the MCP server, plus the skill in `~/.claude/skills`.

@@ -54,7 +54,6 @@ def critique(img, prompt_md, work):
     return g.group(1) if g else None
 
 def blind_grade(img, prompt_md):
-    """Keep arm labels out of all paths shown to the external critic."""
     with tempfile.TemporaryDirectory(prefix='pixelate-blind-') as tmp:
         work = pathlib.Path(tmp)
         anonymous = work / 'frame.png'

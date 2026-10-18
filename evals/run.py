@@ -93,9 +93,10 @@ def run_one(task, arm, n, out, agent, timeout, refs, kit=KIT, budget_usd=None):
     ref = None
     if refs:
         cand = pathlib.Path(refs) / (task.stem.split('-')[0] + '.jpg')
-        if cand.is_file():
-            shutil.copy(cand, ws / 'reference.jpg')
-            ref = cand
+        if not cand.is_file():
+            raise SystemExit('missing reference photo: %s' % cand)
+        shutil.copy(cand, ws / 'reference.jpg')
+        ref = cand
     text = prompt_for(task, arm, ref, kit)
     (d / 'prompt.md').write_text(text)
     t = time.time()
@@ -118,7 +119,6 @@ def rev():
     return r.stdout.strip() or None
 
 def isolated_kit(out):
-    """Copy the installed kit without prior answers, evals or maintainer notes."""
     target = out / '_kit'
     if target.exists():
         raise SystemExit('kit snapshot already exists: %s (choose a fresh --out)' % target)
@@ -179,7 +179,13 @@ def main(argv=None):
         agent = budgeted_agent(a.agent_cmd, a.budget_usd)
     else:
         prompt_dir, agent = pathlib.Path(a.prompts or PROMPTS), a.agent_cmd
-    plan = [(t, arm, n) for t in tasks(a.tasks, prompt_dir) for n in range(1, a.runs + 1) for arm in arms]
+    selected = tasks(a.tasks, prompt_dir)
+    if a.go and a.refs:
+        missing = [str(pathlib.Path(a.refs) / (t.stem.split('-')[0] + '.jpg')) for t in selected
+                   if not (pathlib.Path(a.refs) / (t.stem.split('-')[0] + '.jpg')).is_file()]
+        if missing:
+            ap.error('missing reference photo(s): ' + ', '.join(missing))
+    plan = [(t, arm, n) for t in selected for n in range(1, a.runs + 1) for arm in arms]
     print('%d runs -> %s   agent: %s   timeout %ds' % (len(plan), out, agent, a.timeout))
     for t, arm, n in plan:
         print('  %-24s %-5s run %d' % (t.stem, arm, n))

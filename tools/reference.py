@@ -38,7 +38,9 @@ def annotations(path, source_hash, size):
     data = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
     if not isinstance(data, dict):
         raise ValueError('marks must be a JSON object')
-    if data.get('source_sha256') and data['source_sha256'] != source_hash:
+    if 'source_sha256' not in data:
+        raise ValueError('marks need source_sha256 from a reference record')
+    if data['source_sha256'] != source_hash:
         raise ValueError('marks belong to another photo (source_sha256 differs)')
     raw = data.get('camera', {})
     if not isinstance(raw, dict) or raw.get('projection', 'unknown') not in (

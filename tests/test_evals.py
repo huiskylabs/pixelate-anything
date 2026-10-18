@@ -49,9 +49,12 @@ class RunTest(unittest.TestCase):
             fake.write_text('import json, sys\nsys.stdin.read()\nprint(json.dumps({"usage": {"output_tokens": 7}}))\n')
             prompts = pathlib.Path(tmp) / 'prompts'
             prompts.mkdir()
-            (prompts / '99-fresh.md').write_text('An unseen scene. Draw two moments.')
+            (prompts / '99-fresh.md').write_text('An unseen scene. Draw two moments from this photo.')
+            refs = pathlib.Path(tmp, 'refs')
+            refs.mkdir()
+            (refs / '99.jpg').write_bytes(b'photo bytes')
             r = subprocess.run([sys.executable, str(ROOT / 'evals' / 'run.py'), '--tasks', '99', '--arms', 'bare,skill',
-                                '--prompts', str(prompts), '--budget-usd', '1', '--out', tmp + '/runs',
+                                '--prompts', str(prompts), '--refs', str(refs), '--budget-usd', '1', '--out', tmp + '/runs',
                                 '--agent-cmd', '%s %s {budget_usd}' % (sys.executable, fake), '--go'],
                                capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
@@ -67,6 +70,23 @@ class RunTest(unittest.TestCase):
             self.assertEqual(smoke.returncode, 0, smoke.stderr)
             skill_prompt = next(pathlib.Path(tmp, 'runs').glob('*/skill-1/prompt.md')).read_text()
             self.assertIn(str(kit), skill_prompt)
+            for arm in ('bare', 'skill'):
+                workspace = next(pathlib.Path(tmp, 'runs').glob(f'*/{arm}-1/workspace'))
+                self.assertEqual((workspace / 'reference.jpg').read_bytes(), b'photo bytes')
+
+    def test_missing_reference_fails_before_any_agent_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prompts = pathlib.Path(tmp, 'prompts')
+            prompts.mkdir()
+            (prompts / '99-rebuild.md').write_text('Rebuild this reference photo as pixel art.')
+            refs = pathlib.Path(tmp, 'refs')
+            refs.mkdir()
+            result = subprocess.run([sys.executable, str(ROOT / 'evals' / 'run.py'), '--prompts', str(prompts),
+                                     '--refs', str(refs), '--budget-usd', '1', '--out', tmp + '/runs', '--go'],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('missing reference photo', result.stderr)
+            self.assertFalse(pathlib.Path(tmp, 'runs').exists())
 
     def test_live_runs_require_held_out_prompts_and_budget(self):
         with tempfile.TemporaryDirectory() as tmp:

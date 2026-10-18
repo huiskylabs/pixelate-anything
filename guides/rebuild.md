@@ -43,8 +43,8 @@ Use `Iso.box` only where the place really is boxes. `examples/santorini/art/sant
 
 Optional **experimental** reference evidence: `pixelate reference PHOTO -o reference.json` writes
 an editable record and `reference.overlay.png`. It samples three coarse value bands and dominant
-edge directions; these are measurements of the photo, **not** a horizon, vanishing-point detector,
-silhouette reader or quality score. Inspect the overlay, then add `camera.horizon_y` (it may be
+edge directions. These describe the photo. The command does **not** detect a horizon, vanishing
+point or silhouette. It does not score art quality. Inspect the overlay, then add `camera.horizon_y` (it may be
 outside the frame), `camera.vanishing_points` and named `landmarks` boxes to the JSON yourself.
 Run `pixelate reference PHOTO -o reference.json --marks reference.json` to validate the photo
 hash and redraw your marks on the overlay. Leave uncertain fields unknown. This command is

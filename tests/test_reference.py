@@ -84,13 +84,22 @@ class ReferenceTest(unittest.TestCase):
         self.assertEqual(data['edge_evidence']['directions'], [])
         self.assertEqual(data['camera']['projection'], 'unknown')
 
+    def test_marks_require_matching_photo_hash(self):
+        marks = self.root / 'marks.json'
+        marks.write_text(json.dumps({'camera': {'projection': 'one-point'}, 'landmarks': []}))
+        result = self.cli('--marks', marks)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('need source_sha256', result.stderr)
+        self.assertFalse(self.report.exists())
+
     def test_invalid_marks_do_not_overwrite_report(self):
         marks = self.root / 'marks.json'
         for camera, landmarks in [({'horizon_y': float('nan')}, []),
                                   ({'vanishing_points': [[3]]}, []),
                                   ({}, [{'name': 'outside', 'box': [-1, 0, 10, 10]}])]:
             with self.subTest(camera=camera, landmarks=landmarks):
-                marks.write_text(json.dumps({'camera': camera, 'landmarks': landmarks}))
+                marks.write_text(json.dumps({'source_sha256': reference.digest(self.photo),
+                                             'camera': camera, 'landmarks': landmarks}))
                 result = self.cli('--marks', marks)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertFalse(self.report.exists())

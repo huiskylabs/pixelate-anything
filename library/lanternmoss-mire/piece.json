@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "id": "lanternmoss-mire",
+  "title": "Lanternmoss Mire",
+  "summary": "A 16x16 tile and sprite asset pack for a bog (tiles, a bog-ferrier hero, six creatures, items, props), shown as its 320x192 map: A by day, B the same tiles at night, glowing.",
+  "request": "No verbatim user request is recorded for this piece. The brief (brief.md section 0) states: \"assets (guides/assets.md) ... 16x16 tiles; hero 16x24 ... creatures 12-20 px; items 7-12 px\", a 3/4 top-down game screen, day and glowing night palettes, a 320x192 map at 4x, and a 5.0 s SFX reel (examples/moments/README.md: \"A: the asset pack's map by day. B: the same tiles at night, glowing.\").",
+  "status": "study",
+  "mode": "assets",
+  "runtime": "pack",
+  "tags": {
+    "subject": [
+      "bog",
+      "mire",
+      "hero",
+      "tileset",
+      "creature",
+      "boardwalk",
+      "lantern",
+      "moss",
+      "moth",
+      "heron"
+    ],
+    "setting": [
+      "wetland",
+      "day",
+      "night"
+    ],
+    "camera": "3/4 top-down",
+    "style": "lofi",
+    "era": "none",
+    "motion": "sprite-sheet",
+    "sound": "sfx"
+  },
+  "canvas": {
+    "w": 320,
+    "h": 192,
+    "scale": 4
+  },
+  "outputs": [
+    {
+      "name": "a",
+      "kind": "image",
+      "run": "python3 maps/render_map.py",
+      "frame": "out/09-a.png",
+      "style": "lofi",
+      "scale": 4,
+      "golden": "out/golden/a.png"
+    },
+    {
+      "name": "b",
+      "kind": "image",
+      "run": "python3 maps/render_map.py",
+      "frame": "out/09-b.png",
+      "style": "lofi",
+      "scale": 4,
+      "golden": "out/golden/b.png"
+    },
+    {
+      "name": "sample",
+      "kind": "audio",
+      "run": "python3 sound/sfx_reel.py && ffmpeg -y -loglevel error -i sound/09-sample.wav -codec:a libmp3lame -q:a 2 sound/09-sample.mp3",
+      "file": "sound/09-sample.mp3"
+    }
+  ],
+  "anatomy": [
+    {
+      "file": "brief.md",
+      "draws": "The asset-pack brief: grid, camera, delivery, palette roles day and night, sprite plans, sound plan",
+      "change_for": "intent and the written rules"
+    },
+    {
+      "file": "pack.json",
+      "draws": "Pack manifest for pixelate assets: name, day and night palettes, scale",
+      "change_for": "pack options, palette choice"
+    },
+    {
+      "file": "palette.json",
+      "draws": "Day palette (38 slots plus ol and wh)",
+      "change_for": "daytime colour"
+    },
+    {
+      "file": "palette-night.json",
+      "draws": "Glowing night palette with identical slot names",
+      "change_for": "night colour"
+    },
+    {
+      "file": "art/mire_tiles.py",
+      "draws": "Generated tiles: moss-on-peat corner autotiles, peat bank over water, bog water frames, boardwalk",
+      "change_for": "the terrain"
+    },
+    {
+      "file": "art/mire_hero.py",
+      "draws": "The bog-ferrier hero, 16x24, front, back and side frames with walk and idle cycles",
+      "change_for": "the hero"
+    },
+    {
+      "file": "art/mire_creatures.py",
+      "draws": "Six mire creatures: heron, toad, moth, crab, eel, snail, with idle animations",
+      "change_for": "creatures"
+    },
+    {
+      "file": "art/mire_kit.py",
+      "draws": "Shared helpers: stamping typed slot maps, moving parts between frames, hashing",
+      "change_for": "shared plumbing"
+    },
+    {
+      "file": "sprites/items.px",
+      "draws": "Hand-drawn item sprites in the .px format",
+      "change_for": "items"
+    },
+    {
+      "file": "sprites/props.px",
+      "draws": "Hand-drawn prop sprites in the .px format",
+      "change_for": "props"
+    },
+    {
+      "file": "maps/mire.txt",
+      "draws": "The 20x12 tile map: corner grid, deck grid and props",
+      "change_for": "the map layout"
+    },
+    {
+      "file": "maps/render_map.py",
+      "draws": "Composes the map as palette slots once and paints it with the day and night palettes (out/09-a, out/09-b, optional GIFs)",
+      "change_for": "map rendering, which palettes"
+    },
+    {
+      "file": "sound/sfx_reel.py",
+      "draws": "Synthesises a 5.0 s chip SFX reel and item-get jingle with emulated pulse, wave and noise channels",
+      "change_for": "the sounds, clip"
+    }
+  ],
+  "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "provenance": {
+    "made": "2026-10-17",
+    "by": "parallel Claude agents with a coordinating agent as art director (examples/moments showcase run, PR #21); migrated to library/ on 2026-10-18 without re-review"
+  },
+  "license": "MIT"
+}

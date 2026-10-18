@@ -11,7 +11,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 TOOLS = REPO / 'tools'
-QUARRY = REPO / 'examples' / 'moments' / '06-quarry-wakes'
+QUARRY = REPO / 'library' / 'quarry-wakes'
 sys.path.insert(0, str(TOOLS))
 spec = importlib.util.spec_from_file_location('piece_library', TOOLS / 'library.py')
 assert spec is not None and spec.loader is not None
@@ -176,8 +176,11 @@ class ImageOutputContract(unittest.TestCase):
 
     def test_converted_06_quarry_wakes_render_json_keeps_gate_fields(self):
         piece = self.root / 'quarry-wakes'
-        shutil.copytree(QUARRY, piece, ignore=shutil.ignore_patterns('render.json', '__pycache__'))
-        images = json.loads((QUARRY / 'render.json').read_text(encoding='utf-8'))['images']
+        shutil.copytree(QUARRY, piece, ignore=shutil.ignore_patterns('__pycache__'))
+        # render.json was folded into piece.json outputs; its image fields are what the manifest keeps.
+        images = [{key: value for key, value in output.items() if key not in ('kind', 'golden')}
+                  for output in json.loads((QUARRY / 'piece.json').read_text(encoding='utf-8'))['outputs']
+                  if output['kind'] == 'image']
         outputs = [{'kind': 'image', **image} for image in images]
         outputs.append({'name': 'sound', 'kind': 'audio', 'run': 'python3 sound/sting.py', 'file': 'sound/06-sample.mp3'})
         request = next(line for line in (QUARRY / 'brief.md').read_text(encoding='utf-8').splitlines()

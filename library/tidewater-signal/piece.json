@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "id": "tidewater-signal",
+  "title": "Signal from Tidewater",
+  "summary": "A cassette J-card cover: a lighthouse keeper's radio on a windowsill with its amber dial the only warm light in a storm night, A the radio in the storm, B the lightning frame.",
+  "request": "a five-cue original soundtrack for an invented coastal adventure game, one 5-note leitmotif in every cue, and a 270x480 lofi cassette J-card cover: a lighthouse keeper's radio on a windowsill with the storm outside; the tape spools and VU needle animate in a short loop. This brief covers the two cover stills (the best moments) and the 5 s overworld sample.",
+  "status": "study",
+  "mode": "scene",
+  "runtime": "script",
+  "tags": {
+    "subject": [
+      "radio",
+      "lighthouse",
+      "window",
+      "storm",
+      "cassette",
+      "sill",
+      "sea",
+      "lightning"
+    ],
+    "setting": [
+      "coastal",
+      "night",
+      "indoor"
+    ],
+    "camera": "side",
+    "style": "lofi",
+    "era": "none",
+    "motion": "stills",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 270,
+    "h": 480,
+    "scale": 4
+  },
+  "outputs": [
+    {
+      "name": "a",
+      "kind": "image",
+      "run": "python3 art/cover.py ab",
+      "frame": "out/10-a.png",
+      "style": "lofi",
+      "brief": "brief.md",
+      "pal": "out/palette-a.json",
+      "intent": "out/intent-a.png",
+      "scale": 4,
+      "golden": "out/golden/a.png"
+    },
+    {
+      "name": "b",
+      "kind": "image",
+      "run": "python3 art/cover.py ab",
+      "frame": "out/10-b.png",
+      "style": "lofi",
+      "brief": "brief.md",
+      "pal": "out/palette-b.json",
+      "intent": "out/intent-b.png",
+      "scale": 4,
+      "golden": "out/golden/b.png"
+    },
+    {
+      "name": "sample",
+      "kind": "audio",
+      "run": "pixelate audio music sound/full.wav && python3 art/sound.py",
+      "file": "sound/10-sample.mp3"
+    }
+  ],
+  "anatomy": [
+    {
+      "file": "brief.md",
+      "draws": "The cover brief: intent, lofi style, window layout, value plan, sound plan",
+      "change_for": "intent, mood and the written rules the gate reads"
+    },
+    {
+      "file": "art/cover.py",
+      "draws": "Both cover stills: keeper room, radio and cassette deck, sash window, storm, sea, lighthouse, lightning flash frame; run with ab",
+      "change_for": "the scene, the objects, which moment"
+    },
+    {
+      "file": "art/blockin.py",
+      "draws": "Greyscale block-in of image A",
+      "change_for": "composition check before detail"
+    },
+    {
+      "file": "art/sound.py",
+      "draws": "Writes the leitmotif lead note by note over the engine's chiptune comp, bass and drums, cuts 5 s and encodes the mp3",
+      "change_for": "the leitmotif, mix, clip"
+    },
+    {
+      "file": "music/music.js",
+      "draws": "Chiptune overworld in A major (A - E - F#m - D) at 132 bpm with the melody off (engine music project)",
+      "change_for": "music style, key, tempo"
+    },
+    {
+      "file": "music/config.js",
+      "draws": "Engine scene length and tempo for the sample render",
+      "change_for": "loop length"
+    },
+    {
+      "file": "music/palettes.js",
+      "draws": "Engine palette for the stock equaliser picture",
+      "change_for": "nothing for this piece"
+    },
+    {
+      "file": "music/scene.js",
+      "draws": "Stock engine equaliser picture that the music project requires; it is not part of the artwork",
+      "change_for": "nothing for this piece"
+    },
+    {
+      "file": "music/scene.json",
+      "draws": "Stock engine scene metadata (title and file list) for the music project",
+      "change_for": "nothing for this piece"
+    }
+  ],
+  "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "provenance": {
+    "made": "2026-10-17",
+    "by": "parallel Claude agents with a coordinating agent as art director (examples/moments showcase run, PR #21); migrated to library/ on 2026-10-18 without re-review"
+  },
+  "license": "MIT"
+}

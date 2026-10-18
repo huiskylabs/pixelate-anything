@@ -9,7 +9,7 @@ Paths are relative to the workspace: $PIXELATE_WORKSPACE, else the directory the
 was started in. Absolute paths are accepted for reading (an image to pixelate); writes
 through write_file stay inside the workspace.
 """
-import contextlib, hashlib, io, json, re, os, pathlib, signal, subprocess, sys
+import contextlib, hashlib, io, json, re, os, pathlib, signal, stat, subprocess, sys
 
 TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
@@ -536,33 +536,60 @@ def png_image(data, max_w=1400):
     except Exception:
         return None
 
+def read_capped(root, rel, cap):
+    """the bytes of the regular file `rel` under `root`, opened without following any link, never more than `cap`
+    of them in memory. Raises FileNotFoundError when missing, render.UnsafePath for a link, folder, pipe or device,
+    and ValueError when the file is larger than `cap` (judged by its size before reading, and again by reading at
+    most cap + 1 bytes should it have grown meanwhile)."""
+    import render
+    fd, name = render._parent(root, rel)
+    try:
+        try:
+            # O_NONBLOCK: opening a pipe planted at rel must not hang the server.
+            f = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=fd)
+        except FileNotFoundError:
+            raise
+        except OSError as exc:
+            raise render.UnsafePath('%s: a link or not a regular file (%s)' % (rel, exc.strerror)) from exc
+    finally:
+        os.close(fd)
+    with os.fdopen(f, 'rb', buffering=0) as fh:
+        info = os.fstat(fh.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise render.UnsafePath('%s: not a regular file' % rel)
+        if info.st_size > cap:
+            raise ValueError('%s: %d bytes, over the %d byte limit' % (rel, info.st_size, cap))
+        data = bytearray()
+        while len(data) <= cap:
+            chunk = fh.read(min(1 << 20, cap + 1 - len(data)))
+            if not chunk:
+                return bytes(data)
+            data += chunk
+    raise ValueError('%s: grew past the %d byte limit while read' % (rel, cap))
+
 def verified_preview(root, rel, digest):
     """an Image of the file `rel` under `root` only when it is a regular file reached without a link whose
-    bytes hash to `digest` (what the command that wrote it recorded), else None. A stale, swapped, linked
-    or unreadable frame has no preview."""
-    import render
+    bytes hash to `digest` (what the command that wrote it recorded), else None. A stale, swapped, linked,
+    unreadable or oversized frame has no preview."""
     if not isinstance(rel, str) or not isinstance(digest, str):
         return None
     try:
-        data = render.read_regular(root, rel)
+        data = read_capped(root, rel, MAX_PREVIEW_BYTES)
     except (OSError, ValueError):
         return None
-    if len(data) > MAX_PREVIEW_BYTES or hashlib.sha256(data).hexdigest() != digest:
-        return None
-    return png_image(data)
+    return png_image(data) if hashlib.sha256(data).hexdigest() == digest else None
 
 def library_thumb(piece):
     """an Image of the piece's checked-in media.thumb, read as a regular file without following a link under the
     kit library; None when it is missing, too large or not an image. Reads only; writes nothing."""
-    import render
     thumb = (piece.get('media') or {}).get('thumb')
     if not thumb:
         return None
     try:
-        data = render.read_regular(LIBRARY, '%s/%s' % (piece['id'], thumb))
+        data = read_capped(LIBRARY, '%s/%s' % (piece['id'], thumb), MAX_THUMB_BYTES)
     except (OSError, ValueError):
         return None
-    return png_image(data) if len(data) <= MAX_THUMB_BYTES else None
+    return png_image(data)
 
 def report(summary, images=()):
     return [json.dumps(summary, indent=2, ensure_ascii=False)] + list(images)

@@ -11,6 +11,7 @@ import os
 import shutil
 import sys
 import tempfile
+import tracemalloc
 import types
 import unittest
 from pathlib import Path
@@ -191,6 +192,29 @@ class Find(Server):
             self.assertEqual(self.mcp.library_thumb(piece).data, outside.read_bytes())
             with mock.patch.object(self.mcp, 'MAX_THUMB_BYTES', 10):
                 self.assertIsNone(self.mcp.library_thumb(piece))  # too large
+
+    def test_a_sparse_oversized_thumbnail_is_refused_without_reading_it(self):
+        library_root = self.work / 'lib'
+        (library_root / 'harbour' / 'media').mkdir(parents=True)
+        piece = {'id': 'harbour', 'media': {'thumb': 'media/thumb.png'}}
+        with (library_root / 'harbour' / 'media' / 'thumb.png').open('wb') as fh:
+            fh.truncate(self.mcp.MAX_THUMB_BYTES * 64)
+        self.assertEqual(self.mcp.MAX_THUMB_BYTES, 2 * 1024 * 1024)
+        with mock.patch.object(self.mcp, 'LIBRARY', library_root):
+            tracemalloc.start()
+            try:
+                self.assertIsNone(self.mcp.library_thumb(piece))
+                peak = tracemalloc.get_traced_memory()[1]
+            finally:
+                tracemalloc.stop()
+        self.assertLess(peak, self.mcp.MAX_THUMB_BYTES // 2)
+
+    def test_a_pipe_as_thumbnail_has_no_image_and_does_not_block(self):
+        library_root = self.work / 'lib'
+        (library_root / 'harbour' / 'media').mkdir(parents=True)
+        os.mkfifo(library_root / 'harbour' / 'media' / 'thumb.png')
+        with mock.patch.object(self.mcp, 'LIBRARY', library_root):
+            self.assertIsNone(self.mcp.library_thumb({'id': 'harbour', 'media': {'thumb': 'media/thumb.png'}}))
 
 
 class Remix(Server):
@@ -373,6 +397,41 @@ class Render(Server):
         self.assertIsNone(self.mcp.verified_preview(root, 'out/link.png', digest))
         (root / 'linked').symlink_to(self.work)
         self.assertIsNone(self.mcp.verified_preview(root, 'linked/other.png', digest))
+
+    def test_a_sparse_oversized_frame_has_no_preview_and_is_never_read_whole(self):
+        root = make_piece(self.work)
+        frame = root / 'out' / 'a.png'
+        with frame.open('wb') as fh:
+            fh.truncate(self.mcp.MAX_PREVIEW_BYTES + 1)
+        self.assertEqual(self.mcp.MAX_PREVIEW_BYTES, 32 * 1024 * 1024)
+        digest = hashlib.sha256(frame.read_bytes()).hexdigest()
+        tracemalloc.start()
+        try:
+            self.assertIsNone(self.mcp.verified_preview(root, 'out/a.png', digest))
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, 4 * 1024 * 1024)
+
+    def test_a_file_that_grows_after_its_size_check_is_cut_off_at_the_cap(self):
+        root = make_piece(self.work)
+        frame = root / 'out' / 'a.png'
+        frame.write_bytes(b'x' * 100)
+        real_fstat = os.fstat
+
+        def small(fd):
+            info = real_fstat(fd)
+            return types.SimpleNamespace(st_mode=info.st_mode, st_size=0)
+        with mock.patch.object(self.mcp.os, 'fstat', small):
+            with self.assertRaises(ValueError):
+                self.mcp.read_capped(root, 'out/a.png', 10)
+            self.assertEqual(self.mcp.read_capped(root, 'out/a.png', 100), b'x' * 100)
+            self.assertIsNone(self.mcp.verified_preview(root, 'out/a.png', hashlib.sha256(b'x' * 100).hexdigest()))
+
+    def test_a_pipe_as_frame_has_no_preview_and_does_not_block(self):
+        root = make_piece(self.work)
+        os.mkfifo(root / 'out' / 'a.png')
+        self.assertIsNone(self.mcp.verified_preview(root, 'out/a.png', '0' * 64))
 
     def test_oversized_json_report_stays_intact(self):
         outputs = [{'name': 'a', 'kind': 'image', 'run': f'{PY} art/draw.py', 'frame': 'out/a.png', 'style': 'arcade',

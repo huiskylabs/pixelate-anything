@@ -180,6 +180,38 @@ class MigratedPieceTest(unittest.TestCase):
                 self.assertFalse(path.is_symlink(), path)
 
 
+class StarterSceneLoopTest(unittest.TestCase):
+    """`starter-scene-loop` is an empty piece (docs/PLAN-library.md section 2.1): placeholders, no authored subject."""
+    ROOT = LIBRARY / 'starter-scene-loop'
+    SUBJECT_WORDS = re.compile(r'cabin|pine|hill|rain|moon|cloud|house|firefl|window|tree|star(?!ter)', re.I)
+
+    def sources(self):
+        names = ('config.js', 'music.js', 'palettes.js', 'scene.js', 'scene.json', 'sprites.js', 'piece.json')
+        texts = {n: (self.ROOT / n).read_text(encoding='utf-8') for n in names}
+        # `request` must quote the source description (the old cabin scene) to stay honest about the origin
+        data = json.loads(texts['piece.json'])
+        del data['request']
+        texts['piece.json'] = json.dumps(data)
+        return texts
+
+    def test_no_authored_subject_remains(self):
+        for name, text in self.sources().items():
+            with self.subTest(file=name):
+                self.assertIsNone(self.SUBJECT_WORDS.search(text), name)
+
+    def test_only_two_placeholder_sprites(self):
+        names = re.findall(r"^def\('(\w+)'", (self.ROOT / 'sprites.js').read_text(encoding='utf-8'), re.M)
+        self.assertEqual(names, ['marker', 'block'])
+
+    def test_phases_agree_across_config_palettes_music_and_outputs(self):
+        text = self.sources()
+        phases = re.findall(r"name: '(\w+)', bpm", text['config.js'])
+        self.assertEqual(phases, ['day', 'night'])
+        self.assertEqual(re.findall(r"^  (\w+): \{$", text['palettes.js'], re.M), phases)
+        self.assertEqual(re.findall(r"\{ name: '(\w+)', swing", text['music.js']), phases)
+        self.assertEqual([o['name'] for o in images(manifest('starter-scene-loop'))], phases)
+
+
 class KitCopyTest(unittest.TestCase):
     """Run each declared command from a copy of the kit and compare with the committed files."""
     KEEP_LIBRARY = True
@@ -290,6 +322,21 @@ class IsolatedCopyTest(KitCopyTest):
                 if manifest(piece_id)['runtime'] == 'engine':
                     result = self.kit_check(root, '.')
                     self.assertEqual(result.returncode, 0, result.stdout[-800:])
+
+    @unittest.skipUnless(HAVE_NODE, 'engine frames are rendered in Node')
+    def test_scene_starter_frames_across_the_loop_pass_the_gate_alone(self):
+        # The declared outputs are t=0 and t=30; these seconds add both phases, the second phase change and
+        # the loop's end. Mid-dissolve frames (about 26-28 s and 57-59 s, every 60 s) are not gated here: the
+        # engine's ordered-dither phase change leaves 1 px clusters and fails the stock `cluster_px` check
+        # in this starter and in the cabin scene it replaced.
+        root = self.stage('starter-scene-loop')
+        for second in (4, 12, 24, 34, 45, 55, 61, 75, 90, 105, 119):
+            with self.subTest(second=second):
+                shot = self.run_kit(f'python3 "$PIXELATE_KIT/pixelate" shot . {second} --zoom 8 --out out', root)
+                self.assertEqual(shot.returncode, 0, shot.stderr[-500:])
+                result = self.kit_check(root, f'out/t{second:04d}.00.png', '--scale', '8', '--style', 'lofi')
+                self.assertEqual(result.returncode, 0, f'{second} s\n{result.stdout[-800:]}')
+                self.assertNotIn('WARN', result.stdout)
 
     @unittest.skipUnless(os.environ.get('PIXELATE_SLOW_LIBRARY'), 'about two minutes: set PIXELATE_SLOW_LIBRARY=1')
     def test_slow_pieces_that_used_to_import_a_sibling(self):

@@ -1,6 +1,6 @@
 {
-  "title": "Hilltop Cabin",
-  "description": "A pixel-art cabin on a hill, from a warm dusk into a rainy night and back, with a lofi soundtrack.",
-  "alt": "Animated pixel-art scene: a small cabin and a pine on a hill at dusk, then in the rain.",
+  "title": "Starter Scene Loop",
+  "description": "A neutral looping scene scaffold: a sky, a flat ground and a few placeholders, with a lofi soundtrack. Replace the placeholders with your own subject.",
+  "alt": "Animated pixel-art scaffold: a plain sky over flat ground with a grey box, a drifting block and a pulsing marker.",
   "files": ["palettes.js", "sprites.js", "scene.js"]
 }

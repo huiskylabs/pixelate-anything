@@ -94,12 +94,12 @@
     },
     {
       "file": "art/render.py",
-      "draws": "Decodes A and B from the index array, exports index PNG and palettes (json, hex, gpl), verifies; writes to absolute /home/user/... paths",
+      "draws": "Decodes A and B from the index array, exports index PNG and palettes (json, hex, gpl), verifies; writes into out/ beside art/",
       "change_for": "which moods are delivered, output size"
     },
     {
       "file": "art/blockin.py",
-      "draws": "Greyscale block-in for the planes line; writes to an absolute /home/user/... path",
+      "draws": "Greyscale block-in for the planes line; writes into out/ beside art/",
       "change_for": "composition check before detail"
     },
     {
@@ -134,6 +134,9 @@
     }
   ],
   "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
   "media": {
     "thumb": "media/thumb.png",
     "contact": "media/contact.png"

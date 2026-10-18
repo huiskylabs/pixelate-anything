@@ -2,16 +2,15 @@
 
     python3 art/blockin.py a     -> out/blockin-a.png
 """
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
-sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/04-tide-procession/art')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import math
-import pathlib
 import numpy as np
 from PIL import Image
 import geom as G
 
-OUT = pathlib.Path('/home/user/pixelate-anything/examples/moments/04-tide-procession/out')
+OUT = pathlib.Path(__file__).resolve().parents[1] / 'out'
 GREY = {'darkest': 0.12, 'dark': 0.22, 'mid': 0.36, 'brightest': 0.86}
 
 

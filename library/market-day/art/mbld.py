@@ -7,8 +7,8 @@
   hall()                 the long arcaded block, its huge hipped roof, 3 dormer rows, the steps
   stall()                counter, produce, striped awning by type (fruit, flowers, fish, bread)
 """
-import sys, math
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+import sys, math, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 import numpy as np
 from iso import hash2
 import mkit

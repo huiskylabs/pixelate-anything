@@ -97,12 +97,12 @@
     },
     {
       "file": "art/scene.py",
-      "draws": "Both stills drawn in code with screen-resolution light; writes frames, pixel layer, masks and palette.json to an absolute /home/user/... path",
+      "draws": "Both stills drawn in code with screen-resolution light; writes frames, pixel layer, masks and palette.json into out/ beside art/",
       "change_for": "setting, light, which moment"
     },
     {
       "file": "art/blockin.py",
-      "draws": "Greyscale block-in of a moment; writes to an absolute /home/user/... path",
+      "draws": "Greyscale block-in of a moment; writes into out/ beside art/",
       "change_for": "composition check before detail"
     },
     {
@@ -142,6 +142,9 @@
     }
   ],
   "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
   "media": {
     "thumb": "media/thumb.png",
     "contact": "media/contact.png"

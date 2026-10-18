@@ -3,16 +3,16 @@
     python3 art/render.py            # index map, A, B, palettes, verification
     python3 art/render.py --crops    # also 4x crops of the focal and busy areas for looking
 """
-import sys, json
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
-sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/03-canyon-cycle/art')
+import sys, json, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import numpy as np
 from PIL import Image
 import palette as P
 import palettes as PP
 import canyon
 
-ROOT = '/home/user/pixelate-anything/examples/moments/03-canyon-cycle/'
+ROOT = str(pathlib.Path(__file__).resolve().parents[1]) + '/'
 OUT = ROOT + 'out/'
 SCALE = 6
 

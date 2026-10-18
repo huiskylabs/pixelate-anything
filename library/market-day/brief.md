@@ -87,3 +87,10 @@ Request: rebuild Pexels photo 14037897 (Nick Verlice, "Aerial View of Medieval B
 - compose.check_density on the placed objects passes (every edge cuts 2+ objects; no 120 px window over 85% bare paving).
 - Gate override: focus_contrast >= 0.2 (sticker-iso density: every roof, stall and figure carries #000 silhouettes and dark tile courses, so the strongest local contrast is spread over the full-bleed town by design; the hero holds the top values, the only rose and the only #fff instead)
 - Gate override: focus_rival <= 3.2 (full-bleed town: the near-side roof field is one connected busy mass at thumbnail size; it stays mid-value and hue-varied while the white steps and rose runner are the frame's only peak)
+
+## Image B (the wedding crop, gate lines)
+
+B is a straight 8x nearest crop of A's 1x frame, written by `art/scene.py final out 142 162` (the last two arguments are the crop's top-left in native px). As built it is 140x140 native, 1120x1120 delivered; section 0 and 1 say 150x150 and 1200x1200, which the code never produced.
+
+- Hero: 8,8,110,88 (native px, in the crop); peak value: the wedding on the white hall steps (bride, steps, white petals); peak chroma: the wedding's rose runner, bouquet, bridesmaids and petals
+- Known gate failures, not excused by this brief: budget L<=0.3 (20.45% against the sticker-iso floor of 30%) and composition empty (57.55% against 30%). The crop holds the hall's calm roof and facade, the white steps and open granite, and no crop of A that keeps the wedding passes (searched 80-150 px squares). Section 11's overrides cover only focus lines of A and none of these.

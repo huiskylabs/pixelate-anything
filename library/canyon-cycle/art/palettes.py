@@ -5,8 +5,8 @@ bolt: equal to the colour under it when off), FLICKER (forge, spill, lantern: re
 flick()), or belongs to exactly one cycling RANGE (falls, river reaches, stars). Ranges never share
 a slot. A moment = a mood + the phase of every range + the flash/rain switches + the flick state.
 """
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 import palette as P
 
 RANGES = {          # name: (slots, fps, direction in the picture)

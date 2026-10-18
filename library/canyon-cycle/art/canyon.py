@@ -5,9 +5,9 @@ river reaches and the stars are drawn in their cycling ranges (WA, WB, RA, RB, T
 bolt in switched slots, the forge and lantern in flicker slots. Positions and shapes are placed by
 hand (geo.py and the tables below); the code rasterises and shades them.
 """
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
-sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/03-canyon-cycle/art')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import numpy as np
 from canvas import Canvas, seam
 import shapes

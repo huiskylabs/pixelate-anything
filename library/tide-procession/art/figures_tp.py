@@ -155,9 +155,9 @@ def pilgrim(h=31, kind='staff', frame=0, seed=0, lead=False, tall=False):
 
 if __name__ == '__main__':
     # a contact sheet of the four kinds and five drawings at 8x
-    import sys
-    sys.path.insert(0, '/home/user/pixelate-anything/tools')
-    sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/04-tide-procession/art')
+    import sys, pathlib
+    sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
     from PIL import Image
     import scene
     from canvas import to_image

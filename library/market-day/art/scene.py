@@ -3,7 +3,7 @@
     python3 scene.py blockin OUT.png      greyscale block-in at native size
 """
 import sys, pathlib
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import numpy as np
 from PIL import Image

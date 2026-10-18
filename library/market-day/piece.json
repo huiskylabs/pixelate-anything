@@ -52,9 +52,17 @@
     },
     {
       "name": "b",
-      "kind": "export",
+      "kind": "image",
       "run": "python3 art/scene.py final out 142 162",
-      "file": "out/08-b.png"
+      "frame": "out/08-b.png",
+      "style": "sticker-iso",
+      "brief": "brief.md",
+      "scale": 8,
+      "size": {
+        "w": 140,
+        "h": 140
+      },
+      "golden": "out/golden/b.png"
     },
     {
       "name": "sample",

@@ -2,8 +2,9 @@
 
 Static checks only by default: nothing here executes a piece. `golden` and `size` (image outputs) are
 not yet in the catalog schema, so manifests are validated from a copy without those two keys.
-Set PIXELATE_RUN_MOMENTS_RENDER=1 to also render these trusted, checked-in programs from clean copies
-(needs scipy, and for 03 and 04 their hardcoded /home/user output paths make them skip).
+The trusted, checked-in programs of 03, 04 and 08 (kit tools, numpy and Pillow only) are rendered from clean
+copies on every run, to keep their output paths relative to the piece. Set PIXELATE_RUN_MOMENTS_RENDER=1 to
+render all ten the same way (01's art needs scipy).
 """
 import importlib.util
 import json
@@ -29,8 +30,9 @@ spec.loader.exec_module(library)
 
 MOMENT_IDS = ('monsoon-street', 'endless-ascent', 'canyon-cycle', 'tide-procession', 'four-machines',
               'quarry-wakes', 'turntable-shipyard', 'market-day', 'lanternmoss-mire', 'tidewater-signal')
-# These two write to absolute /home/user/pixelate-anything/... paths, so they cannot render in a clean copy.
-HARDCODED_OUTPUT = ('canyon-cycle', 'tide-procession')
+# Their art code once wrote to absolute /home/user/pixelate-anything/... paths and could not render in a clean copy.
+PORTABLE_ART = ('canyon-cycle', 'tide-procession', 'market-day')
+LEGACY_ROOT = Path('/home/user/pixelate-anything')
 SCRIPT = re.compile(r'(?:art|sound|maps)/[\w.-]+\.py')
 
 
@@ -126,6 +128,39 @@ class MomentsMigration(unittest.TestCase):
                     text = output['run'] + ''.join((root / s).read_text(encoding='utf-8') for s in scripts)
                     self.assertIn(written, text, (piece_id, 'run never names', written))
 
+    def test_portable_art_has_no_absolute_home_paths(self):
+        for piece_id in PORTABLE_ART:
+            for path in sorted((LIBRARY / piece_id).rglob('*.py')):
+                self.assertNotIn('/home/user', path.read_text(encoding='utf-8'), str(path.relative_to(REPO)))
+
+    def test_market_day_b_is_a_gated_image_with_its_own_hero_not_an_export(self):
+        piece = manifest('market-day')
+        outputs = {o['name']: o for o in piece['outputs']}
+        self.assertEqual(outputs['b']['kind'], 'image')
+        self.assertEqual((outputs['b']['style'], outputs['b']['scale'], outputs['b']['size']),
+                         ('sticker-iso', 8, {'w': 140, 'h': 140}))
+        self.assertEqual(outputs['b']['golden'], 'out/golden/b.png')
+        self.assertIn('## Image B', (LIBRARY / 'market-day' / 'brief.md').read_text(encoding='utf-8'))
+
+    def test_market_day_b_fails_the_gate_in_exactly_the_two_documented_lines(self):
+        """B is an unresolved blocker: a crop of A cannot pass the sticker-iso budget. This pins the failure so a
+        change to B (or to the gate) shows up here, and so nothing else fails silently."""
+        root = LIBRARY / 'market-day'
+        output = {o['name']: o for o in manifest('market-day')['outputs']}['b']
+        done = subprocess.run([sys.executable, str(REPO / 'pixelate'), 'check', output['frame'], '--style', output['style'],
+                               '--scale', str(output['scale']), '--brief', output['brief'], '--image', 'b'],
+                              cwd=root, capture_output=True, text=True, env=dict(os.environ, PIXELATE_NO_LOG='1'))
+        failed = sorted(line.split()[2] for line in done.stdout.splitlines() if line.startswith('FAIL ') and 'checks' not in line)
+        self.assertEqual(done.returncode, 1, done.stdout[-600:] + done.stderr[-600:])
+        self.assertEqual(failed, ['L<=0.3', 'empty'])
+
+    def test_four_machines_exports_are_a_composite_poster_and_a_copy_of_a_gated_panel(self):
+        root = LIBRARY / 'four-machines'
+        outputs = {o['name']: o for o in manifest('four-machines')['outputs']}
+        self.assertEqual({n for n, o in outputs.items() if o['kind'] == 'export'}, {'poster', 'b'})
+        self.assertEqual({n for n, o in outputs.items() if o['kind'] == 'image'}, {'gb', 'nes', 'snes', 'gba'})
+        self.assertEqual((root / outputs['b']['file']).read_bytes(), (root / outputs['snes']['frame']).read_bytes())
+
     def test_every_piece_anatomy_lists_a_drawing_source(self):
         for piece_id in MOMENT_IDS:
             piece = manifest(piece_id)
@@ -153,32 +188,57 @@ class MomentsMigration(unittest.TestCase):
             self.assertEqual(result.returncode, 1, f'{probe} is ignored')
 
 
+def render_from_clean_copy(case, piece_id):
+    """Run every non-audio run command of a piece in a clean copy and compare with the tracked frames and goldens.
+
+    The copy is not rewritten: only the expected outputs are deleted first. The kit comes from PYTHONPATH."""
+    env = dict(os.environ, PYTHONPATH=str(TOOLS), PIXELATE_NO_LOG='1',
+               PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ['PATH'])
+    legacy_before = LEGACY_ROOT.exists()
+    with tempfile.TemporaryDirectory() as temp:
+        clean = Path(temp) / piece_id
+        shutil.copytree(LIBRARY / piece_id, clean, ignore=shutil.ignore_patterns('__pycache__'))
+        outputs = [o for o in manifest(piece_id)['outputs'] if o['kind'] != 'audio']
+        for output in outputs:
+            (clean / output.get('frame', output.get('file'))).unlink()
+        for command in dict.fromkeys(o['run'] for o in outputs):
+            done = subprocess.run(['bash', '-c', command], cwd=clean, env=env, capture_output=True, text=True, timeout=300)
+            case.assertEqual(done.returncode, 0, (command, done.stderr[-400:]))
+        for output in outputs:
+            path = output.get('frame', output.get('file'))
+            case.assertEqual((clean / path).read_bytes(), (LIBRARY / piece_id / path).read_bytes(), (piece_id, path))
+            if output['kind'] == 'image':
+                width, height = image_size(manifest(piece_id), output)
+                rendered = Image.open(clean / path).convert('RGBA').resize((width, height), Image.Resampling.NEAREST)
+                golden = Image.open(LIBRARY / piece_id / output['golden']).convert('RGBA')
+                case.assertEqual(rendered.tobytes(), golden.tobytes(), (piece_id, output['name'], 'golden'))
+    case.assertEqual(LEGACY_ROOT.exists(), legacy_before, f'{LEGACY_ROOT} was created')
+
+
+class PortableArtRender(unittest.TestCase):
+    """03, 04 and 08 render from a clean copy with only the kit tools on PYTHONPATH (no scipy, no ffmpeg)."""
+
+    def test_canyon_cycle_images_and_index_reproduce(self):
+        render_from_clean_copy(self, 'canyon-cycle')
+
+    def test_tide_procession_images_reproduce(self):
+        render_from_clean_copy(self, 'tide-procession')
+
+    def test_market_day_images_reproduce(self):
+        render_from_clean_copy(self, 'market-day')
+
+
 @unittest.skipUnless(os.environ.get('PIXELATE_RUN_MOMENTS_RENDER') == '1',
-                     'set PIXELATE_RUN_MOMENTS_RENDER=1 to render the trusted moments programs')
+                     'set PIXELATE_RUN_MOMENTS_RENDER=1 to render all ten trusted moments programs')
 class MomentsRender(unittest.TestCase):
-    """Run the checked-in first-party commands from a clean copy and compare with the tracked frames."""
+    """Run every checked-in first-party image command from a clean copy and compare with the tracked frames."""
 
     def test_image_and_export_outputs_reproduce_from_a_clean_copy(self):
-        if importlib.util.find_spec('scipy') is None:  # 01's art imports it
-            self.skipTest('scipy is not installed')
-        env = dict(os.environ, PYTHONPATH=str(TOOLS), PIXELATE_NO_LOG='1',
-                   PATH=str(Path(sys.executable).parent) + os.pathsep + os.environ['PATH'])
         for piece_id in MOMENT_IDS:
-            if piece_id in HARDCODED_OUTPUT:
-                continue
-            with self.subTest(piece=piece_id), tempfile.TemporaryDirectory() as temp:
-                clean = Path(temp) / piece_id
-                shutil.copytree(LIBRARY / piece_id, clean, ignore=shutil.ignore_patterns('__pycache__'))
-                outputs = [o for o in manifest(piece_id)['outputs'] if o['kind'] != 'audio']
-                for output in outputs:
-                    (clean / output.get('frame', output.get('file'))).unlink()
-                for command in dict.fromkeys(o['run'] for o in outputs):
-                    done = subprocess.run(['bash', '-c', command], cwd=clean, env=env, capture_output=True, text=True,
-                                          timeout=300)
-                    self.assertEqual(done.returncode, 0, (command, done.stderr[-400:]))
-                for output in outputs:
-                    path = output.get('frame', output.get('file'))
-                    self.assertEqual((clean / path).read_bytes(), (LIBRARY / piece_id / path).read_bytes(), (piece_id, path))
+            with self.subTest(piece=piece_id):
+                if piece_id == 'monsoon-street' and importlib.util.find_spec('scipy') is None:  # 01's art imports it
+                    self.skipTest('scipy is not installed')
+                render_from_clean_copy(self, piece_id)
 
 
 if __name__ == '__main__':

@@ -1,11 +1,11 @@
 # evals: does the skill beat a bare model?
 
-This harness runs exploratory pairs. It does not prove that the skill wins. The ten bundled prompts come from `examples/moments`, whose answers are in this repository. Use them for dry runs, not comparisons. Live runs require prompts outside this checkout. The runner rejects exact copies of bundled prompts. A human must check for paraphrases and prior exposure.
+This harness runs exploratory pairs. It does not prove that the skill wins. The ten bundled prompts come from the ten moments, whose answers are in this repository (now `library/<id>/`, once `examples/moments`). Use them for dry runs, not comparisons. Live runs require prompts outside this checkout. The runner rejects exact copies of bundled prompts. A human must check for paraphrases and prior exposure.
 
 ## Arms and contract
 
 - **bare**: the model with a shell and Python (Pillow, numpy, ffmpeg); no skill.
-- **skill**: the same model and deliverable contract, told to use a filtered snapshot of the kit. The snapshot omits `examples/moments`, `evals`, `docs` and `tests` so prior answers and maintainer notes are not in the advertised kit.
+- **skill**: the same model and deliverable contract, told to use a filtered snapshot of the kit. The snapshot omits `examples/moments`, `evals`, `docs` and `tests`, the ten `library/<id>/` pieces that answer the bundled prompts and the generated `library/index.json`, so prior answers and maintainer notes are not in the advertised kit. Other library pieces stay in it; check that a held-out prompt does not match one.
 
 Both arms get the same prompt, deliverable contract, timeout and per-run spend ceiling. The contract requires `out/a.png`, `out/b.png` and `out/sample.wav`. The runner does **not** sandbox the agent, enforce a token cap or prove that a prompt is unseen. For a defensible comparison, isolate each agent and pin the model and tools. Only the skill should differ. If you pass `--refs`, provide `NN.jpg` for **every selected task**. The runner now rejects missing files before either arm starts. For reference-dependent tasks, do not omit `--refs`.
 

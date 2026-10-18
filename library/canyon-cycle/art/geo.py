@@ -3,8 +3,8 @@
 Everything that owns a region of the frame is defined here once, so the greyscale block-in and
 the final index map share one layout. Points are placed by hand; the code only rasterises them.
 """
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 import numpy as np
 from canvas import Canvas
 

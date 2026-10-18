@@ -5,8 +5,8 @@ Each figure is drawn facing 'se' (3/4 toward the viewer, to the right); 'sw' is 
 Keys: h hair, s skin, S skin shade/feature, t shirt, T shirt second (jacket/apron), p pants,
 f shoes, d dress, v veil, b bouquet, g gold (brass), k a hard black line, w white, o grey.
 A 1 px #000 silhouette is added round every sprite."""
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 from iso import hash2
 import mkit
 

@@ -9,12 +9,11 @@ far (depth 3: headland, far sea, island and monastery) -> the shaft; middle (dep
 flats, pools, reflections, pilgrims) -> lantern pools and glows, the door spill (B); near (depth 0:
 bank, boat, posts, bent pine), which takes no light.
 """
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
-sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/04-tide-procession/art')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import json
 import math
-import pathlib
 import numpy as np
 from PIL import Image
 
@@ -27,7 +26,7 @@ from canvas import Canvas, to_image
 import geom as G
 import figures_tp as FG
 
-ROOT = pathlib.Path('/home/user/pixelate-anything/examples/moments/04-tide-procession')
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / 'out'
 W, H = G.W, G.H
 SCALE = 3

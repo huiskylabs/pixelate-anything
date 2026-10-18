@@ -1,14 +1,14 @@
 """Greyscale block-in at native size: one flat grey per plane, the hero's light the brightest.
 Prints each plane's share so the brief's Planes line is measured, not guessed."""
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
-sys.path.insert(0, '/home/user/pixelate-anything/examples/moments/03-canyon-cycle/art')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import numpy as np
 from PIL import Image
 import palette as P
 import geo as G
 
-OUT = '/home/user/pixelate-anything/examples/moments/03-canyon-cycle/out/'
+OUT = str(pathlib.Path(__file__).resolve().parents[1] / 'out') + '/'
 BANDS = {'dark': 0.24, 'mid': 0.38, 'light': 0.52, 'brightest': 0.88}
 PLANE_BAND = {'near walls': 'dark', 'foreground banks': 'dark', 'upper sky and storm': 'mid',
               'low sky glow': 'light', 'mesa': 'mid', 'rock step': 'mid', 'left fall': 'mid',

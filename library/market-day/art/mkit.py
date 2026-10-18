@@ -5,8 +5,8 @@ stalls with striped awnings) drawn into an iso.Iso scene.
 
 sticker-iso: flat paints at the gamut edge, full #000 silhouettes, no light, no shadow; faces
 keep a fixed order (top step 3, left step 2, right step 1)."""
-import sys, math
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+import sys, math, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 import numpy as np
 import artlib
 import palette as P

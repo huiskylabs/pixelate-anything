@@ -3,8 +3,8 @@
 Every coordinate here is chosen by hand (no scatter): the island, the monastery, the causeway, the
 pilgrims' places for each moment, the near-plane silhouettes, the moon, the cloud gap and the shaft.
 """
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 import math
 import numpy as np
 

@@ -1,7 +1,7 @@
 """Market Day props: hand-typed slot maps and small iso solids (fountain, flower cart, cafe
 parasols and tables, leaf-glyph trees on black, lamp posts, the kite, the bread bicycle, crates)."""
-import sys, math
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+import sys, math, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 import numpy as np
 import artlib, canvas, veg
 from iso import hash2

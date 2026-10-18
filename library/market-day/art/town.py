@@ -10,8 +10,8 @@ it toward the viewer (screen down-left), z up (1 px per unit).
   near-side rows    y 42..62, 66..90, 94..118, 122..146 (their +y roof slopes face the viewer)
 
 Buildings are specs (dicts) so the block-in and the final render share one layout."""
-import sys
-sys.path.insert(0, '/home/user/pixelate-anything/tools')
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 from iso import hash2
 
 W = H = 600

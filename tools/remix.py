@@ -149,6 +149,9 @@ def remix_md(manifest, base, baseline, baseline_sha):
               '- [ ] Change knob files first, then the files the anatomy names, then anything else.',
               '- [ ] `piece.json`: update `title`, `summary`, `tags` and `anatomy` to what the piece now draws.',
               '- [ ] `pixelate render DIR`: every image runs and passes the technical gate.',
+              '- [ ] Read the distance from the base that render prints. An "under-remixed" WARNING is a '
+              'non-blocking, uncalibrated heuristic, not a grade: look at the frame and check that what the request '
+              'asks for, such as a new subject, is actually drawn. No warning does not make the remix good.',
               '- [ ] Update `out/golden/` only for intended changes, and regenerate `media/` (it still shows the base).',
               '- [ ] Status stays `' + manifest['status'] + '`: no gate pass, golden match or self-assessment approves it.',
               '- [ ] Check the rights to every source and the license before publishing.', '']

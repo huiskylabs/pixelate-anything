@@ -199,6 +199,9 @@ class Copy(Fixture):
                          '| camera | side |  |  |', '| palette |  |  |  |', '| composition |  |  |  |',
                          '| motion | stills |  |  |', '| sound | sfx |  |  |', 'What stays:', 'What changes:',
                          '## Checklist', '- [ ] Status stays `study`', '| a | image | passed: golden match, technical gate PASS |',
+                         '- [ ] Read the distance from the base that render prints. An "under-remixed" WARNING is '
+                         'a non-blocking, uncalibrated heuristic, not a grade: look at the frame and check that what '
+                         'the request asks for, such as a new subject, is actually drawn.',
                          '| tone | audio | skipped, untested (quick mode skips audio outputs) |'):
             self.assertIn(expected, text)
         self.assertIn(sha((self.dest / remix.BASELINE).read_bytes()), text)

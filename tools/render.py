@@ -50,6 +50,16 @@ file's SHA-256 go into the report and the run record; they say what the commands
 the program drew them. A variant is not compared with golden frames. --set is refused for render.json
 and with --no-run. Without --set, PIXELATE_KNOBS is removed from the piece commands' environment, so
 they draw the defaults.
+
+A piece whose lineage.remixed_from names a base gets a `distance` in each image record, the run record
+and its line (tools/distance.py): how many 1x pixels and what share of distinct colours of the hashed
+frame bytes differ from the golden of the base output of the same name. The base is looked up only in
+the kit's checked-in library, validated statically and read before any command runs; none of its code
+runs. A missing or invalid base, an output or golden it lacks, or a frame that was not read leaves the
+distance unavailable with a reason, and a size change leaves the pixel count unavailable; neither is
+reported as 0. When the request differs from the base's and both shares are small, the record carries
+an "under-remixed" WARNING. It is an uncalibrated heuristic, not a grade or a gate: it never changes
+the exit status. Other pieces' images record `distance` with base null and the reason.
 """
 import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, stat, subprocess, sys, tempfile, time
 
@@ -69,6 +79,14 @@ def knob_helper():
     else:
         import piece
     return piece
+
+def distance_helper():
+    """tools/distance.py, the distance of a remix's frames from its base"""
+    if __package__:
+        from . import distance
+    else:
+        import distance
+    return distance
 
 class UnsafePath(OSError):
     """a piece path that goes through a link or does not end at a regular file"""
@@ -352,8 +370,10 @@ def run_group(d, group, env):
         return {'ok': False, 'seconds': 0.0, 'error': 'unsafe output: %s' % exc}
     return run_command(group[0]['run'], d, env)
 
-def render_one(d, im, run=True, critique=False, env=None, piece=False, ran=None):
-    """ran: the run record of im's command, already run for a piece (see run_group); piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
+def render_one(d, im, run=True, critique=False, env=None, piece=False, ran=None, distance=None):
+    """ran: the run record of im's command, already run for a piece (see run_group); distance: for a
+    piece, the function from the frame bytes to rec['distance'] (see tools/distance.py), given the bytes
+    that are hashed; piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
     without a link; its frame is read once, the gate and era check run on a private copy of those
     bytes and of the gate inputs, and the judge and critique read the same bytes, so the recorded hash
     is of the bytes they checked. With logging on, the frame the judge and critique logs name is kept under
@@ -376,6 +396,8 @@ def render_one(d, im, run=True, critique=False, env=None, piece=False, ran=None)
         except UnsafePath as exc:
             rec['error'] = 'unsafe frame: %s' % exc
             return rec
+        if distance:
+            rec['distance'] = distance(data)
         with tempfile.TemporaryDirectory(prefix='pixelate-render-') as folder:
             folder = pathlib.Path(folder)
             unsafe = gate_snapshot(folder, im, data, d)
@@ -460,6 +482,8 @@ def line(rec):
     if 'critique' in rec:
         cr = rec['critique']
         parts.append('critique %s' % (cr['grade'] or '?') if cr['ok'] else 'critique failed')
+    if rec.get('distance') and distance_helper().line(rec['distance']):
+        parts.append(distance_helper().line(rec['distance']))
     return ' | '.join(parts)
 
 def ok(rec):
@@ -468,10 +492,11 @@ def ok(rec):
     return rec.get('run', {'ok': True})['ok'] and not rec.get('error') and rec.get('gate', {}).get('ok', False) \
         and rec.get('era', {'ok': True})['ok']
 
-def log_run(d, recs, piece=False, knobs=None):
+def log_run(d, recs, piece=False, knobs=None, base=None):
     """append this render to DIR/.pixelate/runs.jsonl (next to the judge log), the run record the
     library's flywheel is built from. piece: the log is opened without following a link, and an
-    error is returned instead of writing through one. knobs: what --set gave the commands"""
+    error is returned instead of writing through one. knobs: what --set gave the commands; base: the
+    remix's base as tools/distance.py looked it up"""
     if not logging():
         return None
     sys.path.insert(0, str(KIT / 'tools'))
@@ -489,12 +514,16 @@ def log_run(d, recs, piece=False, knobs=None):
                        'grade': r.get('critique', {}).get('grade'), 'ok': ok(r)})
         if 'snapshot' in r:
             images[-1]['snapshot'] = r['snapshot']
+        if 'distance' in r:
+            images[-1]['distance'] = r['distance']
     record = {'type': 'render', 'time': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
               'kit': VERSION, 'dir': d.name, 'images': images, 'ok': all(i['ok'] for i in images + files)}
     if files:
         record['files'] = files
     if knobs:
         record['knobs'] = knobs
+    if base:
+        record['base'] = {k: base[k] for k in ('id', 'library', 'status', 'error') if k in base}
     text = json.dumps(record, ensure_ascii=False) + '\n'
     if not piece:
         p = d / '.pixelate' / 'runs.jsonl'
@@ -545,9 +574,19 @@ def main(argv=None):
     outputs = [o for o in outputs if not a.image or o['name'] == a.image]
     if not outputs:
         raise SystemExit('no %s named %s in %s' % ('output' if source == 'piece.json' else 'image', a.image, source))
+    base = None
     if source == 'render.json':
         recs = [render_one(d, im, not a.no_run, a.critique) for im in outputs]
     else:
+        assert manifest is not None  # load returns the manifest of every piece.json
+        # Read before any command runs, from the kit library; the base's code never runs.
+        dist = distance_helper()
+        base = dist.lookup(d, manifest)
+
+        def measure(o):
+            if base is not None:
+                return lambda data: dist.measure(data, o, manifest['canvas'], manifest['request'], base)
+            return None
         with contextlib.ExitStack() as stack:
             path = None
             if a.set:
@@ -561,14 +600,19 @@ def main(argv=None):
                 if not a.no_run and o['run'] not in ran:
                     ran[o['run']] = run_group(d, [x for x in outputs if x['run'] == o['run']], env)
                 if o['kind'] == 'image':
-                    recs.append(dict(render_one(d, o, False, a.critique, env, piece=True, ran=ran.get(o['run'])), kind='image'))
+                    rec = render_one(d, o, False, a.critique, env, piece=True, ran=ran.get(o['run']), distance=measure(o))
+                    if 'distance' not in rec:
+                        rec['distance'] = dist.unavailable(
+                            base, o['name'], 'not a remix: piece.json names no lineage.remixed_from' if base is None
+                            else 'no frame was read: ' + (rec.get('error') or 'its run command failed'))
+                    recs.append(dict(rec, kind='image'))
                 else:
                     recs.append(render_file(d, o, False, env, ran=ran.get(o['run'])))
         if knobs:
             for r in recs:
                 r['knobs'] = knobs
     (d / 'render-report.json').write_text(json.dumps(recs, indent=1))
-    unlogged = log_run(d, recs, piece=source == 'piece.json', knobs=knobs)
+    unlogged = log_run(d, recs, piece=source == 'piece.json', knobs=knobs, base=base)
     if unlogged:
         print(unlogged, file=sys.stderr)
     if a.json:

@@ -1,6 +1,6 @@
 # Remix a library piece
 
-Read this before `pixelate remix`. It covers the copy and its baseline only. `render --set` renders a variant of a script, engine or pack piece that declares knobs (`references/piece.md`); distance from the base is not built yet, `pixelate deliver` packages a finished piece ([delivery.md](delivery.md#deliver)), and `pixelate new` is still a plain copy, not an alias of remix.
+Read this before `pixelate remix`. It covers the copy, its baseline and the distance `pixelate render` reports from the base. `render --set` renders a variant of a script, engine or pack piece that declares knobs ([piece.md](piece.md#knobs)); `pixelate deliver` packages a finished piece ([delivery.md](delivery.md#deliver)), and `pixelate new` is still a plain copy, not an alias of remix.
 
 ```
 pixelate find "an ancient temple wakes under a jungle at night"
@@ -19,6 +19,31 @@ pixelate remix quarry-wakes work/temple --request "an ancient temple wakes under
 `.pixelate/remix-baseline.json` (local; git ignores `.pixelate/`) holds the request, the base id, status and review, the SHA-256 of every copied file as tested (`files`, `files_sha256`), the full test report with each rendered output's hash, and the untested outputs. Remix prints the baseline file's own SHA-256. If the copy's files change while the baseline renders, the remix fails.
 
 `REMIX.md` holds the request, the base's summary, status and declared license, the baseline results, the anatomy table, the knobs, a plan table (subject, setting, camera, palette, composition, motion, sound: what stays and what changes) and a checklist. Fill in the plan before editing. Prefer knob files, then the files the anatomy names.
+
+## Distance from the base
+
+`pixelate render DIR` on a piece whose `lineage.remixed_from` names a base measures each image output against the base output of the same name. It reports two numbers:
+
+- **Pixels**: how many 1x pixels differ from the base's checked-in 1x golden (`out/golden/<name>.png`). The frame is reduced to 1x with nearest-neighbor sampling, as `library test` does. Fully transparent pixels count as equal whatever their RGB.
+- **Colours**: the share of distinct colours that the frame and the golden do not have in common (1 minus shared over all).
+
+Render measures the frame bytes it read once and hashed, the same bytes the gate, judge and critique checked. It never reads the frame again from DIR, so a process that rewrites the frame afterwards does not change the result. This holds with `PIXELATE_NO_LOG=1` too, when no snapshot is kept. With `--no-run`, the distance is of the frame already in DIR. With `--set`, the variant is measured against the base's golden, which shows the base's default knobs.
+
+The base is looked up only in the kit's checked-in `library/`. It is validated statically like `pixelate find` (a link anywhere in it is refused), its goldens are read once before any command runs, and none of its code runs. No other folder is searched, so a remix made with `pixelate remix --library L` reports the distance as unavailable (`base ID is not in the kit library ...`). If a kit piece happens to have the same id as that other base, the remix is measured against the kit piece; the record names the library and the golden's SHA-256, so check them.
+
+Each image record in `render-report.json` and in `.pixelate/runs.jsonl` carries `distance`: `base` (id, library, output, status, golden path and its SHA-256), `pixels` (`differ`, `total`, `share`), `palette` (`colours`, `base_colours`, `shared`, `share`), `request_differs`, `under_remixed`, `warning`, `reason`, `thresholds` and `note`. The run record also names the `base` it looked up. The line render prints for the image ends with `distance from BASE/OUTPUT: ...`. A number that could not be measured is `null` with a `reason`, never 0:
+
+- the base is not in the kit library, is invalid, has no image output of that name, or that output has no golden;
+- the command failed, or the frame was missing, unsafe, unreadable or not `size` × `scale`;
+- the 1x size differs from the base golden: colours are still compared, pixels are not, and there is no under-remix verdict.
+
+A piece that is not a remix records `distance` with `base: null` and the reason, and prints nothing.
+
+### The under-remixed warning
+
+When the remix's `request` differs from the base's (ignoring case and spacing) and fewer than 2% of 1x pixels and fewer than 5% of colours differ, the record sets `under_remixed: true` and the line ends with `WARNING under-remixed: ...`. It usually means the copy still draws the base: a changed request with an unchanged or nearly unchanged frame.
+
+The thresholds are an uncalibrated heuristic, chosen to flag near-copies only. No labelled set of good and bad remixes backs them. The warning is not a quality grade or approval, and it is not a gate: it never changes the exit status, which stays the technical gate's. A large distance does not mean the request was met, and no warning does not make the remix good. When you see the warning, look at the frame and at the plan in `REMIX.md`, and check that what the request asks for, such as the new subject, setting or palette, is actually drawn. If it is not, edit the files the anatomy names and render again. If the request really asks for a small change, such as one prop added to the same scene, say so in the plan and keep the frame.
 
 Exit status: 0 when DIR was created; 1 when the baseline failed or DIR could not be written (nothing is created); 2 for an unknown or invalid piece, an empty request or an unusable DIR.
 

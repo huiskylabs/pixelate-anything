@@ -21,6 +21,7 @@
   pixelate check BLOCKIN.png --blockin --brief brief.md [--scale N]   the greyscale block-in, before drawing
                          [--scene NAME] [--era ERA] [--brief brief.md] [--budget 'RULE BOUND (reason)']
   pixelate judge FRAME.png [--overlay OUT.png] [--json] [--log]   locate what the gate passes and an art director rejects
+  pixelate reference PHOTO -o reference.json [--marks reference.json]   correctable photo evidence + overlay (experimental)
   pixelate render DIR [--image NAME] [--critique]   draw, gate, era-check and judge every image in DIR/render.json
   pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review (--run: run it and save the critique)
   pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]   prompt an independent listening agent after the music gate
@@ -45,7 +46,7 @@ KIT = TOOLS.parent
 SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py', 'sprites': 'gen_sprites.py', 'era': 'era.py',
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
            'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py', 'critique-music': 'critique_music.py',
-           'judge': 'judge.py', 'render': 'render.py'}
+           'judge': 'judge.py', 'render': 'render.py', 'reference': 'reference.py'}
 TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
 
 def run(script, args):

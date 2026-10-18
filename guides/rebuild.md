@@ -41,6 +41,15 @@ Use `Iso.box` only where the place really is boxes. `examples/santorini/art/sant
 
 ## 2. Pick the camera
 
+Optional **experimental** reference evidence: `pixelate reference PHOTO -o reference.json` writes
+an editable record and `reference.overlay.png`. It samples three coarse value bands and dominant
+edge directions. These describe the photo. The command does **not** detect a horizon, vanishing
+point or silhouette. It does not score art quality. Inspect the overlay, then add `camera.horizon_y` (it may be
+outside the frame), `camera.vanishing_points` and named `landmarks` boxes to the JSON yourself.
+Run `pixelate reference PHOTO -o reference.json --marks reference.json` to validate the photo
+hash and redraw your marks on the overlay. Leave uncertain fields unknown. This command is
+optional until it demonstrates a better next render on unseen references.
+
 The five views below are useful presets, not limits. Choose one when it fits the reference or the art's use. `tools/iso.py` renders these orthographic views from one 3D description; see `examples/projections`. It does not render vanishing-point perspective.
 
 | camera | lines | pick it for |

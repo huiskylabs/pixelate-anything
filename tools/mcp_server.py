@@ -151,6 +151,19 @@ def check_frame(frame: str, style: str = '', scale: int = 1, palette: str = '', 
     return [('PASS\n' if code == 0 else 'FAIL\n') + text, thumb(P(frame))]
 
 @server.tool()
+def inspect_reference(photo: str, out: str, marks: str = '') -> list:
+    """Experimental rebuild evidence: sample a source photo's value bands and edge directions,
+    write a correctable JSON record and return its overlay. Does not infer horizon, vanishing points,
+    silhouettes, focal point or art quality. Add manual camera/landmark marks to the JSON and pass it
+    as marks to re-render the overlay. out must be a workspace .json path."""
+    destination = P(out, write=True)
+    args = ['reference', P(photo), '-o', destination]
+    if marks:
+        args += ['--marks', P(marks)]
+    code, text = cli(*args)
+    return [text, Image(path=str(destination.with_suffix('.overlay.png')))] if code == 0 else [text]
+
+@server.tool()
 def judge_frame(frame: str, scale: int = 0, ignore: str = '') -> list:
     """The judge, as `pixelate judge`: finds what the gate passes and an art director rejects (rock
     drawn as masonry, rows of identical units, scalloped edges, masses drawn as 1 px contours, murky

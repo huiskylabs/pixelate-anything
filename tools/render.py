@@ -7,7 +7,7 @@ frame (`pixelate check`, with the brief's `## Image NAME` lines via --image), er
 names an era, judges it (`pixelate judge`, overlay beside the frame, logged to the corpus) and, with
 --critique, runs the art director (`pixelate critique --run`). It prints one compact line per image
 and writes DIR/render-report.json, plus one record in DIR/.pixelate/runs.jsonl; it exits 1 when any
-image fails its command or its gate.
+image fails its command or its gate. PIXELATE_NO_LOG=1 turns off all of its logs (run, judge, critique).
 
 render.json:
 
@@ -57,6 +57,11 @@ def gate_args(im):
         args += ['--brief', im['brief'], '--image', im['name']]
     return args
 
+def logging():
+    """PIXELATE_NO_LOG=1 turns off every log a render writes: the run log and the judge and critique
+    corpus records"""
+    return not os.environ.get('PIXELATE_NO_LOG')
+
 def render_one(d, im, run=True, critique=False):
     rec = {'name': im['name'], 'frame': im['frame']}
     if run and im.get('run'):
@@ -69,6 +74,7 @@ def render_one(d, im, run=True, critique=False):
     if not (d / im['frame']).is_file():
         rec['error'] = 'frame not found: %s' % im['frame']
         return rec
+    rec['sha256'] = hashlib.sha256((d / im['frame']).read_bytes()).hexdigest()   # the bytes gated and judged here
     g = subprocess.run(PIXELATE + gate_args(im), cwd=d, capture_output=True, text=True)
     fails = [l.strip() for l in g.stdout.splitlines() if re.match(r'^\s*FAIL\b', l)]
     passes = [l for l in g.stdout.splitlines() if re.match(r'^\s*PASS\b', l)]
@@ -80,7 +86,9 @@ def render_one(d, im, run=True, critique=False):
         rec['era'] = {'ok': e.returncode == 0, 'report': _tail(e.stdout, 3)}
     frame = d / im['frame']
     overlay = frame.with_suffix('.judge.png')
-    jargs = ['judge', im['frame'], '--json', '--overlay', str(overlay.relative_to(d)), '--log', '--note', 'render']
+    jargs = ['judge', im['frame'], '--json', '--overlay', str(overlay.relative_to(d))]
+    if logging():
+        jargs += ['--log', '--note', 'render']
     if im.get('scale'):
         jargs += ['--scale', str(im['scale'])]
     if im.get('judge_ignore'):
@@ -93,7 +101,8 @@ def render_one(d, im, run=True, critique=False):
     else:
         rec['judge'] = {'error': _tail(j.stderr or j.stdout)}
     if critique and im.get('brief'):
-        c = subprocess.run(PIXELATE + ['critique', im['frame'], '--brief', im['brief'], '--run', '--log'],
+        c = subprocess.run(PIXELATE + ['critique', im['frame'], '--brief', im['brief'], '--run']
+                           + (['--log'] if logging() else []),
                            cwd=d, capture_output=True, text=True)
         saved = re.search(r'^saved: (.+)$', c.stdout, re.M)
         grade = re.search(r'^GRADE:\s*([ABC])', c.stdout, re.M)
@@ -133,16 +142,14 @@ def ok(rec):
 
 def log_run(d, recs):
     """append this render to DIR/.pixelate/runs.jsonl (next to the judge log), the run record the
-    library's flywheel is built from; PIXELATE_NO_LOG=1 turns it off"""
-    if os.environ.get('PIXELATE_NO_LOG'):
+    library's flywheel is built from"""
+    if not logging():
         return
     sys.path.insert(0, str(KIT / 'tools'))
     from version import VERSION
     images = []
     for r in recs:
-        f = d / r['frame']
-        images.append({'name': r['name'], 'frame': r['frame'],
-                       'sha256': hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else None,
+        images.append({'name': r['name'], 'frame': r['frame'], 'sha256': r.get('sha256'),
                        'run_ok': r.get('run', {'ok': True})['ok'], 'gate_ok': r.get('gate', {}).get('ok'),
                        'gate_fail': len(r.get('gate', {}).get('fail', [])),
                        'judge': sorted({x['kind'] for x in r.get('judge', {}).get('defects', [])}),

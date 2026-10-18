@@ -89,6 +89,17 @@ class Gallery(unittest.TestCase):
                     self.build()
         self.assertFalse((self.root / 'docs/gallery/index.html').exists())
 
+    def test_hardlinked_thumbnail_is_not_published(self):
+        self.set_permissions({'starter-scene-still': {'evidence': 'history/rights.md'}})
+        thumbnail = self.piece / 'media/thumb.png'
+        outside = self.root / 'outside.png'
+        outside.write_bytes(thumbnail.read_bytes())
+        thumbnail.unlink()
+        os.link(outside, thumbnail)
+        with self.assertRaisesRegex(gallery.GalleryError, 'singly linked'):
+            self.build()
+        self.assertFalse((self.root / 'docs/gallery/media/starter-scene-still.png').exists())
+
     def test_html_and_markdown_escape_manifest_text(self):
         data = json.loads((self.piece / 'piece.json').read_text())
         data['title'] = '<script>alert(1)</script>'

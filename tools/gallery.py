@@ -34,8 +34,8 @@ def regular(path, limit=None):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     with os.fdopen(fd, 'rb') as file:
         info = os.fstat(file.fileno())
-        if not stat.S_ISREG(info.st_mode) or (limit is not None and info.st_size > limit):
-            raise GalleryError(f'{path}: not a regular file within {limit} bytes')
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or (limit is not None and info.st_size > limit):
+            raise GalleryError(f'{path}: not a singly linked regular file within {limit} bytes')
         data = file.read((limit + 1) if limit is not None else -1)
     if limit is not None and len(data) > limit:
         raise GalleryError(f'{path}: larger than {limit} bytes')
@@ -131,7 +131,7 @@ def page(entries):
             '<style>body{font:1rem system-ui;max-width:64rem;margin:auto;padding:2rem;background:#141824;color:#eee}'
             'article{border:1px solid #667;padding:1rem;margin:1rem 0}img{max-width:100%;image-rendering:pixelated}'
             'code{display:block;overflow:auto;white-space:pre-wrap}</style><h1>Runnable pixel-art library</h1>'
-            '<p>Each card links to its source program; no gate pass implies art quality, approval or rights.</p>'
+            '<p>Each card names its runnable program and remix command; no gate pass implies art quality, approval or rights.</p>'
             + body + '</html>\n')
 
 

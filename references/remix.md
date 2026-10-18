@@ -21,3 +21,21 @@ pixelate remix quarry-wakes work/temple --request "an ancient temple wakes under
 `REMIX.md` holds the request, the base's summary, status and declared license, the baseline results, the anatomy table, the knobs, a plan table (subject, setting, camera, palette, composition, motion, sound: what stays and what changes) and a checklist. Fill in the plan before editing. Prefer knob files, then the files the anatomy names.
 
 Exit status: 0 when DIR was created; 1 when the baseline failed or DIR could not be written (nothing is created); 2 for an unknown or invalid piece, an empty request or an unusable DIR.
+
+## MCP tools
+
+Clients without a shell get the loop as four tools (`tools/mcp_server.py`), built on the same commands. There is no `add_piece` tool yet: `pixelate library add` is not built.
+
+| Tool | Command | Notes |
+|---|---|---|
+| `find_pieces(request, mode)` | `pixelate find --json` | Static. Returns the matches' text metadata and each piece's checked-in `media/thumb.png` as an image to look at. It starts no process and imports no piece code; a thumbnail that is missing, linked, too large or not an image is skipped. |
+| `remix_piece(piece, dest, request)` | `pixelate remix --json` | `dest` must be a new or empty folder inside the workspace. Reports the quick baseline honestly: audio and exports it skipped are listed as `not_tested`. |
+| `render_piece(piece_dir, image, sets, timeout)` | `pixelate render --json` | `sets` are typed `KNOB=VALUE` strings such as `["time=dusk", "seed=4"]`, each passed as one argument, never through a shell. Never passes `--critique`. |
+| `deliver_piece(piece_dir, sets, verify, timeout)` | `pixelate deliver --json` | `verify=true` runs no piece code. |
+
+Limits to keep in mind:
+- `remix_piece`, `render_piece` and `deliver_piece` run the piece's `run` commands through the shell, with your user's permissions and no sandbox. Use them on checked-in library pieces and on folders you wrote, never on a folder you have not read.
+- Writes stay inside the workspace (`$PIXELATE_WORKSPACE`, else the server's directory). A piece folder inside the kit's `library/` is refused: render and deliver write reports, logs and packages there, so remix it into the workspace first.
+- The tools read the command's whole JSON report; unlike `cli()`, they do not keep only its last 6000 characters. A failed run, a refused argument or a timeout comes back as `ok: false` with the reason.
+- An image comes back only when the file's bytes hash to what that run recorded, read without following a link. A failed command, a missing or linked frame, or a failed delivery returns none, so an earlier frame is never shown as new. A frame that failed its gate is still shown, and its result says it failed.
+- No tool runs a critique or a rating. A gate pass is a technical check, a delivery is a package of checked hashes, and neither says the art is good, that the user approved it, or that rights and the license are cleared.

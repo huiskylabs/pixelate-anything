@@ -9,7 +9,7 @@ Paths are relative to the workspace: $PIXELATE_WORKSPACE, else the directory the
 was started in. Absolute paths are accepted for reading (an image to pixelate); writes
 through write_file stay inside the workspace.
 """
-import json, re, os, pathlib, subprocess, sys
+import contextlib, hashlib, io, json, re, os, pathlib, signal, subprocess, sys
 
 TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
@@ -61,6 +61,9 @@ INSTRUCTIONS = """pixelate-anything: hand-crafted pixel art for agents. Read onl
    change the brief. Passing the gate means legal, not good: never self-grade.
 9. Show one still for go/no-go only once it is graded A; never present a below-A still as finished.
 10. Confirm the animation plan (loop length, what moves, rates), then animate.
+Library path, the default for a new request: find_pieces (look at the thumbnails), remix_piece, edit
+what REMIX.md names, render_piece, deliver_piece. These run the piece's own shell commands without a
+sandbox; a gate pass or a delivery is a technical result, not quality, approval or rights.
 Hard rules: the five orthographic views (side, 3/4 top-down, 2:1 iso, oblique, military) are
 presets, not limits. Keep a reference's camera or an explicit one- or two-point perspective;
 draw converging edges on the native-pixel grid. Draw original scenes without borrowed characters,
@@ -443,6 +446,293 @@ def render_gif(scene: str, out: str, scale: int = 0, fps: float = 15, start_s: f
         args += ['--frames', '%d:%d' % (round(start_s * 30), round(end_s * 30))]
     code, text = cli(*args)
     return [text]
+
+# ---------------------------------------------------------------- library: find, remix, render, deliver
+LIBRARY = KIT / 'library'
+EXEC_WARNING = ("This ran shell commands from the piece's manifest with your user's permissions and no sandbox. "
+                "Use it only on checked-in library pieces and on folders you wrote or reviewed.")
+RESULT_NOTICE = ("A gate pass is a technical check, not art quality. No critique or rating was run. It does not mean "
+                 "the user approved the art, and rights to any source and the license are not verified.")
+MAX_PREVIEW_BYTES = 32 * 1024 * 1024
+MAX_THUMB_BYTES = 2 * 1024 * 1024
+MAX_SETS = 64
+
+def cli_full(*args, timeout=3600):
+    """(exit code, stdout, stderr) of a `pixelate` command, never shortened (cli() keeps 6000 characters,
+    which would cut a JSON report). On timeout the command's whole process group is killed and the code is None."""
+    proc = subprocess.Popen([sys.executable, str(KIT / 'pixelate')] + [str(a) for a in args], cwd=str(WORK),
+                            env=dict(os.environ, PYTHONIOENCODING='utf-8'), stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace',
+                            start_new_session=True)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        proc.communicate()
+        return None, '', ''
+    return proc.returncode, out, err
+
+def json_report(text):
+    """the JSON value a command printed to stdout, or None when stdout is not exactly one JSON document"""
+    try:
+        return json.loads(text)
+    except ValueError:
+        return None
+
+def tail(text, n=2000):
+    text = text.strip()
+    return text[-n:]
+
+def in_library(q):
+    lib = LIBRARY.resolve()
+    return q == lib or lib in q.parents
+
+def work_folder(path, new=False):
+    """the resolved workspace folder for `path`. A piece folder must already hold piece.json; a new folder
+    (the remix destination) must be inside the workspace, not the workspace itself. Nothing in the kit's
+    library is ever a place to write: a render or delivery writes reports, logs and packages there."""
+    q = P(path, write=True)
+    if in_library(q):
+        raise ValueError('%s is inside the kit library, which is read-only; remix a piece into the workspace first' % q)
+    if new:
+        if q == WORK:
+            raise ValueError('choose a new folder inside the workspace, not the workspace itself: %s' % WORK)
+    elif not q.is_dir() or not (q / 'piece.json').is_file():
+        raise ValueError('%s is not a piece folder (no piece.json)' % q)
+    return q
+
+def set_args(sets):
+    """`--set=KNOB=VALUE` arguments for typed knob strings such as 'time=dusk', 'seed=4' or 'bloom=true'. Each
+    is one argv entry, never interpolated into a shell; the CLI checks the knob and the value."""
+    sets = [] if sets is None else sets
+    if not isinstance(sets, list) or len(sets) > MAX_SETS or not all(
+            isinstance(item, str) and '=' in item and len(item) <= 512 and '\0' not in item for item in sets):
+        raise ValueError("sets: a list of 'KNOB=VALUE' strings, at most %d" % MAX_SETS)
+    return ['--set=' + item for item in sets]
+
+def check_timeout(timeout):
+    if type(timeout) is not int or timeout < 1:
+        raise ValueError('timeout: a positive number of seconds')
+    return timeout
+
+def png_image(data, max_w=1400):
+    """an Image of PNG-compatible bytes, shrunk with nearest neighbour in memory when very wide, or None when
+    they do not decode. Nothing is written to disk."""
+    from PIL import Image as PImage
+    try:
+        im = PImage.open(io.BytesIO(data))
+        im.load()
+        if im.format == 'PNG' and im.width <= max_w:
+            return Image(data=data, format='png')
+        if im.width > max_w:
+            f = max(2, -(-im.width // max_w))
+            im = im.resize((max(1, im.width // f), max(1, im.height // f)), PImage.NEAREST)
+        if im.mode not in ('1', 'L', 'LA', 'P', 'RGB', 'RGBA'):
+            im = im.convert('RGBA')
+        buf = io.BytesIO()
+        im.save(buf, 'PNG')
+        return Image(data=buf.getvalue(), format='png')
+    except Exception:
+        return None
+
+def verified_preview(root, rel, digest):
+    """an Image of the file `rel` under `root` only when it is a regular file reached without a link whose
+    bytes hash to `digest` (what the command that wrote it recorded), else None. A stale, swapped, linked
+    or unreadable frame has no preview."""
+    import render
+    if not isinstance(rel, str) or not isinstance(digest, str):
+        return None
+    try:
+        data = render.read_regular(root, rel)
+    except (OSError, ValueError):
+        return None
+    if len(data) > MAX_PREVIEW_BYTES or hashlib.sha256(data).hexdigest() != digest:
+        return None
+    return png_image(data)
+
+def library_thumb(piece):
+    """an Image of the piece's checked-in media.thumb, read as a regular file without following a link under the
+    kit library; None when it is missing, too large or not an image. Reads only; writes nothing."""
+    import render
+    thumb = (piece.get('media') or {}).get('thumb')
+    if not thumb:
+        return None
+    try:
+        data = render.read_regular(LIBRARY, '%s/%s' % (piece['id'], thumb))
+    except (OSError, ValueError):
+        return None
+    return png_image(data) if len(data) <= MAX_THUMB_BYTES else None
+
+def report(summary, images=()):
+    return [json.dumps(summary, indent=2, ensure_ascii=False)] + list(images)
+
+def refusal(command, code, out, err, timeout):
+    """the summary of a command that printed no JSON report: it refused its arguments, crashed or timed out"""
+    if code is None:
+        return {'ok': False, 'error': '%s timed out after %ss and was killed with its process group' % (command, timeout)}
+    return {'ok': False, 'exit_code': code, 'error': '%s produced no JSON report' % command,
+            'stderr': tail(err, 4000), 'stdout': tail(out, 1000)}
+
+@server.tool()
+def find_pieces(request: str, mode: str = '') -> list:
+    """Find the closest library pieces for a request, as `pixelate find --json`, and look at them. Returns
+    JSON (top matches with why they match and what differs, each piece's title, status, summary, tags, canvas,
+    knobs and anatomy files, and the starters to use when nothing is close) followed by each piece's checked-in
+    thumbnail image, in the order the JSON names them. Static: reads the catalog's manifests and thumbnails
+    only, never imports or runs piece code and starts no process. mode: scene | rebuild | era | assets |
+    music (default: detected from the request). A `reviewed` or `accepted` match is a better base than a
+    `study`; a match is a starting point, not a verdict on the request."""
+    import library
+    found = library.find(LIBRARY, request, mode or None)
+    pieces = library.scan(LIBRARY)
+    fallback = dict(found['fallback'])
+    images = []
+    def entry(piece_id, ranked=None):
+        piece = pieces[piece_id]
+        thumb = library_thumb(piece)
+        if thumb is not None:
+            images.append(thumb)
+        return dict(ranked or {'id': piece_id, 'status': piece['status']}, title=piece['title'], summary=piece['summary'],
+                    mode=piece['mode'], tags=piece['tags'], canvas=piece['canvas'], knobs=piece['knobs'],
+                    anatomy=[a['file'] for a in piece['anatomy']],
+                    thumbnail_image=len(images) if thumb is not None else None)
+    matches = [entry(m['id'], m) for m in found['matches']]
+    if fallback['kind'] == 'starter':
+        fallback['starters'] = [entry(i) for i in fallback['ids'][:3]]
+    return report({'mode': found['mode'], 'matches': matches, 'fallback': fallback,
+                   'note': 'Static catalog search: no piece code ran. Image N is the checked-in thumbnail named by '
+                           'thumbnail_image; a score ranks keyword and tag overlap, not quality.'}, images)
+
+@server.tool()
+def remix_piece(piece: str, dest: str, request: str) -> list:
+    """Copy library piece `piece` to the new workspace folder `dest` (its name, a lowercase slug, becomes the
+    piece id) and write REMIX.md, as `pixelate remix --json`. Before moving the copy into place it renders
+    the UNEDITED copy once in a clean temporary folder (quick baseline). That runs the base piece's shell
+    commands without a sandbox: remix only checked-in library pieces. The baseline is quick: when the piece
+    has images, its audio and exports are NOT rendered or tested, and the result lists them as untested. A
+    golden match and a gate pass are technical regression checks, not approval or quality. The copy is
+    unreviewed, never inherits the base's status or approval, and nothing is critiqued or rated. `dest` must
+    be a new or empty folder inside the workspace; nothing outside it is written."""
+    destination = work_folder(dest, new=True)
+    code, out, err = cli_full('remix', piece, destination, '--request=' + request, '--json')
+    baseline = json_report(out)
+    if not isinstance(baseline, dict) or code not in (0, 1) or 'test' not in baseline:
+        return report(dict(refusal('remix', code, out, err, 3600), created=False,
+                           note='Nothing was created at %s unless the folder already existed empty.' % destination))
+    import remix
+    outputs = [{'name': r['name'], 'kind': r['kind'], 'tested': r['tested'], 'status': r['status'],
+                'result': remix.describe(r)} for r in baseline['test']['outputs']]
+    created = code == 0
+    summary = {'created': created, 'ok': created, 'piece_id': baseline['piece'], 'base': baseline['base']['id'],
+               'base_status': baseline['base']['status'], 'copy_status': baseline['status'] if created else None,
+               'reviewed': False, 'quick_baseline': baseline['quick'], 'gate_ok': baseline['test']['gate_ok'],
+               'outputs': outputs,
+               'not_tested': ['%s %s: %s' % (u['kind'], u['name'], u['reason']) for u in baseline['untested']],
+               'baseline_evidence': '%s/%s' % (destination, '.pixelate/remix-baseline.json') if created else None,
+               'next': ('fill in the plan in %s/REMIX.md, edit what it names, then render_piece' % destination)
+                       if created else 'nothing was created: the unedited base did not pass its baseline here',
+               'warning': EXEC_WARNING, 'notice': RESULT_NOTICE}
+    if not created:
+        summary['stderr'] = tail(err, 4000)
+    return report(summary)
+
+@server.tool()
+def render_piece(piece_dir: str, image: str = '', sets: list[str] | None = None, timeout: int = 3600) -> list:
+    """Render a workspace piece folder (its piece.json) and gate it, as `pixelate render DIR --json`: runs each
+    output's shell command (without a sandbox: only trusted library copies and code you wrote), gates and
+    judges each frame. Returns JSON per output (run, gate, era, judge, hash) and an Image of each frame
+    only when it is the file this render just produced (its bytes match the hash the render recorded, reached
+    without a link). A failed run or an error returns no image. image: render only that output.
+    sets: knob variants as typed 'KNOB=VALUE' strings, e.g. ['time=dusk', 'seed=4']; a variant is not
+    compared with golden frames. Never runs a critique and never rates. A gate pass is technical: it does
+    not mean the art is good, approved or cleared for rights."""
+    folder = work_folder(piece_dir)
+    args = ['render', folder, '--json'] + set_args(sets) + (['--image=' + image] if image else [])
+    code, out, err = cli_full(*args, timeout=check_timeout(timeout))
+    recs = json_report(out)
+    if not isinstance(recs, list) or not all(isinstance(r, dict) and 'name' in r for r in recs):
+        return report(dict(refusal('render', code, out, err, timeout), warning=EXEC_WARNING))
+    import render
+    images, outputs = [], []
+    for rec in recs:
+        gate = rec.get('gate') or {}
+        judge = rec.get('judge') or {}
+        item = {'name': rec['name'], 'kind': rec.get('kind', 'image'), 'ok': bool(render.ok(rec)),
+                'path': rec.get('frame') or rec.get('file'), 'sha256': rec.get('sha256'),
+                'ran': rec['run']['ok'] if 'run' in rec else None, 'preview_image': None}
+        for key in ('error', 'snapshot'):
+            if rec.get(key):
+                item[key] = rec[key]
+        if 'run' in rec and not rec['run']['ok']:
+            item['run_error'] = rec['run'].get('error')
+        if 'gate' in rec:
+            item['gate'] = {key: gate[key] for key in ('ok', 'pass', 'fail', 'error') if key in gate}
+        if 'era' in rec:
+            item['era'] = rec['era']
+        if 'judge' in rec:
+            item['judge'] = {'error': judge['error']} if 'error' in judge else \
+                {'defects': [{key: d.get(key) for key in ('kind', 'box', 'severity')} for d in judge['defects']]}
+        if item['kind'] == 'image' and rec.get('frame') and not rec.get('error') and rec.get('run', {'ok': True})['ok']:
+            preview = verified_preview(folder, rec['frame'], rec.get('sha256'))
+            if preview is not None:
+                images.append(preview)
+                item['preview_image'] = len(images)
+        outputs.append(item)
+    knobs = next((rec['knobs'] for rec in recs if rec.get('knobs')), None)
+    return report({'ok': code == 0 and all(o['ok'] for o in outputs), 'exit_code': code, 'dir': str(folder),
+                   'outputs': outputs, 'knobs': knobs, 'stderr': tail(err), 'warning': EXEC_WARNING,
+                   'notice': RESULT_NOTICE + ' preview_image N is the Nth image: it shows the frame whose hash is '
+                             'listed, even when its gate failed.'}, images)
+
+@server.tool()
+def deliver_piece(piece_dir: str, sets: list[str] | None = None, verify: bool = False, timeout: int = 900) -> list:
+    """Deliver a workspace piece folder, as `pixelate deliver DIR --json`: render every output once more
+    (running the piece's shell commands without a sandbox: only trusted library copies and code you wrote),
+    require every command to run and every image to pass the technical gate, then package the outputs and a
+    script-written DELIVERY.md under DIR/dist/delivery. A failed delivery writes no package and returns no
+    image. With verify=true it only checks an existing package's facts and hashes: it runs no piece code and
+    takes no sets. sets: typed 'KNOB=VALUE' strings as in render_piece. Delivery never runs a critique or
+    rates, and it does NOT mean the art is good, that anyone approved it, or that rights and the license are
+    cleared: a declared approver in piece.json is reported as unverified."""
+    folder = work_folder(piece_dir)
+    if verify:
+        if sets:
+            raise ValueError('verify takes no sets: it runs nothing')
+        code, out, err = cli_full('deliver', folder, '--verify', '--json', timeout=check_timeout(timeout))
+        result = json_report(out)
+        if not isinstance(result, dict) or 'checks' not in result:
+            return report(refusal('deliver --verify', code, out, err, timeout))
+        return report({'verified': bool(result['ok']) and code == 0, 'ok': bool(result['ok']) and code == 0,
+                       'fingerprint': result.get('fingerprint'), 'checks': result['checks'],
+                       'notice': 'Verified means the delivered facts, package and piece hashes match; it ran no piece '
+                                 'code. ' + RESULT_NOTICE})
+    args = ['deliver', folder, '--json', '--timeout=%d' % check_timeout(timeout)] + set_args(sets)
+    code, out, err = cli_full(*args, timeout=timeout + 120)
+    result = json_report(out)
+    if not isinstance(result, dict) or 'errors' not in result:
+        return report(dict(refusal('deliver', code, out, err, timeout + 120), warning=EXEC_WARNING))
+    delivered = bool(result.get('ok')) and code == 0
+    outputs = result.get('outputs') or []
+    images = []
+    if delivered:
+        for o in outputs:
+            if o.get('kind') == 'image':
+                preview = verified_preview(folder, '%s/%s' % (result.get('package'), o.get('path')), o.get('sha256'))
+                if preview is not None:
+                    images.append(preview)
+                    o['preview_image'] = len(images)
+    facts = result.get('facts') or {}
+    summary = {'ok': delivered, 'delivered': delivered, 'refused': bool(result.get('refused')), 'exit_code': code,
+               'piece': result.get('piece'), 'errors': result['errors'], 'outputs': outputs,
+               'fingerprint': result.get('fingerprint'),
+               'package': '%s/%s' % (folder, result['package']) if result.get('package') else None,
+               'delivery_sha256': result.get('delivery_sha256'), 'evidence': facts.get('evidence'),
+               'not_tested': facts.get('untested'), 'knobs': facts.get('knobs'), 'log': result.get('log'),
+               'stderr': tail(err), 'warning': EXEC_WARNING, 'notice': RESULT_NOTICE}
+    if not delivered:
+        summary['note'] = 'No package was written by this delivery; an earlier package was left as it was.'
+    return report(summary, images)
 
 def main():
     server.run('stdio')

@@ -480,11 +480,12 @@ def in_library(q):
 def work_folder(path, new=False):
     """the resolved workspace folder for `path`. A piece folder must already hold piece.json; a new folder
     (the remix destination) must be inside the workspace, not the workspace itself. Render, remix
-    and deliver never write to a kit library piece. `add_piece` may write to the kit library as a
-    catalog only when the kit root is the workspace and explicit trust was given."""
+    and deliver reject kit-library pieces as selected write destinations; their spawned shell commands
+    are not confined. `add_piece` may select the kit library as its catalog only when the kit root is
+    the workspace and explicit trust was given."""
     q = P(path, write=True)
     if in_library(q):
-        raise ValueError('%s is inside the kit library, read-only for render/remix/deliver; remix it into the workspace first' % q)
+        raise ValueError('%s is inside the kit library, not a selectable render/remix/deliver folder; remix it into the workspace first' % q)
     if new:
         if q == WORK:
             raise ValueError('choose a new folder inside the workspace, not the workspace itself: %s' % WORK)
@@ -630,7 +631,8 @@ def remix_piece(piece: str, dest: str, request: str) -> list:
     has images, its audio and exports are NOT rendered or tested, and the result lists them as untested. A
     golden match and a gate pass are technical regression checks, not approval or quality. The copy is
     unreviewed, never inherits the base's status or approval, and nothing is critiqued or rated. `dest` must
-    be a new or empty folder inside the workspace; nothing outside it is written."""
+    be a new or empty folder inside the workspace; the tool-selected copy goes there, but the baseline's
+    unsandboxed shell commands can read or write anywhere the server's user can."""
     destination = work_folder(dest, new=True)
     code, out, err = cli_full('remix', piece, destination, '--request=' + request, '--json')
     baseline = json_report(out)

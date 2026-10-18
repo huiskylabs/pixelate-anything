@@ -388,6 +388,38 @@ class PackStarter(Copy):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('PIXELATE_KNOBS is set, but . has no piece.json', result.stderr)
 
+    def test_an_explicit_export_scale_is_checked_before_anything_is_written(self):
+        before = tree(self.root)
+        for knob, scale, message in (({'scale': 4}, '0', '--scale must be an integer from 1 to 64, got 0'),
+                                     (None, '0', '--scale must be an integer from 1 to 64, got 0'),
+                                     (None, '-1', 'got -1'), ({'scale': 4}, '-1', 'got -1'),
+                                     (None, '65', 'got 65'), (None, '2.5', "--scale must be an integer, got '2.5'"),
+                                     (None, 'six', "--scale must be an integer, got 'six'"),
+                                     (None, '', "--scale must be an integer, got ''")):
+            with self.subTest(knob=knob, scale=scale):
+                result = self.assets(knob, '--scale', scale)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(tree(self.root), before, 'a refused scale leaves sources and outputs as they were')
+        with self.subTest(scale='missing'):
+            result = self.assets(None, '--scale')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('--scale needs a value', result.stderr)
+            self.assertNotIn('Traceback', result.stderr)
+            self.assertEqual(tree(self.root), before)
+
+    def test_a_positive_explicit_export_scale_sets_the_scale_and_without_one_the_pack_default_applies(self):
+        for scale in (1, 6, 64):
+            with self.subTest(scale=scale):
+                result = self.assets(None, '--scale', str(scale))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                with Image.open(self.root / 'out' / ('slot_a@%dx.png' % scale)) as im:
+                    self.assertEqual(im.size, (8 * 4 * scale, 8 * scale))
+        self.assertEqual(json.loads((self.root / 'pack.json').read_text())['scale'], 8)
+        result = self.assets(None)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.root / 'out' / 'slot_a@8x.png').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

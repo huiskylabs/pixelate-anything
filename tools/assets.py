@@ -161,9 +161,13 @@ def load_pack(pack, scale=None):
     """(pack.json with the options knobs set, palette, sprites); scale: an explicit export scale, an
     error when a knob sets one"""
     pack = pathlib.Path(pack)
+    if scale is not None:
+        expected, ok = piece.PACK_OPTIONS['scale']
+        if not ok(scale):
+            raise SystemExit('--scale must be %s, got %s' % (expected, scale))
     meta = json.loads((pack / 'pack.json').read_text())
     options = pack_knobs(pack, meta)
-    if scale and 'scale' in options:
+    if scale is not None and 'scale' in options:
         raise SystemExit('--scale %s and the scale knob both set the export scale; use one' % scale)
     meta.update(options)
     pal = json.loads((pack / meta.get('palette', 'palette.json')).read_text())
@@ -224,7 +228,7 @@ def lone_pixels(g):
 def export(pack, scale=None, only=None):
     pack = pathlib.Path(pack)
     meta, pal, sprites = load_pack(pack, scale)
-    scale = scale or meta.get('scale', 6)
+    scale = meta.get('scale', 6) if scale is None else scale
     bg = cl.hex_to_rgb(meta.get('preview_bg', '#2a2836'))
     out = pack / 'out'
     out.mkdir(exist_ok=True)
@@ -470,10 +474,15 @@ if __name__ == '__main__':
         print(__doc__); sys.exit(1)
     def opt(name, default=None):
         if name in a:
-            i = a.index(name); v = a[i + 1]; del a[i:i + 2]; return v
+            i = a.index(name)
+            if i + 1 >= len(a):
+                raise SystemExit('%s needs a value' % name)
+            v = a[i + 1]; del a[i:i + 2]; return v
         return default
     if a[0] == '--topx':                         # assets.py --topx IMG PALETTE [NAME]
         print(png_to_px(a[1], a[2], a[3] if len(a) > 3 else None), end=''); sys.exit(0)
     sc = opt('--scale'); only = opt('--only')
-    ok = export(a[0], int(sc) if sc else None, set(only.split(',')) if only else None)
+    if sc is not None and not re.fullmatch(r'-?[0-9]+', sc):
+        raise SystemExit('--scale must be an integer, got %r' % sc)
+    ok = export(a[0], int(sc) if sc is not None else None, set(only.split(',')) if only else None)
     sys.exit(0 if ok else 1)

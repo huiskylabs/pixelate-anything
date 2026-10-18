@@ -34,7 +34,8 @@ TOKEN = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')
 RECIPE = re.compile(r'[a-z][a-z0-9_]*\Z')  # a function name in tools/recipes.py
 # Optional string gate inputs of a `tools/render.py` image; as there, an empty string means unset.
 IMAGE_GATE = ('style', 'era', 'scene', 'brief', 'pal', 'pre', 'actor', 'used', 'intent', 'judge_ignore')
-# Gate inputs the run command may write; they need not exist before a render.
+# Gate inputs the run command may write; like an image `frame` or an audio or export `file`, they need not
+# exist before a render.
 GENERATED = ('pal', 'pre', 'actor', 'intent')
 USED_OPS = re.compile(r'[a-z_]+(?::[a-z_]+)?(?:,[a-z_]+(?::[a-z_]+)?)*\Z')
 JUDGE_KINDS = re.compile(r'[a-z_]+(?:,[a-z_]+)*\Z')
@@ -124,7 +125,9 @@ def asset(root, value, where):
 
 
 def generated(root, value, where):
-    """A path a run command may write: safe and inside the piece, never a link, but not required yet."""
+    """A path a run command may write: safe and inside the piece, never a link, but not required yet.
+    Whatever part exists is checked: a link, a file used as a folder or an existing target that is not a
+    regular file fails. Validation never infers that a declared output was rendered."""
     relative(value, where)
     path = root
     for component in value.split('/'):
@@ -170,7 +173,7 @@ def image_output(root, output):
         fields(output['size'], ('w', 'h'), where='output.size')
         for key, value in output['size'].items():
             positive(value, f'output.size.{key}')
-    asset(root, output['frame'], 'output.frame')
+    generated(root, output['frame'], 'output.frame')
     if 'golden' in output:
         if output['golden'] != f"out/golden/{output['name']}.png" or output['golden'] == output['frame']:
             fail('output.golden', 'expected out/golden/<output name>.png, distinct from frame')
@@ -269,7 +272,7 @@ def validate(root):
             image_output(root, output)
         else:
             fields(output, ('name', 'kind', 'run', 'file'), where='output')
-            asset(root, output['file'], 'output.file')
+            generated(root, output['file'], 'output.file')
         slug(output['name'], 'output.name')
         if output['name'] in seen:
             fail('outputs', 'duplicate name')

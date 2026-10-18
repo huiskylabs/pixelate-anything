@@ -4,7 +4,7 @@ Read this when authoring or migrating a `library/<id>/piece.json`. A catalog ent
 
 ## Layout and identity
 
-A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-z0-9]+(-[a-z0-9]+)*`) equal to its directory name; IDs are unique. JSON objects have unique keys. The catalog rejects symbolic links anywhere in a piece, including unreferenced files. All manifest file references are POSIX paths relative to the piece root, with no empty, `.` or `..` component, leading slash, backslash or NUL. File references must exist as regular files, except the image gate inputs a render writes (below). The library root holds only piece directories, the generated `index.json`, and an optional `README.md` or `.DS_Store`. The index is generated, sorted by id, and is not proof of quality. Keep full videos outside git.
+A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-z0-9]+(-[a-z0-9]+)*`) equal to its directory name; IDs are unique. JSON objects have unique keys. The catalog rejects symbolic links anywhere in a piece, including unreferenced files. All manifest file references are POSIX paths relative to the piece root, with no empty, `.` or `..` component, leading slash, backslash or NUL. Checked-in references (sources, `brief`, `golden`, media, review notes and record, knob `edits`) must exist as regular files. Generated outputs a run command writes (an image `frame`, an audio or export `file`, and the gate inputs `pal`, `pre`, `actor`, `intent`) need not exist before a render; whatever part of their path exists must not be a link, a file used as a folder, or a target that is not a regular file. Validation never takes a declared output as evidence that the piece was rendered. The library root holds only piece directories, the generated `index.json`, and an optional `README.md` or `.DS_Store`. The index is generated, sorted by id, and is not proof of quality. Keep full videos outside git.
 
 ## Required fields
 
@@ -30,8 +30,8 @@ Image (`kind: "image"`) takes the `tools/render.py` `render.json` image fields, 
 
 | Field | Contract |
 |---|---|
-| `frame` | Required. The frame the run command writes and the gate checks, at `scale`; must exist. |
-| `golden` | The golden 1x frame for `library test`: exactly `out/golden/<name>.png`, never the same file as `frame`; must exist when given. `library test` fails an image without it. |
+| `frame` | Required. The full-size frame the run command writes and the gate checks, at `scale` (for example the 4x frame). A generated output: it need not exist before a render and need not be committed. |
+| `golden` | The small tracked 1x golden for `library test`: exactly `out/golden/<name>.png`, never the same file as `frame`; checked in, so it must exist when given. `library test` fails an image without it. |
 | `size` | `{w, h}`: positive integers, the 1x size of this image. Defaults to the piece `canvas` `w` and `h`. |
 | `style`, `era` | At least one is required for the gate. `style`: a router style (not `none`); `era`: an era above (not `none`). |
 | `scene` | A scene variant of `style` (`pixelate style S` lists them); needs `style`. |
@@ -41,9 +41,9 @@ Image (`kind: "image"`) takes the `tools/render.py` `render.json` image fields, 
 | `used` | Comma-separated post ops (`light,shaft`, `rain:hair`). |
 | `judge_ignore` | Comma-separated judge defect kinds (`masonry,repeat_units`). |
 
-As in `render.py`, an empty string means an optional string field is unset; no other fields are allowed. Audio: `kind: "audio"`, `file` (audio file). Export: `kind: "export"`, `file` (exported artifact). Gate fields do not belong on audio or export entries. Audio and export files must exist at validation time.
+As in `render.py`, an empty string means an optional string field is unset; no other fields are allowed. Audio: `kind: "audio"`, `file` (audio file). Export: `kind: "export"`, `file` (exported artifact). Gate fields do not belong on audio or export entries. Like `frame`, an audio or export `file` is a generated output that need not exist before a render.
 
-Example (the frame, brief, sources and media must exist inside `library/quarry-wakes/`; `out/palette.json` and `out/06-a-actor.png` are written by the run command; approval must be evidenced, not inferred):
+Example (the brief, sources, media and review notes must exist inside `library/quarry-wakes/`; the frame `out/06-a.png`, `out/palette.json`, `out/06-a-actor.png` and `sound/sting.mp3` are written by the run commands; approval must be evidenced, not inferred):
 
 ```json
 {
@@ -89,7 +89,7 @@ The command prints JSON: `{ok, gate_ok, quick, pieces: [{id, ok, gate_ok, output
 
 `library test` is for trusted, checked-in pieces. The shell is not a sandbox: a run command can read and write anything the user can, before or after the checks. The link checks keep a trusted piece's mistakes from being verified as its own output; they do not contain hostile code. Do not run it on contributed or pull-request code until the project adopts a trust and sandbox policy.
 
-The root `.gitignore` ignores `out/` folders. Under `library/<id>/out/` it ignores everything except `golden/`, so `git add` picks up golden frames. A scaled frame needs `git add -f` unless git already tracks it.
+The root `.gitignore` ignores `out/` folders. Under `library/<id>/out/` it ignores everything except `golden/`, so `git add` picks up golden frames. Commit the small 1x golden; `library test` regenerates the full-size frame, so it need not be committed. A scaled frame needs `git add -f` unless git already tracks it.
 
 ## Status evidence
 
@@ -98,7 +98,7 @@ The root `.gitignore` ignores `out/` folders. Under `library/<id>/out/` it ignor
 | `starter` | A tagged, anatomized piece with at least one output and provenance. | Render and gate on the *empty starter* before use. It is a fallback, not a recommended finished base. |
 | `study` | Same static declaration. | CI render; no approval implied. |
 | `accepted` | At least two knobs; at least one image output; `media.thumb` and `media.contact` files; `review.notes` file and `review.approved_by` (`user` or `art-director`). | Verify approval is genuine, render determinism and gate result. Review notes are not a technical gate result. |
-| `reviewed` | All accepted evidence plus `review.record` file (a visual-review sidecar) and matching A-grade artifact-bound review via `review_status.piece_status`. | Recheck exact-byte binding after any file change; review alone does not grant licensing or user approval. |
+| `reviewed` | All accepted evidence plus `review.record` file (a visual-review sidecar) and matching A-grade artifact-bound review via `review_status.piece_status`, so the exact reviewed frame must exist even though frames are otherwise generated. | Recheck exact-byte binding after any file change; review alone does not grant licensing or user approval. |
 
 `review` is `{notes: path or null, approved_by: "user" | "art-director" | null, record: path or null}`. For `starter`/`study` it may be absent; if supplied, all references are checked, but it cannot elevate status. `record` is a sidecar produced by `pixelate review record`, named `<frame>.visual-review.json` beside an image output's `frame`, with the critique report saved inside the piece (for example `history/lead.md`) before recording. The record keeps the absolute paths it was made at, so a moved piece is checked by `review_status.piece_status`: the recorded frame must end in the output's `frame` path under a directory with the piece's id, the recorded brief must be the output's `brief` under that same directory, and the report must have been inside it. Only those paths are reanchored to the piece's current folder; no link is followed. A report recorded outside the piece, a renamed piece, a different path relation, a link, noncanonical record bytes, changed brief/frame/report bytes, or a B/C grade fails `reviewed` validation. Plain `pixelate review status` keeps binding absolute paths. Accepted review notes must be nonempty. For `accepted`, review notes/approval are declarations to audit, never inferred from a passing gate. Do not promote migrated work to accepted without evidence.
 

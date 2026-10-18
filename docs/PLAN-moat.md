@@ -4,6 +4,8 @@ Why the skill should beat a bare model given the same long prompt, and what to b
 
 Round-two review of this plan, after phase 1 landed: `docs/REVIEW-moat.md`.
 
+**Superseded as the order of work by `docs/PLAN-library.md`** (the library of pixel-art programs). Everything built under this plan keeps a place there.
+
 | # | Workstream | What a bare model lacks | Status |
 |---|---|---|---|
 | 1 | **The judge**: detectors that locate defects, a built-in critic, and a corpus of draft → critique → fix | It can't reliably see its own pixel-art failures, and it starts from zero every time | phase 1 implemented |

@@ -1,19 +1,165 @@
 name: tests
 
+# Pull requests get formatting and data-syntax checks only. They never run the unit tests, `pixelate`
+# or any piece command: those import and execute code from the pull request (piece `run` commands go
+# through a shell without a sandbox), and nothing isolates contributed code yet. Before merging,
+# a maintainer runs the main job's steps on the exact pull request head in an isolated local
+# environment (Python with pillow, numpy and scipy, Node 18 or later, ffmpeg):
+#   python -m unittest discover -s tests -p "test_*.py"
+#   python3 ./pixelate library index && git diff --exit-code -- library/index.json
+#   python3 ./pixelate library test --quick --timeout 300 > library-test.json
+# then the report checks below. A green pull request check therefore says nothing about tests or
+# renders.
+#
+# For `pull_request` events GitHub runs the pull request's own copy of this file, so these steps
+# cannot stop a pull request that edits them. What limits such a run is the read-only token below,
+# the absence of secrets, and the repository setting that requires maintainer approval before
+# workflows run for outside contributors; keep that setting on.
+#
+# Pushes to main run the unit suite and render every library piece. That job is the completion gate.
+
 on:
   push:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  unit:
+  pr-static:
+    name: formatting and data syntax only (no pull request code runs)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Whitespace errors in the change
+        # HEAD is the merge commit; its first parent is the base branch.
+        run: git diff --check HEAD^1 HEAD
+      - name: JSON syntax, piece ids and index membership
+        # -I keeps the checkout off sys.path, so a planted json.py cannot load.
+        run: |
+          git ls-files -z -- '*.json' | python3 -I -c '
+          import json, pathlib, sys
+          bad, data, pieces = [], {}, []
+          paths = [p for p in sys.stdin.read().split("\0") if p]
+          for path in paths:
+              try:
+                  data[path] = json.loads(pathlib.Path(path).read_bytes().decode("utf-8"))
+              except (UnicodeDecodeError, ValueError) as exc:
+                  bad.append(f"{path}: {exc}")
+                  continue
+              parts = pathlib.PurePosixPath(path).parts
+              if len(parts) == 3 and parts[0] == "library" and parts[2] == "piece.json":
+                  pieces.append(parts[1])
+                  if not isinstance(data[path], dict) or data[path].get("id") != parts[1]:
+                      bad.append(f"{path}: id must equal the folder name {parts[1]!r}")
+          index = data.get("library/index.json")
+          if index is not None:
+              listed = sorted(p.get("id") for p in index.get("pieces", []))
+              if listed != sorted(pieces):
+                  bad.append(f"library/index.json lists {listed}, folders hold {sorted(pieces)}")
+          print(f"{len(paths)} JSON files, {len(pieces)} pieces")
+          if bad:
+              sys.exit("\n".join(bad))
+          '
+
+  main-library:
+    name: unit tests and library render (main)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - name: Install
-        run: pip install pillow numpy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          pip install pillow==12.3.0 numpy==2.5.4 scipy==1.17.1
+          python3 -c 'import PIL, numpy, scipy; print("Pillow", PIL.__version__, "numpy", numpy.__version__, "scipy", scipy.__version__)'
+          node --version
+          ffmpeg -version | head -1
       - name: Unit tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Committed index matches the manifests
+        run: |
+          git ls-files --error-unmatch library/index.json
+          python3 ./pixelate library index > /dev/null
+          git diff --exit-code -- library/index.json
+      - name: Render every piece (library test --quick)
+        id: render
+        run: |
+          set +e
+          python3 ./pixelate library test --quick --timeout 300 > library-test.json
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+      - name: Every piece tested, goldens equal, gate failures only on study pieces
+        env:
+          RENDER_EXIT_CODE: ${{ steps.render.outputs.exit_code }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, pathlib, sys
+          report = json.loads(pathlib.Path('library-test.json').read_text(encoding='utf-8'))
+          index = json.loads(pathlib.Path('library/index.json').read_text(encoding='utf-8'))
+          status = {p['id']: p['status'] for p in index['pieces']}
+          folders = sorted(p.parent.name for p in pathlib.Path('library').glob('*/piece.json'))
+          tested = [p['id'] for p in report['pieces']]
+          bad, notes = [], []
+          if os.environ.get('RENDER_EXIT_CODE') != '0':
+              bad.append(f'library test exited {os.environ.get("RENDER_EXIT_CODE")}')
+          if not report.get('quick'):
+              bad.append('report is not from --quick')
+          if sorted(tested) != folders or sorted(status) != folders or len(set(tested)) != len(tested):
+              bad.append(f'tested {sorted(tested)}, index {sorted(status)}, folders {folders}')
+          for piece in report['pieces']:
+              pid = piece['id']
+              manifest = json.loads((pathlib.Path('library') / pid / 'piece.json').read_text(encoding='utf-8'))
+              golden = {o['name'] for o in manifest['outputs'] if 'golden' in o}
+              if manifest['status'] != status.get(pid):
+                  bad.append(f'{pid}: manifest status {manifest["status"]}, index {status.get(pid)}')
+              if not piece['ok']:
+                  bad.append(f'{pid}: not ok')
+              if not any(o['status'] == 'passed' and o['tested'] for o in piece['outputs']):
+                  bad.append(f'{pid}: no output passed')
+              for o in piece['outputs']:
+                  where = f'{pid}/{o["name"]}'
+                  if o['status'] == 'skipped':
+                      if o['tested']:
+                          bad.append(f'{where}: skipped but marked tested')
+                      continue
+                  if o['status'] != 'passed':
+                      bad.append(f'{where}: {o["status"]} {o.get("error", "")}')
+                  if o['name'] in golden and not (o.get('golden', {}).get('ok') and o['golden'].get('pixels') == 0):
+                      bad.append(f'{where}: golden {o.get("golden")}')
+                  if o['kind'] == 'image' and o.get('gate_ok') is not True:
+                      if manifest['status'] != 'study' or 'diagnostic' not in o:
+                          bad.append(f'{where}: gate failed on a {manifest["status"]} piece')
+                      else:
+                          notes.append(f'{where}: study, technical gate failed (reported, not blocking)')
+          lines = [f'{len(tested)} pieces tested, report ok={report["ok"]}, gate_ok={report["gate_ok"]}']
+          lines += notes + [f'FAIL {b}' for b in bad]
+          print('\n'.join(lines))
+          if os.environ.get('GITHUB_STEP_SUMMARY'):
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+                  summary.write('## library test --quick\n\n' + ''.join(f'- {l}\n' for l in lines))
+          if bad or not report['ok']:
+              sys.exit(1)
+          EOF
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-test-report
+          path: library-test.json
+          if-no-files-found: warn

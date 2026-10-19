@@ -16,8 +16,8 @@ Technical section's overrides still apply). `pixelate render DIR` does the whole
 listed in `DIR/render.json` (draw command, frame, style or era, scale, brief, palette, pre-light
 frame, actor): it runs the command, gates, era-checks era images, judges (overlay beside the frame)
 and, with `--critique`, runs the art director, then prints one line per image and writes
-`render-report.json`. `pixelate render --help` shows the format; `examples/moments/06-quarry-wakes`
-has one.
+`render-report.json`. `pixelate render --help` shows the format. It reads a library piece's `DIR/piece.json` the same way
+(`references/piece.md`); `library/quarry-wakes` is one.
 
 The frame gate checks budget, square pixels, palette (`--pal`, `--pre`), readability (`--actor`),
 allowed post ops (`--used`), pixel craft (`--intent` marks deliberate flecks) and composition. `pixelate style S`

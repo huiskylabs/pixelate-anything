@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "id": "starter-scene-loop",
+  "title": "Starter: Scene Loop",
+  "status": "starter",
+  "summary": "A neutral looping scene to copy: a sky over flat ground with placeholder shapes (a grey box, a drifting block, a pulsing marker, a few night motes) across a day and a night phase, with a lofi soundtrack. It draws no subject of its own; its day frame (the first picture) and its night frame pass the lofi frame gate.",
+  "request": "Unknown: the original request was not recorded in the repository. Template from the first kit commits; no request exists. Source description: Hilltop Cabin: a starter scene for pixelate-anything. The cabin, pine and rain were replaced by neutral placeholders in the starter-empty follow-up.",
+  "mode": "scene",
+  "tags": {
+    "subject": [
+      "scene",
+      "scaffold",
+      "placeholder",
+      "sky",
+      "ground",
+      "horizon",
+      "loop",
+      "box"
+    ],
+    "setting": [
+      "abstract",
+      "day",
+      "night"
+    ],
+    "camera": "side",
+    "style": "lofi",
+    "era": "none",
+    "motion": "loop",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 240,
+    "h": 135,
+    "scale": 8
+  },
+  "runtime": "engine",
+  "outputs": [
+    {
+      "name": "day",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 0 --zoom 8 --out out",
+      "frame": "out/t0000.00.png",
+      "golden": "out/golden/day.png",
+      "size": {
+        "w": 240,
+        "h": 135
+      },
+      "scale": 8,
+      "style": "lofi"
+    },
+    {
+      "name": "night",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 30 --zoom 8 --out out",
+      "frame": "out/t0030.00.png",
+      "golden": "out/golden/night.png",
+      "size": {
+        "w": 240,
+        "h": 135
+      },
+      "scale": 8,
+      "style": "lofi"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "config.js",
+      "draws": "canvas size, the two phases (day, night) with tempos, cycle length and palette slot names",
+      "change_for": "canvas size, phases, loop length"
+    },
+    {
+      "file": "palettes.js",
+      "draws": "a palette per phase: sky, ground, foreground strip, placeholder box, drifting block, motes and the cycled marker; the day sky stays under L 0.7 so the first picture meets the lofi budget",
+      "change_for": "colour and mood"
+    },
+    {
+      "file": "sprites.js",
+      "draws": "two placeholder pixel maps: a grey box with a marker centre and a flat drifting block",
+      "change_for": "sprites"
+    },
+    {
+      "file": "scene.js",
+      "draws": "the engine hooks around a neutral scaffold: sky bands, flat ground, a foreground strip that keeps the bottom third in use, the box, a drifting block, the cycled marker and night motes",
+      "change_for": "the scene"
+    },
+    {
+      "file": "music.js",
+      "draws": "the generative soundtrack for both phases (day: guitar, night: felt piano), independent of the picture",
+      "change_for": "the music"
+    },
+    {
+      "file": "scene.json",
+      "draws": "page title, description, alt text and the file list",
+      "change_for": "page metadata"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

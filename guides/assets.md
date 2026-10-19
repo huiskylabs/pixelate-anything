@@ -1,7 +1,7 @@
 # Assets: sprites, characters, items, tilesets
 
 An asset pack is a folder you export with `pixelate assets PACK`. Start one with
-`pixelate new assets PACK`; `examples/meadow-kit` is a complete pack: a hero with idle and
+`pixelate new assets PACK`; `library/meadow-kit` is a complete pack: a hero with idle and
 walk, items, props, a grass/dirt autotile set with variants, animated water, and a map.
 
 ```
@@ -55,7 +55,7 @@ frame
 ## Characters and animation
 
 - **Proportions at 16 px:** the head takes 6-7 rows, the body 4-5 and the legs 3. Eyes are single dark pixels two apart with a skin pixel between.
-- **Derive frames from one drawing.** Draw the base pose once, then build frames by moving parts in code. `examples/meadow-kit/art/hero.py` makes idle by sinking the head and arms 1 px and walk by lifting each foot and raising the body. This keeps every frame consistent, and fixing the base fixes them all.
+- **Derive frames from one drawing.** Draw the base pose once, then build frames by moving parts in code. `library/meadow-kit/art/hero.py` makes idle by sinking the head and arms 1 px and walk by lifting each foot and raising the body. This keeps every frame consistent, and fixing the base fixes them all.
 - **Frame counts:**
   - idle: 2-4 frames, 400-700 ms each
   - walk: 4 frames at 8 fps (contact, passing, contact, passing)
@@ -67,13 +67,13 @@ frame
 ## Items, icons and props
 
 - Read first, detail second: a coin is a circle with a highlight, a potion a bottle with liquid and a glint.
-- **Spin animations:** full face, then three-quarter, then edge, then a mirrored three-quarter (see the coin in `sprites/items.px`).
+- **Spin animations:** full face, then three-quarter, then edge, then a mirrored three-quarter (four frames, hand-drawn; `library/starter-assets` ships only neutral placeholder slots).
 - Props stand on their base. Set the anchor at the base, so maps can place them by their ground point.
 
 ## Tilesets
 
 - **Corner autotiles (16 tiles):** two terrains meet; tile index = NW*8 + NE*4 + SW*2 + SE, where 1 means the second terrain.
-  - `examples/meadow-kit/art/terrain.py` generates the set: the shape blends the corner values, and a little noise fades to zero at the edges so neighbours always meet.
+  - `library/meadow-kit/art/terrain.py` generates the set: the shape blends the corner values, and a little noise fades to zero at the edges so neighbours always meet.
   - The edges get pixel-art treatment: a light lip where grass overhangs dirt, a dark rim elsewhere, and a shadow under the lip.
 - **Seamless tiles:** keep texture away from tile edges, or wrap it. Test with a map.
 - **Variants:** add 2-4 alternates of plain tiles (sprite meta `variants: {0: [0, 16, 17, 18]}`) or large areas show a 16 px repeat.

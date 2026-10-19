@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "id": "quarry-wakes",
+  "title": "The Quarry Wakes",
+  "summary": "A colossal rusted dredging machine claws up out of a flooded quarry at dusk while a soldier in a mustard coat crouches behind a toppled crane: A it rises, B its leg slams the rim.",
+  "request": "arcade style at 304x224, delivered 4x, checked one layer at a time against the neogeo era. A 6-second boss reveal for an invented game: a colossal rusted dredging machine claws up out of a flooded quarry at dusk (bucket-chain jaw, piston legs, a cabin with one cracked lit window, moss in its seams); a soldier in a mustard coat crouches behind a toppled crane on the right. Two stills of its best moments and a 5 s FM sting.",
+  "status": "study",
+  "mode": "scene",
+  "runtime": "script",
+  "tags": {
+    "subject": [
+      "quarry",
+      "machine",
+      "boss",
+      "dredger",
+      "soldier",
+      "water",
+      "rock",
+      "crane"
+    ],
+    "setting": [
+      "industrial",
+      "dusk",
+      "outdoor"
+    ],
+    "camera": "side",
+    "style": "arcade",
+    "era": "neogeo",
+    "motion": "stills",
+    "sound": "sting"
+  },
+  "canvas": {
+    "w": 304,
+    "h": 224,
+    "scale": 4
+  },
+  "outputs": [
+    {
+      "name": "a",
+      "kind": "image",
+      "run": "python3 art/scene.py A",
+      "frame": "out/06-a.png",
+      "style": "arcade",
+      "brief": "brief.md",
+      "pal": "out/palette.json",
+      "actor": "out/06-a-actor.png",
+      "scale": 4,
+      "golden": "out/golden/a.png"
+    },
+    {
+      "name": "b",
+      "kind": "image",
+      "run": "python3 art/scene.py B",
+      "frame": "out/06-b.png",
+      "style": "arcade",
+      "brief": "brief.md",
+      "pal": "out/palette.json",
+      "actor": "out/06-b-actor.png",
+      "scale": 4,
+      "golden": "out/golden/b.png"
+    },
+    {
+      "name": "sting",
+      "kind": "audio",
+      "run": "python3 sound/sting.py && ffmpeg -y -loglevel error -i sound/06-sample.wav -codec:a libmp3lame -q:a 2 sound/06-sample.mp3",
+      "file": "sound/06-sample.mp3"
+    }
+  ],
+  "anatomy": [
+    {
+      "file": "brief.md",
+      "draws": "The scene brief: intent, arcade style, layers per era, layout, palette roles, sound plan",
+      "change_for": "intent, mood and the written rules the gate reads"
+    },
+    {
+      "file": "art/pal.py",
+      "draws": "One strict Neo Geo 15-bit palette by named roles (cold world, warm boss and soldier)",
+      "change_for": "colour, time of day"
+    },
+    {
+      "file": "art/world.py",
+      "draws": "The cold world: dusk sky with an ember band, terraced quarry walls, flooded pit, near rim with a toppled lattice crane",
+      "change_for": "the setting"
+    },
+    {
+      "file": "art/boss.py",
+      "draws": "The dredger boss as part sprites with pivots (hull, cabin, stack, jaw, bucket links, piston legs) and the A and B poses",
+      "change_for": "the hero machine or creature"
+    },
+    {
+      "file": "art/soldier.py",
+      "draws": "The crouched soldier as a joint rig, poses brace (A) and flinch (B)",
+      "change_for": "people and scale cues"
+    },
+    {
+      "file": "art/fx_cells.py",
+      "draws": "Opaque palette-cell effects: water crown, cascades, exhaust puffs, slam dust and debris",
+      "change_for": "effects"
+    },
+    {
+      "file": "art/scene.py",
+      "draws": "Composes moments A and B; exports 4x frames, 1x copies, four era layers per image, actor masks, palette.json and the parts sheet",
+      "change_for": "camera, framing, story beat"
+    },
+    {
+      "file": "art/parts_sheet.py",
+      "draws": "Boss part sprites of pose A on one transparent sheet with pivots (boss-parts.json)",
+      "change_for": "inspecting the parts"
+    },
+    {
+      "file": "art/blockin.py",
+      "draws": "Greyscale block-in of image A",
+      "change_for": "composition check before detail"
+    },
+    {
+      "file": "sound/sting.py",
+      "draws": "FM boss sting in E minor at 168 bpm, ending on the slam, synthesised in numpy",
+      "change_for": "the sting, instruments, clip"
+    }
+  ],
+  "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "provenance": {
+    "made": "2026-10-17",
+    "by": "parallel Claude agents with a coordinating agent as art director (examples/moments showcase run, PR #21); migrated to library/ on 2026-10-18 without re-review"
+  },
+  "license": "MIT"
+}

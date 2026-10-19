@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "id": "starter-assets",
+  "title": "Starter: Assets",
+  "status": "starter",
+  "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own.",
+  "request": "Unknown: the original request was not recorded in the repository. Template from the initial kit commit; no request exists. Source description: My Pack. The coin and heart were replaced by neutral placeholder slots in the starter-empty follow-up.",
+  "mode": "assets",
+  "tags": {
+    "subject": [
+      "placeholder",
+      "slot",
+      "sprite",
+      "pack",
+      "palette",
+      "template"
+    ],
+    "setting": [
+      "abstract"
+    ],
+    "camera": "none",
+    "style": "none",
+    "era": "none",
+    "motion": "sprite-sheet",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 8,
+    "h": 8,
+    "scale": 8
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "atlas-image",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/atlas.png"
+    },
+    {
+      "name": "atlas-data",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/atlas.json"
+    },
+    {
+      "name": "contact-sheet",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/contact.png"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "sprites/slots.px",
+      "draws": "two placeholder slots: slot_a (8 px, 4 frames, a marker pixel moving round the centre, tag cycle) and slot_b (8 px, one frame)",
+      "change_for": "the sprites, the .px format"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scale, preview background and the (empty) map list",
+      "change_for": "pack name, export scale, maps"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the pack palette slots: outline, white, a grey ramp (base0-3) and a blue ramp (mark0-3)",
+      "change_for": "colour"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

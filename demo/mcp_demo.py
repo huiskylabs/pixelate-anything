@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The MCP half of the gallery: drive the pixelate-anything MCP server the way an agent does
-(stdio, tool calls, images back) and save what it returns into examples/gallery/mcp/.
+(stdio, tool calls, images back) and save what it returns into docs/gallery/mcp/.
 
     pip install mcp            # once
     python3 demo/mcp_demo.py   # about 3 minutes; needs ffmpeg for the MP4s
@@ -8,17 +8,17 @@
 What it does, in agent order:
   1. guide('rebuild')                       read how to rebuild a place
   2. palette(ramps=...)                     plan a palette, get a swatch image back
-  3. export_assets('examples/projections')  one scene in five pixel-art projections
-  4. export_assets('examples/san-francisco')the aerial photo rebuilt (3/4) + the iso diorama
-  5. export_assets('examples/santorini')    a Pexels aerial rebuilt as an isometric village
-     export_assets('examples/retro')        original 8-bit and Game Boy-style screens; era(...) checks them
-  6. render_audio('templates/music', ...)   a chiptune loop for a game
+  3. export_assets('library/projections')   one scene in five pixel-art projections
+  4. export_assets('library/san-francisco') the aerial photo rebuilt (3/4) + the iso diorama
+  5. export_assets('library/santorini')     a Pexels aerial rebuilt as an isometric village
+     export_assets('library/retro-screens') original 8-bit and Game Boy-style screens; era(...) checks them
+  6. render_audio('library/starter-music', ...) a chiptune loop for a game
 Each image the server returns is what the agent would look at; they are saved as mcp/NN-*.png.
 """
 import asyncio, base64, os, pathlib, shutil, sys, time
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-OUT = ROOT / 'examples' / 'gallery' / 'mcp'
+OUT = ROOT / 'docs' / 'gallery' / 'mcp'
 
 async def main():
     try:
@@ -58,18 +58,18 @@ async def main():
             await call('guide', name='rebuild')
             await call('palette', action='ramps', ramps={'plaster': '#e9eef0', 'dome': '#2f6ad8', 'pool': '#4fd2e2',
                                                          'stone': '#8d6f62', 'bloom': '#d8327e'},
-                       steps=5, shift=26, out='examples/gallery/palettes/santorini')
-            await call('export_assets', pack='examples/projections')
-            await call('export_assets', pack='examples/san-francisco')
-            await call('export_assets', pack='examples/santorini')
-            await call('export_assets', pack='examples/retro')
-            await call('era', image='examples/retro/out/island_village.png', era='gameboy')
-            await call('era', image='examples/retro/out/rooftop_run.png', era='nes')
-            await call('render_audio', scene='templates/music', out='examples/gallery/music/pixel-radio.ogg')
+                       steps=5, shift=26, out='docs/gallery/palettes/santorini')
+            await call('export_assets', pack='library/projections')
+            await call('export_assets', pack='library/san-francisco')
+            await call('export_assets', pack='library/santorini')
+            await call('export_assets', pack='library/retro-screens')
+            await call('era', image='library/retro-screens/out/island_village.png', era='gameboy')
+            await call('era', image='library/retro-screens/out/rooftop_run.png', era='nes')
+            await call('render_audio', scene='library/starter-music', out='docs/gallery/music/pixel-radio.ogg')
 
     # collect the animations next to the images
-    for pack in ('projections', 'san-francisco', 'santorini', 'retro'):
-        o = ROOT / 'examples' / pack / 'out'
+    for pack in ('projections', 'san-francisco', 'santorini', 'retro-screens'):
+        o = ROOT / 'library' / pack / 'out'
         for f in sorted(o.glob('*')):
             if f.suffix in ('.mp4', '.gif') or f.name.endswith('@3x.png') or f.name.endswith('@2x.png'):
                 shutil.copy(f, OUT / f.name)

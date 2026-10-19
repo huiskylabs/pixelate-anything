@@ -2,6 +2,7 @@
 import copy
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -9,9 +10,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from PIL import Image
+
 REPO = Path(__file__).resolve().parents[1]
 TOOLS = REPO / 'tools'
-QUARRY = REPO / 'examples' / 'moments' / '06-quarry-wakes'
+QUARRY = REPO / 'library' / 'quarry-wakes'
 sys.path.insert(0, str(TOOLS))
 spec = importlib.util.spec_from_file_location('piece_library', TOOLS / 'library.py')
 assert spec is not None and spec.loader is not None
@@ -176,8 +179,11 @@ class ImageOutputContract(unittest.TestCase):
 
     def test_converted_06_quarry_wakes_render_json_keeps_gate_fields(self):
         piece = self.root / 'quarry-wakes'
-        shutil.copytree(QUARRY, piece, ignore=shutil.ignore_patterns('render.json', '__pycache__'))
-        images = json.loads((QUARRY / 'render.json').read_text(encoding='utf-8'))['images']
+        shutil.copytree(QUARRY, piece, ignore=shutil.ignore_patterns('__pycache__'))
+        # render.json was folded into piece.json outputs; its image fields are what the manifest keeps.
+        images = [{key: value for key, value in output.items() if key not in ('kind', 'golden')}
+                  for output in json.loads((QUARRY / 'piece.json').read_text(encoding='utf-8'))['outputs']
+                  if output['kind'] == 'image']
         outputs = [{'kind': 'image', **image} for image in images]
         outputs.append({'name': 'sound', 'kind': 'audio', 'run': 'python3 sound/sting.py', 'file': 'sound/06-sample.mp3'})
         request = next(line for line in (QUARRY / 'brief.md').read_text(encoding='utf-8').splitlines()
@@ -237,7 +243,7 @@ class ImageOutputContract(unittest.TestCase):
         bad = ({'era': ''}, {'era': 'atari'}, {'style': 'arcade', 'scene': 'exterior'}, {'scene': 'beam'},
                {'scale': 0}, {'scale': '4'}, {'brief': 'missing.md'}, {'pal': '../palette.json'},
                {'pre': '/tmp/pre.png'}, {'actor': 'out.png/mask.png'}, {'intent': 'a//b.png'}, {'used': 'glow;rm'},
-               {'judge_ignore': 'masonry, murky'}, {'actor': 4}, {'frame': 'missing.png'}, {'lights': 'on'})
+               {'judge_ignore': 'masonry, murky'}, {'actor': 4}, {'frame': '../out.png'}, {'lights': 'on'})
         for change in bad:
             with self.subTest(change=change):
                 data['outputs'][0] = {**minimal, **change}
@@ -249,6 +255,134 @@ class ImageOutputContract(unittest.TestCase):
         (piece / 'gen').symlink_to(self.root)
         with self.assertRaisesRegex(library.LibraryError, 'symlink'):
             library.validate(piece)
+
+
+class GeneratedOutputs(unittest.TestCase):
+    """An image `frame` and an audio or export `file` are written by the run command: validation needs a
+    safe path inside the piece, not a rendered file, and never takes a declaration as a render."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.piece, self.data = fixture(self.root)
+        self.data['outputs'][0]['frame'] = 'out/a.png'
+        self.data['outputs'][1]['file'] = 'sound/song.wav'
+        self.data['outputs'][2]['file'] = 'out/export.json'
+        save(self.piece, self.data)
+
+    def test_missing_but_safe_frame_and_files_validate_without_being_written(self):
+        before = sorted(p.relative_to(self.piece).as_posix() for p in self.piece.rglob('*'))
+        self.assertEqual(library.validate(self.piece)['id'], 'quarry')
+        (self.piece / 'out').mkdir()
+        library.validate(self.piece)
+        self.assertEqual(sorted(p.relative_to(self.piece).as_posix() for p in self.piece.rglob('*')), sorted(before + ['out']))
+        (self.piece / 'out' / 'a.png').write_bytes(b'rendered')
+        library.validate(self.piece)
+
+    def test_checked_in_inputs_are_still_required(self):
+        for where, change in (('output.golden', {'golden': 'out/golden/image.png'}),
+                              ('output.brief', {'brief': 'missing.md'})):
+            with self.subTest(field=where):
+                data = copy.deepcopy(self.data)
+                data['outputs'][0].update(change)
+                save(self.piece, data)
+                with self.assertRaisesRegex(library.LibraryError, where):
+                    library.validate(self.piece)
+        for key, value in (('anatomy', [{'file': 'missing.py', 'draws': 'x', 'change_for': 'y'}]),
+                           ('media', {'thumb': 'missing.png'})):
+            with self.subTest(field=key):
+                save(self.piece, {**self.data, key: value})
+                with self.assertRaisesRegex(library.LibraryError, 'missing path'):
+                    library.validate(self.piece)
+        save(self.piece, {**self.data, 'review': {'notes': 'missing.md', 'approved_by': None, 'record': None}})
+        with self.assertRaisesRegex(library.LibraryError, 'review.notes'):
+            library.validate(self.piece)
+
+    def test_unsafe_generated_paths_fail(self):
+        (self.piece / 'out').mkdir()
+        (self.piece / 'out' / 'dir.png').mkdir()
+        os.mkfifo(self.piece / 'out' / 'pipe.wav')
+        for index, key in ((0, 'frame'), (1, 'file'), (2, 'file')):
+            for bad, message in (('../outside.png', 'unsafe relative path'), ('out/../a.png', 'unsafe relative path'),
+                                 (str(self.root / 'a.png'), 'unsafe relative path'),
+                                 ('art.py/a.png', 'unsafe path'), ('out/dir.png', 'wrong file type'),
+                                 ('out/pipe.wav', 'wrong file type')):
+                with self.subTest(output=index, path=bad):
+                    data = copy.deepcopy(self.data)
+                    data['outputs'][index][key] = bad
+                    save(self.piece, data)
+                    with self.assertRaisesRegex(library.LibraryError, f'output.{key}: {message}'):
+                        library.validate(self.piece)
+
+    def test_linked_generated_paths_fail(self):
+        outside = self.root / 'outside'
+        outside.mkdir()
+        (outside / 'a.png').write_bytes(b'canary')
+        for link, target in (('out', outside), ('out/a.png', outside / 'a.png'), ('out/a.png', outside / 'gone.png'),
+                             ('sound', outside)):
+            with self.subTest(link=link, target=target.name):
+                if link.startswith('out/'):
+                    (self.piece / 'out').mkdir(exist_ok=True)
+                (self.piece / link).symlink_to(target)
+                with self.assertRaisesRegex(library.LibraryError, 'symlink'):
+                    library.validate(self.piece)
+                # A link is a declaration error even where the catalog-wide link scan does not reach.
+                with self.assertRaisesRegex(library.LibraryError, 'symlink'):
+                    library.generated(self.piece, 'out/a.png' if link != 'sound' else 'sound/song.wav', 'output')
+                (self.piece / link).unlink()
+
+
+class RealLibrary(unittest.TestCase):
+    """The checked-in manifests validate as committed, with their goldens and sizes, before any render."""
+
+    def test_lantern_isle_validates_unmodified_before_its_frames_are_rendered(self):
+        source = REPO / 'library' / 'lantern-isle'
+        with tempfile.TemporaryDirectory() as temp:
+            piece = Path(temp) / 'lantern-isle'
+            shutil.copytree(source, piece, ignore=shutil.ignore_patterns('.pixelate', '__pycache__'))
+            outputs = json.loads((piece / 'piece.json').read_text(encoding='utf-8'))['outputs']
+            for output in outputs:
+                (piece / output['frame']).unlink(missing_ok=True)
+            self.assertEqual((piece / 'piece.json').read_bytes(), (source / 'piece.json').read_bytes())
+            manifest = library.validate(piece)
+            self.assertEqual([o['golden'] for o in manifest['outputs']],
+                             [f"out/golden/{name}.png" for name in ('spring', 'summer', 'fall', 'winter')])
+            self.assertTrue(all('size' in o for o in manifest['outputs']))
+            self.assertFalse(any((piece / o['frame']).exists() for o in outputs))
+            (piece / 'out' / 'golden' / 'spring.png').unlink()
+            with self.assertRaisesRegex(library.LibraryError, 'output.golden'):
+                library.validate(piece)
+
+    def test_every_checked_in_piece_validates(self):
+        pieces = library.scan(REPO / 'library')
+        self.assertIn('lantern-isle', pieces)
+        self.assertTrue(all(p['status'] in library.STATUSES for p in pieces.values()))
+
+    def test_committed_index_is_the_generated_catalog(self):
+        # Regenerate with `pixelate library index`. The index is data, not evidence of a gate pass or approval.
+        root = REPO / 'library'
+        committed = (root / 'index.json').read_bytes()
+        self.assertEqual(committed, library.index(root))
+        entries = json.loads(committed)['pieces']
+        ids = [entry['id'] for entry in entries]
+        folders = sorted(p.name for p in root.iterdir() if p.is_dir())
+        self.assertEqual(ids, folders)
+        self.assertEqual(len(ids), len(set(ids)))
+        pieces = library.scan(root)
+        for entry in entries:
+            with self.subTest(piece=entry['id']):
+                manifest = pieces[entry['id']]
+                self.assertEqual(entry['path'], f"{entry['id']}/piece.json")
+                self.assertEqual({k: entry[k] for k in ('title', 'status', 'mode', 'summary', 'tags')},
+                                 {k: manifest[k] for k in ('title', 'status', 'mode', 'summary', 'tags')})
+                self.assertEqual(entry['media'], {key: f"{entry['id']}/{value}"
+                                                  for key, value in manifest['media'].items() if value})
+                self.assertIn('thumb', entry['media'])
+                for path in entry['media'].values():
+                    self.assertTrue((root / path).is_file() and not (root / path).is_symlink(), path)
+                with Image.open(root / entry['media']['thumb']) as thumb:
+                    self.assertLessEqual(max(thumb.size), 256)
 
 
 def documented_example(path, marker):
@@ -329,6 +463,20 @@ class RelocatedReview(unittest.TestCase):
         with self.assertRaisesRegex(library.LibraryError, 'noncanonical'):
             library.validate(moved)
 
+    def test_reviewed_needs_the_reviewed_frame_and_sidecar_to_exist(self):
+        # A frame is a generated output and may be absent for other statuses; a review binds its bytes.
+        run_review_record(self.piece, Path('history/lead.md'))
+        library.validate(self.piece)
+        frame = (self.piece / 'out.png').read_bytes()
+        (self.piece / 'out.png').unlink()
+        with self.assertRaisesRegex(library.LibraryError, 'NOT READY: .*out.png'):
+            library.validate(self.piece)
+        (self.piece / 'out.png').write_bytes(frame)
+        library.validate(self.piece)
+        (self.piece / 'out.png.visual-review.json').unlink()
+        with self.assertRaisesRegex(library.LibraryError, 'review.record: missing path'):
+            library.validate(self.piece)
+
     def test_renamed_external_report_and_symlink_copies_fail(self):
         run_review_record(self.piece, Path('history/lead.md'))
         renamed = self.root / 'renamed' / 'other-quarry'
@@ -368,7 +516,9 @@ class CatalogSearch(unittest.TestCase):
         fixture(self.root, 'ocean', 'study', subject='ocean')
         fixture(self.root, 'castle', 'study', subject='castle')
         fixture(self.root, 'starter-scene', 'starter', subject='blank')
-        fixture(self.root, 'tiles', 'study', 'assets', subject='tileset')
+        _, tiles = fixture(self.root, 'tiles', 'study', 'assets', subject='dungeon')
+        tiles['tags']['subject'].append('tileset')
+        save(self.root / 'tiles', tiles)
 
     def test_stable_index_list_show_and_entry_point(self):
         first = library.write_index(self.root)
@@ -423,8 +573,10 @@ class CatalogSearch(unittest.TestCase):
         self.assertIn('nested too deeply', result.stderr)
 
     def test_mode_required_conflicts_and_no_match(self):
-        self.assertEqual(library.find(self.root, 'tileset', mode='assets')['matches'][0]['id'], 'tiles')
-        self.assertEqual(library.find(self.root, 'tileset', mode='scene')['matches'], [])
+        self.assertEqual(library.find(self.root, 'a dungeon tileset', mode='assets')['matches'][0]['id'], 'tiles')
+        self.assertEqual(library.find(self.root, 'a dungeon tileset', mode='scene')['matches'], [])
+        # A deliverable format word is not a subject: alone it never makes a piece that lists it relevant.
+        self.assertEqual(library.find(self.root, 'a tileset with sprites', mode='assets')['matches'], [])
         self.assertEqual(library.find(self.root, 'quarry top-down')['matches'], [])
         self.assertEqual(library.find(self.root, 'quarry nes')['matches'], [])
         self.assertEqual(library.find(self.root, 'unicorn galaxies')['matches'], [])

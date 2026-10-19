@@ -54,13 +54,13 @@ one. The full loop is in [references/brief.md](../references/brief.md).
 
 | Request sounds like | Style | Light | Projection | Closest example |
 |---|---|---|---|---|
-| a calm diorama, island, cottage, seasons, lofi stream | `lofi` | none | side | `examples/lantern-isle` |
-| a bright pastel platformer, wind, a climber, a summit | `pastel-cell` | native | side | `examples/indie/art/rose_squall.py` |
+| a calm diorama, island, cottage, seasons, lofi stream | `lofi` | none | side | `library/lantern-isle` |
+| a bright pastel platformer, wind, a climber, a summit | `pastel-cell` | native | side | `library/rose-squall/art/rose_squall.py` |
 | ruins, a lone wanderer, glowing sigils, a dusky world | `native-glow` | native | 3/4 | |
 | a JRPG overworld, a town, sunlit water, rich HD-2D-like | `hd-overworld` | native | 3/4 | |
 | an arcade shooter, soldiers, tanks, explosions, chunky action | `arcade` | none | side | |
-| a tactics board, mechs, a grid, a battle map | `tactics` | none | 2:1 iso | `examples/projections` |
-| a city block, a busy street, a cross-section, many tiny people | `sticker-iso` | none | 2:1 iso | `examples/san-francisco` |
+| a tactics board, mechs, a grid, a battle map | `tactics` | none | 2:1 iso | `library/projections` |
+| a city block, a busy street, a cross-section, many tiny people | `sticker-iso` | none | 2:1 iso | `library/san-francisco` |
 | a big monument, a painted vista, an airship, clouds | `illustrated` | none | side | |
 | a neon city at night, rain, a samurai, noir, a club | `neon-noir` | native | side | |
 | a farm, a cosy village, lamps at night, a warm interior | `cosy-lightmap` | screen | 3/4 | |

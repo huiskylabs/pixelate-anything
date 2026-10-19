@@ -1,0 +1,6 @@
+{
+  "title": "Starter Scene Loop",
+  "description": "A neutral looping scene scaffold: a sky, a flat ground and a few placeholders, with a lofi soundtrack. Replace the placeholders with your own subject.",
+  "alt": "Animated pixel-art scaffold: a plain sky over flat ground with a grey box, a drifting block and a pulsing marker.",
+  "files": ["palettes.js", "sprites.js", "scene.js"]
+}

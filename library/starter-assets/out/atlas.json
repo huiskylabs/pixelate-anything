@@ -1,0 +1,56 @@
+{
+ "frames": {
+  "slot_a 0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 8,
+    "h": 8
+   },
+   "duration": 250
+  },
+  "slot_a 1": {
+   "frame": {
+    "x": 9,
+    "y": 0,
+    "w": 8,
+    "h": 8
+   },
+   "duration": 250
+  },
+  "slot_a 2": {
+   "frame": {
+    "x": 18,
+    "y": 0,
+    "w": 8,
+    "h": 8
+   },
+   "duration": 250
+  },
+  "slot_a 3": {
+   "frame": {
+    "x": 27,
+    "y": 0,
+    "w": 8,
+    "h": 8
+   },
+   "duration": 250
+  },
+  "slot_b 0": {
+   "frame": {
+    "x": 36,
+    "y": 0,
+    "w": 8,
+    "h": 8
+   },
+   "duration": 125
+  }
+ },
+ "meta": {
+  "image": "atlas.png",
+  "size": {
+   "w": 256,
+   "h": 8
+  }
+ }
+}

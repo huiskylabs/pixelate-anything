@@ -14,7 +14,7 @@
   pixelate topx IMG PALETTE [NAME]       a PNG as an editable .px sprite (palette: .json/.hex/preset)
   pixelate era IMG --era nes|gameboy|snes|genesis|gba|pico-8 [-o OUT]   check (or force) console-era limits
   pixelate sprites SCENE                 generate sprites.js from SCENE/art/*.py
-  pixelate new scene|music|assets DIR    start a project from a template
+  pixelate new scene|music|assets DIR    copy a library starter into a new piece folder (DIR's name is its id)
   pixelate shot SCENE t [t...] [--grid]  preview frames                            (guides/scenes.md)
   pixelate check SCENE [--page]          palettes, timing, loop seam, page
   pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op] [--brief B]   the delivery gate
@@ -43,7 +43,7 @@
 What each mode needs: image, palette and assets modes need Python with pillow and numpy only;
 scenes add node; video and GIF add ffmpeg; music and the page check add Playwright Chromium.
 """
-import argparse, os, pathlib, runpy, shutil, subprocess, sys
+import argparse, json, os, pathlib, runpy, shutil, subprocess, sys, tempfile
 
 TOOLS = pathlib.Path(__file__).resolve().parent
 KIT = TOOLS.parent
@@ -51,7 +51,18 @@ SCRIPTS = {'image': 'pixelate.py', 'palette': 'palette.py', 'assets': 'assets.py
            'shot': 'shot.py', 'check': 'check.py', 'build': 'build.py', 'audio': 'render_audio.py',
            'route': 'route.py', 'style': 'styles.py', 'tools': 'kit.py', 'critique': 'critique.py', 'critique-music': 'critique_music.py',
            'judge': 'judge.py', 'render': 'render.py', 'reference': 'reference.py'}
-TEMPLATES = {'scene': 'starter', 'music': 'music', 'assets': 'assets'}
+STARTERS = {'scene': 'starter-scene-loop', 'music': 'starter-music', 'assets': 'starter-assets'}
+GUIDES = {'scene': 'scenes', 'music': 'music', 'assets': 'assets'}
+NEW_USAGE = '''usage: pixelate new KIND DIR   (kinds: %s)
+
+Copies the kind's library starter into the new folder DIR as a piece whose id is DIR's name
+(a lowercase slug such as my-scene):
+  %s
+DIR must not exist, or be an empty folder that is not a link. The copy keeps the starter's sources,
+media, history and 1x goldens, but no generated outputs or .pixelate run data. It is a plain copy: it
+records no lineage and renders nothing. The library plan makes it an alias of
+`pixelate remix STARTER DIR` once remix exists.''' % (
+    ', '.join(STARTERS), '\n  '.join('%-7s library/%s' % item for item in STARTERS.items()))
 
 def run(script, args):
     sys.argv = [str(TOOLS / script)] + args
@@ -59,14 +70,53 @@ def run(script, args):
     runpy.run_path(str(TOOLS / script), run_name='__main__')
 
 def new(kind, dest):
-    if kind not in TEMPLATES:
-        sys.exit('kinds: ' + ', '.join(TEMPLATES))
+    """Copy a library starter to `dest` as a piece whose id is the folder name; validate the copy, then move
+    it into place, so a failure leaves `dest` as it was."""
+    sys.path.insert(0, str(TOOLS))
+    import library
+    if kind not in STARTERS:
+        sys.exit('kinds: ' + ', '.join(STARTERS))
     dest = pathlib.Path(dest)
-    if dest.exists() and any(dest.iterdir()):
-        sys.exit('%s exists and is not empty' % dest)
-    shutil.copytree(KIT / 'templates' / TEMPLATES[kind], dest, dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns('dist', 'shots', 'out', '__pycache__'))
-    print('created %s from templates/%s. Next: read guides/%s.md' % (dest, TEMPLATES[kind], {'scene': 'scenes', 'music': 'music', 'assets': 'assets'}[kind]))
+    if not library.SLUG.fullmatch(dest.name):
+        sys.exit('%s: the folder name becomes the piece id; use a lowercase slug such as my-%s' % (dest, kind))
+    if dest.is_symlink():
+        sys.exit('%s is a symbolic link; choose a new folder' % dest)
+    if dest.exists() and (not dest.is_dir() or any(dest.iterdir())):
+        sys.exit('%s exists and is not an empty folder' % dest)
+    source = library.DEFAULT_LIBRARY / STARTERS[kind]
+    try:
+        manifest = library.validate(source)  # also rejects a link anywhere in the starter
+    except library.LibraryError as exc:
+        sys.exit('starter %s is invalid: %s' % (STARTERS[kind], exc))
+    generated = {output.get('frame') or output['file'] for output in manifest['outputs']}
+
+    def ignore(folder, entries):
+        # Keep sources, media, history and out/golden; leave out run data and generated outputs.
+        rel = pathlib.Path(folder).relative_to(source)
+        return {entry for entry in entries
+                if entry in ('.pixelate', 'dist', 'shots', '__pycache__', 'render-report.json')
+                or (rel / entry).as_posix() in generated or (rel.as_posix() == 'out' and entry != 'golden')}
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        build = pathlib.Path(tempfile.mkdtemp(prefix='.%s-' % dest.name, dir=dest.parent))
+    except OSError as exc:
+        sys.exit('cannot create %s: %s' % (dest, exc))
+    try:
+        work = build / dest.name
+        shutil.copytree(source, work, symlinks=True, ignore=ignore)
+        manifest['id'] = dest.name
+        (work / 'piece.json').write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+        try:
+            library.validate(work)
+        except library.LibraryError as exc:
+            sys.exit('the copy of %s does not validate: %s' % (STARTERS[kind], exc))
+        os.rename(work, dest)  # replaces only a missing path or an empty folder
+    except OSError as exc:
+        sys.exit('cannot create %s: %s' % (dest, exc))
+    finally:
+        shutil.rmtree(build, ignore_errors=True)
+    print('created %s (piece id %s) as a copy of library/%s. Next: read guides/%s.md, then run its '
+          'outputs with `pixelate render %s`.' % (dest, dest.name, STARTERS[kind], GUIDES[kind], dest))
 
 def doctor():
     ok = True
@@ -158,8 +208,10 @@ def main(argv=None):
     elif cmd == 'gif':
         run('render_video.py', [rest[0], '--gif'] + rest[1:])
     elif cmd == 'new':
-        if len(rest) != 2 or rest[0] in ('-h', '--help'):
-            sys.exit('usage: pixelate new KIND DIR   (kinds: %s)' % ', '.join(TEMPLATES))
+        if rest[:1] in (['-h'], ['--help']):
+            print(NEW_USAGE); return
+        if len(rest) != 2:
+            sys.exit(NEW_USAGE)
         new(rest[0], rest[1])
     elif cmd == 'doctor':
         doctor()

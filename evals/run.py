@@ -24,6 +24,10 @@ import argparse, datetime, hashlib, json, os, pathlib, shlex, shutil, subprocess
 HERE = pathlib.Path(__file__).resolve().parent
 KIT = HERE.parent
 PROMPTS = HERE / 'prompts'
+# The bundled prompts are named NN-<library id>.md, and library/<id>/ holds each one's answer. A skill-arm
+# snapshot leaves these out, and the generated catalog that lists them; the other library pieces stay.
+ANSWER_PIECES = tuple('library/%s/' % p.stem.split('-', 1)[1] for p in sorted(PROMPTS.glob('*.md')))
+HELD_OUT_EXCLUDED = ('examples/moments/', 'evals/', 'docs/', 'tests/', 'library/index.json') + ANSWER_PIECES
 DEFAULT_AGENT = 'claude -p --output-format json --permission-mode bypassPermissions'
 
 CONTRACT = """
@@ -124,7 +128,7 @@ def isolated_kit(out):
         raise SystemExit('kit snapshot already exists: %s (choose a fresh --out)' % target)
     tracked = subprocess.check_output(['git', '-C', str(KIT), 'ls-files', '-z']).decode().split('\0')
     for name in tracked:
-        if not name or name.startswith(('examples/moments/', 'evals/', 'docs/', 'tests/')):
+        if not name or name.startswith(HELD_OUT_EXCLUDED):
             continue
         src = KIT / name
         if not src.is_file() or src.is_symlink():

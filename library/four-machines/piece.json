@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "id": "four-machines",
+  "title": "One Morning, Four Machines",
+  "summary": "One moment drawn four times under four console limits: a postmaster launches a mail glider off a cliff-top post office at sunrise over a waking fishing town, as Game Boy-, NES-, SNES- and GBA-style panels.",
+  "request": "No verbatim user request is recorded for this piece. The brief (brief.md section 0) states the intent: \"one original moment drawn four times, each time designed for its machine, so the comparison itself is the delight\" and the moment: \"a young postmaster launches a canvas mail-glider off the rail of a cliff-top post office at sunrise ... below, a fishing town in a cove is waking\", under Game Boy-, NES-, SNES- and GBA-style limits, with an original 8-bar 116 bpm lift-off theme.",
+  "status": "study",
+  "mode": "era",
+  "runtime": "script",
+  "tags": {
+    "subject": [
+      "glider",
+      "pilot",
+      "post",
+      "office",
+      "town",
+      "harbour",
+      "cliff",
+      "gull",
+      "boat"
+    ],
+    "setting": [
+      "coastal",
+      "sunrise",
+      "outdoor"
+    ],
+    "camera": "side",
+    "style": "lofi",
+    "era": "none",
+    "motion": "stills",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 560,
+    "h": 540,
+    "scale": 3
+  },
+  "outputs": [
+    {
+      "name": "poster",
+      "kind": "export",
+      "run": "python3 art/panel_gb.py && python3 art/panel_nes.py && python3 art/panel_snes.py && python3 art/panel_gba.py && python3 art/poster.py",
+      "file": "out/05-a.png"
+    },
+    {
+      "name": "b",
+      "kind": "export",
+      "run": "python3 art/panel_gb.py && python3 art/panel_nes.py && python3 art/panel_snes.py && python3 art/panel_gba.py && python3 art/poster.py",
+      "file": "out/05-b.png"
+    },
+    {
+      "name": "gb",
+      "kind": "image",
+      "run": "python3 art/panel_gb.py",
+      "frame": "out/panel-gb@4x.png",
+      "style": "lofi",
+      "era": "gameboy",
+      "size": {
+        "w": 160,
+        "h": 144
+      },
+      "scale": 4,
+      "golden": "out/golden/gb.png"
+    },
+    {
+      "name": "nes",
+      "kind": "image",
+      "run": "python3 art/panel_nes.py",
+      "frame": "out/panel-nes@4x.png",
+      "style": "lofi",
+      "era": "nes",
+      "size": {
+        "w": 256,
+        "h": 224
+      },
+      "scale": 4,
+      "golden": "out/golden/nes.png"
+    },
+    {
+      "name": "snes",
+      "kind": "image",
+      "run": "python3 art/panel_snes.py",
+      "frame": "out/panel-snes@4x.png",
+      "style": "lofi",
+      "era": "snes",
+      "size": {
+        "w": 256,
+        "h": 224
+      },
+      "scale": 4,
+      "golden": "out/golden/snes.png"
+    },
+    {
+      "name": "gba",
+      "kind": "image",
+      "run": "python3 art/panel_gba.py",
+      "frame": "out/panel-gba@4x.png",
+      "style": "lofi",
+      "era": "gba",
+      "size": {
+        "w": 240,
+        "h": 160
+      },
+      "scale": 4,
+      "golden": "out/golden/gba.png"
+    },
+    {
+      "name": "sample",
+      "kind": "audio",
+      "run": "python3 sound/theme.py && ffmpeg -y -loglevel error -i sound/05-sample.wav -codec:a libmp3lame -q:a 2 sound/05-sample.mp3",
+      "file": "sound/05-sample.mp3"
+    }
+  ],
+  "anatomy": [
+    {
+      "file": "brief.md",
+      "draws": "The brief: the shared moment, per-machine hardware limits, composition fractions, value plan, sound plan",
+      "change_for": "intent, the moment, the written rules"
+    },
+    {
+      "file": "art/common.py",
+      "draws": "Shared composition fractions, slot-canvas helpers, rock facets, save and check plumbing; draws no object",
+      "change_for": "the shared composition"
+    },
+    {
+      "file": "art/panel_gb.py",
+      "draws": "The 4-shade handheld panel, 160x144, every object redrawn for that machine",
+      "change_for": "the Game Boy-style panel only"
+    },
+    {
+      "file": "art/panel_nes.py",
+      "draws": "The 8-bit console panel, 256x224, 2C02 colours and sprite budgets",
+      "change_for": "the NES-style panel only"
+    },
+    {
+      "file": "art/panel_snes.py",
+      "draws": "The 16-bit console panel, 256x224, three parallax layers and sprites",
+      "change_for": "the SNES-style panel only"
+    },
+    {
+      "file": "art/panel_gba.py",
+      "draws": "The 32-bit handheld panel, 240x160, high-key palette and finer sprites",
+      "change_for": "the GBA-style panel only"
+    },
+    {
+      "file": "art/poster.py",
+      "draws": "Assembles the 2x2 poster (05-a.png) and the 16-bit panel at 4x (05-b.png) with pixfont captions",
+      "change_for": "poster layout and captions"
+    },
+    {
+      "file": "art/blockin.py",
+      "draws": "Greyscale block-in of the shared composition at 256x224",
+      "change_for": "composition check before detail"
+    },
+    {
+      "file": "sound/theme.py",
+      "draws": "Synthesises 'Lift-off', an 8-bar 116 bpm D major 16-bit arrangement, and cuts the 5 s sample",
+      "change_for": "the theme, instruments, clip"
+    }
+  ],
+  "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "provenance": {
+    "made": "2026-10-17",
+    "by": "parallel Claude agents with a coordinating agent as art director (examples/moments showcase run, PR #21); migrated to library/ on 2026-10-18 without re-review"
+  },
+  "license": "MIT"
+}

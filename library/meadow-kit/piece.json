@@ -1,0 +1,123 @@
+{
+  "schema": 1,
+  "id": "meadow-kit",
+  "title": "Meadow Kit",
+  "status": "study",
+  "summary": "A complete asset pack: a 16x16 hero with idle and walk animations, items, props, an autotiling grass-and-dirt set, animated water and a sample map.",
+  "request": "Unknown: the original request was not recorded in the repository. First-party sample pack from the initial kit commit; guides/assets.md describes it as a complete pack. Source description: Meadow Kit: hero, items, an autotile set and a map.",
+  "mode": "assets",
+  "tags": {
+    "subject": [
+      "hero",
+      "tileset",
+      "grass",
+      "dirt",
+      "water",
+      "coin",
+      "heart",
+      "potion",
+      "bush",
+      "flower",
+      "rock",
+      "item",
+      "map",
+      "tile",
+      "sprite"
+    ],
+    "setting": [
+      "meadow",
+      "outdoor",
+      "day"
+    ],
+    "camera": "3/4 top-down",
+    "style": "none",
+    "era": "none",
+    "motion": "sprite-sheet",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 176,
+    "h": 128,
+    "scale": 6
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "atlas-image",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/atlas.png"
+    },
+    {
+      "name": "atlas-data",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/atlas.json"
+    },
+    {
+      "name": "contact-sheet",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/contact.png"
+    },
+    {
+      "name": "meadow-map",
+      "kind": "export",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "file": "out/meadow.png"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/hero.py",
+      "draws": "the 16x16 hero drawn once, with idle (2 frames) and walk (4 frames) derived by moving parts",
+      "change_for": "the character"
+    },
+    {
+      "file": "art/terrain.py",
+      "draws": "the 16-tile corner autotile set (grass and dirt, with variants) and animated water",
+      "change_for": "terrain and water"
+    },
+    {
+      "file": "sprites/items.px",
+      "draws": "hand-drawn items: coin, heart, potion",
+      "change_for": "item art"
+    },
+    {
+      "file": "sprites/props.px",
+      "draws": "hand-drawn props: bush, flower, rock",
+      "change_for": "prop art"
+    },
+    {
+      "file": "maps/meadow.txt",
+      "draws": "the sample map: tileset, corner grid and prop placements",
+      "change_for": "level layout"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scale, preview background and the map list",
+      "change_for": "export scale, maps exported"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the pack palette slots (also palette.gpl, .hex and .png)",
+      "change_for": "colour"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

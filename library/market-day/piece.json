@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "id": "market-day",
+  "title": "Market Day, From the Bell Tower",
+  "summary": "Strasbourg's old-town street and squares at noon, rebuilt after an aerial photo and full of market stories: A the whole frame, B the wedding on the hall steps at 8x.",
+  "request": "rebuild Pexels photo 14037897 (Nick Verlice, \"Aerial View of Medieval Buildings on an Old Town\": Strasbourg's Rue Merciere seen from the cathedral tower) as sticker-iso at 600x600, delivered 4x at 2400x2400; a market day with a wedding on the hall steps as the hero; a 5 s brass-band sound sample.",
+  "status": "study",
+  "mode": "rebuild",
+  "runtime": "script",
+  "tags": {
+    "subject": [
+      "market",
+      "town",
+      "wedding",
+      "street",
+      "square",
+      "hall",
+      "band",
+      "stall",
+      "crowd"
+    ],
+    "setting": [
+      "city",
+      "noon",
+      "outdoor",
+      "festive"
+    ],
+    "camera": "2:1 iso",
+    "style": "sticker-iso",
+    "era": "none",
+    "motion": "stills",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 600,
+    "h": 600,
+    "scale": 4
+  },
+  "outputs": [
+    {
+      "name": "a",
+      "kind": "image",
+      "run": "python3 art/scene.py final out 142 162",
+      "frame": "out/08-a.png",
+      "style": "sticker-iso",
+      "brief": "brief.md",
+      "pal": "art/palette.json",
+      "actor": "out/08-a-actor.png",
+      "intent": "out/08-a-intent.png",
+      "scale": 4,
+      "golden": "out/golden/a.png"
+    },
+    {
+      "name": "b",
+      "kind": "image",
+      "run": "python3 art/scene.py final out 142 162",
+      "frame": "out/08-b.png",
+      "style": "sticker-iso",
+      "brief": "brief.md",
+      "scale": 8,
+      "size": {
+        "w": 140,
+        "h": 140
+      },
+      "golden": "out/golden/b.png"
+    },
+    {
+      "name": "sample",
+      "kind": "audio",
+      "run": "python3 sound/march.py sound/08-sample.wav && ffmpeg -y -loglevel error -i sound/08-sample.wav -codec:a libmp3lame -q:a 2 sound/08-sample.mp3",
+      "file": "sound/08-sample.mp3"
+    }
+  ],
+  "anatomy": [
+    {
+      "file": "brief.md",
+      "draws": "The rebuild brief: intent, sticker-iso style, iso layout, figures, sound plan",
+      "change_for": "intent, mood and the written rules the gate reads"
+    },
+    {
+      "file": "art/town.py",
+      "draws": "Layout of Rue Merciere, the squares and the hall in 2:1 iso world units",
+      "change_for": "the layout and what stands where"
+    },
+    {
+      "file": "art/mkit.py",
+      "draws": "Palette, slot-map helpers, planar roof painter and the old-town forms (roofs, half-timbered fronts, stalls) drawn into an iso scene",
+      "change_for": "palette, building style"
+    },
+    {
+      "file": "art/mbld.py",
+      "draws": "Buildings and props as seeded functions: roof courses, dormers, facades, houses, the arcaded hall, stalls",
+      "change_for": "building shapes"
+    },
+    {
+      "file": "art/mfig.py",
+      "draws": "Hand-typed 13 px iso people, dog, pigeons and the wedding party",
+      "change_for": "people and animals"
+    },
+    {
+      "file": "art/mprops.py",
+      "draws": "Small props: fountain, flower cart, cafe parasols, trees, lamp posts, kite, bicycle, crates",
+      "change_for": "props"
+    },
+    {
+      "file": "art/scene.py",
+      "draws": "Scene renderer for block-in and final; final exports 08-a at 1x, 2x and 4x, masks, art/palette.json and the 8x wedding crop 08-b (crop offset is argv)",
+      "change_for": "camera, crop and output sizes"
+    },
+    {
+      "file": "art/palette.json",
+      "draws": "The palette used by the final render, rewritten by every render",
+      "change_for": "colour"
+    },
+    {
+      "file": "sound/march.py",
+      "draws": "Synthesises a 5.0 s oom-pah march in B-flat major at 112 bpm with a crowd murmur; takes the output wav path as argument",
+      "change_for": "the tune, instruments, clip"
+    }
+  ],
+  "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "provenance": {
+    "made": "2026-10-17",
+    "by": "parallel Claude agents with a coordinating agent as art director (examples/moments showcase run, PR #21); migrated to library/ on 2026-10-18 without re-review; rebuilt in original code from Pexels photo 14037897 by Nick Verlice (Pexels license); the photo is not in the repository"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "id": "santorini",
+  "title": "Santorini",
+  "status": "study",
+  "summary": "A cliffside Cycladic village rebuilt as a 2:1 isometric diorama from an aerial photo: white cubes on terraces, plunge pools, a blue-domed chapel and a windmill, from day through golden sunset to blue hour.",
+  "request": "Unknown: the original request was not recorded in the repository. The reference is \"Houses on Hill\" by Vasilis Karkalas, https://www.pexels.com/photo/houses-on-hill-11222833/ (Pexels license); it is not in the repository. Source description: a cliffside village rebuilt as a 2:1 isometric diorama from a Pexels aerial; day, golden sunset, blue hour.",
+  "mode": "rebuild",
+  "tags": {
+    "subject": [
+      "village",
+      "cliff",
+      "house",
+      "dome",
+      "chapel",
+      "windmill",
+      "pool",
+      "stairs",
+      "caldera",
+      "boat",
+      "sea",
+      "santorini",
+      "greece",
+      "terrace",
+      "aerial"
+    ],
+    "setting": [
+      "coastal",
+      "outdoor",
+      "day",
+      "sunset",
+      "dusk"
+    ],
+    "camera": "2:1 iso",
+    "style": "sticker-iso",
+    "era": "none",
+    "motion": "loop",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 288,
+    "h": 288,
+    "scale": 3
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "santorini",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/santorini@3x.png",
+      "golden": "out/golden/santorini.png",
+      "size": {
+        "w": 288,
+        "h": 288
+      },
+      "scale": 3,
+      "style": "sticker-iso"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/santorini.py",
+      "draws": "the whole diorama: terraced cubes and vaults, pools, stairs, chapel, windmill, catamaran and the day to blue-hour loop (144 frames); art/oklab_relight.py is a copy of the relight() helper from the san-francisco piece",
+      "change_for": "the place, the buildings, the animation"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scales and preview background for pixelate assets",
+      "change_for": "export scale"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the pack palette slots written for the asset exporter",
+      "change_for": "nothing for the scene, which relights its own palette"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

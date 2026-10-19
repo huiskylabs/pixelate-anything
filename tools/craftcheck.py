@@ -381,7 +381,7 @@ def measure(img_1x, intent=None, objects=None):
 # orphans 1.5x + 0.01, jaggies + 0.10, stripes max(0.01, 3x), doubled 1.5x + 0.08, pillow 0.01
 # (every reference measures 0; 0.02 for Stardew's pillow-cut stones), cluster_px at least half,
 # small_clusters + 0.08. JPEG noise and 05's smooth-upscale blur inflate the reference orphans.
-# Rose Squall (examples/indie, pastel-cell) measures .007 .255 .006 .106 0 6.0 .496 and passes.
+# Rose Squall (library/rose-squall, pastel-cell) measures .007 .255 .006 .106 0 6.0 .496 and passes.
 def _lim(o, j, s, d, p, c, sm):
     return {'orphans': (None, o), 'jaggies': (None, j), 'stripes': (None, s), 'doubled': (None, d),
             'pillow': (None, p), 'cluster_px': (c, None), 'small_clusters': (None, sm)}

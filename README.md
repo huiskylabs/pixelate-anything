@@ -50,10 +50,12 @@ It ships three ways:
 ```sh
 git clone https://github.com/huiskylabs/pixelate-anything
 cd pixelate-anything
-pip install -r requirements.txt     # pillow and numpy are required; mcp and playwright are optional
+pip install -r requirements.txt     # pins the Pillow, NumPy and SciPy versions used for the goldens
 ./pixelate doctor                   # shows what each mode needs (node for scenes, ffmpeg for video)
 ./pixelate setup                    # registers the MCP server and the skill with your agents (asks first)
 ```
+
+The library's Python art and audio include SciPy programs; these pins match the environment used to verify the checked-in 1× goldens, but cross-platform equality still needs a render test. Scenes need Node.js, and music/page renders also need Playwright's Chromium browser (`python3 -m playwright install chromium`); `pixelate doctor` checks these separately. The library's quick test skips audio on image pieces and does not certify music playback.
 
 `setup` covers:
 - **Claude Code:** the MCP server, plus the skill in `~/.claude/skills`.
@@ -119,8 +121,8 @@ Tools that make pictures return them as images, so the agent can judge its own w
 | `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: orthographic projections and boxes; `sdf.py`: curved solids) |
 | `tools/route_regression_cases.py`, `tests/` | routing examples and intake tests |
 | `engine/` | scene and loop engine: palette renderer, exact timeline, phase dissolves, soundtrack, page |
-| `templates/` | `scene`, `music` and `assets` starting points |
-| `examples/` | `san-francisco` and `santorini` (rebuilds), `projections`, `retro` (original 8-bit and Game Boy-style screens), `lantern-isle` (a 4-season loop video), `meadow-kit` (a game asset pack), `gallery` (what the demos make) |
+| `library/` | one folder per piece, each with a `piece.json` manifest (`references/piece.md`): `san-francisco` and `santorini` (rebuilds), `projections`, `retro-screens` (original 8-bit and Game Boy-style screens), `lantern-isle` (a 4-season loop video), `rose-squall`, `meadow-kit` (a game asset pack), the ten showcase moments (`docs/gallery/moments.md`), and the `starter-scene-loop`, `starter-music` and `starter-assets` starting points |
+| `docs/gallery/` | what the demos make, and the sources and licenses behind it |
 | `demo/` | `cli_demo.sh` and `mcp_demo.py`: the gallery, made through each interface |
 | `palettes/` | presets |
 | `fonts/` | Ark Pixel 12px for Chinese and Japanese text |
@@ -135,4 +137,4 @@ Tools that make pictures return them as images, so the agent can judge its own w
 
 MIT. Made by Huisky Labs.
 
-The CJK pixel font in `fonts/` is [Ark Pixel Font](https://github.com/TakWolf/ark-pixel-font) by TakWolf, under the SIL Open Font License 1.1 (`fonts/OFL.txt`). Reference photos and their licenses are listed in `examples/gallery/SOURCES.md`.
+The CJK pixel font in `fonts/` is [Ark Pixel Font](https://github.com/TakWolf/ark-pixel-font) by TakWolf, under the SIL Open Font License 1.1 (`fonts/OFL.txt`). Reference photos and their licenses are listed in `docs/gallery/SOURCES.md`.

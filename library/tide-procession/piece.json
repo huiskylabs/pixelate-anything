@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "id": "tide-procession",
+  "title": "The Tide Road Procession",
+  "summary": "A tidal island monastery as a black silhouette against a low moon: A nine lanterns cross the causeway, B the monastery door opens and spills light down the steps.",
+  "request": "a tidal island monastery as a flat black silhouette against a low moon (the peak value); one shaft from a cloud gap above the moon breathing across the water; a stone causeway to the near shore; the tide is the clock of a 96 s loop; nine lantern pilgrims cross; the door opens and spills light down the steps; the tide floods back. Two stills of the best moments and a 5 s sound sample.",
+  "status": "study",
+  "mode": "scene",
+  "runtime": "script",
+  "tags": {
+    "subject": [
+      "monastery",
+      "island",
+      "causeway",
+      "lantern",
+      "pilgrim",
+      "moon",
+      "tide",
+      "sea"
+    ],
+    "setting": [
+      "coastal",
+      "night",
+      "devotional"
+    ],
+    "camera": "side",
+    "style": "contre-jour",
+    "era": "none",
+    "motion": "stills",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 640,
+    "h": 360,
+    "scale": 3
+  },
+  "outputs": [
+    {
+      "name": "a",
+      "kind": "image",
+      "run": "python3 art/scene.py a",
+      "frame": "out/04-a.png",
+      "style": "contre-jour",
+      "scene": "beam",
+      "brief": "brief.md",
+      "pal": "out/palette.json",
+      "pre": "out/04-a-pre.png",
+      "actor": "out/04-a-actor.png",
+      "used": "light,shaft,glow",
+      "intent": "out/04-a-intent.png",
+      "scale": 3,
+      "golden": "out/golden/a.png"
+    },
+    {
+      "name": "b",
+      "kind": "image",
+      "run": "python3 art/scene.py b",
+      "frame": "out/04-b.png",
+      "style": "contre-jour",
+      "scene": "beam",
+      "brief": "brief-b.md",
+      "pal": "out/palette.json",
+      "pre": "out/04-b-pre.png",
+      "actor": "out/04-b-actor.png",
+      "used": "light,shaft,glow",
+      "intent": "out/04-b-intent.png",
+      "scale": 3,
+      "golden": "out/golden/b.png"
+    },
+    {
+      "name": "sample",
+      "kind": "audio",
+      "run": "pixelate audio music sound/full.wav && python3 sound/make_sample.py && ffmpeg -y -loglevel error -i sound/04-sample.wav -codec:a libmp3lame -q:a 2 sound/04-sample.mp3",
+      "file": "sound/04-sample.mp3"
+    }
+  ],
+  "anatomy": [
+    {
+      "file": "brief.md",
+      "draws": "The scene brief: intent, contre-jour style, layout, light list, value plan, sound plan",
+      "change_for": "intent, mood and the written rules the gate reads"
+    },
+    {
+      "file": "brief-b.md",
+      "draws": "Gate lines (hero box, value plan, light list) for moment B only",
+      "change_for": "the B hero or lights when B changes"
+    },
+    {
+      "file": "art/geom.py",
+      "draws": "Hand-placed layout shared by block-in and final art: island, monastery, causeway, pilgrim places, moon, cloud gap, shaft",
+      "change_for": "composition"
+    },
+    {
+      "file": "art/figures_tp.py",
+      "draws": "The hooded pilgrims as slot maps with a staff, lantern and rim light",
+      "change_for": "the figures"
+    },
+    {
+      "file": "art/scene.py",
+      "draws": "Both stills drawn in code with screen-resolution light; writes frames, pixel layer, masks and palette.json into out/ beside art/",
+      "change_for": "setting, light, which moment"
+    },
+    {
+      "file": "art/blockin.py",
+      "draws": "Greyscale block-in of a moment; writes into out/ beside art/",
+      "change_for": "composition check before detail"
+    },
+    {
+      "file": "sound/bell.py",
+      "draws": "A struck bronze bell synthesised in numpy",
+      "change_for": "the bell voice"
+    },
+    {
+      "file": "sound/make_sample.py",
+      "draws": "Cuts the 5 s sample from the engine render and mixes the bell on top",
+      "change_for": "bell timing, clip start, sample mix"
+    },
+    {
+      "file": "music/music.js",
+      "draws": "Slow ambient D Dorian pad and music box over a sub drone and wave bed at 60 bpm (engine music project)",
+      "change_for": "music style, key, tempo"
+    },
+    {
+      "file": "music/config.js",
+      "draws": "Engine scene length and tempo for the sample render",
+      "change_for": "loop length"
+    },
+    {
+      "file": "music/palettes.js",
+      "draws": "Engine palette for the stock equaliser picture",
+      "change_for": "nothing for this piece"
+    },
+    {
+      "file": "music/scene.js",
+      "draws": "Stock engine equaliser picture that the music project requires; it is not part of the artwork",
+      "change_for": "nothing for this piece"
+    },
+    {
+      "file": "music/scene.json",
+      "draws": "Stock engine scene metadata (title and file list) for the music project",
+      "change_for": "nothing for this piece"
+    }
+  ],
+  "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "provenance": {
+    "made": "2026-10-17",
+    "by": "parallel Claude agents with a coordinating agent as art director (examples/moments showcase run, PR #21); migrated to library/ on 2026-10-18 without re-review"
+  },
+  "license": "MIT"
+}

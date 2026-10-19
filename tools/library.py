@@ -34,7 +34,8 @@ TOKEN = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')
 RECIPE = re.compile(r'[a-z][a-z0-9_]*\Z')  # a function name in tools/recipes.py
 # Optional string gate inputs of a `tools/render.py` image; as there, an empty string means unset.
 IMAGE_GATE = ('style', 'era', 'scene', 'brief', 'pal', 'pre', 'actor', 'used', 'intent', 'judge_ignore')
-# Gate inputs the run command may write; they need not exist before a render.
+# Gate inputs the run command may write; like an image `frame` or an audio or export `file`, they need not
+# exist before a render.
 GENERATED = ('pal', 'pre', 'actor', 'intent')
 USED_OPS = re.compile(r'[a-z_]+(?::[a-z_]+)?(?:,[a-z_]+(?::[a-z_]+)?)*\Z')
 JUDGE_KINDS = re.compile(r'[a-z_]+(?:,[a-z_]+)*\Z')
@@ -56,6 +57,9 @@ STOPWORDS = frozenset((
     'drawing', 'generate', 'give', 'huge', 'image', 'large', 'little', 'make', 'new', 'nice', 'old',
     'original', 'picture', 'piece', 'pixel', 'pixelart', 'pixelate', 'render', 'scene', 'show',
     'small', 'style', 'tiny', 'want'))
+# Words that name an asset deliverable rather than what it shows ("a sprite sheet of a spaceship"). Some pieces
+# list them as subject tags, so they add score to a piece another subject word matched, but never make one.
+FORMAT_WORDS = frozenset(('asset', 'icon', 'sheet', 'sprite', 'spritesheet', 'tile', 'tileset'))
 
 
 class LibraryError(ValueError):
@@ -124,7 +128,9 @@ def asset(root, value, where):
 
 
 def generated(root, value, where):
-    """A path a run command may write: safe and inside the piece, never a link, but not required yet."""
+    """A path a run command may write: safe and inside the piece, never a link, but not required yet.
+    Whatever part exists is checked: a link, a file used as a folder or an existing target that is not a
+    regular file fails. Validation never infers that a declared output was rendered."""
     relative(value, where)
     path = root
     for component in value.split('/'):
@@ -170,7 +176,7 @@ def image_output(root, output):
         fields(output['size'], ('w', 'h'), where='output.size')
         for key, value in output['size'].items():
             positive(value, f'output.size.{key}')
-    asset(root, output['frame'], 'output.frame')
+    generated(root, output['frame'], 'output.frame')
     if 'golden' in output:
         if output['golden'] != f"out/golden/{output['name']}.png" or output['golden'] == output['frame']:
             fail('output.golden', 'expected out/golden/<output name>.png, distinct from frame')
@@ -269,7 +275,7 @@ def validate(root):
             image_output(root, output)
         else:
             fields(output, ('name', 'kind', 'run', 'file'), where='output')
-            asset(root, output['file'], 'output.file')
+            generated(root, output['file'], 'output.file')
         slug(output['name'], 'output.name')
         if output['name'] in seen:
             fail('outputs', 'duplicate name')
@@ -374,9 +380,11 @@ def scan(library):
 
 
 def index(library):
-    """Generate stable catalog bytes; callers may write these to index.json."""
+    """Generate stable catalog bytes; callers may write these to index.json. Paths are relative to the
+    library root; `media` lists the manifest's declared media files."""
     return (json.dumps({'schema': 1, 'pieces': [{'id': p['id'], 'title': p['title'], 'status': p['status'],
-                  'mode': p['mode'], 'summary': p['summary'], 'tags': p['tags'], 'path': f"{p['id']}/piece.json"}
+                  'mode': p['mode'], 'summary': p['summary'], 'tags': p['tags'], 'path': f"{p['id']}/piece.json",
+                  'media': {key: f"{p['id']}/{value}" for key, value in p.get('media', {}).items() if value}}
                   for p in scan(library).values()]}, indent=2, sort_keys=True, ensure_ascii=False) + '\n').encode('utf-8')
 
 
@@ -455,9 +463,9 @@ def query_tags(request, mode=None):
 def find(library, request, mode=None, limit=3):
     """Return matched pieces and a fallback plan.
 
-    Only a subject-tag word makes a piece relevant. Setting tags (`day`, `outdoor`) and words of the
-    title, summary and request add score to a relevant piece but cannot make one; status only orders
-    relevant pieces. Otherwise find abstains and returns the starter or author plan.
+    Only a subject-tag word that is not an asset format word (FORMAT_WORDS) makes a piece relevant.
+    Setting tags (`day`, `outdoor`), format words and words of the title, summary and request add score
+    to a relevant piece but cannot make one; status only orders relevant pieces. Otherwise find abstains and returns the starter or author plan.
     """
     query = query_tags(request, mode)
     if type(limit) is not int or limit < 1:
@@ -475,7 +483,7 @@ def find(library, request, mode=None, limit=3):
         if any(query[key] and tags[key] != query[key] for key in ('camera', 'style', 'era', 'motion')):
             continue
         subject = words & terms(' '.join(tags['subject']))
-        if not subject:
+        if not subject - FORMAT_WORDS:
             continue
         setting = words & terms(' '.join(tags['setting'])) - subject
         described = words & terms(' '.join((piece['title'], piece['summary'], piece['request']))) - subject - setting
@@ -595,18 +603,26 @@ def test_piece(root, quick=False, timeout=300):
     Outputs with the same run command form a group, run once, for at most `timeout` seconds, in order
     of first appearance. Before a group runs, its declared frames and files are deleted from the copy,
     so neither a stale committed file nor another command's side effect can pass; each is checked
-    right after its group runs. Outputs are read without following links. Quick mode skips audio and
-    export outputs and reports them as skipped. The source piece is never written.
+    right after its group runs. Outputs are read without following links. Quick mode tests one kind:
+    the images when the piece has any, else its exports, else the audio outputs of the first audio command;
+    every other output is reported as skipped. A piece is `ok` only if nothing failed and at least one
+    output passed, so a piece whose outputs were all skipped never reads as green. `gate_ok` is null when
+    the piece has no image to gate. The source piece is never written.
     """
     render = kit_render()
     source = Path(root).absolute()
     manifest = validate(source)
     results, groups = {}, {}
+    declared = {output['kind'] for output in manifest['outputs']}
+    quick_kind = next(kind for kind in ('image', 'export', 'audio') if kind in declared)
+    quick_audio = next((o['run'] for o in manifest['outputs'] if o['kind'] == 'audio'), None)
     for output in manifest['outputs']:
         path = output.get('frame') or output['file']
         results[output['name']] = {'name': output['name'], 'kind': output['kind'], 'path': path}
-        if quick and output['kind'] != 'image':
+        if quick and output['kind'] != quick_kind:
             results[output['name']].update(status='skipped', reason=f"quick mode skips {output['kind']} outputs")
+        elif quick and quick_kind == 'audio' and output['run'] != quick_audio:
+            results[output['name']].update(status='skipped', reason='quick mode runs only the first audio command')
         else:
             groups.setdefault(output['run'], []).append(output)
     with tempfile.TemporaryDirectory(prefix='pixelate-test-') as temp:
@@ -630,8 +646,17 @@ def test_piece(root, quick=False, timeout=300):
                 else:
                     result.update(status='failed', error='run failed')
     outputs = list(results.values())
-    return {'id': manifest['id'], 'ok': all(r['status'] != 'failed' for r in outputs),
-            'gate_ok': all(r.get('gate_ok') is True for r in outputs if r['kind'] == 'image'), 'outputs': outputs}
+    kinds = {}
+    for result in outputs:
+        result['tested'] = result['status'] != 'skipped'
+        count = kinds.setdefault(result['kind'], {'declared': 0, 'tested': 0})
+        count['declared'] += 1
+        count['tested'] += result['tested']
+    images = [r for r in outputs if r['kind'] == 'image']
+    return {'id': manifest['id'],
+            'ok': all(r['status'] != 'failed' for r in outputs) and any(r['status'] == 'passed' for r in outputs),
+            'gate_ok': all(r.get('gate_ok') is True for r in images) if images else None,
+            'kinds': kinds, 'outputs': outputs}
 
 
 def test(library, ids=(), quick=False, timeout=300):
@@ -649,7 +674,8 @@ def test(library, ids=(), quick=False, timeout=300):
     if not ids:
         fail(library, 'no pieces to test')
     pieces = [test_piece(library / piece_id, quick, timeout) for piece_id in ids]
-    return {'ok': all(p['ok'] for p in pieces), 'gate_ok': all(p['gate_ok'] for p in pieces), 'quick': quick,
+    gated = [p['gate_ok'] for p in pieces if p['gate_ok'] is not None]
+    return {'ok': all(p['ok'] for p in pieces), 'gate_ok': all(gated) if gated else None, 'quick': quick,
             'pieces': pieces}
 
 
@@ -669,7 +695,7 @@ def main(argv=None, prog=None):
     testing = commands.add_parser('test', help='render pieces in temporary copies, gate each image and compare '
                                                'golden 1x frames; runs trusted checked-in commands without a sandbox')
     testing.add_argument('ids', nargs='*', metavar='ID')
-    testing.add_argument('--quick', action='store_true', help='skip audio and export outputs')
+    testing.add_argument('--quick', action='store_true', help='test one kind per piece: its images, else its exports, else its first audio command')
     testing.add_argument('--timeout', type=int, default=300, help='seconds per run command (default 300)')
     args = parser.parse_args(argv)
     try:

@@ -74,6 +74,38 @@ class RunTest(unittest.TestCase):
                 workspace = next(pathlib.Path(tmp, 'runs').glob(f'*/{arm}-1/workspace'))
                 self.assertEqual((workspace / 'reference.jpg').read_bytes(), b'photo bytes')
 
+    def test_skill_snapshot_drops_only_the_library_answers_to_the_bundled_prompts(self):
+        ids = [path.stem.split('-', 1)[1] for path in sorted((ROOT / 'evals' / 'prompts').glob('*.md'))]
+        self.assertEqual(len(ids), 10)
+        self.assertEqual(run.ANSWER_PIECES, tuple('library/%s/' % piece for piece in ids))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp, 'kit')
+            files = ['SKILL.md', 'examples/moments/legacy.md', 'docs/a.md', 'library/index.json',
+                     'library/market-day/piece.json', 'library/market-day/art/scene.py',
+                     'library/market-day-extra/piece.json', 'library/new-starter/piece.json',
+                     'library/new-starter/art/scene.py', 'library/README.md']
+            for name in files:
+                (repo / name).parent.mkdir(parents=True, exist_ok=True)
+                (repo / name).write_text(name)
+            subprocess.run(['git', 'init', '-q'], cwd=repo, check=True)
+            subprocess.run(['git', 'add', '-A'], cwd=repo, check=True)
+            with mock.patch.object(run, 'KIT', repo):
+                snapshot = run.isolated_kit(pathlib.Path(tmp, 'runs'))
+            kept = sorted(str(path.relative_to(snapshot)) for path in snapshot.rglob('*') if path.is_file())
+            self.assertEqual(kept, ['SKILL.md', 'library/README.md', 'library/market-day-extra/piece.json',
+                                    'library/new-starter/art/scene.py', 'library/new-starter/piece.json'])
+
+    def test_real_skill_snapshot_has_no_moved_moment_and_keeps_the_rest_of_the_kit(self):
+        if subprocess.run(['git', '-C', str(ROOT), 'rev-parse'], capture_output=True).returncode:
+            self.skipTest('not a git checkout')
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot = run.isolated_kit(pathlib.Path(tmp))
+            for answer in run.ANSWER_PIECES:
+                self.assertFalse((snapshot / answer).exists(), answer)
+            self.assertFalse((snapshot / 'library' / 'index.json').exists())
+            self.assertTrue((snapshot / 'tools' / 'library.py').is_file())
+            self.assertTrue((snapshot / 'SKILL.md').is_file())
+
     def test_missing_reference_fails_before_any_agent_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             prompts = pathlib.Path(tmp, 'prompts')

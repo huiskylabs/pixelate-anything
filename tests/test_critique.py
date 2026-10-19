@@ -50,6 +50,12 @@ class CritiqueTest(unittest.TestCase):
         self.assertLess(result.index('previous lead critique'), result.index('Specialist observations'))
         self.assertNotIn('OBSERVATION lighting', result.split('## The previous lead critique')[1].split('## Specialist observations')[0])
 
+    def test_brief_prompt_names_the_bar_files_that_exist(self):
+        self.assertTrue(critique.BAR_BRIEF.is_file(), critique.BAR_BRIEF)
+        self.assertTrue(critique.BAR.is_file(), critique.BAR)
+        result = critique.prompt(None, self.brief)
+        self.assertIn('The bar brief, Lantern Isle: %s' % critique.BAR_BRIEF, result)
+
     def test_specialists_scope_and_never_grade(self):
         for role, subject in [('composition', 'camera'), ('lighting', 'light direction'),
                               ('set', 'architecture'), ('character', 'pose')]:
@@ -105,7 +111,7 @@ class CritiqueTest(unittest.TestCase):
                                  critique.music_prompt(self.track, self.brief))
                 with self.assertRaisesRegex(ValueError, 'at most two'):
                     mcp_server.critique_prompt('brief.md', consults=['lighting.md', 'set.md', 'character.md'])
-                external = ROOT / 'examples/lantern-isle/BRIEF.md'
+                external = ROOT / 'library/lantern-isle/brief.md'
                 self.assertIn(str(external), mcp_server.critique_prompt(str(external)))
                 self.assertIn(str(external), mcp_server.music_critique_prompt('track.wav', str(external)))
                 with self.assertRaisesRegex(ValueError, 'inside the workspace'):

@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "id": "projections",
+  "title": "Projections",
+  "status": "study",
+  "summary": "One little scene (a cottage, a tree, a well, a pond, a fence) rendered from a single 3D description in the five projections pixel art uses: side, 3/4 top-down, 2:1 isometric, oblique and military.",
+  "request": "Unknown: the original request was not recorded in the repository. Guides/rebuild.md and guides/styles.md use it as the worked example of the five projections. Source description: one scene in the five projections pixel art uses.",
+  "mode": "scene",
+  "tags": {
+    "subject": [
+      "cottage",
+      "tree",
+      "well",
+      "pond",
+      "fence",
+      "projection",
+      "diorama",
+      "house"
+    ],
+    "setting": [
+      "outdoor",
+      "day",
+      "village"
+    ],
+    "camera": "2:1 iso",
+    "style": "tactics",
+    "era": "none",
+    "motion": "stills",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 888,
+    "h": 350,
+    "scale": 2
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "projections",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/projections@2x.png",
+      "golden": "out/golden/projections.png",
+      "size": {
+        "w": 888,
+        "h": 350
+      },
+      "scale": 2,
+      "style": "tactics"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/projections.py",
+      "draws": "the cottage scene as one 3D description rendered through tools/iso.py CAMERAS into a five-view sheet; its palette is a copy of the day palette from the san-francisco piece (art/cottage_palette.py)",
+      "change_for": "the scene objects, the set of projections"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scales and preview background for pixelate assets",
+      "change_for": "export scale"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the pack palette slots written for the exporter",
+      "change_for": "nothing for the scene"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

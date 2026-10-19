@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "id": "rose-squall",
+  "title": "Rose Squall",
+  "status": "study",
+  "summary": "A courier clings to a sea stack under a lighthouse in a rose-coloured squall at dusk: a 120-frame pastel platformer loop with a turning beam, rain, waves and one lightning fork.",
+  "request": "Unknown: the original request was not recorded in the repository. The commit message describes it as \"a lighthouse on a sea stack in a rose squall (pastel platformer style)\"; it studies the modern pastel platformer grammar, never its characters or places. Source description: original scenes that learn from modern indie pixel art: each one rebuilds a style's grammar (palette, light regime, shapes, motion) in code, never its characters or places.",
+  "mode": "scene",
+  "tags": {
+    "subject": [
+      "lighthouse",
+      "courier",
+      "sea",
+      "stack",
+      "rock",
+      "storm",
+      "rain",
+      "lightning",
+      "wave",
+      "beam",
+      "cliff",
+      "scarf",
+      "cloud",
+      "platformer"
+    ],
+    "setting": [
+      "dusk",
+      "outdoor",
+      "coastal",
+      "stormy"
+    ],
+    "camera": "side",
+    "style": "pastel-cell",
+    "era": "none",
+    "motion": "loop",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 320,
+    "h": 180,
+    "scale": 6
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "rose-squall",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/rose_squall@6x.png",
+      "golden": "out/golden/rose-squall.png",
+      "size": {
+        "w": 320,
+        "h": 180
+      },
+      "scale": 6,
+      "style": "pastel-cell"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/rose_squall.py",
+      "draws": "everything: the sky strata, sea stack rock, lighthouse and beam, rain, waves, lightning, the courier and the native light pass (320x180, 120 frames at 30 fps)",
+      "change_for": "every part of the scene; the RAMPS table sets the colour, frame() the composition"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scales and preview background for pixelate assets",
+      "change_for": "export scale"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the pack palette slots written for the exporter",
+      "change_for": "nothing for the scene"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

@@ -7,7 +7,7 @@ any image against them (`pixelate era IMG --era nes`; MCP `era`).
 **Make original work.** Use an era's limits and its genre conventions: side scrolling, a status
 bar, a dialogue box, a title screen with a blinking prompt. Never use an existing game's
 characters, worlds, names, logos or signature objects, and don't make "a version of" a known
-game. Invent the hero, the place and the title. `examples/retro` shows the bar:
+game. Invent the hero, the place and the title. `library/retro-screens` shows the bar:
 - **Rooftop Run:** an 8-bit platformer over San Francisco rooftops.
 - **Island Village:** a Game Boy-style RPG screen of the Santorini village.
 - **Pixel Harbor:** a title screen.
@@ -41,6 +41,6 @@ game. Invent the hero, the place and the title. `examples/retro` shows the bar:
 - **Dark elements** need a light ground to read against (a dome against a whitewashed terrace), and light ones need a dark ground (sails over the sea).
 - **The dialogue box:** 2 px border, text in the darkest shade, a blinking arrow. `tools/pixfont.py` is a 5x7 font for HUDs and dialogue; `tools/cjkfont.py` draws Chinese and Japanese text (Ark Pixel 12px: `draw(img, text, x, y, colour, outline=)`, `width()`, `wrap()` with line-break rules).
 
-**Retargeting a scene to an era.** Any scene can be pushed into an era: `era.enforce` snaps it to the palette and cuts colours. Night scenes need more than snapping, because nearest colours turn dark greys brown or teal. Map everything that is not a light onto an era-appropriate ramp by lightness (an NES night is black, deep blue, indigo, periwinkle), and snap only the lights. `examples/retro/art/title_screen.py` does this.
+**Retargeting a scene to an era.** Any scene can be pushed into an era: `era.enforce` snaps it to the palette and cuts colours. Night scenes need more than snapping, because nearest colours turn dark greys brown or teal. Map everything that is not a light onto an era-appropriate ramp by lightness (an NES night is black, deep blue, indigo, periwinkle), and snap only the lights. `library/retro-screens/art/title_screen.py` does this.
 
 **Check it.** Run `pixelate era OUT.png --era nes`. For background-only layers, add `--layer bg` to apply the per-block rule.

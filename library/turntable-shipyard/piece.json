@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "id": "turntable-shipyard",
+  "title": "Turntable Shipyard",
+  "summary": "A tactics-style canal boatyard diorama floating in darkness, turned like a model on a lazy susan: A dawn with bare ribs on the keel, B night with the finished ship a quarter-turn later.",
+  "request": "a tactics-style canal boatyard diorama floating in darkness, built once in tools/iso.py and tools/sdf.py and turned like a model on a lazy susan: four quarter-turns, each advancing time and construction (bare ribs at dawn, planked hull at noon, deck and rails at dusk, mast and pennants at night with lanterns lit). Two stills of the best moments and a 5 s work-song sample.",
+  "status": "study",
+  "mode": "scene",
+  "runtime": "script",
+  "tags": {
+    "subject": [
+      "shipyard",
+      "ship",
+      "boat",
+      "canal",
+      "diorama",
+      "crane",
+      "dock",
+      "lantern"
+    ],
+    "setting": [
+      "waterfront",
+      "dawn",
+      "night"
+    ],
+    "camera": "2:1 iso",
+    "style": "tactics",
+    "era": "none",
+    "motion": "stills",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 640,
+    "h": 360,
+    "scale": 3
+  },
+  "outputs": [
+    {
+      "name": "a",
+      "kind": "image",
+      "run": "python3 art/yard.py export",
+      "frame": "out/07-a.png",
+      "style": "tactics",
+      "brief": "brief.md",
+      "pal": "out/07-a-palette.json",
+      "scale": 3,
+      "golden": "out/golden/a.png"
+    },
+    {
+      "name": "b",
+      "kind": "image",
+      "run": "python3 art/yard.py export",
+      "frame": "out/07-b.png",
+      "style": "tactics",
+      "brief": "brief-b.md",
+      "pal": "out/07-b-palette.json",
+      "scale": 3,
+      "golden": "out/golden/b.png"
+    },
+    {
+      "name": "sample",
+      "kind": "audio",
+      "run": "python3 sound/shanty.py && ffmpeg -y -loglevel error -i sound/07-sample.wav -codec:a libmp3lame -q:a 2 sound/07-sample.mp3",
+      "file": "sound/07-sample.mp3"
+    }
+  ],
+  "anatomy": [
+    {
+      "file": "brief.md",
+      "draws": "The scene brief: intent, tactics style, 2:1 iso layout, value plan, sound plan",
+      "change_for": "intent, mood and the written rules the gate reads"
+    },
+    {
+      "file": "brief-b.md",
+      "draws": "Gate lines (hero box and value plan) for image B only",
+      "change_for": "the B hero or value plan when B changes"
+    },
+    {
+      "file": "art/yard.py",
+      "draws": "One 3D description of the boatyard in model coordinates (slab, dock, hull field, crane, sawpit, lock gates, canal, hut), turned in quarter-turns and rasterised through tools/iso.py and tools/sdf.py; run with a, b or export",
+      "change_for": "the model, the turn and stage, time of day"
+    },
+    {
+      "file": "art/blockin.py",
+      "draws": "Greyscale block-in from the real 3D description",
+      "change_for": "composition check before detail"
+    },
+    {
+      "file": "sound/shanty.py",
+      "draws": "Synthesises 'Caulkers' Dawn', a 6/8 D mixolydian work song with concertina, bass, mallets and saw, as a 5.0 s sample",
+      "change_for": "the tune, instruments, clip"
+    }
+  ],
+  "knobs": {},
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "provenance": {
+    "made": "2026-10-17",
+    "by": "parallel Claude agents with a coordinating agent as art director (examples/moments showcase run, PR #21); migrated to library/ on 2026-10-18 without re-review"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "id": "san-francisco",
+  "title": "San Francisco",
+  "status": "study",
+  "summary": "An aerial photo of the Financial District rebuilt twice: in its own 3/4 top-down camera and as a 2:1 isometric diorama that turns from day to dusk to night.",
+  "request": "Unknown: the original request was not recorded in the repository. The user supplied an aerial photo of the Financial District and the Transamerica Pyramid from Pexels; the photo is not in the repository. Source description: the aerial photo rebuilt in its own 3/4 top-down camera, and as a 2:1 isometric diorama; day to dusk to night.",
+  "mode": "rebuild",
+  "tags": {
+    "subject": [
+      "city",
+      "skyline",
+      "building",
+      "skyscraper",
+      "tower",
+      "street",
+      "park",
+      "church",
+      "car",
+      "boat",
+      "francisco",
+      "downtown",
+      "aerial"
+    ],
+    "setting": [
+      "urban",
+      "outdoor",
+      "day",
+      "dusk",
+      "night"
+    ],
+    "camera": "2:1 iso",
+    "style": "sticker-iso",
+    "era": "none",
+    "motion": "loop",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 288,
+    "h": 288,
+    "scale": 3
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "sf-rebuild",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/sf_rebuild@3x.png",
+      "golden": "out/golden/sf-rebuild.png",
+      "size": {
+        "w": 240,
+        "h": 360
+      },
+      "scale": 3,
+      "style": "sticker-iso"
+    },
+    {
+      "name": "iso-city",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/iso_city@3x.png",
+      "golden": "out/golden/iso-city.png",
+      "size": {
+        "w": 288,
+        "h": 288
+      },
+      "scale": 3,
+      "style": "sticker-iso"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/rebuild.py",
+      "draws": "the photo rebuilt in its own 3/4 top-down camera: buildings traced from the photo with bld(), shadows and haze",
+      "change_for": "a different photo or place, the camera angle, building placement"
+    },
+    {
+      "file": "art/city.py",
+      "draws": "the isometric diorama: the static city, cars, boats and people looping 144 frames, built with tools/iso.py",
+      "change_for": "the buildings and street life of an isometric city"
+    },
+    {
+      "file": "art/palettes.py",
+      "draws": "material ramps; dusk and night derived from day by relighting in OKLab, then hand-set lights",
+      "change_for": "colour, time of day, mood"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scales and preview background for pixelate assets",
+      "change_for": "export scale"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the pack palette slots written for the asset exporter",
+      "change_for": "nothing for the scenes, which carry their own palettes"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

@@ -4,7 +4,7 @@ Read this only if you are the art director. You are a second agent who did not w
 draw the piece. You grade a brief before anything is drawn, or one still against its brief, and
 return a grade and fixes. You never edit a file: the other agent applies your fixes.
 
-The bar is Lantern Isle (`docs/lantern-isle-winter.png`, its brief `examples/lantern-isle/BRIEF.md`).
+The bar is Lantern Isle (`docs/lantern-isle-winter.png`, its brief `library/lantern-isle/brief.md`).
 A means the still could sit next to it at the top of the README and a stranger scrolling past would
 stop. The gate (`pixelate check`) only proves the numbers are legal; it passed every weak first
 draft. You judge what numbers can't.

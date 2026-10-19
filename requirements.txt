@@ -1,5 +1,6 @@
-pillow
-numpy
-# optional: the MCP server, and Chromium for music renders and page checks
+pillow==12.3.0
+numpy==2.5.4
+scipy==1.17.1
+# MCP and Playwright Python packages; Chromium for music/page checks is installed separately.
 mcp
 playwright

@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "id": "starter-music",
+  "title": "Starter: Music",
+  "status": "starter",
+  "summary": "A neutral music scaffold to copy: two plain generative phases (a pulse-wave one and a pad-and-drone one) with a generic hand-off each way, over a twelve-band pixel equaliser. No tune or story is written out; its first frame passes the lofi frame gate and its 48 s loop passes the music loop gate.",
+  "request": "Unknown: the original request was not recorded in the repository. Template from the initial kit commit; no request exists. Source description: Pixel Radio: a music-first template. The chiptune overworld theme and ambient drift were replaced by a generic two-phase scaffold in the starter-empty follow-up.",
+  "mode": "music",
+  "tags": {
+    "subject": [
+      "music",
+      "scaffold",
+      "placeholder",
+      "equaliser",
+      "soundtrack",
+      "loop"
+    ],
+    "setting": [
+      "abstract"
+    ],
+    "camera": "none",
+    "style": "lofi",
+    "era": "none",
+    "motion": "loop",
+    "sound": "music"
+  },
+  "canvas": {
+    "w": 160,
+    "h": 90,
+    "scale": 8
+  },
+  "runtime": "engine",
+  "outputs": [
+    {
+      "name": "equaliser",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" shot . 0 --zoom 8 --out out",
+      "frame": "out/t0000.00.png",
+      "golden": "out/golden/equaliser.png",
+      "size": {
+        "w": 160,
+        "h": 90
+      },
+      "scale": 8,
+      "style": "lofi"
+    },
+    {
+      "name": "soundtrack",
+      "kind": "audio",
+      "run": "mkdir -p out && python3 \"$PIXELATE_KIT/pixelate\" audio . out/loop.ogg",
+      "file": "out/loop.ogg"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "music.js",
+      "draws": "the generative music scaffold: a pulse-wave phase (part_a) and a pad-and-drone phase (part_b), five-note melody scales and a hand-off each way",
+      "change_for": "the chords, scale, tempo, instruments"
+    },
+    {
+      "file": "scene.js",
+      "draws": "the twelve-band equaliser drawn from a hash of band and step",
+      "change_for": "the picture that goes with the music"
+    },
+    {
+      "file": "config.js",
+      "draws": "canvas size, the two phases (part_a, part_b) with tempos, loop length and slot names",
+      "change_for": "tempo, loop length"
+    },
+    {
+      "file": "palettes.js",
+      "draws": "the equaliser colours for each phase (slate blues)",
+      "change_for": "colour"
+    },
+    {
+      "file": "scene.json",
+      "draws": "page title, description and the file list",
+      "change_for": "page metadata"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

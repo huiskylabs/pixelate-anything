@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "id": "retro-screens",
+  "title": "Retro Screens",
+  "status": "study",
+  "summary": "Three classic-genre screens under console-era limits: an 8-bit rooftop platformer, a Game Boy-style village RPG and an 8-bit title screen whose city is the san-francisco rebuild (from a user-attested Pexels reference not included here).",
+  "request": "Unknown: the original request was not recorded in the repository. SOURCES notes describe the characters, places, titles and text as original; console names describe hardware limits only. The Pixel Harbor city behind the title screen is the san-francisco rebuild, made from a user-supplied Pexels photo not included in the repository. Source description: original classic-genre screens under console-era limits: an 8-bit platformer, a Game Boy-style RPG, an 8-bit title screen.",
+  "mode": "era",
+  "tags": {
+    "subject": [
+      "platformer",
+      "rpg",
+      "title",
+      "rooftop",
+      "village",
+      "courier",
+      "windmill",
+      "cat",
+      "harbor",
+      "pigeon",
+      "skyline",
+      "city",
+      "menu",
+      "dialogue",
+      "sprite"
+    ],
+    "setting": [
+      "outdoor",
+      "sunset",
+      "night",
+      "urban",
+      "coastal"
+    ],
+    "camera": "side",
+    "style": "none",
+    "era": "nes",
+    "motion": "loop",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 256,
+    "h": 224,
+    "scale": 3
+  },
+  "runtime": "pack",
+  "outputs": [
+    {
+      "name": "rooftop-run",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/rooftop_run@3x.png",
+      "golden": "out/golden/rooftop-run.png",
+      "size": {
+        "w": 256,
+        "h": 224
+      },
+      "scale": 3,
+      "era": "nes"
+    },
+    {
+      "name": "island-village",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/island_village@3x.png",
+      "golden": "out/golden/island-village.png",
+      "size": {
+        "w": 160,
+        "h": 144
+      },
+      "scale": 3,
+      "era": "gameboy"
+    },
+    {
+      "name": "title-screen",
+      "kind": "image",
+      "run": "python3 \"$PIXELATE_KIT/pixelate\" assets .",
+      "frame": "out/title_screen@3x.png",
+      "golden": "out/golden/title-screen.png",
+      "size": {
+        "w": 256,
+        "h": 224
+      },
+      "scale": 3,
+      "era": "nes"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/rooftop_run.py",
+      "draws": "Rooftop Run: NES-style side-scrolling platformer over San Francisco rooftops, parallax layers, 160 frames",
+      "change_for": "the platformer screen, its hero and skyline"
+    },
+    {
+      "file": "art/island_village.py",
+      "draws": "Island Village: Game Boy-style top-down RPG village with windmill, cat, gull and dialogue box (4 shades, 160x144)",
+      "change_for": "the Game Boy screen, its village and characters"
+    },
+    {
+      "file": "art/title_screen.py",
+      "draws": "Pixel Harbor: the isometric night city (art/harbor_city.py, a copy of the san-francisco piece's city.py) cropped to 256x224, pushed through the NES preset, with logo and blinking menu",
+      "change_for": "the title screen text and menu; the era retarget"
+    },
+    {
+      "file": "art/harbor_city.py",
+      "draws": "the isometric San Francisco night city behind Pixel Harbor: copy of library/san-francisco/art/city.py without its export, so this piece renders without that sibling; built from a user-supplied Pexels reference not included in the repository",
+      "change_for": "the city behind the title screen"
+    },
+    {
+      "file": "art/harbor_palettes.py",
+      "draws": "day, dusk and night palettes of that city (copy of library/san-francisco/art/palettes.py)",
+      "change_for": "the title screen colours before the NES retarget"
+    },
+    {
+      "file": "pack.json",
+      "draws": "pack name, export scales and preview background for pixelate assets",
+      "change_for": "export scale"
+    },
+    {
+      "file": "palette.json",
+      "draws": "the NES master palette slots for the exporter",
+      "change_for": "nothing for the scenes"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-15",
+    "by": "Claude (agent), per git history; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

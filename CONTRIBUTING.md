@@ -1,6 +1,6 @@
 # Contribute a library piece
 
-A contribution is a runnable program, not just a prompt or a picture. Read [the piece contract](references/piece.md) and [the remix loop](references/remix.md). Do not submit borrowed characters, UI or third-party art you cannot redistribute under MIT. State the origin and permission for **every** reference photo, sample, font and asset; a `license: "MIT"` declaration is not proof of permission. The maintainers must review those rights before publication. The current migration contains unresolved photo and derivative-art permissions; it is not a precedent for accepting them.
+A contribution is a runnable program, not just a prompt or a picture. Read [the piece contract](references/piece.md) and [the remix loop](references/remix.md). Do not submit borrowed characters, UI or third-party art you cannot redistribute under MIT. State the origin and permission for **every** reference photo, sample, font and asset; a `license: "MIT"` declaration is not proof of permission. The maintainers must review those rights before publication. The migrated San Francisco reference was later identified by its supplier as a Pexels photo; its source file is not redistributed here. That provenance statement is not a precedent for accepting an unlicensed contribution.
 
 ## Prepare a local candidate
 

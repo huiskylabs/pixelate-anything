@@ -22,10 +22,8 @@ Not checked: `pixelate judge`, `pixelate critique`, and any human or art-directo
 
 ## Licensing and provenance
 
-The reference photo of the Financial District and the Transamerica Pyramid was "supplied by the user" (docs/gallery/SOURCES.md) and is not in the repository. No license for it is recorded, so its terms are unknown; this note does not assert any, and nobody has recorded consent from the photo's author or the user's right to redistribute art rebuilt from it.
-
-**Human gate before MIT publication:** this piece is kept in the library because the plan counts 17 pieces, but the rights to publish a rebuild of that photo under MIT are unestablished. A person must either document the photo's license or the user's permission, or decide to replace, re-derive or withdraw the piece (and the Pixel Harbor city in `retro-screens`, which is a copy of this piece's city) before the library is published. Migration did not resolve this.
+At migration, the reference photo of the Financial District and the Transamerica Pyramid was known only as user-supplied; no source was recorded. The user later confirmed it came from [Pexels](https://www.pexels.com/legal-pages/license/), whose license permits use and modification. Its exact photo page was not retained. The reference photo is not in this repository and is not relicensed as MIT; the first-party drawing program and its pixel-art outputs follow the repository license. Pixel Harbor in `retro-screens` copies this program, not a second stock image. This records the user's provenance statement, not an independently verified photo URL or an art review.
 
 ## To promote
 
-- Resolve the rights gate above; audit: confirm the supplied reference photo may be used for rebuilt art; add real knobs (time of day) once `--set` exists; run `pixelate judge` and an independent critique; approve or demote.
+- Add real knobs (time of day) once `--set` exists; run `pixelate judge` and an independent critique; approve or demote. The Pexels-source statement does not establish an art grade.

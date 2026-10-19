@@ -3,8 +3,8 @@
   "id": "retro-screens",
   "title": "Retro Screens",
   "status": "study",
-  "summary": "Three classic-genre screens under console-era limits: an 8-bit rooftop platformer, a Game Boy-style village RPG and an 8-bit title screen whose city is the san-francisco rebuild (its photo has no recorded license).",
-  "request": "Unknown: the original request was not recorded in the repository. SOURCES notes describe the characters, places, titles and text as original; console names describe hardware limits only. The Pixel Harbor city behind the title screen is the san-francisco rebuild, made from a user-supplied photo with no recorded license. Source description: original classic-genre screens under console-era limits: an 8-bit platformer, a Game Boy-style RPG, an 8-bit title screen.",
+  "summary": "Three classic-genre screens under console-era limits: an 8-bit rooftop platformer, a Game Boy-style village RPG and an 8-bit title screen whose city is the san-francisco rebuild (from a user-attested Pexels reference not included here).",
+  "request": "Unknown: the original request was not recorded in the repository. SOURCES notes describe the characters, places, titles and text as original; console names describe hardware limits only. The Pixel Harbor city behind the title screen is the san-francisco rebuild, made from a user-supplied Pexels photo not included in the repository. Source description: original classic-genre screens under console-era limits: an 8-bit platformer, a Game Boy-style RPG, an 8-bit title screen.",
   "mode": "era",
   "tags": {
     "subject": [
@@ -103,7 +103,7 @@
     },
     {
       "file": "art/harbor_city.py",
-      "draws": "the isometric San Francisco night city behind Pixel Harbor: copy of library/san-francisco/art/city.py without its export, so this piece renders without that sibling; built from a user-supplied photo whose license is not recorded",
+      "draws": "the isometric San Francisco night city behind Pixel Harbor: copy of library/san-francisco/art/city.py without its export, so this piece renders without that sibling; built from a user-supplied Pexels reference not included in the repository",
       "change_for": "the city behind the title screen"
     },
     {

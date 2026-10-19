@@ -27,7 +27,7 @@ Not checked: `pixelate judge`, `pixelate critique`, and any human or art-directo
 
 ## Licensing and provenance
 
-The code is first-party and falls under the repository MIT license (docs/PLAN-library.md D1). Rooftop Run and Island Village use no reference photo. Pixel Harbor (`title-screen`) is the san-francisco city, which was rebuilt from an aerial photo supplied by the user; no license for that photo is recorded, so this piece shares the unresolved rights question of `san-francisco` (see its migration notes). This note asserts no redistribution right for the photo.
+The code is first-party and falls under the repository MIT license (docs/PLAN-library.md D1). Rooftop Run and Island Village use no reference photo. Pixel Harbor (`title-screen`) copies the san-francisco drawing program, rebuilt from a user-supplied aerial reference the user later identified as [Pexels](https://www.pexels.com/legal-pages/license/). That reference photo is not in the repository or relicensed under MIT; see `san-francisco/history/migration.md` for the attested provenance. This is not a second stock image or an art review.
 
 ## To promote
 

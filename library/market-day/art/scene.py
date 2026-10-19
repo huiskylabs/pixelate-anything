@@ -2,7 +2,9 @@
 
     python3 scene.py blockin OUT.png      greyscale block-in at native size
 """
-import sys, pathlib
+import os, sys, pathlib
+# The inverse-projection math otherwise changes edge pixels with OpenBLAS CPU dispatch.
+os.environ['OPENBLAS_CORETYPE'] = 'Nehalem'
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / 'tools'))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import numpy as np

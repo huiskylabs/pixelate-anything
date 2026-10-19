@@ -16,6 +16,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image
 
@@ -226,6 +227,10 @@ class PortableArtRender(unittest.TestCase):
 
     def test_market_day_images_reproduce(self):
         render_from_clean_copy(self, 'market-day')
+
+    def test_market_day_images_reproduce_with_a_different_blas_core(self):
+        with mock.patch.dict(os.environ, OPENBLAS_CORETYPE='Haswell'):
+            render_from_clean_copy(self, 'market-day')
 
 
 @unittest.skipUnless(os.environ.get('PIXELATE_RUN_MOMENTS_RENDER') == '1',

@@ -35,7 +35,7 @@
   pixelate library test [ID...] [--quick]      render trusted pieces in temporary copies and compare golden 1x frames
   pixelate library add DIR [--status study|accepted|reviewed] --trust-local-code   run a trusted local piece twice,
                                          stage it with 1x goldens and rebuild the index (NO sandbox; never in PR CI)
-  pixelate gallery [--check]              generate/check rights-filtered README cards and static docs/gallery page
+  pixelate gallery [--check]              generate/check index-driven README cards and static docs/gallery page
   pixelate critique [FRAME.png] --brief brief.md [--block B] [--prev P] [--role lead|composition|lighting|set|character] [--consult NOTE.md]   independent visual review (--run: run it and save the critique)
   pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]   prompt an independent listening agent after the music gate
   pixelate review record --brief B [--frame F] --critique REPORT   bind external lead critique to artifact

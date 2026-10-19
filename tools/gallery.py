@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Build static library gallery cards from the index, only for human-cleared entries.
+"""Build the README and static gallery from the catalog's declared media.
 
-A rights ledger is a publication allowlist, not a machine verification of permission. A maintainer
-must inspect source rights before adding an entry. No piece commands or image decoders run here.
+This is a catalog projection, not a grade or a rights audit. It reads bounded bytes from tracked
+piece thumbnails but never runs piece programs or decodes images.
 """
 import argparse
 import html
@@ -10,7 +10,6 @@ import json
 import os
 import re
 import stat
-import sys
 import tempfile
 from pathlib import Path
 
@@ -46,7 +45,7 @@ def regular(path, limit=None):
 
 def regular_under(root, rel, limit):
     """Read a piece path using no-follow directory descriptors for every component."""
-    library.relative(rel, 'gallery evidence or thumbnail')
+    library.relative(rel, 'gallery thumbnail')
     path = root / rel
     parts = rel.split('/')
     try:
@@ -66,58 +65,33 @@ def regular_under(root, rel, limit):
     return _read_fd(fd, path, limit)
 
 
-def permissions(path):
-    try:
-        ledger = json.loads(regular(path, 128 * 1024), object_pairs_hook=library.unique_pairs)
-    except (OSError, UnicodeError, ValueError) as exc:
-        raise GalleryError(f'{path}: invalid permissions ledger ({exc})') from None
-    if not isinstance(ledger, dict) or set(ledger) != {'schema', 'pieces'} or ledger['schema'] != 1 or not isinstance(ledger['pieces'], dict):
-        raise GalleryError('permissions ledger needs schema 1 and a pieces object')
-    for piece_id, record in ledger['pieces'].items():
-        library.slug(piece_id, 'gallery piece id')
-        if not isinstance(record, dict) or set(record) != {'evidence'}:
-            raise GalleryError(f'{piece_id}: expected an evidence path')
-        library.relative(record['evidence'], f'{piece_id}.evidence')
-    return ledger['pieces']
-
-
-def cards(catalog, ledger):
-    """(cards, media bytes) from a fresh deterministic index and explicit permission entries."""
+def cards(catalog):
+    """Project every indexed piece into a card without importing or running a piece program."""
     catalog = Path(catalog).absolute()
     if catalog.is_symlink():
         raise GalleryError('library root is a link')
-    index = json.loads(regular(catalog / 'index.json', 2 * 1024 * 1024))
-    if regular(catalog / 'index.json', 2 * 1024 * 1024) != library.index(catalog):
+    indexed = regular(catalog / 'index.json', 2 * 1024 * 1024)
+    if indexed != library.index(catalog):
         raise GalleryError('index is stale: run pixelate library index on trusted code first')
-    known = {entry['id']: entry for entry in index['pieces']}
+    index = json.loads(indexed)
     manifests = library.scan(catalog)
-    if set(ledger) - set(known):
-        raise GalleryError('permissions name unknown pieces: ' + ', '.join(sorted(set(ledger) - set(known))))
     entries, media = [], {}
-    for piece_id in sorted(ledger):
-        entry = known[piece_id]
-        piece = catalog / piece_id
-        evidence = piece / ledger[piece_id]['evidence']
-        try:
-            if not regular_under(piece, ledger[piece_id]['evidence'], 128 * 1024).strip():
-                raise GalleryError(f'{evidence}: empty rights evidence')
-        except OSError as exc:
-            raise GalleryError(f'{evidence}: missing or unsafe rights evidence ({exc})') from None
+    for entry in index['pieces']:
+        piece_id = entry['id']
         path = entry['media'].get('thumb')
         if path is None:
-            raise GalleryError(f'{piece_id}: no declared thumbnail; keep it off the published gallery')
+            raise GalleryError(f'{piece_id}: every gallery piece needs a declared thumbnail')
         path = path.removeprefix(piece_id + '/')
         ext = Path(path).suffix.lower()
         if ext not in EXTENSIONS:
             raise GalleryError(f'{piece_id}: thumbnail must be PNG, GIF or WebP')
-        data = regular_under(piece, path, MAX_MEDIA)
+        data = regular_under(catalog / piece_id, path, MAX_MEDIA)
         if not data.startswith(EXTENSIONS[ext]) or (ext == '.webp' and data[8:12] != b'WEBP'):
             raise GalleryError(f'{piece_id}: thumbnail magic does not match {ext}')
         name = f'{piece_id}{ext}'
         media[name] = data
         entries.append(dict(id=piece_id, title=entry['title'], summary=entry['summary'],
-                            status=entry['status'], request=manifests[piece_id]['request'],
-                            image=name, evidence=ledger[piece_id]['evidence']))
+                            status=entry['status'], request=manifests[piece_id]['request'], image=name))
     return entries, media
 
 
@@ -127,7 +101,7 @@ def markdown(entries, prefix):
         return re.sub(r'([\\`*_{}\[\]()!|#<>])', r'\\\1', value)
 
     if not entries:
-        return 'No library cards are published yet: source redistribution permissions still need human review.\n'
+        return 'No pieces in the library yet.\n'
     lines = []
     for item in entries:
         title, piece_id = safe(item['title']), item['id']
@@ -135,8 +109,7 @@ def markdown(entries, prefix):
                   f"![{title}]({prefix}media/{item['image']})", '',
                   f"{safe(item['summary'])} **Declared status:** `{item['status']}` (not an art or rights certificate).", '',
                   f"**Request:** {safe(item['request'])}", '',
-                  f'`pixelate remix {piece_id} work/YOUR-NAME --request "YOUR REQUEST"`', '',
-                  'A rights-evidence path was recorded for this card; the ledger is not proof of permission.', '']
+                  f'`pixelate remix {piece_id} work/YOUR-NAME --request "YOUR REQUEST"`', '']
     return '\n'.join(lines).rstrip() + '\n'
 
 
@@ -149,7 +122,7 @@ def page(entries):
                       f'<p>Declared status: {e(item["status"])}; not an art or rights certificate.</p>'
                       f'<p>Request: {e(item["request"])}</p>'
                       f'<code>pixelate remix {e(item["id"])} work/YOUR-NAME --request "YOUR REQUEST"</code></article>')
-    body = '\n'.join(blocks) if blocks else '<p>No cards published: redistribution permissions await human review.</p>'
+    body = '\n'.join(blocks) if blocks else '<p>No pieces in the library yet.</p>'
     return ('<!doctype html>\n<html lang="en"><meta charset="utf-8"><title>pixelate-anything library</title>'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<style>body{font:1rem system-ui;max-width:64rem;margin:auto;padding:2rem;background:#141824;color:#eee}'
@@ -174,12 +147,11 @@ def replace_generated(path, data):
             os.unlink(temporary)
 
 
-def build(catalog=KIT / 'library', ledger_path=KIT / 'docs/gallery/permissions.json', root=KIT, check=False):
+def build(catalog=KIT / 'library', root=KIT, check=False):
     root = Path(root).absolute()
     if root.is_symlink() or any((root / name).is_symlink() for name in ('docs', 'docs/gallery', 'docs/gallery/media')):
         raise GalleryError('gallery root or parent is a link')
-    ledger = permissions(Path(ledger_path))
-    entries, media = cards(catalog, ledger)
+    entries, media = cards(catalog)
     readme = root / 'README.md'
     text = regular(readme, 512 * 1024).decode('utf-8')
     if text.count(START) != 1 or text.count(END) != 1 or text.index(START) > text.index(END):
@@ -208,7 +180,7 @@ def build(catalog=KIT / 'library', ledger_path=KIT / 'docs/gallery/permissions.j
             path.unlink()
         for path, data in desired.items():
             replace_generated(path, data)
-    return {'cards': len(entries), 'ids': [entry['id'] for entry in entries], 'withheld': len(json.loads(regular(Path(catalog) / 'index.json'))['pieces']) - len(entries)}
+    return {'cards': len(entries), 'ids': [entry['id'] for entry in entries]}
 
 
 def main(argv=None):

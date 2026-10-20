@@ -76,7 +76,7 @@ ROUTE = {
         projection='side', example='library/lantern-isle (brief.md is the bar)', frames=(None, 30),
         signals=[(6, ['lantern isle', 'lantern-isle', '灯塔岛']),
                  (4, ['lofi', 'lo-fi', 'music video', 'study music', '音乐视频', '学习音乐', '助眠']),
-                 (3, ['cover', 'loop for', 'hours', 'seasons', 'four seasons', 'chill', 'relax', 'cozy cottage',
+                 (3, ['album cover', 'cover art', 'a cover', 'cover for', 'loop for', 'hours', 'seasons', 'four seasons', 'chill', 'relax', 'cozy cottage',
                       '封面', '循环', '四季', '季节', '放松', '治愈', '小木屋']),
                  (2, ['cottage', 'cabin', 'window', 'diorama', 'island', 'calm', 'peaceful', 'quiet', 'lighthouse',
                       '小屋', '窗', '小岛', '岛', '安静', '宁静', '灯塔', 'cafe', 'coffee', 'bedroom', 'desk', 'rooftop',
@@ -857,11 +857,11 @@ WORDS = dict(
     time=['night', 'dusk', 'dawn', 'sunset', 'sunrise', 'noon', 'morning', 'evening', 'day', 'rain', 'snow',
           'fog', 'foggy', 'mist', 'storm', 'winter', 'summer', 'spring', 'autumn',
           '夜', '黄昏', '清晨', '日落', '日出', '中午', '早晨', '傍晚', '白天', '雨', '雪', '雾', '风暴', '冬', '夏', '春', '秋'],
-    phases=['seasons', 'four seasons', 'day to night', 'day and night', 'cycle', 'phases', 'timelapse',
+    phases=['seasons', 'four seasons', 'day to night', 'day and night', 'day cycle', 'day/night cycle', 'phases', 'timelapse',
             '四季', '昼夜', '日夜', '循环', '轮换'],
     figures=['person', 'people', 'character', 'hero', 'girl', 'boy', 'man', 'woman', 'kid', 'crowd', 'cat', 'dog',
              'bird', 'animal', 'knight', 'villager', '人', '角色', '主角', '女孩', '男孩', '人群', '猫', '狗', '鸟', '动物'],
-    purpose=['wallpaper', 'cover', 'thumbnail', 'banner', 'video', 'gif', 'loop', 'stream', 'key art', 'poster',
+    purpose=['wallpaper', 'album cover', 'cover art', 'a cover', 'thumbnail', 'banner', 'video', 'gif', 'loop', 'stream', 'key art', 'poster',
              'readme', 'showcase', '壁纸', '封面', '缩略图', '横幅', '视频', '动图', '循环', '直播', '海报', '展示'],
     music=['music', 'soundtrack', 'lofi', 'lo-fi', 'chiptune', 'song', 'audio', '音乐', '配乐', '歌'],
 )
@@ -1528,7 +1528,7 @@ def _key_plan(text):
         lim = str(eramod_limit(era.group(1)))
         if tb is None or ('TODO' not in tb.group(1) and not [n for n in nums if n != lim]):
             out.append('Technical has no tile budget: write `- Tile budget: N unique 8x8 background tiles against '
-                       'the limit of 256` from `pixelate era bg.png --era %s --tiles`' % era.group(1))
+                       'the limit of %s` from `pixelate era bg.png --era %s --tiles`' % (lim, era.group(1)))
     return out
 
 def _music(text):
@@ -2266,6 +2266,8 @@ def small_kind(request, r=None):
     """-> 'palette', 'icons', 'photo', 'assets', 'sprite', 'music' for a small ask (a short brief), else None"""
     r = r or route(request)
     t = ' ' + request.lower() + ' '
+    if len(request.split()) > 60 or len(request) > 400:   # a written-out prompt is a full scene, whatever words it holds
+        return None
     if r['mode'] == 'music':
         return 'music'
     for kind, words in SMALL_WORDS:

@@ -10,7 +10,7 @@ separate agent that did not write or draw the work. For a still, the prompt carr
 detector findings (`pixelate judge`) and an overlay of their boxes as a checklist. --run sends the
 prompt to a separate model process itself (the `claude` CLI, or the command in PIXELATE_CRITIC_CMD,
 which reads the prompt on stdin) and saves the critique as critique-<frame>-<role>-rN.md for the next
-round's --prev; --log adds it to the judge's corpus log. The caller tracks the three graded rounds
+round's --prev; --log adds it to the judge's corpus log. The caller tracks the graded rounds (one per stage by default)
 and total specialist consults per artifact (references/delivery.md#art-director); this command does
 not enforce a session budget.
 """

@@ -57,8 +57,8 @@ BRIEF_CASES = [
     ('A tiny noodle shop on a snowy street at night, seen from above.', (1920, 1080), None,
      ['Canvas 480x270', '--style cosy-lightmap --scene exterior --scale 4', 'scene `exterior`',
       '`pixelate critique --brief brief.md --block BLOCKIN.png` for this full brief',
-      '`pixelate critique FRAME.png --brief brief.md` for the still; each stage allows at most '
-      'three critique rounds by default, counting the first, unless the user explicitly allows more']),
+      '`pixelate critique FRAME.png --brief brief.md` for the still; each stage gets '
+      'one critique round by default, unless the user explicitly allows more']),
     ('下雪的夜里，一家小面馆，从上往下看。3840x2160', None, None,
      ['Native 480x270, 8x nearest to 3840x2160', '--scene exterior --scale 8']),
     ('午夜山顶，一座裂开的天文台里涌出一道光柱，提着纸灯的朝圣者正沿石阶往上走。', None, None,
@@ -250,5 +250,5 @@ BRIEF_AVOID_CASES = [
 SHORT_BRIEF_CASES = [
     ('pixelate this reference photo of a street in two-point perspective',
      ['**camera**: two-point perspective', '`pixelate critique out.png --brief brief.md`',
-      'at most three critique rounds by default'], ['iso.Iso.box', '2:1 slope']),
+      'one critique round by default'], ['iso.Iso.box', '2:1 slope']),
 ]

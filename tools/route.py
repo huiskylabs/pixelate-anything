@@ -11,6 +11,10 @@ usage:
                                                    music) gets a short brief instead
   pixelate route "..." --brief --full              the 11 sections even for a small ask (--full or -o
                                                    alone imply --brief)
+  pixelate route "..." --brief --precise           the scene planned to the pixel (Hero box, Planes, Key,
+                                                   Value and Calm boxes) for the gate to measure; by default
+                                                   a brief directs (story, what must read, rules) and leaves
+                                                   composition, sizes and colour values to the artist
   pixelate route "..." --brief --size 1920x1080 [--scale N]
                                                    the delivered picture: the canvas is size / scale,
                                                    the scale picked to keep the style's native height
@@ -1091,6 +1095,7 @@ def lint(text):
     Technical). A short brief gets the matching light lint. Empty means it is ready to show."""
     if _is_short(text):
         return lint_short(text)
+    precise = _precise(text)
     probs = []
     left = text.count('TODO')
     if left:
@@ -1132,7 +1137,7 @@ def lint(text):
     probs += _music(text)
     li = find('Light list')
     soft = _has_light_layer(text)
-    if li is not None and not re.search(r'\d', li) and (soft or not re.search(PALETTE_STEP, li, re.I)):
+    if li is not None and not re.search(r'\d', li) and (soft and precise or not re.search(PALETTE_STEP, li, re.I)):
         probs.append('Light list has no sizes or radii: give every emitter a colour, a radius and what hides it'
                      if soft else 'Light list says nothing concrete: name the slots each light steps up and the '
                      'shape or size of its pool')
@@ -1150,7 +1155,7 @@ def lint(text):
     if li is not None and soft:
         lights = [b for b in _bullets(li) if not re.match(NOT_A_LIGHT, b.lstrip('*'), re.I)
                   and not re.search(r'\bunlit\b|no light of its own|not a light|no pool', b, re.I)]
-        for what, pat in (('no colour', COLOUR), ('no radius or size', RADIUS)) + (
+        for what, pat in (('no colour', COLOUR),) + ((('no radius or size', RADIUS),) if precise else ()) + (
                 () if hides_flagged else (('nothing that hides it', HIDES),)):
             miss = [b for b in lights if not re.search(pat, b, re.I)]
             if miss:
@@ -1159,20 +1164,23 @@ def lint(text):
                     probs[-1] += '; a line that is not a light starts with "ambient", "no " or "per-light", ' \
                                  'or says "not a light"'
     sc = find('The scene')
-    if sc is not None and not re.search(r'\d', sc):
+    if not precise:
+        probs += _director_scene(sc)
+    elif sc is not None and not re.search(r'\d', sc):
         probs.append('The scene has no counts, sizes or positions')
     elif sc is not None:
         loose = [b for b in _bullets(sc) if not b.startswith('TODO') and not b.endswith(':')
                  and not re.search(PLACED, b, re.I)]
         if loose:
             probs.append('The scene: %d object line(s) with no count, size or position: %s' % (len(loose), _quote(loose)))
-    probs += _scene_plan(sc)
-    probs += _key_plan(text)
+    if precise:
+        probs += _scene_plan(sc)
+        probs += _key_plan(text)
     probs += _one_line(text, 'light direction', True)
     probs += _one_line(text, 'wind', bool(re.search(r'\b(?:lean|sway|trail|scarf|flag|smoke|steam|drift|gust)', text, re.I)))
     probs += _hex_check(text)
     lv0 = find('Lived-in details')
-    if lv0 is not None:
+    if lv0 is not None and precise:
         tiny = [b for b in _bullets(lv0) if not re.search(r'\d', b) and not b.startswith('TODO')]
         if tiny:
             probs.append('Lived-in details: %d line(s) with no size or position: %s (give each its native size, at '
@@ -1196,6 +1204,39 @@ def lint(text):
     probs += _not_the_reference(text)
     probs += _tool_refs(text)
     return probs
+
+# the scene section of a directed brief (the default): the story and what must read, in words; composition,
+# sizes, positions and colour values are the artist's, decided while drawing and judged on the result
+DIRECTOR_SCENE = [
+    '- Hero: TODO the one thing the eye lands on; peak value: TODO what alone holds the brightest values; '
+    'peak chroma: TODO what alone holds the top chroma (see references/drawing.md#composition).',
+    '- Story: TODO the moment in two or three sentences: who does what, what changes, how the loop closes.',
+    '- Layout: TODO where the big things sit, in plain words (the tower top right, the pond in the centre, '
+    'the path below it); no coordinates.',
+    '- Must read (placement, size and colour are the artist\'s call): TODO the objects and story beats a viewer '
+    'must find, separated by semicolons.',
+    '- Leave to the artist: the exact composition, sizes, positions, palette values and timing inside the beats; '
+    'the layout above is direction, not coordinates.',
+]
+
+def _precise(text):
+    """a brief planned to the pixel: it carries [x0,y0,x1,y1] boxes or a Hero box"""
+    return bool(re.search(r'\[\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\]', text) or
+                re.search(r'^\s*[-*]\s+\**Hero\**\s*:\s*\d+\s*,\s*\d+', text, re.M | re.I))
+
+def _director_scene(sc):
+    """a directed scene names its hero and what must read"""
+    if sc is None:
+        return []
+    out = []
+    if not re.search(r'^\s*[-*]\s+\**Hero\**\s*:\s*\S', sc, re.M | re.I):
+        out.append('The scene: no `- Hero:` line naming the one thing the eye lands on')
+    m = re.search(r'^\s*[-*]\s+\**Must read\**[^:\n]*:\s*(.+)$', sc, re.M | re.I)
+    if not m:
+        out.append('The scene: no `- Must read:` line listing the objects and story beats a viewer must find')
+    elif len([x for x in re.split(r';', m.group(1)) if x.strip(' .')]) < 3:
+        out.append('The scene: the Must read line names fewer than three things (separate them with semicolons)')
+    return out
 
 # the scene's plan lines: the hero, its value and chroma owners and the plane shares are parsed by the gate
 # (`pixelate check BLOCKIN.png --blockin --brief brief.md`), so their formats are fixed
@@ -1958,10 +1999,12 @@ def _fmt_budget(b):
     return '; '.join('%s %s' % (k, ('>= %s' % lo) if hi is None else ('<= %s' % hi) if lo is None else
                                 '%s..%s' % (lo, hi)) for k, (lo, hi) in b.items()) or 'none (look at it)'
 
-def brief(style, request='', projection=None, choices=None, era=None, size=None, scale=None):
+def brief(style, request='', projection=None, choices=None, era=None, size=None, scale=None, precise=False):
     """the references/brief.md brief as Markdown, with everything the style decides filled in and the
     scene-specific parts as TODO prompts; choices (from gaps()) adds section 0; size (W, H) is the
-    delivered picture and scale the whole scale (delivery())"""
+    delivered picture and scale the whole scale (delivery()). By default the scene is directed (the story,
+    the hero, what must read, the rules) and the artist owns composition, sizes and colour values;
+    precise=True plans it to the pixel (boxes the gate measures)"""
     st = styles.get(style)
     r = ROUTE[st['name']]
     w, h, N, DW, DH = delivery(st['name'], size, scale, era)
@@ -2055,6 +2098,7 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                  f'Record the horizon in native px (or say it is outside the frame), {vanishing}, the crop and '
                  f'focal framing, and the near/far scale changes. {construction} Adapt figure sizes to depth, '
                  'not iso.Iso geometry (see guides/rebuild.md#2-pick-the-camera).')
+    i_scene = len(L)
     L.append('- Hero: TODO x0,y0,x1,y1 (native px); peak value: TODO the object that alone holds the brightest '
              'values; peak chroma: TODO the object that alone holds the top chroma%s. A figure stays at least %d px '
              'tall at the delivered cell; no other mass over 0.6x the hero\'s area or within 0.1 L of its peak '
@@ -2095,6 +2139,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                  '[x0,y0,x1,y1]`; lint counts them per scanline against the %s limits (era.check_sprites).' % E['name'])
     L.append('- TODO the full object list with counts and rough positions (left third, on the ridge, by the door) '
              '(see references/brief.md#4-the-scene; run `pixelate tools TOPIC` for each subject).')
+    if not precise:
+        L[i_scene:] = DIRECTOR_SCENE
     if st.get('stack'):
         L.append('- TODO the depth planes: far (hazed), middle (lit), near (flat dark silhouettes that occlude light) '
                  '(see references/drawing.md#composition).')
@@ -2102,7 +2148,10 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     L.append('- TODO five to ten small, specific things that tell a story, each with its native size (at least 4x3 '
              'px) and the value step against what it sits on; three readable beat eight invisible; say which change per phase '
              '(see references/drawing.md#drawing-objects). Write each named story beat as `- NAME: ...` and give it a '
-             'Key line in section 4 (lint checks every one has a Key).')
+             'Key line in section 4 (lint checks every one has a Key).' if precise else
+             '- TODO five to ten small, specific things that tell a story (a pair of sandals on the steps, a cat asleep '
+             'on the beam), in words; the artist picks their size and place; three readable beat eight invisible '
+             '(see references/drawing.md#drawing-objects).')
     L.append('\n## 6. Phases')
     L.append('- Accent ration: TODO each accent hue, the only objects that may carry it, and its share of the frame.')
     L.append('- TODO for each phase: the palette by named roles, its signature elements (not a recolour), what the '
@@ -2151,11 +2200,12 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
             ('at most %d per scanline' % E['sprite_line']) if E.get('sprite_line') else '',
             ('%d on screen' % E['sprite_total']) if E.get('sprite_total') else '',
             ('each up to %dx%d' % E['sprite_size']) if E.get('sprite_size') else '') if x]
-        L.append('- Tile budget: TODO the unique %dx%d background tiles this screen needs%s (count them with '
-                 '`pixelate era bg.png --era %s --tiles` on the background-only render); sprites: TODO each actor '
-                 'as hardware sprites, %s (era.check_sprites).' % (
-                     E['tile'], E['tile'], (' against the limit of %d' % E['bg_tiles']) if E.get('bg_tiles') else '',
-                     era, ', '.join(lim) or 'no hardware sprite limit'))
+        if precise:
+            L.append('- Tile budget: TODO the unique %dx%d background tiles this screen needs%s (count them with '
+                     '`pixelate era bg.png --era %s --tiles` on the background-only render); sprites: TODO each actor '
+                     'as hardware sprites, %s (era.check_sprites).' % (
+                         E['tile'], E['tile'], (' against the limit of %d' % E['bg_tiles']) if E.get('bg_tiles') else '',
+                         era, ', '.join(lim) or 'no hardware sprite limit'))
     else:
         L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
             w, h, N, DW, DH,
@@ -2179,8 +2229,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     L.append('- Gate overrides: none. If the scene cannot meet one bound, add a line `- Gate override: RULE <= V '
              '(the reason)` and pass `--brief` to the gate (see references/delivery.md#gate).')
     L.append('- Art director: `pixelate critique --brief brief.md --block BLOCKIN.png` for this full brief, '
-             'then `pixelate critique FRAME.png --brief brief.md` for the still; each stage allows at most '
-             'three critique rounds by default, counting the first, unless the user explicitly allows more '
+             'then `pixelate critique FRAME.png --brief brief.md` for the still; each stage gets '
+             'one critique round by default, unless the user explicitly allows more '
              '(see references/delivery.md#art-director).')
     L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
              '(see references/delivery.md#still and references/delivery.md#animation-plan).')
@@ -2324,9 +2374,9 @@ def short_brief(style, request='', kind='sprite', r=None, era=None, size=None, s
         if E:
             L.append('- `pixelate era %s --era %s`.' % (file, era))
         L.append('- Art director: `pixelate critique %s --brief brief.md` for the still after the gate; '
-                 'at most three critique rounds by default, counting the first, unless the user explicitly '
-                 'allows more. If round 3 is below A, report the grade and unresolved ranked fixes and ask '
-                 'whether to continue or change the brief; show only an A result as finished '
+                 'one critique round by default, unless the user explicitly '
+                 'allows more. Apply its fixes once; below A, report the grade and unresolved ranked fixes and ask '
+                 'whether to continue or change the brief '
                  '(see references/delivery.md#art-director).' % file)
     L.append('\n## 5. Show the user (see references/delivery.md#still)')
     L.append('- ' + {'palette': 'The chips and the test sprite side by side at 1x and %dx, for go/no-go.' % N,
@@ -2467,6 +2517,9 @@ def main(a):
     full = '--full' in a
     if full:
         a.remove('--full')
+    precise = '--precise' in a
+    if precise:
+        a.remove('--precise')
     size = scale = None
     if '--size' in a:
         i = a.index('--size'); size = size_of(a[i + 1]); del a[i:i + 2]
@@ -2481,7 +2534,7 @@ def main(a):
             want = a[i + 1]; del a[i + 1]
         del a[i]
         want = want or True
-    elif full or out:                                # --full and -o only mean something for a brief
+    elif full or out or precise:                     # --full, --precise and -o only mean something for a brief
         want = True
     req = ' '.join(a)
     r = route(req)
@@ -2504,7 +2557,7 @@ def main(a):
         else:
             text = brief(style, req, projection=r['picks'][0]['projection'],
                          choices=gaps(req, r, (DW, DH) if size or scale else None, NH), era=r.get('era'),
-                         size=size, scale=scale)
+                         size=size, scale=scale, precise=precise)
         if out:
             pathlib.Path(out).write_text(text); print('wrote', out)
         else:

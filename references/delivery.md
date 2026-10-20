@@ -129,8 +129,8 @@ returns a grade, 12 scores and up to 5 ranked fixes. Your own report of a fix is
 means legal, not good: never grade your own still. Don't argue with a fix; if the brief causes it,
 change the brief.
 
-**Review budget (visual and music).** Each full-brief and still stage allows at most three graded lead
-calls by default (including round 1); an A ends review sooner. After the first broad lead
+**Review budget (visual and music).** Each full-brief and still stage gets one graded lead
+call by default, so review stays fast; the user can allow more. After the first broad lead
 round, when needed, consult at most **two visual specialists total per artifact**, chosen from
 `composition`, `lighting`, `set` (architecture, props and story of place) and `character`:
 `pixelate critique FRAME.png --brief brief.md --role composition` (or use the full brief and block-in).
@@ -146,8 +146,8 @@ Music review is separate and opt-in after rendering and passing `pixelate check 
 `check_music`). `pixelate critique-music TRACK.wav --brief brief.md [--prev LAST.md]` (MCP
 `music_critique_prompt`) prints a prompt for a separate agent to actually listen to the rendered
 audio and read the brief. The tool does not listen or invoke an agent. If the reviewer cannot hear
-the audio, it returns `NOT REVIEWED`, never a grade. Music has its own default three graded review
-calls, counting the initial call; `--prev` is the previous music critique.
+the audio, it returns `NOT REVIEWED`, never a grade. Music has its own default of one graded review
+call; `--prev` is the previous music critique.
 
 Save each externally produced lead critique to a report file. To bind evidence to the exact
 artifact bytes after review, run `pixelate review record --brief brief.md --critique lead.md`
@@ -171,11 +171,9 @@ report together. These hashes bind local files, **not reviewer independence or a
 even READY does not attest that the frame passed `pixelate check` or that the user approved the
 brief, still or animation plan.
 
-Stop on an A. If round 3 is still below A, stop automatic revision and review for that stage:
-report the grade and unresolved ranked fixes to the user, and ask whether to continue reviewing
-or change the brief. Only a user who explicitly allows more rounds may extend that stage's budget.
-A below-A brief is not ready for approval or drawing; a below-A still is not a finished still for
-go/no-go or delivery. Prompt commands generate one prompt per call; the caller tracks rounds and
+One round, then move on. Apply the round's ranked fixes once; if the grade is below A, report it
+and any unresolved fixes to the user and ask whether to continue reviewing or change the brief.
+Only a user who explicitly allows more rounds may extend that stage's budget. Prompt commands generate one prompt per call; the caller tracks rounds and
 specialist consults.
 
 ## Still

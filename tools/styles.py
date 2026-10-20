@@ -391,6 +391,15 @@ REGIME = {'none': 'no light layer: light is palette steps (warm slots, rims, a f
           'screen': 'a light layer smooth inside each art pixel, composited between depth planes at delivery size '
                     '(post.Post(res="screen"), post.Stack); see references/drawing.md#light'}
 
+def style_prose(name):
+    """the written half of a style's card (references/styles/NAME.md): its essence, what it is not, the pitfalls
+    of the medium and the variation space, without the file's title line; '' when the file is missing"""
+    import pathlib
+    p = pathlib.Path(__file__).resolve().parent.parent / 'references' / 'styles' / (name + '.md')
+    if not p.is_file():
+        return ''
+    return p.read_text(encoding='utf-8').split('\n', 1)[1].strip()
+
 def card(name):
     """one style's card: what it is, when to pick it, the light regime, palette and ramps, outline and
     dither, canvas, figures, the value budget, the craftcheck limits, the rules, techniques and bans the
@@ -414,6 +423,9 @@ def card(name):
         L.append('Pick it for: %s.' % r['pick_if'])
     L.append('Projection: %s.%s' % (r.get('projection', '-'),
              (' Closest example: %s.' % r['example']) if r.get('example') else ''))
+    prose = style_prose(n)
+    if prose:
+        L += ['', prose]
     L += ['', '## Light regime', '- res %s: %s.' % (st['res'], REGIME[st['res']]),
           '- blend: %s.' % (j(st['blend']) or 'none'),
           '- allowed light ops: %s.' % (j(st['allowed_post']) or 'none'),
@@ -464,7 +476,8 @@ def card(name):
               'cluster_px is the median cluster size (at least); small_clusters the share under 3 px.']
     for title, key in (('Rules', 'rules'), ('Techniques', 'tools'), ('Never', 'never')):
         if r.get(key):
-            L += ['', '## ' + title] + ['- %s%s' % (x, '' if x.endswith('.') else '.') for x in r[key]]
+            items = [x[0] if isinstance(x, tuple) else x for x in r[key]]   # a (rule, projection) pair prints its rule
+            L += ['', '## ' + title] + ['- %s%s' % (x, '' if x.endswith('.') else '.') for x in items]
     if st.get('music'):
         m = st['music']
         L += ['', '## Music', '- %s; %s; sync point: %s.' % (m['voices'], m['feel'], m['sync']),

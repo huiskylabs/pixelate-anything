@@ -52,6 +52,16 @@ cobbles from `texture.wet_streaks`, a scarf on `sprite.chain`) and calls everyth
 with its size and parts. Finished objects in `references/assets/` are examples to read, never calls
 in a brief.
 
+## Not the reference
+
+Start from the style's card (`pixelate style NAME`), not from a finished piece. Library pieces are technique references: look at them with `pixelate find` only after the brief is written, read their code to learn how something is drawn, and draw your own. A brief that names a piece it studied (`library/ID` or `` `ID` ``) must say how the new piece differs, in one line:
+
+```
+- Differs from lantern-isle: subject (a lighthouse, not a cottage), camera (low side view), palette (cold teal night), motion (beam sweep, not snowfall)
+```
+
+Name at least four of six axes: subject, composition, camera, palette, light, motion. `pixelate route --lint` fails the brief otherwise. Four of six is the line between learning from a piece and making it again. The art director checks the same thing on the still.
+
 ## Self-review
 
 `pixelate route --lint brief.md` flags TODOs left, thin or missing sections, vague words, a motion

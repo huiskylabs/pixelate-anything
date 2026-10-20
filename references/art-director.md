@@ -54,7 +54,9 @@ draft. You judge what numbers can't.
     only as deliberate texture; one pixel scale everywhere, at least 2x at delivery.
 
 **Originality** is a pass or fail, not a score: copying an existing character, logo or UI layout
-makes it C whatever the scores. In a rebuild, the supplied place and camera are the subject to
+makes it C whatever the scores. It also fails when the still is a library piece again: when the brief names a piece it
+studied, at least four of subject, composition, camera, palette, light and motion must visibly differ
+from that piece (references/brief.md#not-the-reference). In a rebuild, the supplied place and camera are the subject to
 recreate; do not penalize fidelity to that reference.
 
 ## Grading a brief

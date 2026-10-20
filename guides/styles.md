@@ -99,7 +99,8 @@ the questions below, and say which style you chose and why. For the tools a subj
 
 There are eleven: `contre-jour`, `pastel-cell`, `native-glow`, `hd-overworld`, `arcade`, `tactics`,
 `sticker-iso`, `illustrated`, `neon-noir`, `cosy-lightmap` and `lofi`. `pixelate style NAME` prints
-one preset's card: reference, res and blend, ramps, dither, outline, scale and size, budget and
+one preset's card: first its written half from `references/styles/NAME.md` (essence, what it is
+not, pitfalls, variation space), then reference, res and blend, ramps, dither, outline, scale and size, budget and
 craft limits.
 
 Outline modes:

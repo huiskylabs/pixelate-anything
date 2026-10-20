@@ -1,4 +1,4 @@
-"""SKILL.md is the router: at most 1,500 words, the remix loop by default, authoring behind one pointer.
+"""SKILL.md is the router: at most 1,500 words, the style loop by default, authoring behind one pointer.
 Its links resolve, every command and flag it offers exists in `pixelate --help`, the pieces it names
 exist with the status it implies, and it neither offers what is not built nor calls anything ready."""
 import importlib.util
@@ -59,19 +59,22 @@ class SkillRouterTest(unittest.TestCase):
         for flag in set(re.findall(r'(?<![\w-])(--[a-z][a-z-]*)', TEXT)) - {'--help'}:
             self.assertIn(flag, self.help, f'SKILL.md offers {flag}')
 
-    def test_the_default_is_the_remix_loop(self):
-        self.assertIn('The default for every model is the remix loop', TEXT)
-        loop = section('The remix loop')
+    def test_the_default_is_the_style_loop(self):
+        self.assertIn('The default for every model is the style loop', TEXT)
+        loop = section('The style loop')
         steps = re.findall(r'^\d+\. \*\*([^*]+)\*\*', loop, re.M)
-        self.assertEqual(steps[:2], ['Find.', 'Remix.'])
-        order = [loop.index(command) for command in ('`pixelate find', '`pixelate remix', '`pixelate render', '`pixelate deliver')]
+        self.assertEqual(steps[:3], ['Style.', 'Brief.', 'Find, for technique.'])
+        order = [loop.index(command) for command in ('`pixelate route', '`pixelate style', '`pixelate find', '`pixelate remix',
+                                                     '`pixelate render', '`pixelate deliver')]
         self.assertEqual(order, sorted(order))
         self.assertIn('references/remix.md', loop)
+        self.assertIn('Differs from ID:', loop)
         self.assertIn('no brief review, no block-in, no specialists', loop)
 
-    def test_author_is_the_honest_fallback(self):
-        loop = section('The remix loop')
-        self.assertIn('If it prints `no close piece`, or the person asks for a new piece, go to [Author a new piece]', loop)
+    def test_remix_and_author_are_branches(self):
+        loop = section('The style loop')
+        self.assertIn('If the person asks for a variant of one piece', loop)
+        self.assertIn('go to [Author a new piece]', loop)
         author = section('Author a new piece')
         self.assertIn('[references/authoring.md](references/authoring.md)', author)
         self.assertIn('the person asks for something new', author)
@@ -89,7 +92,7 @@ class SkillRouterTest(unittest.TestCase):
     def test_nothing_unbuilt_is_offered(self):
         self.assertIn('pixelate library add work/NAME', TEXT)
         self.assertIn('pixelate library add', self.help)
-        self.assertIn('manual pull request', section('The remix loop'))
+        self.assertIn('manual pull request', section('The style loop'))
         for tool in ('find_pieces', 'remix_piece', 'render_piece', 'deliver_piece'):
             self.assertIn(f'`{tool}`', TEXT)
         self.assertIn('`add_piece`', TEXT)
@@ -106,13 +109,13 @@ class SkillRouterTest(unittest.TestCase):
         self.assertIn('Never grade your own work', TEXT)
 
     def test_unreviewed_remix_branch_is_separate_from_the_author_stop(self):
-        loop = section('The remix loop')
-        step6 = next(line for line in loop.splitlines() if line.startswith('6. '))
-        step7 = next(line for line in loop.splitlines() if line.startswith('7. '))
+        loop = section('The style loop')
+        step6 = next(line for line in loop.splitlines() if line.startswith('7. '))
+        step7 = next(line for line in loop.splitlines() if line.startswith('8. '))
         self.assertIn('and the user has approved a budget', step6)
         self.assertIn('do not ask anyone to run it: print the prompt', step6)
-        self.assertIn('take the unreviewed branch of step 7', step6)
-        self.assertIn('**Unreviewed branch** (remix only, no critique in step 6)', step7)
+        self.assertIn('take the unreviewed branch of step 8', step6)
+        self.assertIn('**Unreviewed branch** (style loop only, no critique in step 7)', step7)
         for phrase in ('say NO INDEPENDENT REVIEW and give no grade or art-quality claim',
                        'report the delivery\'s facts as NOT REVIEWED',
                        'ask the user separately to approve before calling it finished',
@@ -120,7 +123,7 @@ class SkillRouterTest(unittest.TestCase):
                        'The author path has no such branch: a review stage without budget or lead stops'):
             self.assertIn(phrase, step7, phrase)
         trust = section('Trust and evidence')
-        self.assertIn('on the author path the stage stops for a budget or a lead; a remix continues only as the unreviewed branch of step 7', trust)
+        self.assertIn('on the author path the stage stops for a budget or a lead; the style loop continues only as the unreviewed branch of step 8', trust)
 
     def test_knob_claims_match_the_library(self):
         declared = {}

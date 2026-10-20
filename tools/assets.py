@@ -35,6 +35,12 @@ Writes PACK/out/:
   <map>.png             tilemap previews (see maps below)
 Checks printed: unknown keys, ragged frames, lone pixels, colours per sprite.
 
+Knobs: in a library piece (references/piece.md), a knob whose `edits` is pack.json names a pack.json
+option it sets (today only scale; see PACK_OPTIONS in tools/piece.py). A value set in
+the PIXELATE_KNOBS file (`pixelate render DIR --set scale=4`) replaces that option for this export only;
+pack.json is not changed. Unset knobs leave pack.json's own values, which their defaults must equal.
+A PIXELATE_KNOBS file with no piece.json, and --scale with a set scale knob, are errors.
+
 Maps (optional, for tilesets): a text file with
   tileset: grass_dirt          # a sprite whose frames are 16 corner tiles (index = NW*8+NE*4+SW*2+SE);
                                # meta "variants" {index: [frames]} spreads alternates over plain areas
@@ -45,13 +51,13 @@ Maps (optional, for tilesets): a text file with
   props:                       # name x y [frame]  (pixels, anchor-relative)
   bush 40 30
 """
-import json, pathlib, re, sys
+import json, os, pathlib, re, sys
 import numpy as np
 from PIL import Image, ImageDraw
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KIT / 'tools'))
-import artlib, colorlib as cl
+import artlib, colorlib as cl, piece
 
 # ---------------------------------------------------------------- parsing
 def parse_px(path):
@@ -126,9 +132,44 @@ def from_module(item):
             'tags': meta.get('tags', {}), 'fps': meta.get('fps'), 'durations': meta.get('durations'),
             'tile': meta.get('tile'), 'variants': meta.get('variants'), 'warn': []}
 
-def load_pack(pack):
+def pack_knobs(pack, meta):
+    """the pack.json options the PIXELATE_KNOBS file sets, from the knobs of pack's piece.json that edit
+    pack.json, each checked against tools/piece.py; {} without the variable"""
+    path = os.environ.get(piece.ENV)
+    if not (pack / 'piece.json').exists():
+        if path:
+            raise SystemExit('%s is set, but %s has no piece.json declaring knobs' % (piece.ENV, pack))
+        return {}
+    try:
+        spec = piece.manifest_knobs(pack)
+        chosen = piece.read_set(path, spec) if path else {}
+        options = {}
+        for name, knob in spec.items():
+            if knob['edits'] != 'pack.json':
+                continue
+            default = piece.pack_option(name, knob['default'])
+            if name not in meta or type(meta[name]) is not type(default) or meta[name] != default:
+                raise piece.KnobError('knob %s: default %s is not pack.json %s %s'
+                                      % (name, json.dumps(knob['default']), name, json.dumps(meta.get(name))))
+            if name in chosen:
+                options[name] = piece.pack_option(name, chosen[name])
+    except piece.KnobError as exc:
+        raise SystemExit('knobs: %s' % exc)
+    return options
+
+def load_pack(pack, scale=None):
+    """(pack.json with the options knobs set, palette, sprites); scale: an explicit export scale, an
+    error when a knob sets one"""
     pack = pathlib.Path(pack)
+    if scale is not None:
+        expected, ok = piece.PACK_OPTIONS['scale']
+        if not ok(scale):
+            raise SystemExit('--scale must be %s, got %s' % (expected, scale))
     meta = json.loads((pack / 'pack.json').read_text())
+    options = pack_knobs(pack, meta)
+    if scale is not None and 'scale' in options:
+        raise SystemExit('--scale %s and the scale knob both set the export scale; use one' % scale)
+    meta.update(options)
     pal = json.loads((pack / meta.get('palette', 'palette.json')).read_text())
     if 'colors' in pal and isinstance(pal['colors'], list):
         pal = {'c%d' % i: h for i, h in enumerate(pal['colors'])}
@@ -186,8 +227,8 @@ def lone_pixels(g):
 
 def export(pack, scale=None, only=None):
     pack = pathlib.Path(pack)
-    meta, pal, sprites = load_pack(pack)
-    scale = scale or meta.get('scale', 6)
+    meta, pal, sprites = load_pack(pack, scale)
+    scale = meta.get('scale', 6) if scale is None else scale
     bg = cl.hex_to_rgb(meta.get('preview_bg', '#2a2836'))
     out = pack / 'out'
     out.mkdir(exist_ok=True)
@@ -433,10 +474,15 @@ if __name__ == '__main__':
         print(__doc__); sys.exit(1)
     def opt(name, default=None):
         if name in a:
-            i = a.index(name); v = a[i + 1]; del a[i:i + 2]; return v
+            i = a.index(name)
+            if i + 1 >= len(a):
+                raise SystemExit('%s needs a value' % name)
+            v = a[i + 1]; del a[i:i + 2]; return v
         return default
     if a[0] == '--topx':                         # assets.py --topx IMG PALETTE [NAME]
         print(png_to_px(a[1], a[2], a[3] if len(a) > 3 else None), end=''); sys.exit(0)
     sc = opt('--scale'); only = opt('--only')
-    ok = export(a[0], int(sc) if sc else None, set(only.split(',')) if only else None)
+    if sc is not None and not re.fullmatch(r'-?[0-9]+', sc):
+        raise SystemExit('--scale must be an integer, got %r' % sc)
+    ok = export(a[0], int(sc) if sc is not None else None, set(only.split(',')) if only else None)
     sys.exit(0 if ok else 1)

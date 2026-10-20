@@ -107,6 +107,7 @@ The server's tools:
 - **Files:** `write_file`, `read_file`, `list_files`. Writes stay inside the workspace.
 - **Image, palette, assets:** `pixelate_image`, `palette`, `export_assets`, `generate_sprites`.
 - **Gate and critique:** `check_frame`, `check_music`, `critique_prompt` (lead or scoped visual specialist, with optional lead consult notes), `record_visual_review`, `visual_review_status`, `music_critique_prompt` (opt-in prompt for a separate agent to listen after the music gate).
+- **Library:** `find_pieces` (static; thumbnails as images), `remix_piece`, `render_piece`, `deliver_piece` (the last three run the piece's shell commands without a sandbox; see `references/remix.md#mcp-tools`).
 - **Scenes and output:** `preview_scene`, `check_scene`, `build_page`, `render_audio`, `render_video`, `render_gif`.
 
 Tools that make pictures return them as images, so the agent can judge its own work. A second agent that did not draw it judges better: `critique_prompt` gives the lead the rubric, brief and images; optional specialists observe without grading. Review record/status bind exact brief, still and report bytes, but cannot prove reviewer independence/authenticity or replace gate checks and user approval (details: `references/delivery.md#art-director`). `music_critique_prompt` does not listen or invoke an agent. The workspace is the directory the agent starts the server in, or `$PIXELATE_WORKSPACE`.
@@ -115,7 +116,7 @@ Tools that make pictures return them as images, so the agent can judge its own w
 
 | path | what |
 |---|---|
-| `SKILL.md` | lean entry point: the ten steps, each naming one command and one file to read |
+| `SKILL.md` | lean find → remix → render → deliver router; the ten-step author path lives in `references/authoring.md` |
 | `guides/` | one guide per mode: rebuild, eras, pixelate, palettes, assets, scenes, music |
 | `references/` | `brief.md` (intent to approved brief), `drawing.md` (how to draw), `delivery.md` (gate, art director, still, animation plan), `art-director.md` (the critique rubric); the scene engine API |
 | `pixelate`, `tools/` | the CLI, the MCP server, setup, and the tools behind them (`iso.py`: orthographic projections and boxes; `sdf.py`: curved solids) |

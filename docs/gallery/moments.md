@@ -88,7 +88,7 @@ The code, characters, titles, glyphs and tunes are original and are covered by t
 All ten are `study`: they render (see above) and carry tags, anatomy and provenance. None may be called `accepted` yet:
 
 - **No approval evidence exists in the repository.** The showcase run used a coordinating agent as art director, but no critique or approval record was kept with the pieces. `review` is therefore omitted. Approval by `user` or `art-director`, and review notes with real content, are still to be supplied for each piece.
-- **No working knobs.** `knobs` is `{}`. `accepted` needs two, and `tools/piece.py`, `PIXELATE_KNOBS` and `render --set` do not exist yet (plan phase 2). The art does not read knobs. Declaring any would be a claim that nothing backs.
+- **No working knobs.** `knobs` is `{}`. `accepted` needs two. `render --set` and `knobs()` (`tools/piece.py`) now exist for script pieces, but the art does not read knobs. Declaring any would be a claim that nothing backs.
 - **`reviewed`** additionally needs a `pixelate review record` sidecar and an independent A-grade review bound to the exact bytes. None was produced.
 - **Requests.** `request` is the brief's own `Request:` line, joined across line breaks, for 01-04, 06-08 and 10. No literal request is recorded for 05 and 09, so their `request` says so and quotes the brief and README instead.
 - **Media.** `media.thumb` and `media.contact` exist for all ten (derived from the delivered frames with PIL `LANCZOS`; contact tiles are A and B side by side, each at most 256 px, so a contact sheet is up to 516 px wide). No GIF or sound preview clip was made.

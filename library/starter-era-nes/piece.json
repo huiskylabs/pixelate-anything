@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "id": "starter-era-nes",
+  "title": "Starter: Era NES",
+  "status": "starter",
+  "summary": "A neutral NES-style screen to copy, built like the hardware builds one: a nametable of 8x8 tiles, an attribute table of 16x16 sub-palette blocks over a shared backdrop, and a short sprite list, all in 2C02 master-palette colours. Placeholders only (a status bar, a plain sky with a dithered band, a flat far strip, flat ground, a foreground strip, one platform, one 16x16 marker sprite); its frame passes `pixelate check --era nes`.",
+  "request": "No user request: a new starter planned in docs/PLAN-library.md section 6.2 (`starter-era-nes`, script runtime, status starter): an empty piece for the era mode, held to the NES limits, that renders and passes the gate empty.",
+  "mode": "era",
+  "tags": {
+    "subject": [
+      "scaffold",
+      "placeholder",
+      "screen",
+      "nametable",
+      "tile",
+      "sprite",
+      "platform",
+      "hud"
+    ],
+    "setting": [
+      "abstract",
+      "day"
+    ],
+    "camera": "side",
+    "style": "none",
+    "era": "nes",
+    "motion": "stills",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 256,
+    "h": 224,
+    "scale": 3
+  },
+  "runtime": "script",
+  "outputs": [
+    {
+      "name": "screen",
+      "kind": "image",
+      "run": "python3 art/screen.py",
+      "frame": "out/screen.png",
+      "golden": "out/golden/screen.png",
+      "size": {
+        "w": 256,
+        "h": 224
+      },
+      "scale": 3,
+      "era": "nes",
+      "style": "lofi",
+      "brief": "brief.md",
+      "pal": "out/palette.json"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/screen.py",
+      "draws": "the screen: the nametable (which tile goes in each 8x8 cell), the attribute table (which sub-palette each 16x16 block uses), the sprite list (OAM) and the renderer; writes out/screen.png at 3x, out/palette.json, the background alone (out/bg.png) and the sprite boxes (out/oam.json)",
+      "change_for": "layout, the screen's purpose (level, title, menu), sprite placement"
+    },
+    {
+      "file": "art/tiles.py",
+      "draws": "the background and sprite pattern tables: placeholder 8x8 tiles as 2-bit index rows (sky step, far strip, ground, foreground, platform, status bar; a 16x16 marker as four sprite tiles)",
+      "change_for": "the subject, tiles and sprites"
+    },
+    {
+      "file": "art/nespal.py",
+      "draws": "the shared backdrop, four background and one sprite sub-palette of three 2C02 master-palette colours each, and the check that keeps them legal",
+      "change_for": "colour and mood inside the NES palette"
+    },
+    {
+      "file": "brief.md",
+      "draws": "the neutral brief: what the scaffold is, its layout, the NES limits it keeps and the gate commands",
+      "change_for": "intent, hero and gate override lines once a subject exists"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-18",
+    "by": "Claude (agent), phase-2 starter unit; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

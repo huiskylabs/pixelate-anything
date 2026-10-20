@@ -1,45 +1,58 @@
 ---
 name: pixelate-anything
-description: Hand-crafted pixel art of any kind. Use it to rebuild a photo or a place as real pixel art while preserving its camera, convert images, build palettes, draw sprites, characters, items and tilesets with sheets and GIFs, make pixel scenes and seamless animated loops with a generative soundtrack (lofi, chiptune, ambient) as a live page, MP4 or GIF, or make loopable game music.
+description: Hand-crafted pixel art of any kind, remixed from a library of runnable pixel-art programs or drawn new in code. Use it to rebuild a photo or a place as real pixel art while preserving its camera, convert images, build palettes, draw sprites, characters, items and tilesets with sheets and GIFs, make pixel scenes and seamless animated loops with a generative soundtrack (lofi, chiptune, ambient) as a live page, MP4 or GIF, or make loopable game music.
 metadata:
   version: "1.0.0"
 ---
 
 # pixelate-anything
 
-Pixel art that looks hand-made, drawn from scratch in code. Run `pixelate` (`<skill>/pixelate`); `pixelate --help` lists every command, `pixelate doctor` what is installed. With no shell, the MCP server has the same tools.
+Every piece here is a program. `library/` holds runnable pieces; each `piece.json` says what the piece draws, which file to change for what, and which knobs make variants. The default for every model is the remix loop: find the closest piece, copy it, edit it, render and check it, deliver it. Authoring a new piece from a brief is the fallback. Run `pixelate` (`<skill>/pixelate`); `pixelate --help` lists every command, `pixelate doctor` what is installed. The loop runs in a shell; without one, the MCP server (`pixelate mcp`) offers `find_pieces`, `remix_piece`, `render_piece` and `deliver_piece` plus the author-path tools. MCP execution still runs trusted piece code on the server without a sandbox.
 
-## Steps
+## The remix loop
 
-Copy these 10 steps into your todo list first; a skipped step stays as `skip: <reason>`. Read only what each step names.
+Copy these steps into your todo list first; a skipped step stays as `skip: <reason>`.
 
-1. **Check intake, then read the intent.** Run `pixelate route --intake "REQUEST"` (or MCP `intake_request`). Only when disposition is `offer`, optionally ask its two questions. Accept answers in the user's own words, proceed if they skip, and combine explicit answers with the original request before the brief. For `direct`, proceed without intake questions. Read `references/brief.md#read-the-intent`.
-2. **Route as a hint, in the same call as the brief.** Run `pixelate route "CLARIFIED REQUEST" --brief [STYLE] -o brief.md` (`--full` forces all 11 sections). Section 0 shows the style, runners-up and defaults; if your intent read disagrees, rerun with that STYLE. Skip plain `pixelate route` and `pixelate style --list` unless no runner-up fits.
-3. **Expand into a brief.** Fill every TODO, then `pixelate route --lint brief.md`. Read `references/brief.md`, `library/lantern-isle/brief.md` (the bar) and, in era mode, `guides/eras.md` (the limits); each TODO names the `references/drawing.md` section and command it needs.
-4. **Block-in, then art director on the brief.** Draw the brief's boxes as a greyscale block-in; pass `pixelate check BLOCKIN.png --blockin --brief brief.md`. Give a separate lead agent the prompt from `pixelate critique --brief brief.md --block BLOCKIN.png`, apply its changes and lint within the review budget (`references/delivery.md#art-director`); a short brief skips this review. After its first round, optional scoped specialists (`--role composition|lighting|set|character`) observe without grading; pass up to two notes total to the lead via `--consult`. Record the external lead report and check artifact-bound A status before claiming readiness (`references/delivery.md#art-director`).
-5. **The user confirms the brief.** Read `references/brief.md#confirm`.
-6. **Draw everything from scratch in code.** Read the mode's guide (below), run `pixelate tools TOPIC` or `MODULE` (it names the recipe for the subject first: `recipes.rock_face`, `pouring_fall`, `cloud_bank`, `Perspective`, `crowd_vignettes`), and read the `references/drawing.md` section for what you draw.
-7. **Pass the gate.** Run `pixelate check FRAME.png --style S --scale N`; redraw until every line passes: that means legal, not good. Read `references/delivery.md#gate`. With several images, list them in `render.json` and run `pixelate render DIR`: it draws, gates (per-image `## Image B` brief lines via `--image`), era-checks and judges each one in one call.
-8. **Judge, then art director on the still.** Run `pixelate judge FRAME.png --overlay judge.png` and fix each box it finds or say why it stays (it locates masonry-like rock, rows of identical units, scalloped edges, masses drawn as outlines and murky values). Then, as in step 4, `pixelate critique FRAME.png --brief brief.md --prev LAST-LEAD.md` (it carries the judge's findings; `--run` runs it in a separate model process and saves the critique), gating again after each fix; `--prev` is never specialist notes. Record the external lead report and check still-specific A status (`references/delivery.md#art-director`). Stop automatic review after the third non-A grade by default; report the grade and unresolved ranked fixes and ask the user whether to continue or change the brief.
-9. **One still to the user** for go/no-go. Read `references/delivery.md#still`.
-10. **Confirm the animation plan, then animate.** Read `references/delivery.md#animation-plan`.
+1. **Find.** `pixelate find "REQUEST"` (add `--mode scene|rebuild|era|assets|music` when the mode is clear). It ranks pieces by tags and words and runs no piece code; each match prints `why` it matches and how it `differs`. Pick a match whose `why` covers the request's subject and whose differences you can change. If it prints `no close piece`, or the person asks for a new piece, go to [Author a new piece](#author-a-new-piece). Done when you hold one base id or have moved to the author path.
+2. **Remix.** Read [references/remix.md](references/remix.md), then `pixelate remix PIECE work/NAME --request "REQUEST"`. `NAME` becomes the piece id: a lowercase slug, and the folder must not exist yet. Remix copies the piece, renders the unedited copy once and writes `REMIX.md`; when that baseline fails, nothing is created and the base is what is broken here, not your edit. Done when `work/NAME/REMIX.md` exists.
+3. **Plan.** Fill the plan table in `REMIX.md`: for subject, setting, camera, palette, composition, motion and sound, what stays and what changes. Done when every row says one or the other.
+4. **Edit.** Change knob files first, then the files the anatomy table names, then anything else, in small diffs. Rewrite the copy's `brief.md` for the request: the gate's `--brief` and the critic read it. Update `title`, `summary`, `tags` and `anatomy` in `piece.json` to what the piece now draws. For a subject's recipe, `pixelate tools TOPIC` or `MODULE`; for craft, the mode guide ([Modes](#modes)) and [references/drawing.md](references/drawing.md).
+5. **Render.** `pixelate render work/NAME` runs every output's command, then gates, era-checks and judges each image and writes `render-report.json`. Redraw until every image passes the gate: that means legal, not good. Open each frame and its judge overlay; fix each box or say why it stays. Audio is run and hashed, never gated: pass `pixelate check TRACK.wav` yourself. Update `out/golden/` only for intended changes, and regenerate `media/` (it still shows the base). Done when every image passes and you have looked at each one.
+6. **One independent critique.** When a separate reviewer is available (an agent or model that did not edit the piece) and the user has approved a budget, give it the prompt from `pixelate critique FRAME.png --brief work/NAME/brief.md`, apply its ranked fixes and render again. A track goes to a reviewer that can actually listen, via `pixelate critique-music TRACK.wav --brief work/NAME/brief.md`. One critique at the end: no brief review, no block-in, no specialists. `--run` and `pixelate render DIR --critique` start a separate model process, so use them only within a budget the user approved. With no reviewer or no approved budget, do not ask anyone to run it: print the prompt, say plainly that no critique happened and take the unreviewed branch of step 7. Done when the critique is saved or its absence is stated.
+7. **Deliver.** `pixelate deliver work/NAME` renders every output once more, requires each image's gate and packages the outputs with a script-written `DELIVERY.md` in `work/NAME/dist/delivery`; `pixelate deliver work/NAME --verify` checks that package without running anything ([references/delivery.md](references/delivery.md#deliver)). Report what passed the gate, the critique's grade or that there was none, and what was not checked. **Unreviewed branch** (remix only, no critique in step 6): deliver only what passes the gate, say NO INDEPENDENT REVIEW and give no grade or art-quality claim, report the delivery's facts as NOT REVIEWED, ask the user separately to approve before calling it finished, and never call it accepted or reviewed. The author path has no such branch: a review stage without budget or lead stops ([authoring](references/authoring.md#review-budget)).
+8. **Give back, by hand.** A finished piece joins `library/` only through a manual pull request of its folder ([references/piece.md](references/piece.md)). Its status stays `study` unless the evidence in [the status table](references/piece.md#status-evidence) exists. Pull request checks are static and run no contributed code; a maintainer renders the piece in an isolated environment before merging.
 
-## Modes
+## Variants
 
-| mode | the person wants | not this when | guide |
-|---|---|---|---|
-| scene | a still or an animated loop, a lofi cover, a place with no photo | a photo or a real place to rebuild | `guides/scenes.md` (+ `guides/music.md`) |
-| rebuild | a photo or a real place as pixel art, an iso city | it's an invented place (scene) | `guides/rebuild.md` |
-| era | a screen that obeys a console's limits (8-bit, Game Boy, 16-bit) | the era is only a look (scene with a style) | `guides/eras.md` |
-| assets | sprites, a character, items, icons, tiles to reuse | the figure is part of one scene (scene) | `guides/assets.md` |
-| music | a lofi, chiptune or ambient loop alone | it scores a scene (scene + `guides/music.md`) | `guides/music.md` |
+`pixelate render DIR --set KNOB=VALUE` (repeatable) renders a variant from the knobs a piece declares, for script, engine and pack pieces ([references/piece.md](references/piece.md#knobs)). Of the library, only `starter-scene-loop` (`horizon`) and `starter-assets` (`scale`) declare knobs today. The report records the values given, not proof the program used them: render the variant and look.
 
-A quick image conversion: `guides/pixelate.md`. A palette: `guides/palettes.md`. For music, after rendering and passing the music gate, optional `pixelate critique-music TRACK.wav --brief brief.md` prints a prompt for a separate agent that can actually listen (`guides/music.md`; review budget in `references/delivery.md#art-director`).
+## Author a new piece
+
+Author when `find` prints `no close piece`, the person asks for something new, or the work is meant to become a library piece. The task picks the path, not the model's name: any model remixes a close match, and a strong model may still choose to author. Read [references/authoring.md](references/authoring.md) and follow its ten steps there: intake, a brief the user approves, a greyscale block-in, one independent lead who owns every grade (three graded rounds per stage by default; specialists only observe), the gate, one still for the user's go/no-go and a confirmed animation plan before any motion. Begin from the starter `find` offered, if any.
+
+## Trust and evidence
+
+- `find`, `library list|show|index`, `new` (a plain copy) and `deliver --verify` run no piece code. `remix`, `render`, `deliver` and `library test` run a piece's commands through the shell with your permissions, without a sandbox: run them on checked-in library pieces and your own edits, never on contributed or user-supplied code.
+- Keep five things apart; none proves another: the technical gate, heuristic warnings (judge boxes, the `repeat` WARN, and render's distance-from-base or under-remixed warning, which is uncalibrated and never blocks), an independent grade, user approval, and rights to every source. No gate pass, golden match, heuristic or self-assessment raises a piece's status or approves it. Never grade your own work.
+- Paid review or evaluation (`--run`, another model, a person's time) needs a budget the user has given. Without one, print the prompt and stop at that stage: on the author path the stage stops for a budget or a lead; a remix continues only as the unreviewed branch of step 7.
+- A remix copies the base's `license` as declared; nobody has verified it, and it grants no rights to a photo or other source.
 
 ## Hard rules
 
+- Original subjects only: no borrowed characters, logos, UI, worlds or names. A rebuild may depict the supplied place and camera.
 - Draw everything yourself in code. `references/assets/` holds read-only examples: read them, never call them.
-- The five views (side, 3/4 top-down, 2:1 iso, oblique, military) are presets, not limits. Keep a reference's camera or an explicit one- or two-point perspective when it matters; construct it on the native-pixel grid (guides/rebuild.md#2-pick-the-camera).
-- Original scenes only: no borrowed characters, logos or UI. A rebuild may depict the supplied place and camera.
-- Rebuild, don't convert: `pixelate image` is a first pass at most.
 - Every effect is done in code: light, particles, weather, never painted or filtered.
+- Keep the camera of the reference or the request. The five views (side, 3/4 top-down, 2:1 iso, oblique, military) are orthographic presets, not limits; build a one- or two-point perspective as a real projection on the native-pixel grid instead of swapping in iso ([guides/rebuild.md](guides/rebuild.md#2-pick-the-camera)).
+- Rebuild, don't convert: `pixelate image` is a first pass at most.
+
+## Modes
+
+Each starter is a neutral placeholder to replace, never a finished or reviewed piece.
+
+- **Scene still** (a still, a cover, a place with no photo): `starter-scene-still`, [guides/scenes.md](guides/scenes.md).
+- **Scene loop** (an animated loop with sound, as a page, MP4 or GIF): `starter-scene-loop`, [guides/scenes.md](guides/scenes.md) and [guides/music.md](guides/music.md).
+- **Era** (a screen that obeys a console's limits): `starter-era-nes` (NES only), [guides/eras.md](guides/eras.md).
+- **Rebuild** (a photo or real place in its own camera): `starter-rebuild-perspective`, a true two-point pinhole camera, not an isometric preset, [guides/rebuild.md](guides/rebuild.md).
+- **Assets** (sprites, a character, items, icons, tiles, sheets): `starter-assets`, [guides/assets.md](guides/assets.md).
+- **Music** (a lofi, chiptune or ambient loop alone): `starter-music`, [guides/music.md](guides/music.md).
+- **Quick image conversion**: [guides/pixelate.md](guides/pixelate.md). **A palette**: [guides/palettes.md](guides/palettes.md).

@@ -3,7 +3,7 @@
   "id": "starter-scene-loop",
   "title": "Starter: Scene Loop",
   "status": "starter",
-  "summary": "A neutral looping scene to copy: a sky over flat ground with placeholder shapes (a grey box, a drifting block, a pulsing marker, a few night motes) across a day and a night phase, with a lofi soundtrack. It draws no subject of its own; its day frame (the first picture) and its night frame pass the lofi frame gate.",
+  "summary": "A neutral looping scene to copy: a sky over flat ground with placeholder shapes (a grey box, a drifting block, a pulsing marker, a few night motes) across a day and a night phase, with a lofi soundtrack. It draws no subject of its own; its day frame (the first picture) and its night frame pass the lofi frame gate. One knob, horizon (80, 84 or 88; default 84, the golden frames), sets the row where the ground begins.",
   "request": "Unknown: the original request was not recorded in the repository. Template from the first kit commits; no request exists. Source description: Hilltop Cabin: a starter scene for pixelate-anything. The cabin, pine and rain were replaced by neutral placeholders in the starter-empty follow-up.",
   "mode": "scene",
   "tags": {
@@ -62,7 +62,17 @@
       "style": "lofi"
     }
   ],
-  "knobs": {},
+  "knobs": {
+    "horizon": {
+      "values": [
+        80,
+        84,
+        88
+      ],
+      "default": 84,
+      "edits": "scene.js"
+    }
+  },
   "anatomy": [
     {
       "file": "config.js",
@@ -81,8 +91,8 @@
     },
     {
       "file": "scene.js",
-      "draws": "the engine hooks around a neutral scaffold: sky bands, flat ground, a foreground strip that keeps the bottom third in use, the box, a drifting block, the cycled marker and night motes",
-      "change_for": "the scene"
+      "draws": "the engine hooks around a neutral scaffold: sky bands, flat ground, a foreground strip that keeps the bottom third in use, the box, a drifting block, the cycled marker and night motes; the ground row comes from the horizon knob (PIXELATE_KNOBS.horizon)",
+      "change_for": "the scene, the horizon knob"
     },
     {
       "file": "music.js",

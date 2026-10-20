@@ -12,6 +12,11 @@ Outputs:
 
 `library/lantern-isle` is the quality bar: an island cottage through four seasons. Read its files when you need to see how something is done well.
 
+**Starters and worked examples.** Making a new scene follows the author path in `references/authoring.md`. Begin from a neutral starter, then replace its placeholders: `starter-scene-still` for a still (`pixelate remix starter-scene-still work/NAME --request "..."`) or `starter-scene-loop` for a loop with music (`pixelate new scene NAME`, below). Starters pass the technical gate empty and are unreviewed. The other pieces are `study` status, unreviewed references; `pixelate library test ID --quick` reports each one's gate result. To read, by what you need:
+- a looping engine scene with music: `lantern-isle`, `starter-scene-loop`;
+- stills under another style budget: `quarry-wakes` (arcade, with a sting), `tide-procession` (contre-jour silhouette, music), `tidewater-signal` (lofi, music);
+- stills scored with music: `endless-ascent`, `canyon-cycle`.
+
 ## Workflow
 
 1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `library/lantern-isle/brief.md`), block it in and seek an A within the review budget (`pixelate critique --brief brief.md`, `references/delivery.md#art-director`), and show the full brief for approval only at A. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief, which skips brief-stage review.
@@ -24,7 +29,7 @@ Outputs:
      - Smaller canvases mean chunkier pixels and less to draw.
    - **The outputs.**
 
-2. **Start:** `pixelate new scene my-scene` gives a 2-phase, 240x135 starter that passes every check. Read `references/scene-contract.md` once: files, `SCENE` fields, hooks, engine API.
+2. **Start:** `pixelate new scene my-scene` gives a 2-phase, 240x135 starter that passes every check (for a still, begin from `starter-scene-still` instead). Read `references/scene-contract.md` once: files, `SCENE` fields, hooks, engine API.
 
 3. **Palettes** (`palettes.js`): one per phase, with the same slot names. See `guides/palettes.md` and `references/drawing.md#palette`.
 

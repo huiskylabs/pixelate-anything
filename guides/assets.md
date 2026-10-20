@@ -4,6 +4,8 @@ An asset pack is a folder you export with `pixelate assets PACK`. Start one with
 `pixelate new assets PACK`; `library/meadow-kit` is a complete pack: a hero with idle and
 walk, items, props, a grass/dirt autotile set with variants, animated water, and a map.
 
+**Starter and worked examples.** A new pack follows the author path in `references/authoring.md`. `starter-assets` is the neutral starter (`pixelate new assets PACK`): two placeholder slots, a palette and an export, unreviewed. `meadow-kit` (hero, items, autotiles, a map) and `lanternmoss-mire` (16x16 tiles, a hero, creatures, items and props) are `study` status, unreviewed references to read; `pixelate library test ID --quick` runs a pack's export but does not gate its sprites.
+
 ```
 PACK/
   pack.json      {"name": ..., "palette": "palette.json", "scale": 6, "preview_bg": "#2a2836", "maps": [...]}

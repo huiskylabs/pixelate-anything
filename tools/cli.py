@@ -15,6 +15,8 @@
   pixelate era IMG --era nes|gameboy|snes|genesis|gba|pico-8 [-o OUT]   check (or force) console-era limits
   pixelate sprites SCENE                 generate sprites.js from SCENE/art/*.py
   pixelate new scene|music|assets DIR    copy a library starter into a new piece folder (DIR's name is its id)
+  pixelate remix PIECE DIR --request "..."   copy a library piece to DIR, render the unedited copy once, write REMIX.md
+                                         (runs the trusted piece's commands without a sandbox)
   pixelate shot SCENE t [t...] [--grid]  preview frames                            (guides/scenes.md)
   pixelate check SCENE [--page]          palettes, timing, loop seam, page
   pixelate check FRAME.png --style S --scale N [--pal P] [--pre IMG] [--actor MASK] [--used op,op] [--brief B]   the delivery gate
@@ -23,6 +25,11 @@
   pixelate judge FRAME.png [--overlay OUT.png] [--json] [--log]   locate what the gate passes and an art director rejects
   pixelate reference PHOTO -o reference.json [--marks reference.json]   correctable photo evidence + overlay (experimental)
   pixelate render DIR [--image NAME] [--critique]   draw, gate, era-check and judge every image in DIR/piece.json or DIR/render.json
+                         [--set KNOB=VALUE ...]   a variant from the piece's declared knobs (script, engine and pack pieces)
+  pixelate deliver DIR [--set KNOB=VALUE ...] [--timeout S]   render every output once more, require each image's gate,
+                                         package the outputs and DELIVERY.md (facts written by the script) in DIR/dist/delivery
+                                         (runs the trusted piece's commands without a sandbox; runs no critique)
+  pixelate deliver DIR --verify          check DELIVERY.md's facts, fingerprint and hashes (runs no piece code)
   pixelate find "REQUEST" [--mode M] [--json]   the closest library pieces, or a starter (static: runs no piece code)
   pixelate library list | show ID | index      browse the library and rebuild library/index.json (static)
   pixelate library test [ID...] [--quick]      render trusted pieces in temporary copies and compare golden 1x frames
@@ -60,8 +67,8 @@ Copies the kind's library starter into the new folder DIR as a piece whose id is
   %s
 DIR must not exist, or be an empty folder that is not a link. The copy keeps the starter's sources,
 media, history and 1x goldens, but no generated outputs or .pixelate run data. It is a plain copy: it
-records no lineage and renders nothing. The library plan makes it an alias of
-`pixelate remix STARTER DIR` once remix exists.''' % (
+records no lineage and renders nothing, unlike `pixelate remix STARTER DIR --request ...`. The library
+plan makes `new` an alias of remix later; it is not one yet.''' % (
     ', '.join(STARTERS), '\n  '.join('%-7s library/%s' % item for item in STARTERS.items()))
 
 def run(script, args):
@@ -201,6 +208,14 @@ def main(argv=None):
         sys.path.insert(0, str(TOOLS))
         import library
         library.main(rest, prog='pixelate library')
+    elif cmd == 'remix':
+        sys.path.insert(0, str(TOOLS))
+        import remix
+        sys.exit(remix.main(rest))
+    elif cmd == 'deliver':
+        sys.path.insert(0, str(TOOLS))
+        import deliver
+        sys.exit(deliver.main(rest))
     elif cmd == 'topx':
         run('assets.py', ['--topx'] + rest)
     elif cmd == 'video':

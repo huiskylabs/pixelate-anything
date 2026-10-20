@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "id": "starter-rebuild-perspective",
+  "title": "Starter: Rebuild Perspective",
+  "status": "starter",
+  "summary": "A neutral two-point perspective scaffold to copy for a rebuild: an upright pinhole camera set from a horizon row and two finite vanishing points, so every receding edge is a projected world line. Placeholders only (two plain blocks with panel grids seen across their corners, a ground plane with paving joints, a plain sky); its frame passes the lofi frame gate.",
+  "request": "No user request: a new starter planned in docs/PLAN-library.md section 6.2 (`starter-rebuild-perspective`, script runtime, status starter): an empty piece for the rebuild mode, in two-point perspective rather than an isometric preset, that renders and passes the gate empty.",
+  "mode": "rebuild",
+  "tags": {
+    "subject": [
+      "scaffold",
+      "placeholder",
+      "perspective",
+      "vanishing-point",
+      "horizon",
+      "block",
+      "corner",
+      "ground"
+    ],
+    "setting": [
+      "abstract",
+      "outdoor",
+      "day"
+    ],
+    "camera": "two-point perspective",
+    "style": "lofi",
+    "era": "none",
+    "motion": "stills",
+    "sound": "none"
+  },
+  "canvas": {
+    "w": 320,
+    "h": 180,
+    "scale": 4
+  },
+  "runtime": "script",
+  "outputs": [
+    {
+      "name": "corner",
+      "kind": "image",
+      "run": "python3 art/scene.py",
+      "frame": "out/corner.png",
+      "golden": "out/golden/corner.png",
+      "size": {
+        "w": 320,
+        "h": 180
+      },
+      "scale": 4,
+      "style": "lofi",
+      "brief": "brief.md",
+      "pal": "out/palette.json"
+    }
+  ],
+  "knobs": {},
+  "anatomy": [
+    {
+      "file": "art/scene.py",
+      "draws": "the camera constants (horizon row, the two vanishing points, principal point, eye), the placeholder blocks, the sky and ground bands and the paving joints, composed far to near; writes out/corner.png at 4x, out/palette.json and out/camera.json",
+      "change_for": "the reference's camera, the layout of its masses, framing"
+    },
+    {
+      "file": "art/camera.py",
+      "draws": "the upright two-point pinhole camera: focal length and yaw from the horizon and two vanishing points, world-to-screen projection and each axis's vanishing point",
+      "change_for": "a different camera model (keep it a projection; do not swap in an isometric preset)"
+    },
+    {
+      "file": "art/massing.py",
+      "draws": "axis-aligned placeholder blocks: the faces turned to the eye, projected corner by corner, with panel grids laid out in world units and a ground contact line",
+      "change_for": "the reference's forms and the repeats on their faces"
+    },
+    {
+      "file": "art/pal.py",
+      "draws": "one strict palette by role: sky, ground, paving joints, the lit and shaded faces and panels of the two blocks, the contact line",
+      "change_for": "colour, time of day, mood"
+    },
+    {
+      "file": "brief.md",
+      "draws": "the neutral brief: what the scaffold is, its camera numbers and how to set them from a photo, and the gate command",
+      "change_for": "intent, hero and gate override lines once a subject exists"
+    }
+  ],
+  "kit": {
+    "tested": "1.0.0"
+  },
+  "media": {
+    "thumb": "media/thumb.png",
+    "contact": "media/contact.png"
+  },
+  "lineage": {
+    "remixed_from": null
+  },
+  "provenance": {
+    "made": "2026-10-18",
+    "by": "Claude (agent), phase-2 starter unit; art direction and approval not recorded"
+  },
+  "license": "MIT"
+}

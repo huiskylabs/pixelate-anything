@@ -18,6 +18,8 @@ import tempfile
 from pathlib import Path
 from typing import NoReturn
 
+import piece  # stdlib-only; its knob bounds are shared with `--set` and PIXELATE_KNOBS
+
 MAX_MANIFEST = 128 * 1024
 SLUG = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*\Z')
 MODES = ('scene', 'rebuild', 'era', 'assets', 'music')
@@ -219,6 +221,105 @@ def review_binding(root, manifest):
     fail(root, 'review record does not match an image output')
 
 
+def read_manifest(root):
+    """The parsed `piece.json` of the piece folder root: a regular file within the size limit, strict JSON
+    with unique keys and finite numbers. Its fields are not checked here."""
+    path = asset(root, 'piece.json', 'piece.json')
+    if path.stat().st_size > MAX_MANIFEST:
+        fail(path, 'manifest too large')
+    try:
+        return json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_pairs,
+                          parse_constant=lambda value: fail(path, f'nonfinite JSON number: {value}'))
+    except RecursionError:
+        fail(path, 'invalid JSON: nested too deeply')
+    except (ValueError, UnicodeError) as exc:
+        fail(path, f'invalid JSON: {exc}')
+
+
+def check_knobs(root, knobs):
+    """Check a manifest's `knobs` object: slug names, each an enum of distinct scalars with a matching
+    default or an integer, and an existing `edits` source."""
+    if not isinstance(knobs, dict):
+        fail('knobs', 'expected object')
+    for name, knob in knobs.items():
+        slug(name, 'knob name')
+        if not isinstance(knob, dict):
+            fail(name, 'expected knob object')
+        if 'values' in knob:
+            fields(knob, ('values', 'default', 'edits'), where=name)
+            values = knob['values']
+            if (not isinstance(values, list) or not values or
+                    any(type(v) not in (str, int, float, bool) for v in values) or
+                    len({(type(v).__name__, v) for v in values}) != len(values) or
+                    not any(type(v) is type(knob['default']) and v == knob['default'] for v in values)):
+                fail(name, 'expected distinct scalar values and matching default')
+        else:
+            fields(knob, ('type', 'default', 'edits'), where=name)
+            if knob['type'] != 'int':
+                fail(name, 'expected integer knob')
+            try:
+                piece.check_value(name, knob, knob['default'])
+            except piece.KnobError as exc:
+                fail(name, f'default: {exc}')
+        asset(root, knob['edits'], f'knobs.{name}.edits')
+
+
+def source_json(root, rel):
+    """The strict JSON of the source file rel of the piece root (unique keys, finite numbers)."""
+    path = asset(root, rel, rel)
+    try:
+        return json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_pairs,
+                          parse_constant=lambda value: fail(rel, f'nonfinite JSON number: {value}'))
+    except RecursionError:
+        fail(rel, 'invalid JSON: nested too deeply')
+    except (ValueError, UnicodeError) as exc:
+        fail(rel, f'invalid JSON: {exc}')
+
+
+def engine_reads(source, name):
+    """Whether the JavaScript source names the knob: PIXELATE_KNOBS.name or PIXELATE_KNOBS['name']."""
+    name = re.escape(name)
+    pattern = rf'\b{piece.JS_NAME}(?:\.{name}(?![\w$])|\[\s*([\'"]){name}\1\s*\])'
+    return re.search(pattern, source) is not None
+
+
+def check_runtime_knobs(root, manifest):
+    """Check that an engine or pack piece's knobs reach its program (script knobs are read by knobs()).
+    A pack knob is an enum named as the pack.json option it sets (`edits: pack.json`), every value one the
+    option takes, its default pack.json's own value. An engine knob's `edits` is a script the build loads
+    (config.js, a scene.json file, music.js) that names it as PIXELATE_KNOBS.name. A declaration check:
+    only a render shows the program draws a value differently."""
+    knobs = manifest['knobs']
+    if not knobs or manifest['runtime'] == 'script':
+        return
+    if manifest['runtime'] == 'pack':
+        pack = source_json(root, 'pack.json')
+        if not isinstance(pack, dict):
+            fail('pack.json', 'expected object')
+        for name, knob in knobs.items():
+            if knob['edits'] != 'pack.json' or 'values' not in knob:
+                fail(f'knobs.{name}', 'a pack knob is an enum of values with edits pack.json, the file whose option it sets')
+            try:
+                for value in knob['values']:
+                    piece.pack_option(name, value)
+            except piece.KnobError as exc:
+                fail(f'knobs.{name}', str(exc))
+            default = knob['default']
+            if name not in pack or type(pack[name]) is not type(default) or pack[name] != default:
+                fail(f'knobs.{name}', f'default {json.dumps(default)} must equal pack.json {name} {json.dumps(pack.get(name))}')
+        return
+    scene = source_json(root, 'scene.json')
+    files = scene.get('files') if isinstance(scene, dict) else None
+    if not isinstance(files, list) or not all(isinstance(f, str) for f in files):
+        fail('scene.json', 'expected files: an array of script paths')
+    loaded = {'config.js', 'music.js', *files}
+    for name, knob in knobs.items():
+        if knob['edits'] not in loaded:
+            fail(f'knobs.{name}', f"edits {knob['edits']} is not a script the build loads (config.js, scene.json files, music.js)")
+        if not engine_reads(asset(root, knob['edits'], f'knobs.{name}.edits').read_text(encoding='utf-8'), name):
+            fail(f'knobs.{name}', f"{knob['edits']} does not read {piece.JS_NAME}.{name}")
+
+
 def validate(root):
     """Return validated manifest for one piece directory; never execute its run commands."""
     root = Path(root).absolute()
@@ -230,16 +331,8 @@ def validate(root):
         for name in dirs + files:
             if (Path(base) / name).is_symlink():
                 fail(root, f'symlink in piece: {Path(base) / name}')
-    path = asset(root, 'piece.json', 'piece.json')
-    if path.stat().st_size > MAX_MANIFEST:
-        fail(path, 'manifest too large')
-    try:
-        manifest = json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_pairs,
-                              parse_constant=lambda value: fail(path, f'nonfinite JSON number: {value}'))
-    except RecursionError:
-        fail(path, 'invalid JSON: nested too deeply')
-    except (ValueError, UnicodeError) as exc:
-        fail(path, f'invalid JSON: {exc}')
+    path = root / 'piece.json'
+    manifest = read_manifest(root)
     fields(manifest, ('schema', 'id', 'title', 'summary', 'request', 'status', 'mode', 'runtime',
                       'tags', 'canvas', 'outputs', 'anatomy', 'knobs', 'provenance', 'license'),
            ('recipes', 'kit', 'media', 'lineage', 'review'), str(path))
@@ -290,25 +383,8 @@ def validate(root):
         for key in ('draws', 'change_for'):
             text(entry[key], f'anatomy.{key}')
     knobs = manifest['knobs']
-    if not isinstance(knobs, dict):
-        fail('knobs', 'expected object')
-    for name, knob in knobs.items():
-        slug(name, 'knob name')
-        if not isinstance(knob, dict):
-            fail(name, 'expected knob object')
-        if 'values' in knob:
-            fields(knob, ('values', 'default', 'edits'), where=name)
-            values = knob['values']
-            if (not isinstance(values, list) or not values or
-                    any(type(v) not in (str, int, float, bool) for v in values) or
-                    len({(type(v).__name__, v) for v in values}) != len(values) or
-                    not any(type(v) is type(knob['default']) and v == knob['default'] for v in values)):
-                fail(name, 'expected distinct scalar values and matching default')
-        else:
-            fields(knob, ('type', 'default', 'edits'), where=name)
-            if knob['type'] != 'int' or type(knob['default']) is not int:
-                fail(name, 'expected integer knob')
-        asset(root, knob['edits'], f'knobs.{name}.edits')
+    check_knobs(root, knobs)
+    check_runtime_knobs(root, manifest)
     provenance = manifest['provenance']
     fields(provenance, ('made', 'by'), where='provenance')
     text(provenance['by'], 'provenance.by')
@@ -454,7 +530,7 @@ def query_tags(request, mode=None):
         return matches[0] if len(matches) == 1 else None
     return {'mode': detected, 'camera': explicit(camera_terms),
             'style': explicit({s: (s,) for s in STYLES[:-1]}),
-            'era': explicit({e: (e.replace('-', ' '), e) for e in ERAS[:-1]}),
+            'era': explicit({e: (e.replace('-', ' '), e) + (('game boy',) if e == 'gameboy' else ()) for e in ERAS[:-1]}),
             'motion': explicit({'loop': ('loop', 'looping'), 'stills': ('still', 'stills'),
                                 'sprite-sheet': ('sprite sheet', 'spritesheet')}),
             'words': terms(request)}
@@ -466,6 +542,7 @@ def find(library, request, mode=None, limit=3):
     Only a subject-tag word that is not an asset format word (FORMAT_WORDS) makes a piece relevant.
     Setting tags (`day`, `outdoor`), format words and words of the title, summary and request add score
     to a relevant piece but cannot make one; status only orders relevant pieces. Otherwise find abstains and returns the starter or author plan.
+    A starter is offered only when it meets every explicit camera, style, era and motion of the request, as a finished piece must.
     """
     query = query_tags(request, mode)
     if type(limit) is not int or limit < 1:
@@ -475,12 +552,12 @@ def find(library, request, mode=None, limit=3):
     for piece in scan(library).values():
         if piece['mode'] != query['mode']:
             continue
-        if piece['status'] == 'starter':
-            starters.append(piece['id'])
-            continue
         tags = piece['tags']
         matched = [key for key in ('camera', 'style', 'era', 'motion') if query[key] and tags[key] == query[key]]
         if any(query[key] and tags[key] != query[key] for key in ('camera', 'style', 'era', 'motion')):
+            continue
+        if piece['status'] == 'starter':
+            starters.append(piece['id'])
             continue
         subject = words & terms(' '.join(tags['subject']))
         if not subject - FORMAT_WORDS:

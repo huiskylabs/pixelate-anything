@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""pixelate render DIR [--image NAME] [--no-run] [--critique] [--json]
+"""pixelate render DIR [--image NAME] [--set KNOB=VALUE ...] [--no-run] [--critique] [--json]
 
 One command from art to a verified still. DIR/piece.json (a library piece, `references/piece.md`) or
 DIR/render.json names each image: the command that draws it, the frame it writes and how it is
@@ -38,6 +38,30 @@ DIR/.pixelate/snapshots/<sha256>/<file name>, the path the judge and critique lo
 PIXELATE_NO_LOG=1 they read the private copy. The critique's thumbnails and saved critique go beside the
 frame in DIR. render.json images are hashed, gated, judged and critiqued in place. A folder with both
 files is an error.
+
+--set KNOB=VALUE (repeatable) renders a variant of a script, engine or pack piece: each value is checked
+against the manifest's knobs, the chosen values go to a temporary JSON file outside DIR whose path the
+piece's commands get in PIXELATE_KNOBS, and the runtime reads it: a script's `knobs()` (tools/piece.py)
+merges them with the defaults; an engine build (tools/build.py, so `pixelate shot`, `video`, `gif`,
+`audio`, `build`) puts every knob in a PIXELATE_KNOBS constant before the scene's scripts; a pack export
+(`pixelate assets`) sets the pack.json options its knobs name. Neither piece.json, scene.json, pack.json
+nor any source is changed, and the file is deleted afterwards. The values, the merged settings and the
+file's SHA-256 go into the report and the run record; they say what the commands were given, not that
+the program drew them. A variant is not compared with golden frames. --set is refused for render.json
+and with --no-run. Without --set, PIXELATE_KNOBS is removed from the piece commands' environment, so
+they draw the defaults.
+
+A piece whose lineage.remixed_from names a base gets a `distance` in each image record, the run record
+and its line (tools/distance.py): how many 1x pixels and what share of distinct colours of the hashed
+frame bytes differ from the golden of the base output of the same name. The base is looked up only in
+the kit's checked-in library, validated statically and read before any command runs; none of its code
+runs. It must match the SHA-256 of the base piece.json and goldens that DIR/.pixelate/remix-baseline.json
+records (a consistency check; the file is not signed). No usable baseline, a kit piece that does not
+match it, a missing or invalid base, an output or golden it lacks, or a frame that was not read leaves
+the distance unavailable with a reason, and a size change leaves the pixel count unavailable; neither
+is reported as 0. When the request differs from the base's and both shares are small, the record carries
+an "under-remixed" WARNING. It is an uncalibrated heuristic, not a grade or a gate: it never changes
+the exit status. Other pieces' images record `distance` with base null and the reason.
 """
 import argparse, contextlib, datetime, hashlib, json, os, pathlib, re, shlex, signal, stat, subprocess, sys, tempfile, time
 
@@ -49,6 +73,22 @@ GATE_FLAGS = (('style', '--style'), ('scene', '--scene'), ('era', '--era'), ('pa
 GATE_FILES = ('brief', 'pal', 'pre', 'actor', 'intent')
 # Under a piece: the frame and brief bytes a logged render checked, each kept at <sha256>/<file name>.
 SNAPSHOTS = '.pixelate/snapshots'
+
+def knob_helper():
+    """tools/piece.py, the knob contract shared with the programs that read knobs()"""
+    if __package__:
+        from . import piece
+    else:
+        import piece
+    return piece
+
+def distance_helper():
+    """tools/distance.py, the distance of a remix's frames from its base"""
+    if __package__:
+        from . import distance
+    else:
+        import distance
+    return distance
 
 class UnsafePath(OSError):
     """a piece path that goes through a link or does not end at a regular file"""
@@ -181,7 +221,8 @@ def gate_snapshot(folder, im, frame, d, brief_root=None):
     return None
 
 def load(dirpath):
-    """the outputs to render and the manifest they came from: 'piece.json' or 'render.json'"""
+    """the outputs to render, the manifest they came from ('piece.json' or 'render.json') and, for a
+    piece, its validated manifest (else None)"""
     piece, spec = pathlib.Path(dirpath) / 'piece.json', pathlib.Path(dirpath) / 'render.json'
     if piece.is_file() and spec.is_file():
         raise SystemExit('%s has both piece.json and render.json; piece.json outputs replace render.json, '
@@ -189,7 +230,8 @@ def load(dirpath):
     if piece.is_file():
         import library
         try:
-            return library.validate(dirpath)['outputs'], 'piece.json'
+            manifest = library.validate(dirpath)
+            return manifest['outputs'], 'piece.json', manifest
         except library.LibraryError as exc:
             raise SystemExit('piece.json: %s' % exc)
     if not spec.is_file():
@@ -204,7 +246,7 @@ def load(dirpath):
                 raise SystemExit('every image in render.json needs "%s"' % k)
         if not (im.get('style') or im.get('era')):
             raise SystemExit('image %s needs "style" or "era" for the gate' % im['name'])
-    return images, 'render.json'
+    return images, 'render.json', None
 
 def _tail(text, n=6):
     lines = [l for l in text.strip().splitlines() if l.strip()]
@@ -224,14 +266,30 @@ def logging():
     corpus records"""
     return not os.environ.get('PIXELATE_NO_LOG')
 
-def piece_env():
+def piece_env(knobs=None):
     """the environment piece commands run in: the kit's tools/ importable, `pixelate` on PATH and
     PIXELATE_KIT the kit root (never an inherited value), so a checked-in program runs from any folder
-    without a hard-coded kit path or an exported variable"""
+    without a hard-coded kit path or an exported variable. PIXELATE_KNOBS is knobs, the path of the
+    file `--set` wrote, and never an inherited value: without it the commands draw the defaults"""
     env = dict(os.environ, PIXELATE_KIT=str(KIT))
+    env.pop(knob_helper().ENV, None)
+    if knobs:
+        env[knob_helper().ENV] = str(knobs)
     for key, path in (('PYTHONPATH', KIT / 'tools'), ('PATH', KIT)):
         env[key] = os.pathsep.join(filter(None, (str(path), env.get(key))))
     return env
+
+@contextlib.contextmanager
+def knob_file(chosen):
+    """(path, bytes) of a new read-only file holding chosen, the --set values, as JSON, in a private
+    temporary folder outside the piece; the folder is deleted on exit"""
+    data = json.dumps(chosen, sort_keys=True, ensure_ascii=False).encode('utf-8')
+    with tempfile.TemporaryDirectory(prefix='pixelate-knobs-') as folder:
+        path = os.path.join(folder, 'knobs.json')
+        f = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o400)
+        with os.fdopen(f, 'wb') as fh:
+            fh.write(data)
+        yield path, data
 
 def run_command(command, cwd, env=None, timeout=None):
     """run one shell command; with a timeout, kill its whole process group when time runs out. The
@@ -314,8 +372,10 @@ def run_group(d, group, env):
         return {'ok': False, 'seconds': 0.0, 'error': 'unsafe output: %s' % exc}
     return run_command(group[0]['run'], d, env)
 
-def render_one(d, im, run=True, critique=False, env=None, piece=False, ran=None):
-    """ran: the run record of im's command, already run for a piece (see run_group); piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
+def render_one(d, im, run=True, critique=False, env=None, piece=False, ran=None, distance=None):
+    """ran: the run record of im's command, already run for a piece (see run_group); distance: for a
+    piece, the function from the frame bytes to rec['distance'] (see tools/distance.py), given the bytes
+    that are hashed; piece: im is a piece.json output, so its frame and gate inputs must be regular files reached
     without a link; its frame is read once, the gate and era check run on a private copy of those
     bytes and of the gate inputs, and the judge and critique read the same bytes, so the recorded hash
     is of the bytes they checked. With logging on, the frame the judge and critique logs name is kept under
@@ -338,6 +398,8 @@ def render_one(d, im, run=True, critique=False, env=None, piece=False, ran=None)
         except UnsafePath as exc:
             rec['error'] = 'unsafe frame: %s' % exc
             return rec
+        if distance:
+            rec['distance'] = distance(data)
         with tempfile.TemporaryDirectory(prefix='pixelate-render-') as folder:
             folder = pathlib.Path(folder)
             unsafe = gate_snapshot(folder, im, data, d)
@@ -422,6 +484,8 @@ def line(rec):
     if 'critique' in rec:
         cr = rec['critique']
         parts.append('critique %s' % (cr['grade'] or '?') if cr['ok'] else 'critique failed')
+    if rec.get('distance') and distance_helper().line(rec['distance']):
+        parts.append(distance_helper().line(rec['distance']))
     return ' | '.join(parts)
 
 def ok(rec):
@@ -430,10 +494,11 @@ def ok(rec):
     return rec.get('run', {'ok': True})['ok'] and not rec.get('error') and rec.get('gate', {}).get('ok', False) \
         and rec.get('era', {'ok': True})['ok']
 
-def log_run(d, recs, piece=False):
+def log_run(d, recs, piece=False, knobs=None, base=None):
     """append this render to DIR/.pixelate/runs.jsonl (next to the judge log), the run record the
     library's flywheel is built from. piece: the log is opened without following a link, and an
-    error is returned instead of writing through one"""
+    error is returned instead of writing through one. knobs: what --set gave the commands; base: the
+    remix's base as tools/distance.py looked it up"""
     if not logging():
         return None
     sys.path.insert(0, str(KIT / 'tools'))
@@ -451,10 +516,16 @@ def log_run(d, recs, piece=False):
                        'grade': r.get('critique', {}).get('grade'), 'ok': ok(r)})
         if 'snapshot' in r:
             images[-1]['snapshot'] = r['snapshot']
+        if 'distance' in r:
+            images[-1]['distance'] = r['distance']
     record = {'type': 'render', 'time': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
               'kit': VERSION, 'dir': d.name, 'images': images, 'ok': all(i['ok'] for i in images + files)}
     if files:
         record['files'] = files
+    if knobs:
+        record['knobs'] = knobs
+    if base:
+        record['base'] = {k: base[k] for k in ('id', 'library', 'status', 'piece_sha256', 'error') if k in base}
     text = json.dumps(record, ensure_ascii=False) + '\n'
     if not piece:
         p = d / '.pixelate' / 'runs.jsonl'
@@ -485,32 +556,73 @@ def main(argv=None):
     ap.add_argument('--image', default=None, help='only this image (with piece.json: this output)')
     ap.add_argument('--no-run', action='store_true', help='skip the draw commands; gate and judge what is there')
     ap.add_argument('--critique', action='store_true', help='also run the art director (pixelate critique --run)')
+    ap.add_argument('--set', action='append', default=[], metavar='KNOB=VALUE',
+                    help='render a variant with this knob value: script, engine and pack pieces (repeatable; see tools/piece.py)')
     ap.add_argument('--json', action='store_true')
     a = ap.parse_args(argv)
     d = pathlib.Path(a.dir).resolve()
-    outputs, source = load(d)
+    outputs, source, manifest = load(d)
+    knobs, chosen = None, {}
+    if a.set:
+        if source == 'render.json':
+            ap.error('--set needs a piece.json that declares knobs; render.json images take no knobs')
+        if a.no_run:
+            ap.error('--set cannot be used with --no-run: the frames there were not drawn with those knobs')
+        helper = knob_helper()
+        try:
+            chosen = helper.parse_sets(manifest['knobs'], a.set)
+        except helper.KnobError as exc:
+            ap.error(str(exc))
     outputs = [o for o in outputs if not a.image or o['name'] == a.image]
     if not outputs:
         raise SystemExit('no %s named %s in %s' % ('output' if source == 'piece.json' else 'image', a.image, source))
+    base = None
     if source == 'render.json':
         recs = [render_one(d, im, not a.no_run, a.critique) for im in outputs]
     else:
-        env = piece_env()
-        ran, recs = {}, []
-        for o in outputs:
-            if not a.no_run and o['run'] not in ran:
-                ran[o['run']] = run_group(d, [x for x in outputs if x['run'] == o['run']], env)
-            if o['kind'] == 'image':
-                recs.append(dict(render_one(d, o, False, a.critique, env, piece=True, ran=ran.get(o['run'])), kind='image'))
-            else:
-                recs.append(render_file(d, o, False, env, ran=ran.get(o['run'])))
+        assert manifest is not None  # load returns the manifest of every piece.json
+        # Read before any command runs, from the kit library; the base's code never runs.
+        dist = distance_helper()
+        base = dist.lookup(d, manifest)
+
+        def measure(o):
+            if base is not None:
+                return lambda data: dist.measure(data, o, manifest['canvas'], manifest['request'], base)
+            return None
+        with contextlib.ExitStack() as stack:
+            path = None
+            if a.set:
+                path, data = stack.enter_context(knob_file(chosen))
+                # What the commands were given, not proof that the program read it.
+                knobs = {'set': chosen, 'merged': knob_helper().merge(manifest['knobs'], chosen),
+                         'sha256': hashlib.sha256(data).hexdigest()}
+            env = piece_env(path)
+            ran, recs = {}, []
+            for o in outputs:
+                if not a.no_run and o['run'] not in ran:
+                    ran[o['run']] = run_group(d, [x for x in outputs if x['run'] == o['run']], env)
+                if o['kind'] == 'image':
+                    rec = render_one(d, o, False, a.critique, env, piece=True, ran=ran.get(o['run']), distance=measure(o))
+                    if 'distance' not in rec:
+                        rec['distance'] = dist.unavailable(
+                            base, o['name'], 'not a remix: piece.json names no lineage.remixed_from' if base is None
+                            else 'no frame was read: ' + (rec.get('error') or 'its run command failed'))
+                    recs.append(dict(rec, kind='image'))
+                else:
+                    recs.append(render_file(d, o, False, env, ran=ran.get(o['run'])))
+        if knobs:
+            for r in recs:
+                r['knobs'] = knobs
     (d / 'render-report.json').write_text(json.dumps(recs, indent=1))
-    unlogged = log_run(d, recs, piece=source == 'piece.json')
+    unlogged = log_run(d, recs, piece=source == 'piece.json', knobs=knobs, base=base)
     if unlogged:
         print(unlogged, file=sys.stderr)
     if a.json:
         print(json.dumps(recs, indent=1))
     else:
+        if knobs:
+            print('knobs: %s (file sha256 %s)' % (', '.join('%s=%s' % (k, knob_helper().spelling(v))
+                                                          for k, v in knobs['merged'].items()), knobs['sha256']))
         for r in recs:
             print(line(r))
         print('report: %s' % (d / 'render-report.json'))

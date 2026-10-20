@@ -547,7 +547,7 @@
       "mode": "assets",
       "path": "starter-assets/piece.json",
       "status": "starter",
-      "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own.",
+      "summary": "A neutral asset pack to copy: a grey-and-blue palette and two named placeholder slots (a four-frame one with a moving marker pixel and a static one) exported as strips, Aseprite-style JSON, an atlas and a contact sheet. It draws no subject of its own. One knob, scale (8 or 4; default 8, as pack.json), sets the export scale of the contact sheet and the scaled strips; the atlas stays 1x.",
       "tags": {
         "camera": "none",
         "era": "none",
@@ -567,6 +567,39 @@
         ]
       },
       "title": "Starter: Assets"
+    },
+    {
+      "id": "starter-era-nes",
+      "media": {
+        "contact": "starter-era-nes/media/contact.png",
+        "thumb": "starter-era-nes/media/thumb.png"
+      },
+      "mode": "era",
+      "path": "starter-era-nes/piece.json",
+      "status": "starter",
+      "summary": "A neutral NES-style screen to copy, built like the hardware builds one: a nametable of 8x8 tiles, an attribute table of 16x16 sub-palette blocks over a shared backdrop, and a short sprite list, all in 2C02 master-palette colours. Placeholders only (a status bar, a plain sky with a dithered band, a flat far strip, flat ground, a foreground strip, one platform, one 16x16 marker sprite); its frame passes `pixelate check --era nes`.",
+      "tags": {
+        "camera": "side",
+        "era": "nes",
+        "motion": "stills",
+        "setting": [
+          "abstract",
+          "day"
+        ],
+        "sound": "none",
+        "style": "none",
+        "subject": [
+          "scaffold",
+          "placeholder",
+          "screen",
+          "nametable",
+          "tile",
+          "sprite",
+          "platform",
+          "hud"
+        ]
+      },
+      "title": "Starter: Era NES"
     },
     {
       "id": "starter-music",
@@ -599,6 +632,40 @@
       "title": "Starter: Music"
     },
     {
+      "id": "starter-rebuild-perspective",
+      "media": {
+        "contact": "starter-rebuild-perspective/media/contact.png",
+        "thumb": "starter-rebuild-perspective/media/thumb.png"
+      },
+      "mode": "rebuild",
+      "path": "starter-rebuild-perspective/piece.json",
+      "status": "starter",
+      "summary": "A neutral two-point perspective scaffold to copy for a rebuild: an upright pinhole camera set from a horizon row and two finite vanishing points, so every receding edge is a projected world line. Placeholders only (two plain blocks with panel grids seen across their corners, a ground plane with paving joints, a plain sky); its frame passes the lofi frame gate.",
+      "tags": {
+        "camera": "two-point perspective",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "abstract",
+          "outdoor",
+          "day"
+        ],
+        "sound": "none",
+        "style": "lofi",
+        "subject": [
+          "scaffold",
+          "placeholder",
+          "perspective",
+          "vanishing-point",
+          "horizon",
+          "block",
+          "corner",
+          "ground"
+        ]
+      },
+      "title": "Starter: Rebuild Perspective"
+    },
+    {
       "id": "starter-scene-loop",
       "media": {
         "contact": "starter-scene-loop/media/contact.png",
@@ -607,7 +674,7 @@
       "mode": "scene",
       "path": "starter-scene-loop/piece.json",
       "status": "starter",
-      "summary": "A neutral looping scene to copy: a sky over flat ground with placeholder shapes (a grey box, a drifting block, a pulsing marker, a few night motes) across a day and a night phase, with a lofi soundtrack. It draws no subject of its own; its day frame (the first picture) and its night frame pass the lofi frame gate.",
+      "summary": "A neutral looping scene to copy: a sky over flat ground with placeholder shapes (a grey box, a drifting block, a pulsing marker, a few night motes) across a day and a night phase, with a lofi soundtrack. It draws no subject of its own; its day frame (the first picture) and its night frame pass the lofi frame gate. One knob, horizon (80, 84 or 88; default 84, the golden frames), sets the row where the ground begins.",
       "tags": {
         "camera": "side",
         "era": "none",
@@ -631,6 +698,38 @@
         ]
       },
       "title": "Starter: Scene Loop"
+    },
+    {
+      "id": "starter-scene-still",
+      "media": {
+        "contact": "starter-scene-still/media/contact.png",
+        "thumb": "starter-scene-still/media/thumb.png"
+      },
+      "mode": "scene",
+      "path": "starter-scene-still/piece.json",
+      "status": "starter",
+      "summary": "A neutral still scene to copy: a plain sky over flat ground with placeholder shapes (a grey box with a marker, two flat blocks, a foreground strip), rendered once by a small Python program. It draws no subject of its own; its one frame passes the lofi frame gate.",
+      "tags": {
+        "camera": "side",
+        "era": "none",
+        "motion": "stills",
+        "setting": [
+          "abstract",
+          "day"
+        ],
+        "sound": "none",
+        "style": "lofi",
+        "subject": [
+          "scene",
+          "scaffold",
+          "placeholder",
+          "sky",
+          "ground",
+          "horizon",
+          "box"
+        ]
+      },
+      "title": "Starter: Scene Still"
     },
     {
       "id": "tide-procession",

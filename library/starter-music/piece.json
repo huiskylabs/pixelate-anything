@@ -48,7 +48,8 @@
       "name": "soundtrack",
       "kind": "audio",
       "run": "mkdir -p out && python3 \"$PIXELATE_KIT/pixelate\" audio . out/loop.ogg",
-      "file": "out/loop.ogg"
+      "file": "out/loop.ogg",
+      "loop": true
     }
   ],
   "knobs": {},

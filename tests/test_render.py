@@ -171,3 +171,51 @@ class RenderTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def _wav(path, x, sr=48000):
+    import wave
+    import numpy as np
+    pcm = (np.clip(x, -1, 1) * 32767).astype('<i2')
+    with wave.open(str(path), 'wb') as w:
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(sr)
+        w.writeframes(np.repeat(pcm[:, None], 2, 1).tobytes())
+
+
+def _gif(frames):
+    import io
+    from PIL import Image
+    ims = [Image.new('P', (16, 16), 0) for _ in frames]
+    for im, x in zip(ims, frames):
+        im.putpalette([0, 0, 0, 255, 255, 255] + [0] * 762)
+        im.paste(1, (x, 4, x + 4, 8))
+    buf = io.BytesIO()
+    ims[0].save(buf, 'GIF', save_all=True, append_images=ims[1:], duration=100, loop=0, disposal=1)
+    return buf.getvalue()
+
+
+class LoopSeamTest(unittest.TestCase):
+    def test_audio_loop_whole_cycles_pass_and_a_cut_mid_cycle_fails(self):
+        import numpy as np
+        sr = 48000
+        t = np.arange(sr * 4) / sr
+        with tempfile.TemporaryDirectory() as tmp:
+            good, bad = pathlib.Path(tmp) / 'good.wav', pathlib.Path(tmp) / 'bad.wav'
+            _wav(good, 0.3 * np.sin(2 * np.pi * 220 * t))
+            cut = 0.3 * np.sin(2 * np.pi * 220 * t[: sr * 4 - 50])
+            cut[-sr // 2:] *= 0.1                    # the end fades far below the start
+            _wav(bad, cut)
+            self.assertTrue(render.seam_check(good.read_bytes(), 'good.wav')['ok'])
+            self.assertFalse(render.seam_check(bad.read_bytes(), 'bad.wav')['ok'])
+
+    def test_frames_loop_wrap_must_be_no_bigger_than_a_step(self):
+        self.assertTrue(render.seam_check(_gif([0, 2, 4, 6, 4, 2]), 'loop.gif')['ok'])
+        jump = render.seam_check(_gif([0, 2, 4, 6, 8, 10]), 'loop.gif')
+        self.assertFalse(jump['ok'], jump)
+        self.assertFalse(render.seam_check(_gif([0, 2, 4, 0]), 'loop.gif')['ok'])   # frame 0 twice
+
+    def test_unknown_type_and_undeclared_loop(self):
+        self.assertFalse(render.seam_check(b'{}', 'atlas.json')['ok'])
+        rec = {'name': 'a', 'kind': 'audio', 'file': 'a.wav', 'run': {'ok': True}, 'sha256': '0' * 64}
+        self.assertTrue(render.ok(rec))
+        self.assertFalse(render.ok(dict(rec, seam={'ok': False, 'message': 'jump'})))

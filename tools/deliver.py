@@ -343,6 +343,9 @@ def collect(d, manifest, recs, sets):
             if rec.get('error'):
                 errors.append(f"{name}: {rec['error']}")
                 continue
+            if output.get('loop') and not (rec.get('seam') or {}).get('ok'):
+                errors.append(f"{name}: loop seam: {(rec.get('seam') or {}).get('message', 'not checked')}")
+                continue
         if not isinstance(digest, str) or not re.fullmatch(r'[0-9a-f]{64}', digest):
             errors.append(f'{name}: render recorded no hash')
             continue
@@ -390,6 +393,8 @@ def collect(d, manifest, recs, sets):
             entry['distance'] = rec['distance']
         else:
             entry['gated'] = False
+            if output.get('loop'):
+                entry['seam'] = dict(rec['seam'])
         facts.append(entry)
         artifacts[path] = data
     return facts, artifacts, errors
@@ -406,9 +411,11 @@ def untested(manifest, outputs):
              'sources: hashes cover piece.json and the files it references, not every file a program imports',
              'no sandbox: piece commands ran through the shell with the user\'s permissions']
     if 'audio' in kinds:
-        notes.append('audio: hashed and checked nonempty only; never gated, played or listened to')
+        notes.append('audio: hashed and checked nonempty; never gated or listened to, only the loop seam of one '
+                     'declared "loop": true is measured')
     if 'export' in kinds:
-        notes.append('exports: hashed and checked nonempty only; never gated')
+        notes.append('exports: hashed and checked nonempty; never gated, only the loop seam of one declared '
+                     '"loop": true is measured')
     if any(o['kind'] == 'image' and o['judge'].get('ran') is False for o in outputs):
         notes.append('judge: did not run for an image (see its judge entry)')
     return notes

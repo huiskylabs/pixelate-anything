@@ -24,7 +24,9 @@ Paths are relative to DIR. `run` may be omitted for a frame drawn some other way
 required for the gate.
 
 piece.json outputs replace render.json: an image output takes the same fields plus `kind`, and audio
-and export outputs are run and hashed but never gated. Piece commands run with the kit's `tools/` first
+and export outputs are run and hashed but never gated, except that an output declared `"loop": true`
+must pass its loop seam (audio: the musiccheck seam; an animated GIF, WebP or PNG: the wrap changes no
+more pixels than the largest step inside the loop). Piece commands run with the kit's `tools/` first
 on PYTHONPATH and the kit root (the `pixelate` command) first on PATH, and PIXELATE_KIT set to the kit
 root, whatever the caller exported. Outputs that share a run command run it once, in order of first
 appearance. Before it runs, each of its declared frames and files is deleted from DIR (never through a
@@ -440,9 +442,50 @@ def render_one(d, im, run=True, critique=False, env=None, piece=False, ran=None,
         rec['critique'] = critique_frame(d, im['frame'], im['brief'])
     return rec
 
+AUDIO_EXT = ('.wav', '.ogg', '.flac', '.mp3', '.m4a', '.opus')
+FRAMES_EXT = ('.gif', '.webp', '.png', '.apng')
+
+def frames_seam(data):
+    """(ok, message) for an animated image's wrap: the last frame back to the first changes no more
+    pixels than the largest step inside the loop, so the loop does not jump"""
+    import io
+    import numpy as np
+    from PIL import Image, ImageSequence
+    with Image.open(io.BytesIO(data)) as im:
+        fr = [np.asarray(f.convert('RGBA')) for f in ImageSequence.Iterator(im)]
+    if len(fr) < 2:
+        return False, 'a loop needs at least 2 frames, found %d' % len(fr)
+    steps = [int((a != b).any(-1).sum()) for a, b in zip(fr, fr[1:])]
+    wrap = int((fr[-1] != fr[0]).any(-1).sum())
+    if wrap == 0:
+        return False, 'the last frame repeats the first, so the loop holds that frame twice at the wrap'
+    lim = max(steps) if steps else 0
+    return wrap <= lim, 'wrap changes %d px (largest step inside the loop %d px, %d frames)' % (wrap, lim, len(fr))
+
+def seam_check(data, file):
+    """{'ok', 'message'}: the loop seam of an output declared `"loop": true` (audio: musiccheck.seam;
+    an animated GIF, WebP or PNG: frames_seam), measured on the bytes render hashed"""
+    ext = pathlib.Path(file).suffix.lower()
+    try:
+        if ext in AUDIO_EXT:
+            import musiccheck
+            with tempfile.TemporaryDirectory() as t:
+                p = pathlib.Path(t) / ('track' + ext)
+                p.write_bytes(data)
+                x, sr = musiccheck.load(p)
+            ok, msg = musiccheck.seam(x, sr)
+        elif ext in FRAMES_EXT:
+            ok, msg = frames_seam(data)
+        else:
+            return {'ok': False, 'message': 'no loop seam check for %s files (audio or an animated GIF, WebP or PNG)' % ext}
+    except (SystemExit, OSError, ValueError) as exc:
+        return {'ok': False, 'message': 'cannot read the loop: %s' % exc}
+    return {'ok': bool(ok), 'message': msg}
+
 def render_file(d, out, run=True, env=None, ran=None):
     """hash the file an audio or export output writes, after running its command (or with ran, the
-    run record it already has); these files are never gated"""
+    run record it already has); these files are never gated, except that one declared `"loop": true`
+    must pass its loop seam (seam_check)"""
     rec = {'name': out['name'], 'kind': out['kind'], 'file': out['file']}
     if ran is not None:
         rec['run'] = dict(ran)
@@ -453,7 +496,10 @@ def render_file(d, out, run=True, env=None, ran=None):
         if not rec['run']['ok']:
             return rec
     try:
-        rec['sha256'] = hashlib.sha256(read_regular(d, out['file'])).hexdigest()
+        data = read_regular(d, out['file'])
+        rec['sha256'] = hashlib.sha256(data).hexdigest()
+        if out.get('loop'):
+            rec['seam'] = seam_check(data, out['file'])
     except FileNotFoundError:
         rec['error'] = 'file not found: %s' % out['file']
     except UnsafePath as exc:
@@ -467,7 +513,8 @@ def line(rec):
     if rec.get('error'):
         parts.append(rec['error'])
     if 'file' in rec and 'sha256' in rec:
-        parts.append('%s %s (not gated)' % (rec['kind'], rec['file']))
+        parts.append('%s %s (%s)' % (rec['kind'], rec['file'], 'not gated' if 'seam' not in rec else
+                                     'loop seam ' + ('PASS' if rec['seam']['ok'] else 'FAIL: ' + rec['seam']['message'])))
     if 'gate' in rec:
         g = rec['gate']
         parts.append('gate PASS (%d lines)' % g['pass'] if g['ok'] else 'gate FAIL: ' + ('; '.join(g['fail'][:3]) or g.get('error', '')))
@@ -490,7 +537,7 @@ def line(rec):
 
 def ok(rec):
     if 'file' in rec:
-        return rec.get('run', {'ok': True})['ok'] and 'sha256' in rec
+        return rec.get('run', {'ok': True})['ok'] and 'sha256' in rec and rec.get('seam', {'ok': True})['ok']
     return rec.get('run', {'ok': True})['ok'] and not rec.get('error') and rec.get('gate', {}).get('ok', False) \
         and rec.get('era', {'ok': True})['ok']
 

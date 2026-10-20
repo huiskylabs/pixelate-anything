@@ -1138,6 +1138,7 @@ def lint(text):
     probs += _canvas_mismatch(find)
     probs += _trip_arithmetic(m, _loop_len(text))
     probs += _asset_calls(text)
+    probs += _not_the_reference(text)
     probs += _tool_refs(text)
     return probs
 
@@ -1517,6 +1518,7 @@ def lint_short(text):
     if g is not None and 'pixelate' not in g:
         probs.append('Gate has no command: add `pixelate check FILE.png --style S --scale N`')
     probs += _asset_calls(text)
+    probs += _not_the_reference(text)
     probs += _tool_refs(text)
     return probs
 
@@ -1724,6 +1726,30 @@ def _trip_arithmetic(m, T=None):
 EXAMPLE_MODULES = ('props', 'figures', 'glyphs', 'particles')
 EXAMPLE_WORDS = ('example', 'study', 'studied', 'references/assets', 'modelled on', 'modeled on', 'for reference',
                  'see how', 'read ')
+
+DIFFER_AXES = ('subject', 'composition', 'camera', 'palette', 'light', 'motion')
+
+def _library_ids():
+    """the ids of the kit's library pieces a brief may study, starters left out"""
+    lib = pathlib.Path(__file__).resolve().parent.parent / 'library'
+    return sorted(p.name for p in lib.iterdir() if (p / 'piece.json').is_file() and not p.name.startswith('starter-'))
+
+def _not_the_reference(text):
+    """a brief that names a library piece it studied must say how the new piece differs from it: a line
+    `Differs from ID: AXIS, AXIS, ...` naming at least four of subject, composition, camera, palette, light, motion.
+    A studied piece teaches technique; four of six changed keeps the result from being that piece again."""
+    out = []
+    for pid in _library_ids():
+        if not re.search(r'library/%s\b|`%s`' % (re.escape(pid), re.escape(pid)), text):
+            continue
+        m = re.search(r'differs from `?(?:library/)?%s`?\s*:([^\n]*)' % re.escape(pid), text, flags=re.I)
+        axes = {a for a in DIFFER_AXES if m and re.search(r'\b%s\b' % a, m.group(1), flags=re.I)}
+        if len(axes) < 4:
+            out.append('the brief studies `%s` but %s: write `Differs from %s: ...` naming at least four of %s, each '
+                       'with what changes (references/brief.md#not-the-reference)' % (
+                           pid, 'names %d %s of difference' % (len(axes), 'axis' if len(axes) == 1 else 'axes') if m
+                           else 'has no "Differs from" line', pid, ', '.join(DIFFER_AXES)))
+    return out
 
 def _asset_calls(text):
     """a references/assets module (props., figures., glyphs., particles.) named as a call, not an example"""

@@ -250,6 +250,56 @@ STYLES = {
         # covers day scenes too; the rules kept are the style's own (no pure black, rare highlights, low chroma)
         motion='stepped', fps=10, scale=6, size=(320, 180), colours=60,
         figures='10-14 px characters (study references/assets/figures.py lofi)'),
+    # the three below are set from the medium's own rules, not measured from a reference game: their budgets
+    # are provisional until a piece in each style has been drawn and gated
+    'ink-wash': dict(
+        music=dict(voices='a plucked zither, a breathy bamboo flute and water sounds', feel='free time or a slow 4/4, pentatonic, spacious (50-70 bpm)', sync='a single low pluck as the boat or the figure moves', check='ambient'),
+        ramp_how='`ramp_between` from warm paper to ink in five to seven values', budget_note='at least 40% of pixels at L .85 or above (bare paper); at most 1% above C .08 (the one red accent)',
+        key='high (bare paper)',
+        ref='ink-wash (the medium, not one game)', what='an ink painting in pixels: a few ink values on warm paper, '
+                                                       'empty paper as space, broken brush clusters, one red accent',
+        res='none', blend=('palette-step',), stack=False,
+        dither=('checker',), dither_where='dry-brush edges only, never as a gradient',
+        outline='none',
+        ramp=('between',), ramp_kw=dict(between=('#efe6d2', '#1c1a18')),
+        palette='6-9 colours: paper, four to six ink values, one red accent (and its shade)',
+        allowed_post=(),
+        banned_post=_SOFT + _FILTERS,
+        budgets={'L>0.8': (0.4, None), 'C>0.08': (None, 0.01), 'median_C': (None, 0.03), 'colours': (None, 9)},
+        motion='stepped', fps=12, scale=2, size=(384, 216), colours=6,
+        figures='12-24 px figures as a few brush clusters, no outline, the densest ink in the frame'),
+    '1-bit': dict(
+        music=dict(voices='one or two square voices and noise, sparse and cold', feel='4/4 or 3/4, minor, slow and spare (60-90 bpm)', sync='a click or a low note each time the main mover reaches a mark', check='chiptune'),
+        ramp_how='none: two colours, greys are dither patterns', budget_note='exactly two colours; no chroma',
+        key='either: the black and white share sets the mood',
+        ref='1-bit (the medium, not one game)', what='two colours only, black and one paper white; fixed dither '
+                                                     'patterns with one role each; silhouettes carry the read',
+        res='none', blend=('palette-step',), stack=False,
+        dither=('checker', 'bayer4'), dither_where='each pattern has one role: 50% checker for mid shade, 25% for haze or snow air',
+        outline='own',
+        ramp=('flat',),
+        palette='2 colours: black and one paper white (warm or cool)',
+        allowed_post=(),
+        banned_post=_SOFT + _FILTERS,
+        budgets={'colours': (None, 2), 'C>0.08': (None, 0.0)},
+        motion='stepped', fps=12, scale=2, size=(384, 216), colours=2,
+        figures='10-24 px solid silhouettes; a lit face is white space'),
+    'cutaway': dict(
+        music=dict(voices='a soft synth pulse, plucked bass, bubbling or machine textures', feel='4/4 or 5/4, modal, busy but calm (60-100 bpm)', sync='a soft tick when a machine in a room cycles', check='ambient'),
+        ramp_how='`flat` per room plus a palette step for floor and back wall', budget_note='the cut face is one flat colour; at most 3% above C .15',
+        key='mid: rooms light, the cut face and the outside dark',
+        ref='cutaway (the medium, not one game)', what='a cross-section with the front wall removed on a strict military '
+                                                       'projection; flat lit rooms framed by one flat cut face, tiny figures at work',
+        res='none', blend=('palette-step',), stack=False,
+        dither=(), dither_where='none',
+        outline='own',
+        ramp=('flat',),
+        palette='30-50 colours: one cut-face colour, 3-step ramps per room, the outside environment in 3-4 tones',
+        allowed_post=(),
+        banned_post=_SOFT + _FILTERS,
+        budgets={'C>0.15': (None, 0.03), 'L>0.9': (None, 0.02)},
+        motion='stepped', fps=12, scale=2, size=(384, 216), colours=40,
+        figures='10-14 px workers (study references/assets/figures.py lofi), one task each'),
 }
 ALIASES = {'01': 'contre-jour', '02': 'pastel-cell', '03': 'native-glow', '04': 'hd-overworld', '05': 'arcade',
            '06': 'tactics', '07': 'sticker-iso', '08': 'illustrated', '09': 'neon-noir', '10': 'cosy-lightmap',
@@ -495,7 +545,7 @@ def listing():
     """one line per style, then one line on eras"""
     return '\n'.join('%-14s %-24s res %-6s %dx %dx%d  %s' % (k, ref_label(k), v['res'], v['scale'], v['size'][0],
                                                             v['size'][1], v['what'][:80]) for k, v in STYLES.items()) + (
-        '\neras: a screen that obeys a console\'s limits (Game Boy, NES, SNES, Mega Drive, GBA, PICO-8, Neo Geo) is '
+        '\neras: a screen that obeys a console\'s limits (Game Boy, NES, SNES, Mega Drive, GBA, PICO-8, Neo Geo, CGA) is '
         'a style plus `--era ERA`; read guides/eras.md (`pixelate era --list`)')
 
 USAGE = """usage: pixelate style --list | NAME | NAME IMAGE [--scale N]

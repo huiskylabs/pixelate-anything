@@ -12,7 +12,7 @@
   pixelate palette extract|ramps|show|js|list ...   palettes                      (guides/palettes.md)
   pixelate assets PACK                   export sprites, sheets, GIFs, tilemaps   (guides/assets.md)
   pixelate topx IMG PALETTE [NAME]       a PNG as an editable .px sprite (palette: .json/.hex/preset)
-  pixelate era IMG --era nes|gameboy|snes|genesis|gba|pico-8 [-o OUT]   check (or force) console-era limits
+  pixelate era IMG --era nes|gameboy|snes|genesis|gba|pico-8|neogeo|cga [-o OUT]   check (or force) console-era limits
   pixelate sprites SCENE                 generate sprites.js from SCENE/art/*.py
   pixelate new scene|music|assets DIR    copy a library starter into a new piece folder (DIR's name is its id)
   pixelate remix PIECE DIR --request "..."   copy a library piece to DIR, render the unedited copy once, write REMIX.md

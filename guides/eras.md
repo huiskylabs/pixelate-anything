@@ -26,6 +26,7 @@ game. Invent the hero, the place and the title. `library/retro-screens` shows th
 | `genesis` | 320x224 | 9-bit colour, 61 on screen | 16 colours per 8x8 tile |
 | `gba` | 240x160 | 15-bit colour, 256 on screen | 16 colours per 8x8 tile |
 | `pico-8` | 128x128 | its 16 colours | |
+| `cga` | 320x200 | black, cyan, magenta, white (`palettes/cga-mode4.hex`) | four fixed colours for everything; shown at 4:3, so a pixel is taller than wide (4x by 5x on its own); mixed tones only as hand-placed checker or 25% patterns |
 
 ## Designing inside the limits
 

@@ -118,6 +118,23 @@ GAP_CASES = [
     ('Rebuild this photo of a street in one-point perspective.', 'figures', ['sized for the camera'],
      ['iso people'], True),
 ]
+# a scene section with every box line right (lint finds nothing), and one fault per variant below
+KEY_BASE = ('## 4. The scene\n- Projection: side. Canvas 160x144.\n'
+            '- Hero: 100,44,130,79 (native px); peak value: the sail; peak chroma: the sail\n'
+            '- Layout: the headland [0,64,63,143] with the tower on it; breaker A and the boat right\n'
+            '- Value plan: sky L .35; headland and troughs .2; breaker lips .55; brightest only at the sail\n'
+            '- Value: sky [0,0,159,63] L .35\n- Value: headland [0,64,63,143] L .2\n'
+            '- Key: tower [20,5,40,62]; L .55 on sky .35\n- Key: gull [44,10,52,14]; rim: S2 on its right edge\n'
+            '- Key: keeper\'s window [14,58,17,60]; L .55 on headland .2\n'
+            '- Key: breaker B [38,100,99,143]; L .35 on headland\n'
+            '- Calm: far sea [64,80,96,99]; texture: long S1 swell dashes\n'
+            '## 5. Lived-in details\n- The keeper\'s window: 4x3 px S2 in the S0 wall\n- The gull: 9x5 px on the rail\n'
+            '- a coil of rope by the hut, 5x3 px\n')
+_in4 = lambda line: KEY_BASE.replace('## 5.', line + '\n## 5.')
+KEY_ERA = KEY_BASE.replace('Canvas 160x144.', 'Canvas 160x144. Gate `--era gameboy`.').replace(
+    '## 5.', '- Sprites: boat [100,63,129,79], sailor [118,70,121,77], gull [44,10,52,14]\n## 5.') + (
+    '## 11. Technical\n- Tile budget: 180 unique 8x8 tiles against the limit of 256\n')
+
 LINT_CASES = [
     ('vague', ('Phases', '- a cool blue rim on the left'), False),
     ('vague', ('The scene', '- the far peaks in cool grey, the near ones warm'), False),
@@ -163,6 +180,24 @@ LINT_CASES = [
              'chroma: the cat\n- Planes: roof 40%, street 27%, back row 10%, walls 23%\n- Layout: shop x 128-512\n'
              '- Masses: roof 384 px, neighbours 112 and 112 px\n- Value plan: void L .05, walls .15; brightest at '
              'the door, 2%', 0),
+    ('keys', KEY_BASE, 0),
+    ('keys', KEY_BASE.replace('L .55 on sky .35', 'L .41 on sky .35'), 1),                  # under .10 L apart
+    ('keys', KEY_BASE.replace('; rim: S2 on its right edge', ''), 1),                       # no planned read
+    ('keys', KEY_BASE.replace('gull [44,10,52,14]', 'gull [150,10,170,14]'), 1),          # off the canvas
+    ('keys', KEY_BASE.replace('gull [44,10,52,14]', 'gull [96,40,104,46]'), 1),           # into the hero box
+    ('keys', KEY_BASE.replace('gull [44,10,52,14]; rim:', 'gull [96,40,104,46] (overlaps hero on purpose); rim:'), 0),
+    ('keys', _in4('- Key: rocks [40,100,63,130]; L .45 on headland .2'), 1),        # two Keys collide
+    ('keys', _in4('- Key: rocks [40,100,63,130]; L .45 on headland .2; overlaps breaker B on purpose'), 0),
+    ('keys', KEY_BASE.replace('far sea [64,80,96,99]', 'night sky [0,0,159,63]'), 1),      # calm over 30%
+    ('keys', KEY_BASE.replace('; texture: long S1 swell dashes', ''), 1),                   # calm with no texture
+    ('keys', _in4('- Value: troughs [64,120,159,143] L .5'), 1),                     # against the Value plan
+    ('keys', KEY_BASE.replace('L .55 on sky .35', 'L .55 on sky .2'), 1),                   # against its Value line
+    ('keys', KEY_BASE + '- The sailor bailing: 4x8 px in the stern\n', 1),                  # a beat with no Key
+    ('keys', KEY_BASE.replace('the headland [0,64,63,143]', 'the headland [0,60,63,143]'), 1),   # two boxes
+    ('keys', KEY_BASE.replace('Canvas 160x144', 'Canvas 400x144'), 1),                      # empty 100 px windows
+    ('keys', KEY_ERA, 0),
+    ('keys', KEY_ERA.replace('gull [44,10,52,14]\n', 'gull [44,10,52,14], crowd [0,70,90,77]\n'), 1),  # scanline
+    ('keys', KEY_ERA.replace('180 unique 8x8 tiles', 'the unique 8x8 tiles'), 1),           # no tile count
 ]
 
 CAMERA_CASES = [

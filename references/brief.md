@@ -146,6 +146,21 @@ asks for them by name, and the gate reads the first two:
 - **Value plan**: three or four value groups and what falls in each, one of them dark, and the one
   focal light that alone holds the brightest values.
 
+Then the box lines, one per line, boxes in native px, inclusive, in square brackets. Lint checks
+them against each other and the gate (`pixelate check FRAME` and `--blockin` with `--brief`)
+measures them in the picture, so a secondary object can't quietly vanish while the hero improves:
+
+- **Key**: `- Key: OBJECT [x0,y0,x1,y1]; L .30 on PLANE .15` or `- Key: OBJECT [x0,y0,x1,y1]; rim:
+  DESCRIPTION`. One per secondary object and story beat that must read. Its L differs from its
+  plane by .10 or more, or it reads by a named rim. It stays inside the canvas and off the hero and
+  other Keys, unless the line says `overlaps ... on purpose`.
+- **Value**: `- Value: PLANE [x0,y0,x1,y1] L .40`, the planned mean L of a plane region; it agrees
+  with the Value plan, and the gate measures it within .06.
+- **Calm**: `- Calm: NAME [x0,y0,x1,y1]; texture: DESCRIPTION` (or `- Calm: none`). Calm areas take
+  30% of the frame at most, each with its texture; outside them every 100 px window holds a Key or
+  the hero.
+- **Sprites** (era only): `- Sprites: NAME [x0,y0,x1,y1], ...`, read by the era sprite check.
+
 See [drawing.md#composition](drawing.md#composition).
 
 ### 5. Lived-in details

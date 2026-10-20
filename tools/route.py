@@ -278,6 +278,58 @@ ROUTE = {
                'slim 20-30 px figures as your own slot maps (study references/assets/figures.py slim)',
                'a proscenium of near silhouettes (compose.proscenium)'],
         never=['outlines', 'dither', 'light on the near plane', 'filters']),
+    'ink-wash': dict(
+        pick_if='an East Asian ink painting in pixels: rice paper, mountains in mist, a boat, a lone figure; '
+                'a few ink values, empty paper as space, one red accent',
+        projection='side', example=None, frames=(None, 12),
+        signals=[(6, ['ink wash', 'ink-wash', 'sumi-e', '水墨', '水墨画']),
+                 (3, ['ink painting', 'brush painting', 'shan shui', 'rice paper', 'calligraphy', 'seal stamp',
+                      '山水', '宣纸', '书法', '印章', '国画']),
+                 (2, ['boatman', 'ferry', 'misty river', 'bamboo', 'crane', '渔翁', '渡船', '竹', '鹤'])],
+        rules=['A strict ramp of five to seven ink values from paper to dense black; no other colour except one '
+               'small red accent (a seal, a lantern).',
+               'Empty paper is the space: at least 40% of the frame stays bare paper.',
+               'Strokes are pixel brush clusters that taper and break (dry brush), never vector lines or outlines.',
+               'Depth is wash: far mountains in the palest tone, near rocks in dense ink; no light, no shadow casting.'],
+        tools=['the ink values as a neutral ramp on a warm paper (palette.ramp_between paper to ink)',
+               'tapering, broken brush strokes as your own slot maps (artlib.Grid)',
+               'mist as bare paper bands between ridges (no fog op)',
+               'one red accent: a hand-drawn 6-10 px seal or a small lantern'],
+        never=['outlines', 'light ops or glow', 'saturated colour beyond the one accent', 'a filled sky']),
+    '1-bit': dict(
+        pick_if='a stark two-colour screen: black and one paper white, dither patterns as the only greys, like an '
+                'early Mac or a 1-bit indie game; blizzards, night, silhouettes, posters',
+        projection='side', example=None, frames=(None, 12),
+        signals=[(6, ['1-bit', '1 bit', 'one-bit', 'one bit', '1位', '一位色']),
+                 (3, ['two-colour', 'two colour', 'two-color', 'two color', 'black and white only', 'monochrome',
+                      'early mac', '双色', '黑白两色', '只有黑白', '单色']),
+                 (2, ['blizzard', 'stark', 'woodcut', 'engraving', '暴风雪', '版画'])],
+        rules=['Exactly two colours on screen: one black and one paper white (warm or cool), nothing else.',
+               'Greys are a small fixed set of hand-chosen dither patterns (five at most: solid, 75%, checker, 25%, '
+               'sparse), each with one role; never noise or error-diffusion dither.',
+               'Silhouettes carry the read: every key object reads as a solid shape before any pattern.',
+               'Light is white space: a lit window is a hole of paper in black, never a halo.'],
+        tools=['two-colour slot maps (artlib.Grid with one ink, one paper)',
+               'fixed dither patterns per role as tiles (checker 50%, 25% grid, line hatches)',
+               'snow and rain as opaque single-pixel sprites on hold tables'],
+        never=['a third colour, grey or tint', 'smooth or ordered gradient dither', 'light ops', 'anti-aliasing']),
+    'cutaway': dict(
+        pick_if='a cross-section of a building, ship, base or station with its front wall removed, rooms full of '
+                'tiny people at work, drawn on a strict military (45-degree plan) projection',
+        projection='military', example=None, frames=(None, 12),
+        signals=[(6, ['cutaway', 'cut-away', 'cross-section', 'cross section', '剖面', '剖视', '剖面图']),
+                 (3, ['military projection', 'dollhouse', 'ant farm', 'x-ray view', '军事投影', '娃娃屋', '蚂蚁农场']),
+                 (2, ['seabed', 'base', 'station', 'bunker', 'colony', 'submarine', '海底', '基地', '站', '潜艇'])],
+        rules=['Military projection only: plan at true shape turned 45 degrees, verticals straight up at 1:1 '
+               '(iso military mode); no perspective and no 2:1 iso.',
+               'The cut face is one flat colour with a hard edge that frames every room; rooms read as lit boxes.',
+               'Every room holds one readable task by tiny figures (10-14 px); no empty rooms.',
+               'Light is flat per room with a palette step for the floor and back wall; no light ops.'],
+        tools=['military projection blocks and floors (iso, mode "military")',
+               'rooms as boxes with a cut face (compose.room, then cut the front wall)',
+               'tiny workers as your own slot maps (study references/assets/figures.py lofi)',
+               'pipes, cables and ladders that link rooms as 1-2 px runs'],
+        never=['perspective or 2:1 iso', 'light ops', 'a room with nobody in it', 'a cut face with texture']),
 }
 
 MODES = [
@@ -287,12 +339,14 @@ MODES = [
     ('era', 3, ['nes', 'game boy', 'gameboy', '8-bit', '8 bit', '16-bit', '16 bit', 'snes', 'genesis', 'mega drive',
                 'gba', 'pico-8', 'pico8', '红白机', '8位', '16位', '掌机', '四色绿', '超任', 'famicom',
                 'four-shade green', '4-shade green', 'four-colour green', '4-colour green', 'four-color green',
-                '4-color green', 'handheld game', 'handheld screen', 'dot-matrix', 'dot matrix', '四色', '绿屏']),
+                '4-color green', 'handheld game', 'handheld screen', 'dot-matrix', 'dot matrix', '四色', '绿屏',
+                'cga', 'ms-dos', 'dos game', 'early pc']),
     ('assets', 2, ['sprite sheet', 'spritesheet', 'tileset', 'character sheet', 'icons', 'items', 'walk cycle',
                    '精灵表', '图块', '图标', '道具', '行走']),
     ('music', 3, ['soundtrack only', 'just music', 'music loop', 'chiptune', '只要音乐', '配乐']),
 ]
-ERA_WORDS = [('gameboy', ['game boy', 'gameboy', 'gb style', 'dmg', '掌机', '四色绿', 'four shades of green',
+ERA_WORDS = [('cga', ['cga', 'ms-dos', 'dos game', 'early pc', 'cyan and magenta', '青色和品红', '早期电脑']),
+             ('gameboy', ['game boy', 'gameboy', 'gb style', 'dmg', '掌机', '四色绿', 'four shades of green',
                          'four-shade green', '4-shade green', 'four-colour green', '4-colour green',
                          'four-color green', '4-color green', 'handheld game', 'handheld screen', 'dot-matrix', 'dot matrix', '四色', '绿屏']),
              ('pico-8', ['pico-8', 'pico8']),
@@ -919,7 +973,8 @@ ERA_VOICES = {'gameboy': 'two pulse voices, one wave and one noise (the handheld
               'genesis': 'six FM voices with three square voices and one noise',
               'gba': 'two pulses, a wave and a noise plus two sample channels',
               'pico-8': 'four channels from its eight built-in waveforms',
-              'neogeo': 'FM voices, three square voices and sampled drums'}
+              'neogeo': 'FM voices, three square voices and sampled drums',
+              'cga': 'the PC speaker: one square voice, chords as fast arpeggios, drums as short noise clicks'}
 SOUND_BEDS = [(['storm', 'thunder', 'lightning', '暴风', '风暴', '雷'], 'rain and thunder'),
               (['rain', 'drizzle', '雨'], 'rain'), (['snow', 'snowy', '雪'], 'a snowy hush'),
               (['sea', 'ocean', 'wave', 'waves', 'harbour', 'harbor', '海', '浪'], 'the sea'),

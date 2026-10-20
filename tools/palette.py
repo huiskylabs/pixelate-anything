@@ -366,7 +366,7 @@ def ramps(bases, steps=None, shift=None, extra=None, **kw):
     return pal
 
 # ---------------------------------------------------------------- ramps held to a fixed console palette
-ERA_PALETTES = {'nes': 'nes', 'famicom': 'nes', 'gameboy': 'gameboy', 'gb': 'gameboy', 'pico-8': 'pico-8', 'pico8': 'pico-8'}
+ERA_PALETTES = {'nes': 'nes', 'famicom': 'nes', 'gameboy': 'gameboy', 'gb': 'gameboy', 'pico-8': 'pico-8', 'pico8': 'pico-8', 'cga': 'cga-mode4'}
 
 def _era_colours(era, exclude=()):
     """(hexes, OKLab) of an era's fixed palette, a palette preset/file, or a hex list; duplicates dropped"""

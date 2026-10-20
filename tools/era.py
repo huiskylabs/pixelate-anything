@@ -2,7 +2,7 @@
 """Console-era presets: the hardware limits that gave classic pixel art its look, and a checker
 that holds an image to them (or forces it into them).
 
-usage: era.py IMAGE --era nes|gameboy|snes|genesis|gba|pico-8|neogeo [-o OUT] [--scale 4]
+usage: era.py IMAGE --era nes|gameboy|snes|genesis|gba|pico-8|neogeo|cga [-o OUT] [--scale 4]
               [--layer bg|full|sprite|fix] [--tiles]
        era.py --list
 
@@ -19,6 +19,8 @@ What each preset holds you to:
   genesis  320x224, 9-bit colour (3 bits per channel), 61 on screen, 16 per 8x8 tile.
   gba      240x160, 15-bit colour, 256 on screen, 16 per 8x8 tile.
   pico-8   128x128, its 16 colours.
+  cga      320x200, the PC card's mode 4 high-intensity set: black, cyan, magenta, white, nothing else;
+           shown on a 4:3 screen, so each pixel is a little taller than wide (scale 4x by 5x on its own).
   neogeo   304x224, 15-bit colour (5 bits per channel; the hardware's extra dark bit is ignored),
            up to 4096 on screen from many palettes, no blending. Check each layer on its own:
            --layer sprite (actors, FX and backgrounds are all sprites): every 16x16 tile uses at
@@ -46,6 +48,7 @@ ERAS = {
     'pico-8':  dict(name='PICO-8', size=(128, 128), palette='pico-8', max_colors=16),
     'neogeo':  dict(name='Neo Geo-style arcade', size=(304, 224), bits=5, max_colors=4096, block=16, block_colors=15,
                     fix_block=8, layers={'sprite': (16, 15), 'bg': (16, 15), 'fix': (8, 15)}),
+    'cga':     dict(name='CGA-style PC', size=(320, 200), palette='cga-mode4', max_colors=4, aspect=(5, 6)),
 }
 
 # Sprite and tile limits, added per era (None: the hardware has no such limit, or it is not a count).
@@ -70,6 +73,8 @@ _LIMITS = {
                     tile_flips=False),
     'neogeo':  dict(sprite_line=96,   sprite_total=380,  sprite_size=(16, 512), sprite_cell=16, tile=16, bg_tiles=None,
                     tile_flips=True),
+    'cga':     dict(sprite_line=None, sprite_total=None, sprite_size=None,      sprite_cell=8,  tile=8,  bg_tiles=None,
+                    tile_flips=False),
 }
 for _k, _v in _LIMITS.items():
     for _f, _x in _v.items():

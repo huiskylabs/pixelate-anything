@@ -398,6 +398,11 @@ CRAFT = {
     'neon-noir':     _lim(0.055, 0.422, 0.01, 0.388, 0.01, 1.18, 0.661),   # 09: .030 .322 .000 .206 0 2.4 .581
     'cosy-lightmap': _lim(0.12, 0.34, 0.01, 0.391, 0.02, 1.0, 0.822),      # 10: .073 .240 .000 .207 0 2.0 .742
     'lofi':          _lim(0.051, 0.398, 0.01, 0.266, 0.01, 1.91, 0.773),   # Lantern Isle: .027 .298 .001 .124 0 3.8 .693
+    # provisional (no reference measured): dry brush breaks into specks; 1-bit dither is all single pixels;
+    # a cutaway is clean flat blocks like sticker-iso
+    'ink-wash':      _lim(0.12, 0.45, 0.01, 0.10, 0.01, 1.2, 0.85),
+    '1-bit':         _lim(0.6, 0.6, 0.02, 0.30, 0.01, 0.5, 1.0),
+    'cutaway':       _lim(0.08, 0.36, 0.01, 0.20, 0.01, 2.0, 0.85),
 }
 
 # ---------------------------------------------------------------- composition

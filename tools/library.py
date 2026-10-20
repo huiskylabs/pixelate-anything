@@ -29,8 +29,9 @@ RUNTIMES = ('script', 'pack', 'engine')
 CAMERAS = ('side', '2:1 iso', '3/4 top-down', 'one-point perspective',
            'two-point perspective', 'oblique', 'military', 'none')
 STYLES = ('lofi', 'pastel-cell', 'native-glow', 'hd-overworld', 'arcade', 'tactics',
-          'sticker-iso', 'illustrated', 'neon-noir', 'cosy-lightmap', 'contre-jour', 'none')
-ERAS = ('nes', 'gameboy', 'pico-8', 'genesis', 'gba', 'neogeo', 'snes', 'none')
+          'sticker-iso', 'illustrated', 'neon-noir', 'cosy-lightmap', 'contre-jour', 'ink-wash', '1-bit',
+          'cutaway', 'none')
+ERAS = ('nes', 'gameboy', 'pico-8', 'genesis', 'gba', 'neogeo', 'snes', 'cga', 'none')
 MOTIONS = ('stills', 'loop', 'sprite-sheet', 'none')
 SOUNDS = ('none', 'music', 'sting', 'sfx')
 TOKEN = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')

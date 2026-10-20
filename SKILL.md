@@ -29,7 +29,7 @@ Copy these steps into your todo list first; a skipped step stays as `skip: <reas
 
 ## Author a new piece
 
-Author when the person asks for something new to keep, or the work is meant to become a library piece. The task picks the path, not the model's name. Read [references/authoring.md](references/authoring.md) and follow its ten steps there: intake, a brief the user approves, a greyscale block-in, one independent lead who owns every grade (three graded rounds per stage by default; specialists only observe), the gate, one still for the user's go/no-go and a confirmed animation plan before any motion. Begin from the starter `find` offered, if any.
+Author when the person asks for something new to keep, or the work is meant to become a library piece. The task picks the path, not the model's name. Read [references/authoring.md](references/authoring.md) and follow its ten steps there: intake, a brief the user approves, a greyscale block-in, one independent lead who owns every grade (one graded round per stage by default; specialists only observe), the gate, one still for the user's go/no-go and a confirmed animation plan before any motion. Begin from the starter `find` offered, if any.
 
 ## Trust and evidence
 

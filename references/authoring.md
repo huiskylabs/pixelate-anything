@@ -8,7 +8,7 @@ This is the **author path**: the full process for making new work from a brief. 
 
 - **Intake and brief approval come first.** The greyscale block-in (step 4) is the only drawing allowed before the user OKs the brief; nothing else is drawn until then. A full brief needs a bound independent A before the user confirms it, then drawing. A short brief has no brief-stage lead: after its block-in passes the block-in gate, the user confirms it as written, then drawing.
 - **Block-in first.** A greyscale block-in passes `pixelate check BLOCKIN.png --blockin --brief brief.md`. A full brief's block-in goes to the lead with the brief; a short brief's does not.
-- **One independent lead owns every grade.** It is a separate agent that did not write the brief or draw the work. You never grade your own work, and your report of a fix is not evidence. At most **three graded lead rounds per stage** (brief, still), counting round 1. Only the user can extend that.
+- **One independent lead owns every grade.** It is a separate agent that did not write the brief or draw the work. You never grade your own work, and your report of a fix is not evidence. **One graded lead round per stage** (brief, still) by default, so review stays fast. Only the user can extend that.
 - **Specialists observe and never grade.** After the first lead round, at most two scoped notes per artifact (`composition`, `lighting`, `set`, `character`), passed to the lead with `--consult`. `--prev` is only the previous *lead* critique.
 - **The gate is not art quality.** A pass means the numbers are legal, not that the work is good. Keep four things apart; none proves another: the technical gate and heuristic warnings (`judge`, the `repeat` WARN), an independent lead grade, user approval, and licensing.
 - **Paid or outside review needs a budget.** `pixelate critique ... --run`, another model or a person's time costs something. Without a budget the user has given, print the prompt (`pixelate critique ...` without `--run`), say the review has **not** happened, and stop at that stage, even if a reviewer is available: do not ask them to run it. Only the style loop, which has no review stage, may go on, and only as the unreviewed branch of [`SKILL.md`](../SKILL.md) step 8. Never run paid image or agent benchmarks on your own.
@@ -49,11 +49,10 @@ Copy these into your todo list first; a skipped step stays as `skip: <reason>`.
 
 ## Review budget
 
-- Default **three graded lead calls per stage**, round 1 included; an A ends the stage sooner. After the first lead round you may consult at most **two specialists in total per artifact**, each seeing the same brief and artifact and returning observations with no grade. Feed their saved notes to the next lead round with `--consult NOTE.md` (twice at most). They add no graded round.
-- Apply the lead's ranked fixes, re-lint or re-gate, then call the lead again with `--prev` (the previous lead report only). The caller counts the rounds; the commands do not enforce it.
-- **Stop on an A.** If round 3 is still below A, stop revising and reviewing that stage: report the grade and unresolved fixes, and ask the user whether to continue or change the brief. Only the user can allow more rounds.
-- A below-A brief is not ready for drawing, and a below-A still is not finished.
-- Music has its own three graded listening calls, only from an agent that actually hears the audio (`NOT REVIEWED` otherwise).
+- Default **one graded lead call per stage**. If the user allows more rounds, you may consult at most **two specialists in total per artifact** after the first lead round, each seeing the same brief and artifact and returning observations with no grade. Feed their saved notes to the next lead round with `--consult NOTE.md` (twice at most). They add no graded round.
+- Apply the lead's ranked fixes once, re-lint or re-gate, and move on. Only when the user allowed more rounds, call the lead again with `--prev` (the previous lead report only). The caller counts the rounds; the commands do not enforce it.
+- **One round, then the user decides.** After the round, report the grade and any fixes you could not apply. Below A, ask the user whether to continue or change the brief. Only the user can allow more rounds.
+- Music has its own one graded listening call by default, only from an agent that actually hears the audio (`NOT REVIEWED` otherwise).
 - A saved lead report plus `review record` is evidence for those exact bytes. Any change to the brief or frame makes it stale; record and check again.
 
 ## Perspective and camera

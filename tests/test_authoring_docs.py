@@ -81,7 +81,7 @@ class AuthoringDocsTest(unittest.TestCase):
 
     def test_hard_rules_are_written_down(self):
         text = AUTHORING.read_text(encoding='utf-8')
-        for phrase in ('author path', 'not the default style loop', 'brief approval', '--blockin', 'three graded lead rounds',
+        for phrase in ('author path', 'not the default style loop', 'brief approval', '--blockin', 'one graded lead round per stage',
                        'Specialists observe and never grade', 'The gate is not art quality', 'go/no-go',
                        'confirm the animation plan', 'No borrowed characters', 'Paid or outside review needs a budget',
                        'ask whether to continue or change the brief', 'Only the user can extend'):
@@ -110,7 +110,7 @@ class AuthoringDocsTest(unittest.TestCase):
         for phrase in ('stop at that stage, even if a reviewer is available: do not ask them to run it',
                        'Only the style loop, which has no review stage, may go on, and only as the unreviewed branch of'):
             self.assertIn(phrase, budget, phrase)
-        self.assertIn('Three graded lead rounds per stage'.lower(), text.lower())
+        self.assertIn('One graded lead round per stage'.lower(), text.lower())
 
     def test_only_existing_commands_are_offered(self):
         help_text = subprocess.run([sys.executable, str(REPO / 'pixelate'), '--help'], capture_output=True, text=True, check=True).stdout

@@ -140,8 +140,23 @@ reference and record its horizon (or that it is outside the crop), visible vanis
 near/far scale and framing at native size. Routing knows only the request text, not the photo's
 camera. Keep an explicit one- or two-point view when requested; decide any stylization with the
 user instead of silently changing it to iso. Name the screen-space pixel construction and which
-edges and repeated forms must converge. These lines decide most of the grade, so the template
-asks for them by name, and the gate reads the first two:
+edges and repeated forms must converge.
+
+**Direct, don't micromanage (the default).** A brief is a director's note, not a pixel plan. Section 4
+names the hero, tells the story beat, places the big things in plain words and lists what must read;
+the artist decides the exact composition, sizes, positions, colour values and timing inside the beats,
+and the gate and the art director judge the result. The default skeleton writes these lines:
+
+- **Hero**: the one thing the eye lands on, with what alone holds the brightest value and the top chroma.
+- **Story**: the moment in two or three sentences: who does what, what changes, how the loop closes.
+- **Layout**: where the big things sit, in plain words (the tower top right, the pond in the centre).
+- **Must read**: the objects and story beats a viewer must find, separated by semicolons.
+- **Leave to the artist**: what the brief deliberately does not decide.
+
+**Precise briefs (`pixelate route "..." --brief --precise`).** When a scene must be planned to the pixel
+(a piece rebuilt from a reference, a library piece whose secondary objects keep vanishing), the brief
+carries boxes the gate measures. These lines decide most of the grade, so the template asks for them
+by name, and the gate reads the first two:
 
 - **Hero**: `x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`. A figure stays at
   least 40 px tall at the delivered cell; no other mass over 0.6x its area or within 0.1 L of its peak.
@@ -176,9 +191,9 @@ See [drawing.md#composition](drawing.md#composition).
 ### 5. Lived-in details
 
 Five to ten small, specific things that tell a story: a cat on the sill, a mug on the rail,
-firewood by the wall, a patched tile, a worn path. Give each its native size (4x3 px or more) and
-its value step against what it sits on: three readable details beat eight invisible ones. Say which
-change per phase.
+firewood by the wall, a patched tile, a worn path. Three readable details beat eight invisible ones.
+Say which change per phase. A precise brief also gives each its native size (4x3 px or more) and its
+value step against what it sits on.
 
 ### 6. Phases
 

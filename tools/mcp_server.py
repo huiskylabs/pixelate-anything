@@ -49,7 +49,7 @@ pull request with evidence. Never call add_piece on an outside contributor's PR.
 paths stay in the workspace, but a spawned piece command can read or write anywhere your user can;
 piece commands execute without a sandbox. Never run contributed programs in PR CI.
 Author path: read guide('authoring') for the full ten steps. The independent lead owns each grade
-with three graded rounds per full stage by default; specialists observe. The greyscale block-in
+with one graded round per full stage by default; specialists observe. The greyscale block-in
 is the sole pre-approval drawing and must pass its gate. A full brief needs a bound independent A
 before user confirmation; a short brief skips brief-stage review, not block-in gate or confirmation.
 For an external lead report, record_visual_review(brief, report) and require

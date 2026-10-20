@@ -69,7 +69,9 @@ must fix for each point:
 1. The hero line: its native box, the object that holds peak value and the one that holds peak
    chroma, its size at the delivered cell (a figure at least 40 px tall), and no other mass over
    0.6x its area or within 0.1 L of its peak.
-2. Plane shares and calm areas as boxes with what may sit in them; full-bleed.
+2. Plane shares and calm areas as boxes with what may sit in them, calm 30% at most; full-bleed.
+   Every secondary object and story beat has a `- Key:` box with its value step or rim; boxes
+   don't collide or contradict the Layout or Value plan.
 3. Silhouette keys for each must-read object: the 2-3 features that make it that thing, not its
    nearest misread, at the hero's size.
 4. A value plan: three or four groups and what falls in each, one dark group, the brightest group
@@ -106,6 +108,9 @@ Be harsh. Grade inflation is the failure mode: a painter always thinks their wor
 hesitate between two grades, give the lower one. Respect the brief and the style preset (its light
 regime, outlines and budget); if the brief itself causes a still's problem, say what in it should
 change. When the layout is the problem, give the new layout; don't polish a weak layout.
+A fix must not trade a read for tidiness: if the previous round's secondary objects or story beats
+got lost (a gate `key` FAIL, or a Key box that now holds flat plane), that is a regression, and
+point 7 or 11 drops to 2 whatever else improved.
 
 ## What you return
 

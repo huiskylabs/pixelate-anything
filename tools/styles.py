@@ -256,7 +256,7 @@ STYLES = {
         music=dict(voices='a plucked zither, a breathy bamboo flute and water sounds', feel='free time or a slow 4/4, pentatonic, spacious (50-70 bpm)', sync='a single low pluck as the boat or the figure moves', check='ambient'),
         ramp_how='`ramp_between` from warm paper to ink in five to seven values', budget_note='at least 40% of pixels at L .85 or above (bare paper); at most 1% above C .08 (the one red accent)',
         key='high (bare paper)',
-        ref='ink-wash (the medium, not one game)', what='an ink painting in pixels: a few ink values on warm paper, '
+        ref='the medium itself, no measured game', what='an ink painting in pixels: a few ink values on warm paper, '
                                                        'empty paper as space, broken brush clusters, one red accent',
         res='none', blend=('palette-step',), stack=False,
         dither=('checker',), dither_where='dry-brush edges only, never as a gradient',
@@ -272,7 +272,7 @@ STYLES = {
         music=dict(voices='one or two square voices and noise, sparse and cold', feel='4/4 or 3/4, minor, slow and spare (60-90 bpm)', sync='a click or a low note each time the main mover reaches a mark', check='chiptune'),
         ramp_how='none: two colours, greys are dither patterns', budget_note='exactly two colours; no chroma',
         key='either: the black and white share sets the mood',
-        ref='1-bit (the medium, not one game)', what='two colours only, black and one paper white; fixed dither '
+        ref='the medium itself, no measured game', what='two colours only, black and one paper white; fixed dither '
                                                      'patterns with one role each; silhouettes carry the read',
         res='none', blend=('palette-step',), stack=False,
         dither=('checker', 'bayer4'), dither_where='each pattern has one role: 50% checker for mid shade, 25% for haze or snow air',
@@ -288,7 +288,7 @@ STYLES = {
         music=dict(voices='a soft synth pulse, plucked bass, bubbling or machine textures', feel='4/4 or 5/4, modal, busy but calm (60-100 bpm)', sync='a soft tick when a machine in a room cycles', check='ambient'),
         ramp_how='`flat` per room plus a palette step for floor and back wall', budget_note='the cut face is one flat colour; at most 3% above C .15',
         key='mid: rooms light, the cut face and the outside dark',
-        ref='cutaway (the medium, not one game)', what='a cross-section with the front wall removed on a strict military '
+        ref='the medium itself, no measured game', what='a cross-section with the front wall removed on a strict military '
                                                        'projection; flat lit rooms framed by one flat cut face, tiny figures at work',
         res='none', blend=('palette-step',), stack=False,
         dither=(), dither_where='none',

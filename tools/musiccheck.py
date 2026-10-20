@@ -297,6 +297,23 @@ def variety(F):
     return new / len(F), len(F)
 
 # ------------------------------------------------------------------ the gate
+def seam(x, sr=SR):
+    """(ok, message): the wrap from the end back to the start is as smooth as any other step: the sample
+    jump, the loudness and the spectral brightness on both sides of it"""
+    step = float(np.abs(x[0] - x[-1]).max())
+    typical = float(np.percentile(np.abs(np.diff(x, axis=0)), 99.9))
+    n = int(0.5 * sr)
+    lend = integrated(block_loudness(x[-n:], sr, 0.4, 0.05))
+    lsta = integrated(block_loudness(x[:n], sr, 0.4, 0.05))
+    Se, fe = stft_mag(x[-n:].mean(1), sr, 2048, 512)
+    Ss, _ = stft_mag(x[:n].mean(1), sr, 2048, 512)
+    ce = float((Se.mean(0) * fe).sum() / (Se.mean(0).sum() + 1e-9))
+    cs = float((Ss.mean(0) * fe).sum() / (Ss.mean(0).sum() + 1e-9))
+    cr = abs(np.log2(max(ce, 1) / max(cs, 1)))
+    ok = step <= max(typical * 1.5, 0.01) and abs(lend - lsta) <= 3 and cr <= 0.5
+    return ok, ('wrap jump %.3f (typical %.3f), loudness end %.1f vs start %.1f LUFS, '
+                'brightness %.0f vs %.0f Hz' % (step, typical, lend, lsta, ce, cs))
+
 def report(x, sr=SR, style='any', use='loop', bpm=None, key=None, data=None):
     L = limits(style)
     rows = []
@@ -345,19 +362,8 @@ def report(x, sr=SR, style='any', use='loop', bpm=None, key=None, data=None):
     row('technical', 'silence', head <= edge_lim and tail <= (edge_lim if use == 'loop' else 4) and longest <= gap_lim,
         'lead-in %.1fs, tail %.1fs (limit %.1fs), longest dropout %.1fs (limit %.1fs)' % (head, tail, edge_lim, longest, gap_lim))
     if use == 'loop':
-        step = float(np.abs(x[0] - x[-1]).max())
-        typical = float(np.percentile(np.abs(np.diff(x, axis=0)), 99.9))
-        n = int(0.5 * sr)
-        lend = integrated(block_loudness(x[-n:], sr, 0.4, 0.05))
-        lsta = integrated(block_loudness(x[:n], sr, 0.4, 0.05))
-        Se, fe = stft_mag(x[-n:].mean(1), sr, 2048, 512)
-        Ss, _ = stft_mag(x[:n].mean(1), sr, 2048, 512)
-        ce = float((Se.mean(0) * fe).sum() / (Se.mean(0).sum() + 1e-9))
-        cs = float((Ss.mean(0) * fe).sum() / (Ss.mean(0).sum() + 1e-9))
-        cr = abs(np.log2(max(ce, 1) / max(cs, 1)))
-        ok = step <= max(typical * 1.5, 0.01) and abs(lend - lsta) <= 3 and cr <= 0.5
-        row('technical', 'seam', ok, 'wrap jump %.3f (typical %.3f), loudness end %.1f vs start %.1f LUFS, '
-            'brightness %.0f vs %.0f Hz' % (step, typical, lend, lsta, ce, cs))
+        ok, msg = seam(x, sr)
+        row('technical', 'seam', ok, msg)
     # mix
     hop = 1024
     S, f = stft_mag(mono, sr, 4096, hop)

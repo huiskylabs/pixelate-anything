@@ -368,7 +368,9 @@ def validate(root):
         if output['kind'] == 'image':
             image_output(root, output)
         else:
-            fields(output, ('name', 'kind', 'run', 'file'), where='output')
+            fields(output, ('name', 'kind', 'run', 'file'), ('loop',), where='output')
+            if 'loop' in output and not isinstance(output['loop'], bool):
+                fail('output.loop', 'expected true or false')
             generated(root, output['file'], 'output.file')
         slug(output['name'], 'output.name')
         if output['name'] in seen:

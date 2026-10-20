@@ -55,7 +55,7 @@ Exit status: 0 when DIR was created; 1 when the baseline failed or DIR could not
 
 ## MCP tools
 
-Clients without a shell get the loop as four tools (`tools/mcp_server.py`), built on the same commands. There is no `add_piece` tool yet: `pixelate library add` is not built.
+Clients without a shell get find, remix, render, deliver and opt-in add as five tools (`tools/mcp_server.py`), built on the same commands. Local `pixelate library add` and MCP `add_piece` both need explicit trust and run unsandboxed commands, never in PR CI.
 
 | Tool | Command | Notes |
 |---|---|---|
@@ -63,10 +63,11 @@ Clients without a shell get the loop as four tools (`tools/mcp_server.py`), buil
 | `remix_piece(piece, dest, request)` | `pixelate remix --json` | `dest` must be a new or empty folder inside the workspace. Reports the quick baseline honestly: audio and exports it skipped are listed as `not_tested`. |
 | `render_piece(piece_dir, image, sets, timeout)` | `pixelate render --json` | Returns per-image distance, unavailable reason and any under-remixed warning alongside the gate and preview. `sets` are typed `KNOB=VALUE` strings such as `["time=dusk", "seed=4"]`, each passed as one argument, never through a shell. Never passes `--critique`. |
 | `deliver_piece(piece_dir, sets, verify, timeout)` | `pixelate deliver --json` | A successful image summary carries its packaged distance evidence; `verify=true` checks the facts and hashes without running piece code. |
+| `add_piece(piece_dir, library_dir, status, trust_local_code, timeout)` | `pixelate library add` | Only after `trust_local_code=true`: two full renders of inspected local code into an existing workspace catalog, with goldens and index. No PR, grade, approval or rights claim. |
 
 Limits to keep in mind:
-- `remix_piece`, `render_piece` and `deliver_piece` run the piece's `run` commands through the shell, with your user's permissions and no sandbox. Use them on checked-in library pieces and on folders you wrote, never on a folder you have not read.
-- Writes stay inside the workspace (`$PIXELATE_WORKSPACE`, else the server's directory). A piece folder inside the kit's `library/` is refused: render and deliver write reports, logs and packages there, so remix it into the workspace first.
+- `remix_piece`, `render_piece`, `deliver_piece` and opt-in `add_piece` run the piece's `run` commands through the shell, with your user's permissions and no sandbox. Use them on checked-in library pieces and on folders you wrote, never on a folder you have not read.
+- **Tool-selected file paths** stay inside the workspace (`$PIXELATE_WORKSPACE`, else the server's directory). The piece's shell commands are not confined by that path check or sandboxed: they can read or write anywhere the server's user can. A piece folder inside the kit's `library/` is refused for render and deliver because they write reports, logs and packages there; remix it into the workspace first. `add_piece` explicitly writes the selected workspace catalog (including the kit library only when the kit is the workspace), so run it only on your own inspected code and inspect the staged files before a manual PR.
 - The tools read the command's whole JSON report; unlike `cli()`, they do not keep only its last 6000 characters. A failed run, a refused argument or a timeout comes back as `ok: false` with the reason.
 - An image comes back only when the file's bytes hash to what that run recorded, read without following a link. A failed command, a missing or linked frame, or a failed delivery returns none, so an earlier frame is never shown as new. A frame that failed its gate is still shown, and its result says it failed.
 - No tool runs a critique or a rating. A gate pass is a technical check, a delivery is a package of checked hashes, and neither says the art is good, that the user approved it, or that rights and the license are cleared.

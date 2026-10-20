@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Static piece manifest validation, deterministic catalog and conservative search.
 
-`index`, `list`, `show` and `find` never import or execute piece code. Only `test` runs a piece: it
-renders a temporary copy of a trusted checked-in piece through `tools/render.py`, which runs the
-manifest's shell commands without a sandbox.
+`index`, `list`, `show` and `find` never import or execute piece code. `test` renders trusted
+checked-in pieces and `add --trust-local-code` renders a trusted local candidate twice. Their
+manifest shell commands run without a sandbox; never invoke them in pull-request CI.
 """
 import argparse
+import ast
 import datetime
 import hashlib
 import io
@@ -400,6 +401,9 @@ def validate(root):
         if (not isinstance(recipes, list) or not all(isinstance(r, str) and RECIPE.fullmatch(r) for r in recipes) or
                 len(recipes) != len(set(recipes))):
             fail('recipes', 'expected distinct recipe function names')
+        unknown = sorted(set(recipes) - set(recipe_functions()))
+        if unknown:
+            fail('recipes', f'{unknown}: not a function in tools/recipes.py')
     if 'kit' in manifest:
         fields(manifest['kit'], ('tested',), where='kit')
         text(manifest['kit']['tested'], 'kit.tested')
@@ -433,6 +437,30 @@ def validate(root):
     if manifest['status'] == 'reviewed':
         review_binding(root, manifest)
     return manifest
+
+
+def recipe_functions():
+    """Public function names in the kit's recipes.py, parsed but never imported or executed."""
+    source = Path(__file__).with_name('recipes.py')
+    tree = ast.parse(source.read_text(encoding='utf-8'), filename=str(source))
+    return sorted(node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                  and not node.name.startswith('_'))
+
+
+def recipe_usage(library, name=None):
+    """Static reverse index of declared recipe names to piece ids; not evidence a program called one."""
+    uses = {recipe: [] for recipe in recipe_functions()}
+    if name is not None and name not in uses:
+        fail('recipe', f'unknown function {name!r} in tools/recipes.py')
+    for piece in scan(library).values():
+        for recipe in piece.get('recipes', []):
+            if recipe not in uses:
+                fail(f"{piece['id']}.recipes", f'{recipe!r} is not a function in tools/recipes.py')
+            uses[recipe].append(piece['id'])
+    note = 'Declared in piece.json only; not proof a program called the function or that its art passed review'
+    if name is not None:
+        return {'name': name, 'pieces': uses[name], 'note': note}
+    return {'recipes': [{'name': recipe, 'pieces': pieces} for recipe, pieces in uses.items()], 'note': note}
 
 
 def scan(library):
@@ -765,6 +793,8 @@ def main(argv=None, prog=None):
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('index')
     commands.add_parser('list')
+    recipes = commands.add_parser('recipes', help='static recipe functions and pieces declaring each one')
+    recipes.add_argument('name', nargs='?', metavar='NAME')
     commands.add_parser('show').add_argument('id')
     finding = commands.add_parser('find')
     finding.add_argument('request')
@@ -774,14 +804,28 @@ def main(argv=None, prog=None):
     testing.add_argument('ids', nargs='*', metavar='ID')
     testing.add_argument('--quick', action='store_true', help='test one kind per piece: its images, else its exports, else its first audio command')
     testing.add_argument('--timeout', type=int, default=300, help='seconds per run command (default 300)')
+    adding = commands.add_parser('add', help='stage a trusted local piece after two full renders; NEVER use in PR CI')
+    adding.add_argument('dir', metavar='DIR')
+    adding.add_argument('--status', choices=('study', 'accepted', 'reviewed'))
+    adding.add_argument('--timeout', type=int, default=300)
+    adding.add_argument('--trust-local-code', action='store_true', help='explicitly allow unsandboxed piece execution')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'add':
+            import contribute
+            try:
+                result = contribute.add(args.dir, args.library, args.status, args.timeout, args.trust_local_code)
+            except (contribute.ContributionError, contribute.deliver.DeliveryError, OSError) as exc:
+                parser.exit(1, f'library add: {exc}\n')
+            print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+            return
         if args.command == 'test':
             report = test(args.library, args.ids, args.quick, args.timeout)
             print(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False))
             raise SystemExit(0 if report['ok'] else 1)
         result = {'index': lambda: write_index(args.library).decode('utf-8'),
                   'list': lambda: list_pieces(args.library),
+                  'recipes': lambda: recipe_usage(args.library, args.name),
                   'show': lambda: show(args.library, args.id),
                   'find': lambda: find(args.library, args.request, args.mode)}[args.command]()
     except LibraryError as exc:

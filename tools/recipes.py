@@ -2,7 +2,8 @@
 
 Each recipe draws in the caller's palette slots into a canvas.Canvas (or returns placements), is
 deterministic for a seed, and is tested to produce output that `pixelate judge` does not flag for
-the failure it exists to avoid:
+the failure it exists to avoid. `pixelate library recipes [NAME]` lists catalog pieces that declare a
+function in their manifest; it does not inspect imports or prove use:
 
   Perspective      one- or two-point scaffold on the native grid: receding edges, shrinking repeats, boxes
   rock_face        strata ledges, lit lips, recesses, flakes, frayed edge (not a masonry grid)

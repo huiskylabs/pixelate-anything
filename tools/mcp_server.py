@@ -43,9 +43,11 @@ approved budget and a reviewer who did not make the work. With no budget or revi
 prompt and say NO INDEPENDENT REVIEW, with no art-quality claim. deliver_piece runs every output
 again and writes facts (or verifies them without running code); an unreviewed remix may be packaged
 as NOT REVIEWED but needs separate user approval before being called finished. No check clears
-redistribution rights or raises a piece's status. Library add is not built: give back by a manual
-pull request with evidence. Shell-based remix, render and deliver execute trusted code with your
-permissions, without a sandbox; never run contributed programs in PR CI.
+redistribution rights or raises a piece's status. For your own inspected source, add_piece needs an
+explicit trust flag and runs two unsandboxed renders into a workspace catalog; give back by a manual
+pull request with evidence. Never call add_piece on an outside contributor's PR. Tool-selected
+paths stay in the workspace, but a spawned piece command can read or write anywhere your user can;
+piece commands execute without a sandbox. Never run contributed programs in PR CI.
 Author path: read guide('authoring') for the full ten steps. The independent lead owns each grade
 with three graded rounds per full stage by default; specialists observe. The greyscale block-in
 is the sole pre-approval drawing and must pass its gate. A full brief needs a bound independent A
@@ -58,8 +60,8 @@ draw converging edges on the native-pixel grid. Draw original scenes without bor
 logos or UI; a rebuild may depict the supplied place and camera. Rebuild a photo rather than convert
 it; every effect is done in code. Every rendered track goes through check_music until it passes;
 then optionally use music_critique_prompt with a separate agent that can actually listen. Look at
-every preview image you get back and fix what looks wrong before going on. Paths are relative to
-the workspace."""
+every preview image you get back and fix what looks wrong before going on. Tool paths are relative
+to the workspace; piece commands are not confined to it."""
 
 server = Server('pixelate-anything', instructions=INSTRUCTIONS)
 
@@ -477,11 +479,13 @@ def in_library(q):
 
 def work_folder(path, new=False):
     """the resolved workspace folder for `path`. A piece folder must already hold piece.json; a new folder
-    (the remix destination) must be inside the workspace, not the workspace itself. Nothing in the kit's
-    library is ever a place to write: a render or delivery writes reports, logs and packages there."""
+    (the remix destination) must be inside the workspace, not the workspace itself. Render, remix
+    and deliver reject kit-library pieces as selected write destinations; their spawned shell commands
+    are not confined. `add_piece` may select the kit library as its catalog only when the kit root is
+    the workspace and explicit trust was given."""
     q = P(path, write=True)
     if in_library(q):
-        raise ValueError('%s is inside the kit library, which is read-only; remix a piece into the workspace first' % q)
+        raise ValueError('%s is inside the kit library, not a selectable render/remix/deliver folder; remix it into the workspace first' % q)
     if new:
         if q == WORK:
             raise ValueError('choose a new folder inside the workspace, not the workspace itself: %s' % WORK)
@@ -627,7 +631,8 @@ def remix_piece(piece: str, dest: str, request: str) -> list:
     has images, its audio and exports are NOT rendered or tested, and the result lists them as untested. A
     golden match and a gate pass are technical regression checks, not approval or quality. The copy is
     unreviewed, never inherits the base's status or approval, and nothing is critiqued or rated. `dest` must
-    be a new or empty folder inside the workspace; nothing outside it is written."""
+    be a new or empty folder inside the workspace; the tool-selected copy goes there, but the baseline's
+    unsandboxed shell commands can read or write anywhere the server's user can."""
     destination = work_folder(dest, new=True)
     code, out, err = cli_full('remix', piece, destination, '--request=' + request, '--json')
     baseline = json_report(out)
@@ -765,6 +770,41 @@ def deliver_piece(piece_dir: str, sets: list[str] | None = None, verify: bool = 
     if not delivered:
         summary['note'] = 'No package was written by this delivery; an earlier package was left as it was.'
     return report(summary, images)
+
+@server.tool()
+def add_piece(piece_dir: str, library_dir: str = 'library', status: str = 'study',
+              trust_local_code: bool = False, timeout: int = 300) -> list:
+    """Stage a trusted local candidate in a workspace library using `pixelate library add`. This runs
+    every declared shell command TWICE without a sandbox. Explicit `trust_local_code=true` is required;
+    use it only for code you wrote or inspected, never for an outside contribution or in PR CI. The tool
+    generates 1x goldens and rebuilds the index, but commits nothing, opens no PR, runs no independent
+    critique and cannot establish user approval or redistribution rights. `status` is a declaration,
+    not a grade. A maintainer must review evidence and rights before accepting or publishing."""
+    if trust_local_code is not True:
+        raise ValueError('add_piece refuses unsandboxed execution without trust_local_code=true')
+    if status not in ('study', 'accepted', 'reviewed'):
+        raise ValueError('status must be study, accepted or reviewed')
+    seconds = check_timeout(timeout)
+    if seconds > 900:
+        raise ValueError('timeout must be at most 900 seconds per render')
+    catalog = P(library_dir, write=True)
+    if catalog == LIBRARY and WORK != KIT:
+        raise ValueError('kit library catalog can be selected only when the kit root is the workspace')
+    if catalog == WORK or catalog.is_symlink() or not catalog.is_dir():
+        raise ValueError('library_dir must be an existing real catalog folder inside the workspace')
+    source = work_folder(piece_dir)
+    code, out, err = cli_full('library', '--library', catalog, 'add', source, '--status', status,
+                              '--trust-local-code', '--timeout', seconds, timeout=seconds * 2 + 120)
+    result = json_report(out)
+    if not isinstance(result, dict) or code != 0 or result.get('ok') is not True:
+        return report(dict(refusal('library add', code, out, err, seconds * 2 + 120), created=False,
+                           warning=EXEC_WARNING, notice='No art grade, approval or rights have been established.'))
+    return report({'ok': True, 'created': True, 'piece': result['piece'], 'status_declared': result['status'],
+                   'catalog': str(catalog), 'path': result['path'], 'index': result['index'],
+                   'renders': result['renders'], 'deterministic': result['deterministic'],
+                   'gate_ok': result['gate_ok'], 'outputs': result['outputs'],
+                   'warning': EXEC_WARNING, 'notice': result['notice'] + ' Manual PR required.'})
+
 
 def main():
     server.run('stdio')

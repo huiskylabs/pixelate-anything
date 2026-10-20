@@ -1,6 +1,6 @@
 # Piece manifest (schema 1)
 
-Read this when authoring or migrating a `library/<id>/piece.json`. A catalog entry is a *declaration*, not a certificate that its commands were run. `pixelate find REQUEST` and `pixelate library list|show ID|index` (also `python3 tools/library.py`) validate declarations without executing a piece. Only `pixelate render DIR` and `pixelate library test` run a piece's commands. Render, gate, golden comparison and independent review verification are separate steps. In particular, a technical gate pass is not approval.
+Read this when authoring or migrating a `library/<id>/piece.json`. A catalog entry is a *declaration*, not a certificate that its commands were run. `pixelate find REQUEST` and `pixelate library list|show ID|index` (also `python3 tools/library.py`) validate declarations without executing a piece. `pixelate render DIR`, `pixelate library test` and opt-in `pixelate library add DIR --trust-local-code` run a piece's commands without a sandbox. The latter renders a trusted local candidate twice and stages it as a manual PR, not an art or rights certificate ([CONTRIBUTING.md](../CONTRIBUTING.md)). Render, gate, golden comparison and independent review verification are separate steps. In particular, a technical gate pass is not approval.
 
 ## Layout and identity
 
@@ -20,11 +20,11 @@ A piece lives at `library/<id>/piece.json`. `id` is a lowercase ASCII slug (`[a-
 | `provenance` | `{made: "YYYY-MM-DD", by: nonempty string}`. This identifies who made the piece; it does not attest review. |
 | `license` | `MIT` for library contributions. |
 
-Optional: `recipes` (distinct `tools/recipes.py` function names such as `rock_face`), `kit` (`{tested: nonempty version string}`), `media` (`thumb`, `contact`, `video`, `gif`: optional file paths), `lineage` (`{remixed_from: slug or null}`), `review` (see below). The manifest is limited to 128 KiB.
+Optional: `recipes` (distinct `tools/recipes.py` function names such as `rock_face`; `pixelate library recipes [NAME]` lists the pieces declaring each, not proof their code called it), `kit` (`{tested: nonempty version string}`), `media` (`thumb`, `contact`, `video`, `gif`: optional file paths), `lineage` (`{remixed_from: slug or null}`), `review` (see below). The manifest is limited to 128 KiB.
 
 ### Typed outputs
 
-Every output has a unique slug `name`, `kind`, and `run`. The command is metadata, not permission to execute contributed code; unlike `render.json`, a library output always has `run`, because every piece must render in CI.
+Every output has a unique slug `name`, `kind`, and `run`. The command is metadata, not permission to execute contributed code; unlike `render.json`, a library output always has `run`, because every trusted checked-in piece is rendered by main-branch CI. Pull-request CI is static and never executes contributed programs.
 
 Image (`kind: "image"`) takes the `tools/render.py` `render.json` image fields, so a `render.json` entry plus `kind` is a valid image output:
 
@@ -110,7 +110,7 @@ With `--set`, each record in `render-report.json` and the run record in `.pixela
 
 The command prints JSON: `{ok, gate_ok, quick, pieces: [{id, ok, gate_ok, kinds, outputs: [{name, kind, path, status, tested, ...}]}]}`, where `status` is `passed`, `failed` or `skipped`, `tested` is false exactly for a skipped output, and `kinds` maps each declared kind to `{declared, tested}` counts. A piece is `ok` only when no output failed and at least one passed, so a piece whose outputs were all skipped is never green. A piece's `gate_ok` is true only when every one of its images ran and passed the gate, so `ok: true` with `gate_ok: false` means a study rendered and matched its goldens but is not gate-legal. It is `null` for a piece with no image: nothing was gated, and it says nothing about the legality of a pack's sprites or exports. The top-level `gate_ok` covers only the pieces that have images, and is `null` when none does. It exits 0 when no output failed, 1 when one did, and 2 for a malformed or unknown ID, an invalid manifest, or when no piece is selected (for example, an empty library). A golden match is a regression test, and a gate pass is a technical check. Neither is a quality judgment or approval.
 
-`library test` is for trusted, checked-in pieces. The shell is not a sandbox: a run command can read and write anything the user can, before or after the checks. The link checks keep a trusted piece's mistakes from being verified as its own output; they do not contain hostile code. Do not run it on contributed or pull-request code until the project adopts a trust and sandbox policy.
+`library test` is for trusted, checked-in pieces; `library add --trust-local-code` is for a trusted local candidate only. The shell is not a sandbox: a run command can read and write anything the user can, before or after the checks. The link checks keep a trusted piece's mistakes from being verified as its own output; they do not contain hostile code. Do not run it on contributed or pull-request code until the project adopts a trust and sandbox policy.
 
 The root `.gitignore` ignores `out/` folders. Under `library/<id>/out/` it ignores everything except `golden/`, so `git add` picks up golden frames. Commit the small 1x golden; `library test` regenerates the full-size frame, so it need not be committed. A scaled frame needs `git add -f` unless git already tracks it.
 
@@ -119,7 +119,7 @@ The root `.gitignore` ignores `out/` folders. Under `library/<id>/out/` it ignor
 | Status | Required static evidence | Still requires outside catalog validation |
 |---|---|---|
 | `starter` | A tagged, anatomized piece with at least one output and provenance. | Render and gate on the *empty starter* before use. It is a fallback, not a recommended finished base. |
-| `study` | Same static declaration. | CI render; no approval implied. |
+| `study` | Same static declaration. | Trusted-main CI render after review of the exact contribution head; no approval implied. Pull-request CI only checks data syntax. |
 | `accepted` | At least two knobs; at least one image output; `media.thumb` and `media.contact` files; `review.notes` file and `review.approved_by` (`user` or `art-director`). | Verify approval is genuine, render determinism and gate result. Review notes are not a technical gate result. |
 | `reviewed` | All accepted evidence plus `review.record` file (a visual-review sidecar) and matching A-grade artifact-bound review via `review_status.piece_status`, so the exact reviewed frame must exist even though frames are otherwise generated. | Recheck exact-byte binding after any file change; review alone does not grant licensing or user approval. |
 

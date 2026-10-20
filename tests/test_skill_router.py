@@ -87,12 +87,13 @@ class SkillRouterTest(unittest.TestCase):
             self.assertIn(phrase, (REPO / 'references' / 'authoring.md').read_text(encoding='utf-8'), phrase)
 
     def test_nothing_unbuilt_is_offered(self):
-        self.assertNotIn('library add', TEXT)
-        self.assertNotIn('library add', self.help)
+        self.assertIn('pixelate library add work/NAME', TEXT)
+        self.assertIn('pixelate library add', self.help)
         self.assertIn('manual pull request', section('The remix loop'))
         for tool in ('find_pieces', 'remix_piece', 'render_piece', 'deliver_piece'):
             self.assertIn(f'`{tool}`', TEXT)
-        self.assertNotIn('`add_piece`', TEXT)
+        self.assertIn('`add_piece`', TEXT)
+        self.assertIn('`trust_local_code=true`', TEXT)
         self.assertIn('render\'s distance-from-base or under-remixed warning, which is uncalibrated and never blocks', TEXT)
 
     def test_nothing_is_called_ready_or_approved(self):

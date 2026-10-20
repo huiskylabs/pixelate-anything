@@ -6,6 +6,8 @@ usage: check.py SCENE_DIR [--page]
                 [--actor actor_mask.png] [--used op,op] [--intent mask.png]
                 [--scene NAME] [--era ERA] [--brief brief.md [--image B]] [--budget 'RULE BOUND (reason)']
        check.py BLOCKIN.png --blockin [--scale N] [--brief brief.md [--image B]] [--style S]
+       --scale N is the factor the image is already enlarged by (a 512x448 file of a 256x224 screen is
+       --scale 2); a native-size image takes --scale 1, or the check reads it at 1/N size
        (--image B: a brief that serves several images reads the Hero, Planes and Gate override
         lines under its `## Image B` heading first, then its own)
        check.py TRACK.wav [--style S] [--use loop|showcase|song] [--bpm N] [--key K] [--sheet P]
@@ -424,8 +426,8 @@ def band_index(tag, n):
         return 0
     if tag == 'brightest':
         return n - 1
-    r = max(1, n - 1)
-    return {'dark': 0, 'mid': r // 2, 'light': r - 1}[tag]
+    r = max(1, n - 1)                       # the bands below the brightest; darkest owns index 0
+    return {'dark': 1 if n >= 4 else 0, 'mid': r // 2, 'light': r - 1}[tag]
 
 FOCUS_KEYS = ('focus_value', 'focus_contrast', 'focus_chroma', 'focus_rival', 'focus_size')
 
@@ -532,8 +534,12 @@ def _plan_lines(img, plan, hero, line, note, ovr, scale=1, blockin=False):
             m, share = cc.plane_value(img, v['box'], mask)
             if m is None:
                 m, share = cc.plane_value(img, v['box'])
-            d = m - v['L']
             name = v['name'] if len(v['name']) <= 16 else v['name'][:15] + '.'
+            if m is None:
+                line('FAIL', 'value ' + name, 'off frame', 'the box lies outside the %dx%d frame (is --scale the '
+                     'factor the image is already enlarged by?)' % (img.size[0], img.size[1]))
+                continue
+            d = m - v['L']
             bad = abs(d) > tol
             line('FAIL' if bad else 'PASS', 'value ' + name, 'L %.2f' % m, 'plan %.2f +- %.2f' % (v['L'], tol)
                  + (' override' if 'value' in ovr else ''))

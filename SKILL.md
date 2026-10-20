@@ -11,9 +11,9 @@ Every piece here is a program, drawn in code from a written style card. The defa
 
 ## The style loop
 
-Copy these steps into your todo list first; a skipped step stays as `skip: <reason>`.
+Copy these steps into your todo list; a skipped step stays as `skip: <reason>`.
 
-1. **Style.** `pixelate route "REQUEST"` proposes a style; weigh it against what the person means. `pixelate style NAME` prints the card: essence, what it is not, pitfalls, variation space, then the numbers. Done when you have picked one style and read its card.
+1. **Style.** `pixelate route "REQUEST"` proposes a style; weigh it against what the person means. `pixelate style NAME` prints the card: essence, what it is not, pitfalls, variation space, then the numbers. The request beats the card's defaults. Done when you have picked a style and read its card.
 2. **Brief.** `pixelate route "REQUEST" --brief STYLE -o brief.md`, fill every TODO with choices from the card's variation space, then `pixelate route --lint brief.md` until clean ([references/brief.md](references/brief.md)). Done when the lint is clean.
 3. **Find, for technique.** Only now `pixelate find "REQUEST"` (add `--mode scene|rebuild|era|assets|music`). Read the closest pieces' code for how things are drawn. A brief that names a piece it studied needs a `Differs from ID:` line naming four of subject, composition, camera, palette, light and motion ([not the reference](references/brief.md#not-the-reference)); the lint checks it. If the person asks for a variant of one piece, or `find` prints a piece whose `why` is the request itself, read [references/remix.md](references/remix.md) and remix that piece instead; if the person asks for a new library piece, go to [Author a new piece](#author-a-new-piece). Done when the lint is still clean.
 4. **Start.** `pixelate remix STARTER work/NAME --request "REQUEST"` with the mode's starter ([Modes](#modes)), or `pixelate remix PIECE ...` on the remix branch. `NAME` becomes the piece id: a lowercase slug, and the folder must not exist yet. Remix renders the unedited copy once and writes `REMIX.md`; a failing baseline creates nothing. Done when `work/NAME/REMIX.md` exists.
@@ -25,11 +25,11 @@ Copy these steps into your todo list first; a skipped step stays as `skip: <reas
 
 ## Variants
 
-`pixelate render DIR --set KNOB=VALUE` (repeatable) renders a variant from the knobs a piece declares, for script, engine and pack pieces ([references/piece.md](references/piece.md#knobs)). Of the library, only `starter-scene-loop` (`horizon`) and `starter-assets` (`scale`) declare knobs today. The report records the values given, not proof the program used them: render the variant and look.
+`pixelate render DIR --set KNOB=VALUE` (repeatable) renders a variant from the knobs a piece declares, for script, engine and pack pieces ([references/piece.md](references/piece.md#knobs)). Of the library, only `starter-scene-loop` (`horizon`) and `starter-assets` (`scale`) declare knobs today. The report records values, not proof the program used them: look.
 
 ## Author a new piece
 
-Author when the person asks for something new to keep, or the work is meant to become a library piece. The task picks the path, not the model's name. Read [references/authoring.md](references/authoring.md) and follow its ten steps there: intake, a brief the user approves, a greyscale block-in, one independent lead who owns every grade (one graded round per stage by default; specialists only observe), the gate, one still for the user's go/no-go and a confirmed animation plan before any motion. Begin from the starter `find` offered, if any.
+Author only when the person asks for something new to keep as a library piece; anything else takes the style loop. The task picks the path, not the model's name. Read [references/authoring.md](references/authoring.md) and follow its ten steps there: intake, a brief the user approves, a greyscale block-in, one independent lead who owns every grade (one graded round per stage by default; specialists only observe), the gate, one still for the user's go/no-go and a confirmed animation plan before any motion. Begin from the starter `find` offered, if any.
 
 ## Trust and evidence
 

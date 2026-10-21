@@ -30,7 +30,7 @@ A starter is a neutral placeholder piece, a place to begin. Copy one and replace
 | sprites, items, tiles | [assets.md](../guides/assets.md) | `starter-assets` | `pixelate new assets work/NAME` |
 | music alone | [music.md](../guides/music.md) | `starter-music` | `pixelate new music work/NAME` |
 
-`NAME` becomes the new piece id, so it is a lowercase slug and the folder must not exist yet. `new` only copies; `remix` runs the starter's own checked-in commands without a sandbox, as `pixelate render` does on either copy. Copy only checked-in starters, and never run contributed or user-supplied drawing code this way. `remix` also renders the unedited copy once and writes `REMIX.md` ([remix.md](remix.md)) on either path; read it for the anatomy table (which file draws what). Its plan is for remixing a finished piece, so from a starter skip it. Each guide names the worked examples for its mode.
+`NAME` becomes the new piece id, so it is a lowercase slug and the folder must not exist yet. `new` only copies; `remix` runs the starter's own checked-in commands without a sandbox, as `pixelate render` does on either copy. Copy only checked-in starters, and never run contributed or user-supplied drawing code this way. `remix` also renders the unedited copy once and writes `REMIX.md` ([remix.md](remix.md)) on either path; read it for the anatomy table (which file draws what). Its plan is for remixing a finished piece, so a starter's REMIX.md has none. Each guide names the worked examples for its mode.
 
 ## The ten steps
 

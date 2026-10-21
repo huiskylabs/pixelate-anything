@@ -140,19 +140,22 @@ def remix_md(manifest, base, baseline, baseline_sha):
                   for name, knob in manifest['knobs'].items()]
     else:
         lines += ['None declared: every change is an edit to a file the anatomy names.']
-    lines += ['', '## Plan', '', 'Fill this in before editing. For each aspect, say whether it stays or changes, '
-              'and how, and which anatomy file you will edit.', '',
-              '| Aspect | Base | Stays or changes | How, and which file |', '|---|---|---|---|']
-    lines += [f"| {aspect} | {cell(tags[source[5:]]) if source else ''} |  |  |" for aspect, source in ASPECTS]
-    lines += ['', 'What stays:', '', '- (fill in)', '', 'What changes:', '', '- (fill in)', '',
-              '## Checklist', '',
-              '- [ ] The plan above names what stays and what changes for every aspect.',
-              '- [ ] Change knob files first, then the files the anatomy names, then anything else.',
+    starter = base['status'] == 'starter'      # a starter is scaffolding to draw over: nothing of it stays
+    if not starter:
+        lines += ['', '## Plan', '', 'Fill this in before editing. For each aspect, say whether it stays or changes, '
+                  'and how, and which anatomy file you will edit.', '',
+                  '| Aspect | Base | Stays or changes | How, and which file |', '|---|---|---|---|']
+        lines += [f"| {aspect} | {cell(tags[source[5:]]) if source else ''} |  |  |" for aspect, source in ASPECTS]
+        lines += ['', 'What stays:', '', '- (fill in)', '', 'What changes:', '', '- (fill in)']
+    lines += ['', '## Checklist', '']
+    if not starter:
+        lines += ['- [ ] The plan above names what stays and what changes for every aspect.']
+    lines += ['- [ ] Change knob files first, then the files the anatomy names, then anything else.',
               '- [ ] `piece.json`: update `title`, `summary`, `tags`, `canvas`, each image output\'s `size`, `scale`, '
               '`style`, `era` and `scene`, and `anatomy` to what the piece now draws; keep `knobs` (`{}` when there '
               'are none). Tag values are fixed lists (references/piece.md); a wrong one fails the render.',
               '- [ ] `pixelate render DIR`: every image runs and passes the technical gate.']
-    if base['status'] != 'starter':              # a starter is scaffolding: render prints no distance from it
+    if not starter:                              # render prints no distance from a starter
         lines += ['- [ ] Read the distance from the base that render prints. An "under-remixed" WARNING is a '
               'non-blocking, uncalibrated heuristic, not a grade: look at the frame and check that what the request '
               'asks for, such as a new subject, is actually drawn. No warning does not make the remix good.']

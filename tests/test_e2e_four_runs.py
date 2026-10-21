@@ -151,6 +151,7 @@ class PieceTest(unittest.TestCase):
         self.assertIn('`canvas`, each image output\'s `size`, `scale`', text)
         self.assertIn('keep `knobs`', text)
         self.assertNotIn('Read the distance from the base', text)
+        self.assertNotIn('## Plan', text)                    # nothing of a starter stays
 
 
 if __name__ == '__main__':

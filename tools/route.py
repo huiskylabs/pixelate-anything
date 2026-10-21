@@ -907,7 +907,9 @@ BUCKET_LIGHT = {'night': "the scene's own lights (windows, lamps, the subject) a
 
 UNDERGROUND = ['mine', 'cave', 'underground', 'dungeon', 'tunnel', 'sewer', 'crypt', '矿', '洞', '地下', '地牢',
                '隧道', '下水道']
-INTERIOR = ['interior', 'inside', 'indoor', 'indoors', '室内', '屋内', '里面']   # always indoors
+INTERIOR = ['interior', 'indoor', 'indoors', '室内', '屋内']   # always indoors
+INSIDE = ['inside', '里面']          # indoors only when nothing in the request is outdoors (inside a cable car)
+NOT_A_ROOM = re.compile(r'\b(?:no |without |little |any )?interior (?:detail|details|lines?|shading)\b')
 ROOMS = ['bedroom', 'kitchen', 'living room', 'classroom', 'attic', '房间', '卧室', '厨房']
 # a bare 'room' only with an owner or a room adjective: 'clear room around it' and 'the lantern room' stay outside
 ROOM = re.compile(r'\b(?:a|the|my|his|her|their|our|cosy|cozy|small|tiny|little|empty|quiet|dark|messy|study|'
@@ -974,10 +976,12 @@ def time_weather(request, style):
         time, bucket = (when[0], when[1]) if when else (d_time, d_bucket)
         weather = sky[0] if sky else ('' if d_weather.split(':')[0] in ASKED_ONLY else d_weather)
         light = d_light if bucket == d_bucket else BUCKET_LIGHT[bucket]
+    t = NOT_A_ROOM.sub(' ', t)                    # 'no interior detail' describes a silhouette, not a room
     subject = _hits(t, OUTDOOR_SUBJECTS)
-    inside = _hits(t, INTERIOR) or ([] if subject else _hits(t, ROOMS) + ROOM.findall(t))
     place = _hits(t, PLACES)
-    outdoors = subject or _hits(t, OUTDOOR) or (sky and sky[0].split(':')[0] in PRECIP)
+    outdoors = subject or _hits(t, OUTDOOR) or (sky and re.match(r'\w+', sky[0]).group(0) in PRECIP)
+    inside = _hits(t, INTERIOR) or ([] if subject else _hits(t, ROOMS) + ROOM.findall(t)) or (
+        [] if outdoors else _hits(t, INSIDE))
     if inside or (place and not outdoors):
         return ('indoors%s: the room lit by its own lamps and one window showing %s outside' % (
             (' at ' + time if time in ('night', 'midnight', 'dusk', 'dawn', 'noon') else ', ' + time) if when else '',
@@ -987,6 +991,10 @@ def time_weather(request, style):
     if place and bucket in ('night', 'dusk'):
         text += "; seen from outside, the building's windows and door spill light onto the ground"
     return text, '/'.join(stated + (outdoors[:1] if place and isinstance(outdoors, list) else []))
+
+CROWD = ['crowd', 'crowds', 'crowded', 'bustling', 'throng', 'thronged', '人群', '人山人海', '熙熙攘攘', '挤满']
+CROWD_COUNT = re.compile(r'\b(?:over|more than|at least|about|some)\s+\d{2,}\s+(?:people|figures|villagers|'
+                         r'citizens|townsfolk|passengers)\b')
 
 SILENT = ['silent', 'no music', 'no sound', 'without music', 'without sound', 'mute', 'muted', 'no audio',
           '无声', '静音', '不要音乐', '没有音乐', '不要声音']
@@ -1004,15 +1012,33 @@ SOUND_BEDS = [(['storm', 'thunder', 'lightning', '暴风', '风暴', '雷'], 'ra
               (['sea', 'ocean', 'wave', 'waves', 'harbour', 'harbor', '海', '浪'], 'the sea'),
               (['wind', 'windy', '风'], 'wind')]
 
+def asked_line(request, *labels):
+    """the text of the request's own `Label: ...` line (`Music:`, `Palette:`, `音乐：`), or None: what the
+    request states there wins over the style card's default"""
+    for label in labels:
+        m = re.search(r'^\s*(?:[-*]\s*)?\**%s\**\s*[:：]\s*(.+?)\s*$' % label, request or '', re.M | re.I)
+        if m:
+            return m.group(1).rstrip('.。')
+    return None
+
 def music_line(request, style, era=None):
-    """the Music line for a scene brief: the style's direction (styles.STYLES[..]['music']), the console's
-    chip voices for an era piece, a sound bed from the request's weather; 'none' only when the request asks
-    for silence. Direction only: the agent writes the track, `pixelate check TRACK.wav` judges it."""
+    """the Music line for a scene brief: the request's own Music line, else the style's direction
+    (styles.STYLES[..]['music']), the console's chip voices for an era piece, a sound bed from the request's
+    weather; 'none' only when the request asks for silence. Direction only: the agent writes the track,
+    `pixelate check TRACK.wav` judges it."""
     t = _no_era(' ' + (request or '').lower() + ' ')
     hush = _hits(' ' + (request or '').lower() + ' ', SILENT)
     if hush:
         return 'none: the request asks for %s' % hush[0]
     m = styles.get(style)['music']
+    own = asked_line(request, 'Music', '音乐')
+    if own:
+        chip = ''
+        if era:
+            import era as eramod
+            chip = 'chiptune on the %s chip only (%s); ' % (eramod.ERAS[era]['name'], ERA_VOICES[era])
+        return ('%sthe request\'s own: %s. Direction only: write the track in code (guides/music.md); '
+                '`pixelate check TRACK.wav --style %s` judges it' % (chip, own, 'chiptune' if era else m['check']))
     bed = next((b for ws, b in SOUND_BEDS if _hits(t, ws)), None)
     if era:
         import era as eramod
@@ -1067,7 +1093,10 @@ def gaps(request, r=None, delivered=None, native_h=None):
         '(not Lantern Isle\'s four seasons again unless asked)' if st['name'] == 'lofi'
         else 'one phase, no cycle')
     named = _hits(t, WORDS['figures'] + ['slime', 'robot', 'samurai', '史莱姆', '武士', '机器人'])
+    crowd = _hits(t, CROWD) or CROWD_COUNT.search(t)
     add('figures', WORDS['figures'],
+        'the crowd the request asks for: every figure its own pose, colour and action, gathered in small story '
+        'vignettes, none stamped twice' if crowd else
         'only the actors the request names, nobody added' if named else
         'one or two small figures doing a quiet, specific task (%s)' % (
             _as_example(figure_size(st, native_h)[0]).replace('iso people', 'figures sized for the camera')
@@ -1166,9 +1195,9 @@ def lint(text):
                      'shape or size of its pool')
     sl = find('Style and light regime')
     if sl is not None:
-        if not re.search(r'\b(none|native|screen)\b|no light layer', sl):
+        if not re.search(r'\b(none|native|screen)\b|no light layer', sl, re.I):
             probs.append('Style and light regime does not name the light layer (none, native or screen)')
-        if not re.search(r'budget|L\s*[<>]|below L|above L', text):
+        if not re.search(r'budget|L\s*[<>]|below L|above L', text, re.I):
             probs.append('no value budget anywhere (how much of the frame is dark, how rare the highlights are)')
     hides_flagged = False
     if soft and li is not None and not re.search(r'hide|hidden|occlud|block|behind', li.lower()):
@@ -1232,7 +1261,8 @@ def lint(text):
 # sizes, positions and colour values are the artist's, decided while drawing and judged on the result
 DIRECTOR_SCENE = [
     '- Hero: TODO the one thing the eye lands on; peak value: TODO what alone holds the brightest values; '
-    'peak chroma: TODO what alone holds the top chroma (see references/drawing.md#composition).',
+    'peak chroma: TODO what alone holds the top chroma (see references/drawing.md#composition). Once drawn, its '
+    'box goes first on this line (section 11).',
     '- Story: TODO the moment in two or three sentences: who does what, what changes, how the loop closes.',
     '- Layout: TODO where the big things sit, in plain words (the tower top right, the pond in the centre, '
     'the path below it); no coordinates.',
@@ -2017,6 +2047,19 @@ def figure_size(st, h):
             '%d-%d px' % (round(int(m.group(3)) * f), round(tall * f)) if m.group(4) else '%d px' % round(tall * f))
     return st['figures'][:m.start()] + size + st['figures'][m.end():], f, round(tall * f)
 
+def _scaled_sizes(text, f, note=True):
+    """a card rule's figure sizes (20-30 px, 13x26) scaled by native height f, as figure_size() scales the
+    figure line, so the brief states one size"""
+    if abs(f - 1) <= 0.05:
+        return text
+    def one(m):
+        if m.group(1):
+            return '%dx%d' % (round(int(m.group(1)) * f), round(int(m.group(2)) * f))
+        return ('%d-%d px' % (round(int(m.group(3)) * f), round(int(m.group(4)) * f)) if m.group(4)
+                else '%d px' % round(int(m.group(3)) * f))
+    out = FIG_SIZE.sub(one, text)
+    return out.rstrip('.') + ' (scaled to this canvas, as section 11 says).' if note else out
+
 def _figure_lines(st, h, scale, framed=None):
     """the figure size for this canvas: the style's size is for its own canvas height, scaled by native
     height, plus how tall the hero is on screen"""
@@ -2132,10 +2175,14 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
             E.get('palette', era), E['max_colors'], ', shared backdrop' if E.get('shared_backdrop') else ''))
         hx = _palette_hexes(E.get('palette'))
         if hx and len(hx) <= 16:
-            L.append('- Palette `palettes/%s.hex`, darkest first as listed: %s (copy these; never from memory).' % (
-                E['palette'], ', '.join(hx)))
+            L.append('- Palette `palettes/%s.hex`, darkest first as listed: %s (copy these; never from memory)%s.' % (
+                E['palette'], ', '.join(hx), ('; or the one-hue ramp of %d shades the request asks for, which the era '
+                                              'check also takes' % E['max_colors']) if E.get('ramp') else ''))
     else:
-        L.append('- Ramps: `%s`. Palette: %s.' % (', '.join(st['ramp']), st['palette']))
+        own = asked_line(request, 'Palette', '配色', '调色板')
+        L.append('- Ramps: `%s`. Palette: %s.' % (', '.join(st['ramp']), (
+            'the request\'s own: %s (the card\'s %s is only its default)' % (own, st['palette']) if own
+            else st['palette'])))
     L.append('- Outline: %s. Dither: %s.' % (st['outline'], (', '.join(st['dither']) + ', ' + st['dither_where']) if st['dither'] else 'none'))
     L.append('- Learn the grammar only: no characters, places, logos or UI layouts from the work the style was measured '
              'on or any game the request names. TODO name anything else to avoid '
@@ -2150,6 +2197,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
             x = rule
         if lightless and lightless.search(x):
             continue
+        if re.match(r'(?:figures|people)\b', x, re.I):
+            x = _scaled_sizes(x, h / st['size'][1])
         L.append('- ' + (x.replace('3.3-head iso figures', 'figures scaled for depth') if screen_camera else x))
     L.append('- TODO 3-5 rules for this scene: which silhouettes must read, where rims fall, the built-in imperfections '
              '(a lean, a sag, a missing plank, a mismatched part) (see references/drawing.md#drawing-objects; run '
@@ -2293,11 +2342,12 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
             w, h, N, DW, DH,
             'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
-    if E and not precise:
+    if not precise:
         L.append('- Gate lines, measured after drawing (not a plan): give the Hero line the drawn hero\'s box, '
-                 '`- Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`, and add `- Sprites: NAME '
-                 '[x0,y0,x1,y1], ...` for the actors drawn as hardware sprites, so the gate\'s focus and %s sprite '
-                 'checks run; the brief stays directed.' % E['name'])
+                 '`- Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`, so the gate\'s focus '
+                 'checks run on the hero%s; the brief stays directed.' % (
+                     (', and add `- Sprites: NAME [x0,y0,x1,y1], ...` for the actors drawn as hardware sprites, so its '
+                      '%s sprite checks run' % E['name']) if E else ''))
     L += [line.replace('iso people', 'figures adapted to the camera') if screen_camera else line
           for line in _figure_lines(st, h, N)]
     if E:
@@ -2323,8 +2373,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'allows more (see references/delivery.md#art-director).')
     L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
              '(see references/delivery.md#still and references/delivery.md#animation-plan).')
-    style_tools = [x for x in r['tools'] if not (screen_camera and re.search(
-        r'\biso\b|iso_|compose\.(?:populate|strips)', x, re.I)) and not (lightless and lightless.search(x))]
+    style_tools = [_scaled_sizes(x, h / st['size'][1], note=False) if re.search(r'figures?\b', x) else x
+                   for x in r['tools'] if not (screen_camera and re.search(
+                       r'\biso\b|iso_|compose\.(?:populate|strips)', x, re.I)) and not (lightless and lightless.search(x))]
     L.append('\nTechniques for this style: ' + '; '.join(style_tools) + '.')
     tt = topic_tools(request, st['name'], proj, era)
     if tt:
@@ -2656,7 +2707,7 @@ def main(a):
             print(text)
         return 0
     print('request: %s' % req)
-    when = 'read it now for the limits the brief needs' if r['mode'] == 'era' else 'it is for drawing, step 6'
+    when = 'read it now for the limits the brief needs' if r['mode'] == 'era' else 'it is for drawing, step 5'
     print('mode: %s (%s: %s)%s' % (r['mode'], r['guide'], when, '' if r['mode'] == 'scene' else ', then a style for the finish'))
     for i, p in enumerate(r['picks']):
         st = styles.get(p['style'])

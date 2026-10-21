@@ -3,18 +3,21 @@
 that holds an image to them (or forces it into them).
 
 usage: era.py IMAGE --era nes|gameboy|snes|genesis|gba|pico-8|neogeo|cga [-o OUT] [--scale 4]
-              [--layer bg|full|sprite|fix] [--tiles]
+              [--layer bg|full|sprite|fix] [--tiles [--limit N]]
        era.py --list
 
 Without -o it reports. With -o it also writes OUT (the image made legal) and OUT@Nx.png.
---tiles also counts the unique background tiles (run it on the background-only render).
+--tiles also counts the unique background tiles and prints the count (run it on the background-only
+render); --limit N holds them to a tighter budget than the hardware's (a request's own 192).
 Sprite limits need the sprite boxes, so they are checked from Python: era.check_sprites(boxes, 'nes').
 
 What each preset holds you to:
   nes      256x224, the 2C02 master palette (54 colours), at most 25 on screen;
            backgrounds: every 16x16 attribute block uses one 3-colour sub-palette plus the shared
            backdrop (4 colours); sprites: 3 colours + transparent.
-  gameboy  160x144, 4 shades of green, everything.
+  gameboy  160x144, 4 shades of one ramp, everything: the DMG drew four grey levels and its screen
+           tinted them, so the default palette is the DMG's green and any one-hue ramp of four (the
+           Pocket's greys, a green-grey) passes too.
   snes     256x224, 15-bit colour (5 bits per channel), 256 on screen, 16 colours per 8x8 tile.
   genesis  320x224, 9-bit colour (3 bits per channel), 61 on screen, 16 per 8x8 tile.
   gba      240x160, 15-bit colour, 256 on screen, 16 per 8x8 tile.
@@ -41,7 +44,8 @@ import colorlib as cl
 ERAS = {
     'nes':     dict(name='NES-style 8-bit', size=(256, 224), palette='nes', max_colors=25, block=16, block_colors=4,
                     shared_backdrop=True, sprite_colors=3),
-    'gameboy': dict(name='Game Boy-style', size=(160, 144), palette='gameboy', max_colors=4, block=8, block_colors=4),
+    'gameboy': dict(name='Game Boy-style', size=(160, 144), palette='gameboy', max_colors=4, block=8, block_colors=4,
+                    ramp=True),
     'snes':    dict(name='SNES-style 16-bit', size=(256, 224), bits=5, max_colors=256, block=8, block_colors=16),
     'genesis': dict(name='Mega Drive-style 16-bit', size=(320, 224), bits=3, max_colors=61, block=8, block_colors=16),
     'gba':     dict(name='GBA-style', size=(240, 160), bits=5, max_colors=256, block=8, block_colors=16),
@@ -97,6 +101,16 @@ def palette_rgb(era):
         return np.array([cl.hex_to_rgb(h) for h in cl.palette_list(cl.load_palette(e['palette']))], float)
     return None
 
+def one_ramp(cols, hue_span=40.0, step=0.08):
+    """True when colours are one ramp of a single hue, the way a Game Boy screen tints its four grey
+    levels: lightness steps of at least `step` (OKLab) and every coloured one within `hue_span` degrees"""
+    lab = cl.rgb_to_oklab(np.asarray(cols, float).reshape(-1, 3))
+    if len(lab) > 1 and np.diff(np.sort(lab[:, 0])).min() < step:
+        return False
+    C = np.hypot(lab[:, 1], lab[:, 2])
+    h = np.degrees(np.arctan2(lab[:, 2], lab[:, 1]))[C > 0.03]
+    return len(h) < 2 or float(np.abs((h[:, None] - h[None, :] + 180) % 360 - 180).max()) <= hue_span
+
 def check(img, era, layer='full', sprites=None, tiles=False):
     """problems with this image under the era's rules (layer 'bg' also applies the
     per-block rule; sprites over a background are exempt from it). sprites: the frame's sprite boxes
@@ -115,8 +129,11 @@ def check(img, era, layer='full', sprites=None, tiles=False):
     pal = palette_rgb(era)
     if pal is not None and len(cols):
         off = [c for c in cols if not (np.abs(pal - c).sum(1) == 0).any()]
+        if off and e.get('ramp') and one_ramp(cols):
+            off = []                 # any one-hue ramp: the hardware drew grey levels, the screen tinted them
         if off:
-            issues.append('%d colours outside the %s palette' % (len(off), e['name']))
+            issues.append('%d colours outside the %s palette%s' % (len(off), e['name'], (
+                ' (or any one-hue ramp of %d shades)' % e['max_colors']) if e.get('ramp') else ''))
     if 'bits' in e and len(cols):
         step = 255 / (2 ** e['bits'] - 1)
         off = int((np.round(np.round(cols / step) * step) != cols).any(1).sum())   # what enforce's snap gives
@@ -339,8 +356,16 @@ def main(argv):
     tiles = '--tiles' in argv
     if tiles: argv.remove('--tiles')
     era, out, scale, layer = opt('--era', 'nes'), opt('-o'), int(opt('--scale', '4')), opt('--layer', 'full')
+    limit = opt('--limit')
     img = Image.open(argv[0])
-    issues, n = check(img, era, layer, tiles='pattern' if tiles else False)
+    issues, n = check(img, era, layer)
+    if tiles:
+        e = ERAS[era]
+        t_issues, nt = check_tiles(img, era, limit=int(limit) if limit else None, by='pattern')
+        issues += t_issues
+        print('%d unique %dx%d background tiles, limit %s%s' % (
+            nt, e.get('tile') or 8, e.get('tile') or 8, limit or e.get('bg_tiles'),
+            ' (yours; the hardware holds %s)' % e.get('bg_tiles') if limit else ''))
     print('%s: %d colours; %s' % (ERAS[era]['name'], n, 'legal' if not issues else '; '.join(issues)))
     if out:
         fixed = enforce(img, era, layer)

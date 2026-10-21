@@ -547,10 +547,15 @@ def terms(value):
     return found
 
 
+# a photo inside the scene (a couple taking a photo) is no reference to rebuild, as in route.PHOTO_IN_SCENE
+PHOTO_IN_SCENE = re.compile(r'\b(?:tak(?:e|es|ing)|snap(?:s|ping)?|pos(?:e|es|ing) for) (?:a |an |their |his |her )?'
+                            r'(?:photo|picture|selfie)s?\b')
+
+
 def query_tags(request, mode=None):
     """Conservative router-style explicit signals; generic phrases never fabricate a match."""
     text(request, 'request')
-    lower = request.lower()
+    lower = PHOTO_IN_SCENE.sub(' ', request.lower())
     def phrase(word):
         return bool(re.search(r'(?<![a-z0-9])' + re.escape(word) + r'(?![a-z0-9])', lower))
     detected = mode or next((m for m, terms in (
@@ -873,8 +878,9 @@ def find_main(argv=None):
     for rank, match in enumerate(result['matches'], 1):
         print(f"{rank}. {match['id']} ({match['status']}, score {match['score']})")
         print('   why: ' + ', '.join(match['why']))
-        if match['differs']:
-            print('   differs: ' + ', '.join(match['differs']))
+        if match['differs']:              # a long request leaves many words unmatched: the first few say enough
+            more = len(match['differs']) - 8
+            print('   differs: ' + ', '.join(match['differs'][:8]) + (f' and {more} more (--json lists all)' if more > 0 else ''))
     fallback = result['fallback']
     print('fallback: ' + (f"starter {', '.join(fallback['ids'])}" if fallback['kind'] == 'starter'
                           else fallback['reason']))

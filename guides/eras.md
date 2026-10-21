@@ -21,7 +21,7 @@ game. Invent the hero, the place and the title. `library/retro-screens` shows th
 | era | screen | colour | the rules that shape the look |
 |---|---|---|---|
 | `nes` | 256x224 | the 2C02 master palette (`palettes/nes.hex`, 54 colours), 25 on screen | background: each 16x16 block uses one 3-colour sub-palette plus a shared backdrop (4 colours); sprites: 3 colours + transparent, layered for more |
-| `gameboy` | 160x144 | 4 shades | everything in 4 shades; contrast does all the work |
+| `gameboy` | 160x144 | 4 shades of one ramp (`palettes/gameboy.hex`, or any one-hue ramp) | everything in 4 shades; contrast does all the work |
 | `snes` | 256x224 | 15-bit colour, 256 on screen | 16 colours per 8x8 tile |
 | `genesis` | 320x224 | 9-bit colour, 61 on screen | 16 colours per 8x8 tile |
 | `gba` | 240x160 | 15-bit colour, 256 on screen | 16 colours per 8x8 tile |
@@ -39,6 +39,19 @@ game. Invent the hero, the place and the title. `library/retro-screens` shows th
   - Give each layer a period that divides the loop, so the screen loops exactly.
 
 **Game Boy-style**
+- **Shades:** four shades of one ramp. `palettes/gameboy.hex` is the DMG's green; the era check takes
+  any one-hue ramp of four (the Pocket's greys, a green-grey), so use the request's.
+- **Build the background from tiles.** Unique 8x8 tiles are the budget (256 on the hardware, often
+  fewer in a request), and one stray pixel makes a tile unique:
+  1. Draw a small tile set first, by role: sky (flat, the dither band, cloud edges), ground and rock
+     (2-3 fills plus edges and corners), the building (wall, roof course, window, door, trim), water
+     (2-3 wave tiles), and a few one-off tiles for the story spots.
+  2. Lay the screen as a 20x18 map of those tiles; props that move and the actors are sprites on top.
+  3. Count after every pass: `pixelate era BG.png --era gameboy --tiles --limit N` on the background
+     alone prints the count. Reuse before adding: flat areas cost one tile, shift a pattern by whole
+     tiles, and gather detail into a few spots. The DMG map cannot flip tiles, so a mirror costs one more.
+- **Sprites:** 3 shades plus transparent, 10 per scanline and 40 on screen; the gate counts 8x8 cells
+  from the brief's `- Sprites:` line, an upper bound (the 8x16 mode halves the total).
 - **The 3/4 RPG view** (`guides/rebuild.md`, the `topdown` camera):
   - flat roofs from above, in the lightest shade;
   - fronts facing you, a shade down;
@@ -48,4 +61,4 @@ game. Invent the hero, the place and the title. `library/retro-screens` shows th
 
 **Retargeting a scene to an era.** Any scene can be pushed into an era: `era.enforce` snaps it to the palette and cuts colours. Night scenes need more than snapping, because nearest colours turn dark greys brown or teal. Map everything that is not a light onto an era-appropriate ramp by lightness (an NES night is black, deep blue, indigo, periwinkle), and snap only the lights. `library/retro-screens/art/title_screen.py` does this.
 
-**Check it.** Run `pixelate era OUT.png --era nes`. For background-only layers, add `--layer bg` to apply the per-block rule.
+**Check it.** Run `pixelate era OUT.png --era nes`. For background-only layers, add `--layer bg` to apply the per-block rule, and `--tiles` (with `--limit N` for a request's own budget) to count the unique tiles.

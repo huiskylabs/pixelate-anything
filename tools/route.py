@@ -450,8 +450,12 @@ def route(request, n=3):
             if ROUTE[name]['projection'] == proj:
                 scores[name][0] += 2
     mode, best = 'scene', 0
+    tm = _mode_text(request)
+    scene_ask = _hits(tm, SCENE_ASK)
     for m, w, words in MODES:
-        h = _hits(t0, words)
+        if m == 'assets' and scene_ask:
+            words = [x for x in words if x not in WEAK_ASSET_WORDS]
+        h = _hits(tm, words)
         if h and w * len(h) > best:
             mode, best = m, w * len(h)
     if mode == 'era':                                # console limits: no light layer on top
@@ -811,9 +815,9 @@ def catalog():
     L += ['', '## Always', '', ALWAYS_TOOLS[0].upper() + ALWAYS_TOOLS[1:] + '.']
     return '\n'.join(L) + '\n'
 
-def _fits(cond, style, projection):
+def _fits(cond, style, projection, era=None):
     if cond.startswith('!'):
-        return not _fits(cond[1:], style, projection)
+        return not _fits(cond[1:], style, projection, era)
     if cond.startswith('style:'):
         return styles.get(style)['name'] == cond[6:]
     st = styles.get(style)
@@ -830,13 +834,13 @@ def _fits(cond, style, projection):
     if cond == 'bayer':
         return 'bayer4' in st['dither']
     if cond.startswith('post:'):
-        return styles.allows(style, cond[5:])
+        return not era and styles.allows(style, cond[5:])
     return True
 
-def topic_tools(request, style=None, projection=None):
+def topic_tools(request, style=None, projection=None, era=None):
     """-> ['label: call, call, ...'] for the subjects the request names, filtered to what the style
-    and projection allow (a banned light op or an iso-only prop is left out); console-era phrases
-    ('Game Boy', '8-bit') are taken out first"""
+    and projection allow (a banned light op or an iso-only prop is left out; with an era, every light
+    op); console-era phrases ('Game Boy', '8-bit') are taken out first"""
     t = _no_era(' ' + request.lower() + ' ')
     out = []
     for words, label, items in TOPIC_TOOLS:
@@ -845,7 +849,7 @@ def topic_tools(request, style=None, projection=None):
         keep = []
         for it in items:
             if isinstance(it, tuple):
-                if style is None or _fits(it[1], style, projection or ROUTE[style]['projection']):
+                if style is None or _fits(it[1], style, projection or ROUTE[style]['projection'], era):
                     keep.append(it[0])
             else:
                 keep.append(it)
@@ -929,9 +933,25 @@ def _strip(t, words):
             t = t.replace(w, ' ')
     return t
 
+# hardware phrases in an era request: a tile grid is the console's drawing unit, not a tactics board
+HARDWARE_WORDS = ['tile grid', 'sprite grid', 'tile map', 'tilemap', 'map is built from tiles']
+
 def _no_era(t):
-    """the request with its console-era phrases removed, so 'Game Boy' is neither a boy nor a game level"""
-    return _strip(t, [w for _, ws in ERA_WORDS for w in ws] + MODES[1][2])
+    """the request with its console-era phrases removed, so 'Game Boy' is neither a boy nor a game level
+    and an 8x8 tile grid is no strategy board"""
+    t = re.sub(r'\b\d+\s*x\s*\d+ (?:pixel )?grid\b', ' ', t)      # 'a 320x200 grid': the screen's pixels
+    return _strip(t, [w for _, ws in ERA_WORDS for w in ws] + MODES[1][2] + HARDWARE_WORDS)
+
+# A photo inside the scene (a couple taking a photo) is no reference to rebuild, and a scene's walk
+# cycles or items do not make the request an asset sheet when it asks for a loop or a scene.
+PHOTO_IN_SCENE = re.compile(r'\b(?:tak(?:e|es|ing)|snap(?:s|ping)?|pos(?:e|es|ing) for) (?:a |an |their |his |her )?'
+                            r'(?:photo|picture|selfie)s?\b')
+WEAK_ASSET_WORDS = ('items', 'walk cycle', '道具', '行走')
+SCENE_ASK = ['pixel-art loop', 'pixel art loop', 'animated loop', 'seamless loop', 'scene', 'diorama', '场景']
+
+def _mode_text(request):
+    """the request as the mode words read it"""
+    return PHOTO_IN_SCENE.sub(' ', ' ' + (request or '').lower() + ' ')
 
 def time_weather(request, style):
     """-> (text, stated): the time and weather line. The request's own words come first (night, storm,
@@ -1007,10 +1027,12 @@ def music_line(request, style, era=None):
             '`pixelate check TRACK.wav --style %s` judges it' % (
                 voices, feel, ('; under a bed of %s' % bed) if bed else '', sync, check))
 
-def loop_default(style):
-    """the loop line for a non-lofi style: the length comes from the story beats, the style's default
-    only when nothing in the scene needs longer"""
+def loop_default(style, asked=None):
+    """the loop line for a non-lofi style: the length the request states (asked frames), else from the
+    story beats, the style's default only when nothing in the scene needs longer"""
     st = styles.get(style)
+    if asked:
+        return 'a seamless loop of %d frames at %d fps, the length the request asks for' % (asked, st['fps'])
     frames = ROUTE[st['name']]['frames'][0]
     return ('a seamless loop at %d fps, its length set by the story beats: the longest action (a crossing, a lap '
             'of the procession, a door opening and closing) rounded up to a length every period divides%s' % (
@@ -1051,8 +1073,9 @@ def gaps(request, r=None, delivered=None, native_h=None):
             _as_example(figure_size(st, native_h)[0]).replace('iso people', 'figures sized for the camera')
             if camera_override else _as_example(figure_size(st, native_h)[0])))
     loop = ('the engine\'s 30-tick clock, sprites at 10, 5 or 2 fps; the loop is the music\'s length'
-            if st['name'] == 'lofi' else loop_default(st['name']))
-    excerpt = 'a GIF excerpt' if st['res'] == 'none' else 'an APNG excerpt (a GIF bands soft light)'
+            if st['name'] == 'lofi' else loop_default(st['name'], frames_of(request)))
+    excerpt = ('a GIF excerpt' if st['res'] == 'none' or r.get('era') else
+               'an APNG excerpt (a GIF bands soft light)')
     add('purpose and outputs', WORDS['purpose'],
         'a gallery showcase: %s, as %s MP4, %s and a still' % (
             loop, ('a %dx%d' % delivered) if delivered else '1080p', excerpt))
@@ -1220,9 +1243,12 @@ DIRECTOR_SCENE = [
 ]
 
 def _precise(text):
-    """a brief planned to the pixel: it carries [x0,y0,x1,y1] boxes or a Hero box"""
-    return bool(re.search(r'\[\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\]', text) or
-                re.search(r'^\s*[-*]\s+\**Hero\**\s*:\s*\d+\s*,\s*\d+', text, re.M | re.I))
+    """a brief planned to the pixel: [x0,y0,x1,y1] boxes on its plan lines (Layout, Masses, Value, Key,
+    Calm). A Hero box and a Sprites line alone are not a plan: a directed brief adds them after drawing,
+    measured, so the gate's focus and sprite checks run"""
+    box = re.compile(r'\[\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\]')
+    return any(box.search(line) and not re.match(r'\s*[-*]\s+\**(?:Hero|Sprites)\b', line, re.I)
+               for line in text.splitlines())
 
 def _director_scene(sc):
     """a directed scene names its hero and what must read"""
@@ -1618,8 +1644,9 @@ def lint_short(text):
     probs += _tool_refs(text)
     return probs
 
-RATE = (r'\d+\s*(?:frames?|fps|ticks?|drawings?|px|cycles?|s\b|seconds?|beats?|bpm)|every\s+\d+|hold\s*=?\s*\d+'
-        r'|\bx\s*\d+|\d+\s*x\b|per (?:loop|frame|tick|second)|\bstill\b|static|\bnone\b|frame\s+\d+|\d+\s*/\s*s')
+RATE = (r'\d+\s*-?\s*(?:frames?|fps|ticks?|drawings?|px|cycles?|s\b|seconds?|beats?|bpm)|every\s+\d+|hold\s*=?\s*\d+'
+        r'|\bx\s*\d+|\d+\s*x\b|per (?:loop|frame|tick|second)|\bstill\b|static|\bnone\b|frames?\s+\d+|\d+\s*/\s*s'
+        r'|period\s+(?:of\s+)?\d+')
 COLOUR = (r'#[0-9a-f]{3,6}|\b(?:amber|orange|red|yellow|gold|golden|lemon|cream|white|warm|cool|cold|teal|cyan|blue|'
           r'navy|green|magenta|pink|rose|violet|purple|plum|honey|ochre|copper|brass|tint|hue|colou?r|lilac|peach|'
           r'apricot|coral|umber|grey|gray|silver|turquoise|candle|hearth|fire|moon|sun|slots?|ramp)\w*')
@@ -1910,6 +1937,41 @@ def size_of(text):
     t = ' ' + (text or '').lower() + ' '
     return next((v for k, v in SIZE_WORDS.items() if _hit(t, k)), None)
 
+_XSCALE = re.compile(r'\((\d{1,2})x\b|\b(\d{1,2})x\s+nearest|\b(?:at|scaled)\s+(\d{1,2})x\b', re.I)
+_NATIVE = re.compile(r'\bnative\s+(\d{2,4})\s*x\s*(\d{2,4})\b', re.I)
+_FRAMES = re.compile(r'\((\d+) frames at \d+(?:\.\d+)?\s*s\)|\b(\d+)[\s-]*frames?\s+loop|\bloop of (\d+) frames', re.I)
+
+def _first(rx, text):
+    m = rx.search(text or '')
+    return int(next(g for g in m.groups() if g)) if m else None
+
+def scale_of(text):
+    """the first whole scale a request states ('(2x)', '2x nearest', 'at 3x', 'scaled 2x') -> int or None"""
+    s = _first(_XSCALE, text)
+    return s if s and s >= 1 else None
+
+def native_of(text):
+    """the native canvas a request states ('native 384x216') -> (w, h) or None"""
+    m = _NATIVE.search(text or '')
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+def frames_of(text):
+    """the loop length in frames a request states ('(60 frames at 5 s)', 'a 48-frame loop') -> int or None"""
+    return _first(_FRAMES, text)
+
+def asked_delivery(text, size=None, scale=None):
+    """(size, scale) for a brief: what was passed wins; otherwise the request's own native canvas and
+    scale ('native 384x216 ... (2x)' -> 768x432 at 2x), then a screen-sized WxH it names"""
+    if size or scale:
+        return size, scale
+    s, n = scale_of(text), native_of(text)
+    if s and n:
+        return (n[0] * s, n[1] * s), s
+    size = size_of(text)
+    if s and size and (size[0] % s or size[1] % s):
+        size = None
+    return size, s
+
 def delivery(style, size=None, scale=None, era=None):
     """-> (w, h, scale, W, H): the native canvas, the whole scale and the delivered picture. size is the
     delivered (W, H): with a scale the canvas is size / scale; without one the scale is the whole divisor
@@ -1965,6 +2027,11 @@ def _figure_lines(st, h, scale, framed=None):
     if abs(f - 1) > 0.05:
         L.append('- That size is already scaled from the style\'s %dx%d canvas to this %d-row one (x%.2f by native '
                  'height).' % (st['size'][0], st['size'][1], h, f))
+    need = -(-MIN_HERO_PX // scale)
+    if tall < need:
+        L.append('- At %dx that figure is only %d px tall, under the %d px a hero needs: draw a hero figure at least '
+                 '%d native rows tall, keeping the style\'s proportions.' % (scale, tall * scale, MIN_HERO_PX, need))
+        tall = need
     L.append('- On screen the hero is about %d px tall (%d native rows x %d); in a collage cell or a small embed it '
              'stays at least %d px tall at the delivered cell size (see references/drawing.md#characters).' % (
                  tall * scale, tall, scale, MIN_HERO_PX))
@@ -2014,7 +2081,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         import era as eramod
         E = eramod.ERAS[era]
     frames, fps = r['frames'][0], st['fps']
-    rebuild = bool(_hits(' ' + request.lower() + ' ', MODES[0][2]))
+    asked = frames_of(request)
+    frames = asked or frames
+    rebuild = bool(_hits(_mode_text(request), MODES[0][2]))
     stated, _, excluded = camera_intent(request)
     proj = projection or stated or ('inspect reference' if rebuild else
                                    'choose camera' if r['projection'] in excluded else r['projection'])
@@ -2022,6 +2091,11 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     light = {'none': 'no light layer: light is palette steps (warm slots, rims, a few highlight pixels)',
              'native': 'a light layer computed per art pixel from the scene\'s masks, scaled up last (post.Post(res="native"))',
              'screen': 'a light layer smooth inside each art pixel, composited at delivery size (post.Post(res="screen"))'}[st['res']]
+    if E:
+        light = ('no light layer: the %s screen has none, so light and shade are palette steps, and any blending '
+                 'the request allows is done by hand in the scene\'s own code' % E['name'])
+    # an era frame takes no light op, so the style's rules and tools that need one are left out
+    lightless = re.compile(r'post\.|translucent|bloom|glow|halo', re.I) if E else None
     L = []
     L.append('# TODO title (scene brief)\n')
     L.append('Request: %s\n' % (request or 'TODO'))
@@ -2037,18 +2111,22 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         L.append('- Loop: the engine runs on a 30-tick clock (TICKS = cycle * grand * 30); sprites step at 10, 5 '
                  'or 2 fps; TODO the loop length (the music length for a stream cover; see references/drawing.md#motion).')
     else:
-        L.append('- Loop: TODO the length at %d fps from the story beats: list the beats with their frame counts; '
-                 'the loop is the longest action (a crossing, a lap of the procession, a door cycle) rounded up so '
-                 'every period divides it (anim.check_periods)%s (see references/drawing.md#motion).%s' % (
-                     fps, ('; %d frames is the fallback when nothing needs longer' % frames) if frames else '',
-                     ' Delivered prescaled (screen light); excerpts as APNG, since a GIF bands soft light.'
-                     if st['res'] == 'screen' else ' Excerpts as APNG (soft light bands in a GIF).'
-                     if st['res'] == 'native' else ''))
+        apng = ('' if E else ' Delivered prescaled (screen light); excerpts as APNG, since a GIF bands soft light.'
+                if st['res'] == 'screen' else ' Excerpts as APNG (soft light bands in a GIF).' if st['res'] == 'native' else '')
+        if asked:
+            L.append('- Loop: %d frames at %d fps, the length the request asks for; TODO list the story beats with '
+                     'their frame counts; every period divides it (anim.check_periods) (see '
+                     'references/drawing.md#motion).%s' % (frames, fps, apng))
+        else:
+            L.append('- Loop: TODO the length at %d fps from the story beats: list the beats with their frame counts; '
+                     'the loop is the longest action (a crossing, a lap of the procession, a door cycle) rounded up so '
+                     'every period divides it (anim.check_periods)%s (see references/drawing.md#motion).%s' % (
+                         fps, ('; %d frames is the fallback when nothing needs longer' % frames) if frames else '', apng))
     L.append('\n## 2. Style and light regime')
     L.append('- Style `%s`: %s.%s' % (
         st['name'], st['what'], ' Use its finish, not its geometry; the camera below controls the drawing.'
         if screen_camera else ''))
-    L.append('- Light: %s; blend %s.' % (light, ', '.join(st['blend']) or 'none'))
+    L.append('- Light: %s; blend %s.' % (light, 'none' if E else ', '.join(st['blend']) or 'none'))
     if E:
         L.append('- Ramps: 3-4 steps picked by hand from the %s palette. Palette: at most %d colours%s.' % (
             E.get('palette', era), E['max_colors'], ', shared backdrop' if E.get('shared_backdrop') else ''))
@@ -2066,18 +2144,20 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     for rule in r['rules']:
         if isinstance(rule, tuple):
             x, condition = rule
-            if not _fits(condition, st['name'], proj):
+            if not _fits(condition, st['name'], proj, era):
                 continue
         else:
             x = rule
+        if lightless and lightless.search(x):
+            continue
         L.append('- ' + (x.replace('3.3-head iso figures', 'figures scaled for depth') if screen_camera else x))
     L.append('- TODO 3-5 rules for this scene: which silhouettes must read, where rims fall, the built-in imperfections '
              '(a lean, a sag, a missing plank, a mismatched part) (see references/drawing.md#drawing-objects; run '
              '`pixelate style %s` for the style\'s rules).' % st['name'])
     L.append('- Silhouette keys: TODO for each must-read object, the 2-3 features that make it that thing and its '
              'nearest misread (a kite: tall diamond, visible spars, no belly band; not an envelope); crowds in 3 or '
-             'more poses, gathered in vignettes. Each of these objects also gets a Key line in section 4 (its box '
-             'and how it reads).')
+             'more poses, gathered in vignettes.%s' % (' Each of these objects also gets a Key line in section 4 '
+                                                       '(its box and how it reads).' if precise else ''))
     L.append('- Light direction: TODO where the one key light comes from; every rim, lit side and shadow follows it.')
     L.append('- Wind: TODO its direction and strength, or none; every lean, trail, smoke and drift follows it.')
     L.append('- Every object is drawn in this scene\'s code from the primitives; anything the kit has no primitive for '
@@ -2158,7 +2238,7 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              'music does in it (see references/drawing.md#phases and references/drawing.md#palette).')
     L.append('- Music: %s.' % music_line(request, st['name'], era))
     L.append('\n## 7. Light list')
-    if st['res'] == 'none':
+    if st['res'] == 'none' or E:
         L.append('- Every light is drawn: TODO each emitter with its warm slots, the pool shape it casts, its flicker table '
                  '(see references/drawing.md#light; run `pixelate tools lamp --style %s`).' % st['name'])
     else:
@@ -2167,6 +2247,7 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                  '(see references/drawing.md#light; run `pixelate tools lamp --style %s`).' % st['name'])
         L.append('- Allowed light ops: %s.' % (', '.join(st['allowed_post']) or 'none'))
     L.append('\n## 8. Motion table' + ('' if st['name'] == 'lofi' or not frames else
+                                       ' (%d frames at %d fps)' % (frames, fps) if asked else
                                        ' (TODO the loop length from section 1, frames at %d fps)' % fps))
     L.append('- Motion: %s at about %d fps; every period divides the loop (anim.check_periods).' % (
         'stepped, hold tables' if st['motion'] == 'stepped' else 'actors move in screen pixels', fps))
@@ -2183,7 +2264,9 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
     for x in r['never']:
         L.append('- ' + x + '.')
     banned = [b for b in st['banned_post'] if b not in ('vignette', 'grain', 'scanlines', 'aberration')]
-    if banned:
+    if E:
+        L.append('- Any light op or blend on the frame: the %s screen has no light layer.' % E['name'])
+    elif banned:
         L.append('- Banned light ops: %s.' % ', '.join(banned))
     L.append('- TODO anything else this scene must not do (see references/brief.md#10-never; `pixelate style %s` '
              'lists the bans).' % st['name'])
@@ -2210,6 +2293,11 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         L.append('- Native %dx%d, %dx nearest to %dx%d; %s; about %d colours in the pixel layer.' % (
             w, h, N, DW, DH,
             'light layer at delivery size' if st['res'] == 'screen' else 'every cell flat at delivery size', st['colours']))
+    if E and not precise:
+        L.append('- Gate lines, measured after drawing (not a plan): give the Hero line the drawn hero\'s box, '
+                 '`- Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT`, and add `- Sprites: NAME '
+                 '[x0,y0,x1,y1], ...` for the actors drawn as hardware sprites, so the gate\'s focus and %s sprite '
+                 'checks run; the brief stays directed.' % E['name'])
     L += [line.replace('iso people', 'figures adapted to the camera') if screen_camera else line
           for line in _figure_lines(st, h, N)]
     if E:
@@ -2228,16 +2316,17 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
                  '; `pixelate check SCENE` for the engine scene' if st['name'] == 'lofi' else ''))
     L.append('- Gate overrides: none. If the scene cannot meet one bound, add a line `- Gate override: RULE <= V '
              '(the reason)` and pass `--brief` to the gate (see references/delivery.md#gate).')
-    L.append('- Art director: `pixelate critique --brief brief.md --block BLOCKIN.png` for this full brief, '
-             'then `pixelate critique FRAME.png --brief brief.md` for the still; each stage gets '
-             'one critique round by default, unless the user explicitly allows more '
-             '(see references/delivery.md#art-director).')
+    L.append('- Art director: `pixelate critique FRAME.png --brief brief.md` for the still once it passes the gate, '
+             'the style loop\'s one critique (SKILL.md step 7). On the author path, '
+             '`pixelate critique --brief brief.md --block BLOCKIN.png` for this full brief comes first '
+             '(references/authoring.md). Each stage gets one critique round by default, unless the user explicitly '
+             'allows more (see references/delivery.md#art-director).')
     L.append('- Show the user one still for go/no-go; animate only after they accept it and confirm the motion table '
              '(see references/delivery.md#still and references/delivery.md#animation-plan).')
-    style_tools = [x for x in r['tools'] if not screen_camera or not re.search(
-        r'\biso\b|iso_|compose\.(?:populate|strips)', x, re.I)]
+    style_tools = [x for x in r['tools'] if not (screen_camera and re.search(
+        r'\biso\b|iso_|compose\.(?:populate|strips)', x, re.I)) and not (lightless and lightless.search(x))]
     L.append('\nTechniques for this style: ' + '; '.join(style_tools) + '.')
-    tt = topic_tools(request, st['name'], proj)
+    tt = topic_tools(request, st['name'], proj, era)
     if tt:
         L.append('Techniques for this subject (more: `pixelate tools TOPIC --style %s`; signatures: '
                  '`pixelate tools MODULE.func`):' % st['name'])
@@ -2441,8 +2530,9 @@ def selftest(verbose=False):
             print('%s lint    %-16s %s  (got %r)' % ('XX' if wrong else '  ', fn, str(arg)[:56].replace('\n', ' '), got))
     for q, size, scale, want in BRIEF_CASES:
         r = route(q)
+        size, scale = asked_delivery(q, size, scale)
         text = brief(r['picks'][0]['style'], q, projection=r['picks'][0]['projection'], era=r.get('era'),
-                     size=size or size_of(q), scale=scale)
+                     size=size, scale=scale)
         miss = [w for w in want if w not in text]
         bad += bool(miss)
         if miss or verbose:
@@ -2540,7 +2630,7 @@ def main(a):
         want = True
     req = ' '.join(a)
     r = route(req)
-    size = size or size_of(req)
+    size, scale = asked_delivery(req, size, scale)
     if want:
         style = r['picks'][0]['style'] if want is True else styles.get(want)['name']
         if style != r['picks'][0]['style']:            # a named style leads section 0 too

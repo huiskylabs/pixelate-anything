@@ -918,6 +918,9 @@ PRESENCE_DL = 0.10      # a key object differs from the ring around its box by t
 PRESENCE_STD = 0.015    # ... and a box whose L spread is under this holds nothing (missing or flat)
 PRESENCE_TOP = 0.4      # the object's L: the mean of the box's pixels most unlike the ring (this share)
 PRESENCE_RIM = 0.15     # a rim: pixels this far from the ring along this share of the box's perimeter
+PRESENCE_DE = 0.12      # ... or it reads by colour: its pixels most unlike the ring differ from the ring's
+                        # median by this much in OKLab (orange koi on teal water, a red lacquer tray on wood);
+                        # FOCUS_MASS_DE, the figure-mass threshold. A greyscale block-in reads by L only
 PLANE_TOL = 0.06        # a plane's measured mean L may miss its plan by this much
 CALM_MAX = 0.30         # calm boxes cover at most this share of the frame
 DENSITY_WIN = 100       # a window of this many delivered px holds something readable (outside calm)
@@ -934,8 +937,9 @@ def _pxmask(shape, boxes):
 
 def presence(img, box, exclude=(), rim=False, dl=None):
     """does the object in box (x0,y0,x1,y1, 1x inclusive) read? {'dL': object L minus the ring's
-    median L (the mean of the PRESENCE_TOP share of box pixels most unlike the ring), 'std': L spread in
-    the box, 'ring': ring L, 'obj': object L, 'rim': rim pixels, 'rim_need', 'ok', 'why'}. The ring is a
+    median L (the mean of the PRESENCE_TOP share of box pixels most unlike the ring), 'dE': the same in
+    OKLab colour (it reads by hue at PRESENCE_DE), 'std': L spread in the box, 'ring': ring L, 'obj':
+    object L, 'rim': rim pixels, 'rim_need', 'ok', 'why'}. The ring is a
     band 2-8 px wide around the box, with `exclude` boxes (the hero, other keys) left out when enough
     ring remains. rim=True: the object may share its ground's L if a 1 px band along part of its
     outline differs by PRESENCE_DL (rim pixels >= PRESENCE_RIM of the box perimeter). dl replaces
@@ -945,7 +949,8 @@ def presence(img, box, exclude=(), rim=False, dl=None):
     H, W = F.H, F.W
     x0, y0, x1, y1 = _clip(box, W, H)
     if x1 < x0 or y1 < y0:
-        return {'ok': False, 'why': 'outside', 'dL': 0.0, 'std': 0.0, 'ring': None, 'obj': None, 'rim': 0, 'rim_need': 0}
+        return {'ok': False, 'why': 'outside', 'dL': 0.0, 'dE': 0.0, 'std': 0.0, 'ring': None, 'obj': None, 'rim': 0,
+                'rim_need': 0}
     w, h = x1 - x0 + 1, y1 - y0 + 1
     r = int(np.clip(min(w, h) // 2, 2, 8))
     inner = _pxmask((H, W), [(x0, y0, x1, y1)])
@@ -957,23 +962,26 @@ def presence(img, box, exclude=(), rim=False, dl=None):
             ring = r2
     L = F.L
     if not ring.any():
-        return {'ok': True, 'why': 'no ring', 'dL': 0.0, 'std': float(L[inner].std()), 'ring': None, 'obj': None, 'rim': 0, 'rim_need': 0}
+        return {'ok': True, 'why': 'no ring', 'dL': 0.0, 'dE': 0.0, 'std': float(L[inner].std()), 'ring': None,
+                'obj': None, 'rim': 0, 'rim_need': 0}
     rl = float(np.median(L[ring]))
     v = L[inner]
     d = v - rl
     k = max(1, int(PRESENCE_TOP * d.size))
     top = d[np.argsort(np.abs(d))[::-1][:k]]
     dL = float(top.mean())
+    de = np.linalg.norm(F.lab[inner] - np.median(F.lab[ring], axis=0), axis=-1)
+    dE = float(np.sort(de)[::-1][:k].mean())
     std = float(v.std())
-    out = {'dL': dL, 'std': std, 'ring': rl, 'obj': rl + dL, 'rim': 0, 'rim_need': 0}
+    out = {'dL': dL, 'dE': dE, 'std': std, 'ring': rl, 'obj': rl + dL, 'rim': 0, 'rim_need': 0}
     if rim:
         grow = _pxmask((H, W), [(x0 - 1, y0 - 1, x1 + 1, y1 + 1)])
         out['rim'] = int((grow & (np.abs(L - rl) >= dl)).sum())
         out['rim_need'] = int(max(4, PRESENCE_RIM * 2 * (w + h)))
-    if std < PRESENCE_STD and abs(dL) < dl:
+    if std < PRESENCE_STD and abs(dL) < dl and dE < PRESENCE_DE:
         out.update(ok=False, why='missing')
-    elif abs(dL) >= dl or (rim and out['rim'] >= out['rim_need']):
-        out.update(ok=True, why='reads' if abs(dL) >= dl else 'rim')
+    elif abs(dL) >= dl or dE >= PRESENCE_DE or (rim and out['rim'] >= out['rim_need']):
+        out.update(ok=True, why='reads' if abs(dL) >= dl else 'colour' if dE >= PRESENCE_DE else 'rim')
     else:
         out.update(ok=False, why='blends')
     return out

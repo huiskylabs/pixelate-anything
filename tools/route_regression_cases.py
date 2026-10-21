@@ -56,8 +56,8 @@ CASES = [
 BRIEF_CASES = [
     ('A tiny noodle shop on a snowy street at night, seen from above.', (1920, 1080), None,
      ['Canvas 480x270', '--style cosy-lightmap --scene exterior --scale 4', 'scene `exterior`',
-      '`pixelate critique --brief brief.md --block BLOCKIN.png` for this full brief',
-      '`pixelate critique FRAME.png --brief brief.md` for the still; each stage gets '
+      '`pixelate critique FRAME.png --brief brief.md` for the still once it passes the gate',
+      '`pixelate critique --brief brief.md --block BLOCKIN.png` for this full brief comes first',
       'one critique round by default, unless the user explicitly allows more']),
     ('下雪的夜里，一家小面馆，从上往下看。3840x2160', None, None,
      ['Native 480x270, 8x nearest to 3840x2160', '--scene exterior --scale 8']),

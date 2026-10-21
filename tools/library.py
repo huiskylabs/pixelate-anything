@@ -567,6 +567,13 @@ def query_tags(request, mode=None):
             'words': terms(request)}
 
 
+# No starter meets every explicit tag of the request (an SNES scene, a still in a named style). That is
+# no reason to author: the style loop adapts the mode's nearest starter, and the author path is only for
+# a person who asks for a new library piece (SKILL.md).
+NO_STARTER = ('no starter meets every tag of the request; adapt the nearest starter in SKILL.md Modes (set its '
+              'size, style and era in piece.json), or author a new piece only if the person asks for one')
+
+
 def find(library, request, mode=None, limit=3):
     """Return matched pieces and a fallback plan.
 
@@ -607,7 +614,7 @@ def find(library, request, mode=None, limit=3):
     ranked.sort(key=lambda result: (-result['score'], result['id']))
     return {'mode': query['mode'], 'matches': ranked[:limit],
             'fallback': {'kind': 'starter', 'ids': starters} if starters else
-                        {'kind': 'author', 'reason': 'no matching starter; author a new piece'}}
+                        {'kind': 'author', 'reason': NO_STARTER}}
 
 
 def compare_golden(frame, golden, size, scale):

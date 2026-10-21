@@ -32,8 +32,8 @@ cases = load('library_search_cases', TOOLS / 'library_search_cases.py')
 CASES, NO_MATCH_CASES = cases.CASES, cases.NO_MATCH_CASES
 
 THRESHOLD = 16  # plan section 12: the expected piece in the top 3 for at least 80% of 20 requests
-AUTHOR = {'kind': 'author', 'reason': 'no matching starter; author a new piece'}
-# no-match requests whose explicit tags exclude every starter of their mode: the honest plan is to author
+AUTHOR = {'kind': 'author', 'reason': library.NO_STARTER}
+# no-match requests whose explicit tags exclude every starter of their mode: the plan adapts the nearest starter
 AUTHOR_NO_MATCH = {'a Game Boy style dungeon crawler with skeletons and torches'}
 
 

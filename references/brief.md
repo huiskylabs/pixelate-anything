@@ -1,8 +1,11 @@
 # Brief: from one line to an approved brief
 
-Steps 1 to 5 of every job: read the intent, route as a hint, expand into a brief, self-review it,
-have an independent art director grade it, and get the user's OK. Drawing rules are in [drawing.md](drawing.md); the gate, the art director, the still and
-the animation plan are in [delivery.md](delivery.md).
+On the style loop ([SKILL.md](../SKILL.md)) the brief is step 2: `pixelate route --brief`, every TODO
+filled, the lint clean. It gets no review of its own; the one independent critique comes on the still
+(SKILL.md step 7). On the author path ([authoring.md](authoring.md)) it is steps 1 to 5: read the
+intent, route as a hint, expand into a brief, self-review it, have an independent art director grade
+it, and get the user's OK. Drawing rules are in [drawing.md](drawing.md); the gate, the art director,
+the still and the animation plan are in [delivery.md](delivery.md).
 
 ## Write the brief first
 
@@ -73,6 +76,8 @@ what falls short and lint again.
 
 ## Art director on the brief
 
+Author path only: on the style loop the brief is not reviewed, and the block-in is skipped.
+
 The brief already shows the level the picture will reach, so a full brief is graded before detailed drawing; the gated greyscale block-in below is the sole pre-approval drawing.
 `pixelate critique --brief brief.md` prints a prompt for a separate agent that did not write the
 brief: the 12 points of [art-director.md](art-director.md) read as what the brief makes certain (a
@@ -88,6 +93,8 @@ passes `pixelate check BLOCKIN.png --blockin --brief brief.md` and goes to the a
 `--block BLOCKIN.png`. Detailed drawing waits for the user's confirmation of a bound A full brief; a short brief skips brief-stage grading, not the block-in gate or user confirmation. If the full brief's budget ends below A, report the grade and unresolved ranked fixes and ask whether to continue or change it.
 
 ## Confirm
+
+Author path only: the style loop shows the person the still, not the brief (SKILL.md step 7).
 
 Show a full brief for approval only at A, with section 0 on top: "these are the choices I made; say
 OK, or change any line". One OK should be enough to build. If they change something, revise the

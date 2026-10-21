@@ -12,7 +12,7 @@ Outputs:
 
 `library/lantern-isle` is the quality bar: an island cottage through four seasons. Read its files when you need to see how something is done well.
 
-**Starters and worked examples.** Making a new scene takes the style loop in `SKILL.md`; the author path in `references/authoring.md` is for a new library piece, and the workflow below is its long form. Begin from a neutral starter, then replace its placeholders: `starter-scene-still` for a still (`pixelate remix starter-scene-still work/NAME --request "..."`) or `starter-scene-loop` for a loop with music (`pixelate new scene NAME`, below). Starters pass the technical gate empty and are unreviewed. The other pieces are `study` status, unreviewed references; `pixelate library test ID --quick` reports each one's gate result. To read, by what you need:
+**Starters and worked examples.** Making a new scene takes the style loop in `SKILL.md`; the author path in `references/authoring.md` is for a new library piece, and the workflow below is its long form. Begin from a neutral starter, then replace its placeholders: `starter-scene-still` for a still (`pixelate remix starter-scene-still work/NAME --request "..."`) or `starter-scene-loop` for a loop with music (`pixelate remix starter-scene-loop work/NAME --request "..."`, below). That engine has no light layer, so a loop in a light-layer style (`res` native or screen in its card) adapts `starter-scene-still` instead: draw frame `t` of the loop in its Python, render every frame and export them (`assets.export_scene`, prescaled for screen light: [styles.md#export](styles.md#export)). Starters pass the technical gate empty and are unreviewed. The other pieces are `study` status, unreviewed references; `pixelate library test ID --quick` reports each one's gate result. To read, by what you need:
 - a looping engine scene with music: `lantern-isle`, `starter-scene-loop`;
 - stills under another style budget: `quarry-wakes` (arcade, with a sting), `tide-procession` (contre-jour silhouette, music), `tidewater-signal` (lofi, music);
 - stills scored with music: `endless-ascent`, `canyon-cycle`.
@@ -29,7 +29,7 @@ Outputs:
      - Smaller canvases mean chunkier pixels and less to draw.
    - **The outputs.**
 
-2. **Start:** `pixelate new scene my-scene` gives a 2-phase, 240x135 starter that passes every check (for a still, begin from `starter-scene-still` instead). Read `references/scene-contract.md` once: files, `SCENE` fields, hooks, engine API.
+2. **Start:** `pixelate remix starter-scene-loop work/NAME --request "..."` gives a 2-phase, 240x135 starter that passes every check (for a still, begin from `starter-scene-still` instead). Read `references/scene-contract.md` once: files, `SCENE` fields, hooks, engine API.
 
 3. **Palettes** (`palettes.js`): one per phase, with the same slot names. See `guides/palettes.md` and `references/drawing.md#palette`.
 

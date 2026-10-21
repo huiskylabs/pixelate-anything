@@ -221,8 +221,9 @@ def measure(data, output, canvas, request, base):
 
 
 def line(rec):
-    """the compact text of a distance record for render's line; '' for a piece that is not a remix"""
-    if rec['base'] is None:
+    """the compact text of a distance record for render's line; '' for a piece that is not a remix, or
+    that remixes a starter (a starter is scaffolding to draw over, so no distance from it is a warning)"""
+    if rec['base'] is None or rec['base'].get('status') == 'starter':
         return ''
     where = f"distance from {rec['base']['id']}/{rec['base']['output']}"
     if rec['pixels'] is None and rec['palette'] is None:

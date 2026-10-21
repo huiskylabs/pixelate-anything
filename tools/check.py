@@ -40,7 +40,8 @@ Frame mode (FRAME is an image: any scene, Python or engine, at its delivered N x
      top values and its strongest local contrast (or a light the brief names with its own bbox,
      `peak value: the sun disc (244,6,268,32)`), no same-hue colour outside it out-saturates it, no
      mass outside it outweighs it, and with both --actor and the Hero line the drawn hero fills 85% of
-     the planned bbox (craftcheck.focus, craftcheck.FOCUS)
+     the planned bbox (craftcheck.focus, craftcheck.FOCUS); ties count whole, and the keys a frame
+     cannot be judged on are skipped with their reason (craftcheck.focus_off)
   9. repeat (WARN, never FAIL): rows of near-identical lobes or units, e.g. equal cloud scallops or the
      same house stamped along a street (craftcheck.repeats)
   --blockin: the frame is a greyscale block-in (flat value masses, no detail): 3-4 value bands with the
@@ -249,6 +250,7 @@ def brief_overrides(path):
 # with no share, and everything after the line's first sentence.
 _BOX = r'(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)'
 HERO_LINE = re.compile(r'^\s*[-*]\s*\**Hero\**:\s*\**\s*\[?\s*' + _BOX + r'\s*\]?(.*)$', re.M | re.I)
+HERO_ANY = re.compile(r'^\s*[-*]\s*\**Hero\**:', re.M | re.I)
 PLANES_LINE = re.compile(r'^\s*[-*]\s*\**Planes\**:\s*(.+?)\s*$', re.M | re.I)
 
 def _split_top(text, seps=';'):
@@ -377,6 +379,10 @@ def brief_plan(path):
     text = pathlib.Path(path).read_text()
     out = {'keys': [], 'values': [], 'calm': [], 'sprites': [], 'problems': []}
     P = out['problems']
+    if HERO_ANY.search(text) and not HERO_LINE.search(text):
+        P.append('Hero line has no x0,y0,x1,y1 box: once drawn, write the hero\'s box first on it (`- Hero: '
+                 'x0,y0,x1,y1 (native px); peak value: ...`); until then focus reads the --actor bbox, which may '
+                 'not be the hero')
     for body in _boxed(KEY_LINE, text):
         r = _sq_box(body, 'Key', P)
         if not r:
@@ -431,8 +437,10 @@ def band_index(tag, n):
 
 FOCUS_KEYS = ('focus_value', 'focus_contrast', 'focus_chroma', 'focus_rival', 'focus_size')
 
-def _focus_lines(img, hero, actor_box, line, note, ovr, chroma=True, size=True):
-    """the focus lines (craftcheck.focus) for a hero bbox; ovr: {key: (lo, hi, reason)} or 'focus' off"""
+def _focus_lines(img, hero, actor_box, line, note, ovr, chroma=True, size=True, off=None):
+    """the focus lines (craftcheck.focus) for a hero bbox; ovr: {key: (lo, hi, reason)} or 'focus' off;
+    off: {key: reason} for the keys the frame cannot be judged on (craftcheck.focus_off), unless the brief
+    overrides that key"""
     import craftcheck
     if 'focus' in ovr:
         line('SKIP', 'focus', '', 'off by override (%s)' % ovr['focus'][2])
@@ -452,6 +460,8 @@ def _focus_lines(img, hero, actor_box, line, note, ovr, chroma=True, size=True):
     for key in FOCUS_KEYS:
         lo, hi = craftcheck.FOCUS[key]
         reason = None
+        if key in (off or {}) and key not in ovr:
+            line('SKIP', key.replace('_', ' '), '', off[key]); continue
         if key in ovr:
             olo, ohi, reason = ovr[key]
             if olo == 'off':
@@ -811,7 +821,8 @@ def frame(path, style=None, scale=1, pal=None, pre=None, actor=None, used=(), in
     else:
         line('SKIP', 'craft', '', 'no --style: no craft limits')
     if hero or actor_box:
-        _focus_lines(img, hero, actor_box, line, note, f_ovr, chroma=not era)
+        _focus_lines(img, hero, actor_box, line, note, f_ovr, chroma=not era,
+                     off=craftcheck.focus_off(img, st['name'] if st else None))
     else:
         line('SKIP', 'focus', '', 'no hero: pass --actor, or a brief with a `- Hero: x0,y0,x1,y1` line')
     _repeat_line(img, line, note, f_ovr)

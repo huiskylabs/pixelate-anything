@@ -18,7 +18,7 @@ pixelate remix quarry-wakes work/temple --request "an ancient temple wakes under
 
 `.pixelate/remix-baseline.json` (local; git ignores `.pixelate/`) holds the request, the base id, status and review, the SHA-256 of the base's `piece.json` (`base.piece_sha256`), the SHA-256 of every copied file as tested (`files`, `files_sha256`), the full test report with each rendered output's hash, and the untested outputs. Remix prints the baseline file's own SHA-256. If the copy's files change while the baseline renders, the remix fails.
 
-`REMIX.md` holds the request, the base's summary, status and declared license, the baseline results, the anatomy table, the knobs, a plan table (subject, setting, camera, palette, composition, motion, sound: what stays and what changes) and a checklist. Fill in the plan before editing. Prefer knob files, then the files the anatomy names.
+`REMIX.md` holds the request, the base's summary, status and declared license, the baseline results, the anatomy table, the knobs, a plan table (subject, setting, camera, palette, composition, motion, sound: what stays and what changes; none for a starter, which is drawn over) and a checklist. Fill in the plan before editing. Prefer knob files, then the files the anatomy names.
 
 ## Distance from the base
 

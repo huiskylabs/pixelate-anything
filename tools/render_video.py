@@ -15,6 +15,11 @@ usage:
   render_video.py SCENE_DIR --gif out.gif [--scale S] [--fps 15] [--frames K0:K1]
                   animated GIF (no sound) for social posts and READMEs; keep it short:
                   design a scene with a small cycle (one phase, few bars) for a GIF that loops
+  render_video.py FRAMES_DIR --gif out.gif [--scale S] [--fps 12] [--size WxH]
+                  a GIF from a folder of native PNG frames (a piece drawn in Python): sorted by
+                  name, scaled by whole pixels, centred in --size (pillarbox in the darkest
+                  colour), one shared palette with no dither, frame delays that add up to
+                  exactly frames / fps
 
 Defaults: --scale picks the largest whole scale with height <= 1080 (use --scale 8
 on a 480x270 canvas for 4K); --crf 14; --preset slow.
@@ -144,6 +149,42 @@ def gif(scene, out, scale=None, fps=15, k0=0, k1=None):
     if i['TICKS'] % step:
         print('note: the loop length is not a whole number of GIF frames; the GIF may not loop seamlessly')
 
+def frames_gif(folder, out, scale=None, fps=12, size=None):
+    """GIF from native PNG frames: whole-pixel scale, one shared palette, no dither, exact total length"""
+    from PIL import Image
+    paths = sorted(pathlib.Path(folder).glob('*.png'))
+    if not paths:
+        print('no PNG frames in %s' % folder); sys.exit(1)
+    native = [Image.open(p).convert('RGB') for p in paths]
+    w, h = native[0].size
+    if any(im.size != (w, h) for im in native):
+        print('frames differ in size'); sys.exit(1)
+    W, H = size or (None, None)
+    scale = scale or (min(W // w, H // h) if size else max(1, 540 // h))
+    if scale < 1 or (size and (w * scale > W or h * scale > H)):
+        print('%dx%d at %dx does not fit %dx%d' % (w, h, scale, W, H)); sys.exit(1)
+    W, H = W or w * scale, H or h * scale
+    sheet = Image.new('RGB', (w, h * len(native)))           # the palette is chosen from every frame at once
+    for k, im in enumerate(native):
+        sheet.paste(im, (0, k * h))
+    colours = sheet.getcolors(256)
+    if colours:                                               # already palettised: keep every colour exactly
+        pal = Image.new('P', (1, 1))
+        pal.putpalette([c for _, rgb in colours for c in rgb])
+    else:
+        pal = sheet.quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    back = min((rgb for _, rgb in colours), key=sum) if colours else (0, 0, 0)
+    gif = []
+    for im in native:
+        frame = Image.new('RGB', (W, H), back)
+        frame.paste(im.resize((w * scale, h * scale), Image.NEAREST), ((W - w * scale) // 2, (H - h * scale) // 2))
+        gif.append(frame.quantize(palette=pal, dither=Image.Dither.NONE))
+    n = len(gif)                                              # GIF delays are whole 1/100 s: spread the rounding
+    delays = [10 * (round(100 * (k + 1) / fps) - round(100 * k / fps)) for k in range(n)]
+    gif[0].save(out, save_all=True, append_images=gif[1:], duration=delays, loop=0, disposal=1, optimize=False)
+    print('wrote %s: %dx%d (%dx), %d frames at %g fps, %d ms, %.1f MB' % (out, W, H, scale, n, fps, sum(delays),
+          pathlib.Path(out).stat().st_size / 1e6))
+
 if __name__ == '__main__':
     a = sys.argv[1:]
     if len(a) < 2:
@@ -157,6 +198,10 @@ if __name__ == '__main__':
         print(json.dumps(info(scene), indent=1))
     elif a[0] == '--hash':
         print(node(scene, 'hash', *a[1:]).strip())
+    elif a[0] == '--gif' and pathlib.Path(scene).is_dir() and any(pathlib.Path(scene).glob('*.png')):
+        sc = opt('--scale'); sz = opt('--size')
+        frames_gif(scene, a[1], int(sc) if sc else None, float(opt('--fps', '12')),
+                   tuple(int(x) for x in sz.lower().split('x')) if sz else None)
     elif a[0] == '--gif':
         sc = opt('--scale'); fr = opt('--frames'); fps = float(opt('--fps', '15'))
         k0, k1 = (int(x) for x in fr.split(':')) if fr else (0, None)

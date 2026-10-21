@@ -210,7 +210,10 @@ OK. Every animated frame passes the gate like the still did. Preview with
 
 Export at whole-number scales with nearest neighbour, so pixels stay square. For video, use even
 scales, which keep colours exact. `pixelate build SCENE --release` makes the live page,
-`pixelate video SCENE out.mp4 --audio loop.wav`, `pixelate gif SCENE out.gif`.
+`pixelate video SCENE out.mp4 --audio loop.wav`, `pixelate gif SCENE out.gif`. A piece drawn in Python
+writes its native frames to a folder, and `pixelate gif FRAMES_DIR out.gif --fps 12 --size 768x432` makes the GIF:
+whole-pixel scale, centred in the size, one shared palette with no dither, delays that add up to exactly
+frames / fps.
 
 ## Deliver
 

@@ -5,8 +5,8 @@ Prints one visual review prompt. The default lead art director grades a full bri
 --block) or still; --prev supplies only its previous graded critique. Choose composition, lighting,
 set or character with --role for scoped observations without a grade. A later lead call may receive
 up to two specialist notes with --consult, distinct from --prev. The prompt names the brief and bar;
-for a still it writes a nearest-neighbour thumbnail and greyscale next to the frame. Send it to a
-separate agent that did not write or draw the work. For a still, the prompt carries the judge's
+for a still it writes a thumbnail (a whole-number scale of the art) and a greyscale next to the frame.
+Send it to a separate agent that did not write or draw the work. For a still, the prompt carries the judge's
 detector findings (`pixelate judge`) and an overlay of their boxes as a checklist. --run sends the
 prompt to a separate model process itself (the `claude` CLI, or the command in PIXELATE_CRITIC_CMD,
 which reads the prompt on stdin) and saves the critique as critique-<frame>-<role>-rN.md for the next
@@ -27,13 +27,21 @@ BAR = KIT / 'docs' / 'lantern-isle-winter.png'
 BAR_BRIEF = KIT / 'library' / 'lantern-isle' / 'brief.md'
 
 def thumbnails(frame, width=480, out=None):
-    """write FRAME.thumb.png (width px, nearest neighbour) and FRAME.thumb-grey.png next to the frame,
-    or into `out`; return both paths"""
+    """write FRAME.thumb.png (at most width px) and FRAME.thumb-grey.png next to the frame, or into `out`;
+    return both paths. Only whole-number scales, so dither and 1 px lines survive: a frame made of flat
+    s x s cells comes down to its 1x art, then up by the largest whole factor that fits width; a frame
+    still wider than width (a light layer at delivery size) is box-averaged by the smallest whole factor
+    that fits"""
     from PIL import Image
     im = Image.open(frame).convert('RGB')
-    w = min(width, im.width)
-    h = max(1, round(im.height * w / im.width))
-    small = im.resize((w, h), Image.NEAREST)
+    s = flat_cells(im)
+    small = im.reduce(s) if s > 1 else im
+    if small.width > width:
+        small = small.reduce(-(-small.width // width))
+    else:
+        m = max(1, width // small.width)
+        small = small.resize((small.width * m, small.height * m), Image.NEAREST)
+    w = small.width
     d = pathlib.Path(out) if out else frame.parent
     d.mkdir(parents=True, exist_ok=True)
     tp = d / (frame.stem + '.thumb.png')
@@ -41,6 +49,19 @@ def thumbnails(frame, width=480, out=None):
     small.save(tp)
     small.convert('L').save(gp)
     return tp, gp, im.size, w
+
+def flat_cells(im, most=16):
+    """the largest whole s at which an image is made of exactly flat s x s cells (1 when it is not), so
+    reducing by s loses nothing"""
+    import numpy as np
+    a = np.asarray(im)
+    H, W = a.shape[:2]
+    for s in range(most, 1, -1):
+        if H % s == 0 and W % s == 0:
+            c = a.reshape(H // s, s, W // s, s, -1)
+            if (c == c[:, :1, :, :1]).all():
+                return s
+    return 1
 
 def brief_parts(text):
     """the request line, section 0, the style named in it and every signature-elements line"""
@@ -93,7 +114,7 @@ def prompt(frame, brief, style='', width=480, out=None, prev=None, block=None, r
              'You are an independent %s visual specialist. You did not draw this still. Look at every image '
              'below with your image-reading tool; report concrete observations only, do not edit files.' % role,
              '', '## Look at', '',
-             '- Thumbnail (%d px wide, nearest neighbour): %s' % (tw, tp),
+             '- Thumbnail (%d px wide, a whole-number scale of the art): %s' % (tw, tp),
              '- Greyscale thumbnail: %s' % gp,
              '- Frame at delivered size (%dx%d): %s' % (size[0], size[1], frame),
              '- The bar, Lantern Isle winter: %s' % BAR,
@@ -129,7 +150,7 @@ def prompt(frame, brief, style='', width=480, out=None, prev=None, block=None, r
     L += ['', sec0, '']
     L.append('Signature elements: ' + (' | '.join(sig) if sig else '(none named; judge what the scene owns)'))
     if frame:
-        more = sections(text, ['Art direction', 'The scene', 'Light list'])
+        more = sections(text, ['Art direction', 'The scene', 'Light list', 'Never'])
         if more:
             L += ['', 'The brief\'s rules, scene and lights:', '', more]
     if frame and found is not None:
@@ -141,6 +162,13 @@ def prompt(frame, brief, style='', width=480, out=None, prev=None, block=None, r
         import judge
         L.append(judge.report(found).strip()) if found else None
     L += ['', 'Every fix you propose must agree with the brief\'s light direction, wind and physics.']
+    if frame:
+        L += ['The request\'s own rules bind your fixes as they bind the painter: its colours or shade count, '
+              'its hardware limits, sizes and every Never line. A fix that would break one is not a fix; name '
+              'the conflict instead.',
+              'Before you call something missing or a figure a speck, find it in the frame at delivered size. '
+              'If it is drawn but does not read in the thumbnail, say that, and ask for it to read (size, value, '
+              'contrast), not for it to be drawn.']
     if role == 'lead':
         if prev:
             L += ['', '## The previous lead critique (not specialist notes)', '',
@@ -229,7 +257,7 @@ def main(argv=None):
     ap.add_argument('--consult', action='append', default=[], metavar='NOTE.md',
                     help='specialist notes for the lead (repeat at most twice per artifact)')
     ap.add_argument('--style', default='')
-    ap.add_argument('--width', type=int, default=480, help='thumbnail width (default 480)')
+    ap.add_argument('--width', type=int, default=480, help='thumbnail width at most (default 480)')
     ap.add_argument('--out', default=None, help='folder for the thumbnails (default: next to the frame)')
     ap.add_argument('--run', action='store_true',
                     help='run the review with a separate model process and save the critique (see PIXELATE_CRITIC_CMD)')

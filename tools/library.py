@@ -76,7 +76,10 @@ def fail(where, message) -> NoReturn:
 
 def fields(value, required, optional=(), where='object'):
     if not isinstance(value, dict) or set(value) - set(required) - set(optional) or set(required) - set(value):
-        fail(where, f'expected fields {sorted(required)}; optional {sorted(optional)}')
+        odd = '' if not isinstance(value, dict) else ''.join(
+            f'; {label} {sorted(keys)}' for label, keys in (('missing', set(required) - set(value)),
+                                                             ('unknown', set(value) - set(required) - set(optional))) if keys)
+        fail(where, f'expected fields {sorted(required)}; optional {sorted(optional)}{odd}')
 
 
 def text(value, where):
@@ -350,11 +353,16 @@ def validate(root):
     choice(manifest['runtime'], RUNTIMES, 'runtime')
     tags = manifest['tags']
     fields(tags, ('subject', 'setting', 'camera', 'style', 'era', 'motion', 'sound'), where='tags')
-    for key in ('subject', 'setting'):
-        names(tags[key], f'tags.{key}', nonempty=True)
-    for key, values in (('camera', CAMERAS), ('style', STYLES), ('era', ERAS),
-                        ('motion', MOTIONS), ('sound', SOUNDS)):
-        choice(tags[key], values, f'tags.{key}')
+    wrong = []                     # every wrong tag in one message, not one per render
+    for check, args in ([(names, (tags[k], f'tags.{k}', True)) for k in ('subject', 'setting')] +
+                        [(choice, (tags[k], v, f'tags.{k}')) for k, v in (('camera', CAMERAS), ('style', STYLES),
+                         ('era', ERAS), ('motion', MOTIONS), ('sound', SOUNDS))]):
+        try:
+            check(*args)
+        except LibraryError as e:
+            wrong.append(str(e))
+    if wrong:
+        raise LibraryError('; '.join(wrong))
     fields(manifest['canvas'], ('w', 'h', 'scale'), where='canvas')
     for key, value in manifest['canvas'].items():
         positive(value, f'canvas.{key}')

@@ -55,12 +55,15 @@ differs from its surroundings by hue alone, with under 0.025 L between them, fai
 
 The focus lines check that there is one hero. They need the hero's place: the brief's section 4 line
 `- Hero: x0,y0,x1,y1 (native px); peak value: OBJECT; peak chroma: OBJECT` (with `--brief`), or the
-bbox of the `--actor` mask. The bbox is at 1x and inclusive. The frame is read at thumbnail size
+bbox of the `--actor` mask. A Hero line with no box fails the gate's `brief lines`, since the actor
+may not be the hero (a pillar of light, a lit doorway). The bbox is at 1x and inclusive. The frame is read at thumbnail size
 (about 160 cells across, so stars, flecks and dither melt into their ground), and each line says in
 plain words what to change when it fails:
 
-- `focus value`: at least half of the frame's brightest cells (its top 0.5%) sit on the hero.
-- `focus contrast`: the same for the strongest local light-dark contrast.
+- `focus value`: at least half of the frame's brightest cells (its top 0.5%, and every cell tied
+  with them) sit on the hero. Skipped for a two-colour frame, where every paper cell ties.
+- `focus contrast`: the same for the strongest local light-dark contrast. `sticker-iso` skips both:
+  its white walls and black outlines tie everywhere, and its hero reads by chroma and by story.
 - `focus chroma`: no more than 2.5 times as many cells of the hero's own hue, at least as saturated
   as the hero's top 5%, sit outside it (skipped for an era palette and for a block-in).
 - `focus rival`: no mass outside the hero weighs more than 0.6 of the hero (weight is size times

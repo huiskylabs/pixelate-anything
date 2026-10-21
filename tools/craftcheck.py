@@ -565,6 +565,11 @@ COMPOSITION = {
     'neon-noir':     _comp(),
     'cosy-lightmap': _comp(banding=0.002),
     'lofi':          _comp(),
+    # provisional, as their CRAFT limits: ink-wash leaves paper empty on purpose, so its bottom third has no
+    # limit; 1-bit and a cutaway fill the frame like any scene
+    'ink-wash':      _comp(empty_low=None),
+    '1-bit':         _comp(),
+    'cutaway':       _comp(),
 }
 BAND_RATIO = 0.20   # banding counts only when stepped contours are this share of the small light steps
 
@@ -641,6 +646,20 @@ FOCUS_JOIN_DL = 0.10 # rival masses: neighbouring figure cells join only when th
 # a speck inside it; the art director still judges that.
 FOCUS = {'focus_value': (0.50, None), 'focus_contrast': (0.50, None), 'focus_chroma': (None, 2.5),
          'focus_rival': (None, 0.6), 'focus_size': (0.85, None)}
+# The focus keys a style cannot be held to, with the reason the gate prints. sticker-iso paints its walls
+# pure white with black outlines and no light, so the top values and the strongest contrast tie all over
+# the frame and name no hero (run 07); its hero reads by chroma and by story. A frame of two colours
+# (1-bit) has no value peak at all, whatever the style: see focus_off().
+FOCUS_OFF = {'sticker-iso': {'focus_value': 'white walls and black outlines tie everywhere; no light to peak',
+                             'focus_contrast': 'white walls and black outlines tie everywhere; no light to peak'}}
+
+def focus_off(img, style=None):
+    """{focus key: reason} for the keys this frame cannot be judged on: the style's FOCUS_OFF, and
+    focus_value on a two-colour frame (every paper cell ties; its hero reads by contrast and shape)"""
+    off = dict(FOCUS_OFF.get(style, {}))
+    if len(np.unique(np.asarray(img.convert('RGB')).reshape(-1, 3), axis=0)) <= 2:
+        off['focus_value'] = 'two colours: every paper cell ties, so there is no value peak to place'
+    return off
 
 def _thumb(F, cells=FOCUS_THUMB):
     c = max(1, int(round(F.W / cells)))
@@ -670,11 +689,11 @@ def focus(img, hero, value_owners=(), chroma_owners=(), chroma=True, join_dl=Non
     out = {}
     k = max(3, int(round(FOCUS_TOP * L.size)))
     def peak(v, own):
-        idx = np.argsort(v.ravel(), kind='stable')[::-1][:k]
-        o = own.ravel()[idx]
-        ys, xs = np.unravel_index(idx[~o], v.shape)
+        cut = np.partition(v.ravel(), v.size - k)[v.size - k]
+        top = v >= cut - 1e-9          # every cell tied with the k-th counts: no tie is settled by position
+        ys, xs = np.nonzero(top & ~own)
         where = (int(np.median(xs)) * c, int(np.median(ys)) * c) if len(xs) else None
-        return float(o.mean()), where
+        return float(own[top].mean()), where
     out['focus_value'] = peak(L, hm | vo)
     con = np.abs(L - _box(L[..., None], max(2, w // 16))[..., 0])
     out['focus_contrast'] = peak(con, hm | vo)

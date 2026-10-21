@@ -327,8 +327,24 @@ def technical_gate(d, im):
         rec['gate']['error'] = _tail(g.stderr or g.stdout)
     if im.get('era'):
         # `pixelate era` prints violations and exits 0; nonzero only when it could not run. Era
-        # legality is the gate's own --era lines above.
-        e = subprocess.run(PIXELATE + ['era', im['frame'], '--era', im['era']], cwd=d, capture_output=True, text=True)
+        # legality is the gate's own --era lines above. It reads the native screen, so a frame
+        # delivered at a scale is brought back to 1x first, the way the gate reads it.
+        with tempfile.TemporaryDirectory(prefix='pixelate-era-') as t:
+            frame, scale = im['frame'], int(im.get('scale') or 1)
+            if scale > 1:
+                try:
+                    from PIL import Image
+                    if __package__:
+                        from . import stats
+                    else:
+                        import stats
+                    with Image.open(pathlib.Path(d) / frame) as big:
+                        native = stats.to_native(big.convert('RGB'), scale)
+                    frame = str(pathlib.Path(t) / 'native.png')
+                    native.save(frame)
+                except Exception:          # a frame the gate could not read either: era reads it as it is
+                    frame = im['frame']
+            e = subprocess.run(PIXELATE + ['era', frame, '--era', im['era']], cwd=d, capture_output=True, text=True)
         rec['era'] = {'ok': e.returncode == 0, 'report': _tail(e.stdout, 3)}
     return rec
 

@@ -213,7 +213,7 @@ class StaticCommands(Fixture):
         self.assertEqual(found.returncode, 0, found.stderr)
         self.assertIn('1. harbour (study, score', found.stdout)
         self.assertIn('differs: unmatched term: rain', found.stdout)
-        self.assertIn('fallback: no matching starter; author a new piece', found.stdout)
+        self.assertIn('fallback: no starter meets every tag of the request; adapt the nearest starter', found.stdout)
         as_json = json.loads(pixelate('find', 'harbour', '--json', '--library', str(self.library)).stdout)
         self.assertEqual(as_json['matches'][0]['id'], 'harbour')
         none = pixelate('find', 'jellyfish nebula', '--library', str(self.library))

@@ -503,8 +503,9 @@ def _plan_lines(img, plan, hero, line, note, ovr, scale=1, blockin=False):
             others = hb + [o['box'] for o in keys if o is not k]
             r = cc.presence(img, k['box'], others, rim=bool(k['rim']), dl=dl)
             name = k['name'] if len(k['name']) <= 18 else k['name'][:17] + '.'
-            val = 'outside' if r['why'] == 'outside' else 'dL %+.2f' % r['dL']
-            lim = '|dL| >= %.2f vs its ring%s' % (dl, ' or a rim' if k['rim'] else '') + (' override' if 'key' in ovr else '')
+            val = 'outside' if r['why'] == 'outside' else 'dE %.2f' % r['dE'] if r['why'] == 'colour' else 'dL %+.2f' % r['dL']
+            lim = '|dL| >= %.2f or dE >= %.2f vs its ring%s' % (dl, cc.PRESENCE_DE, ' or a rim' if k['rim'] else '') + (
+                ' override' if 'key' in ovr else '')
             line('PASS' if r['ok'] else 'FAIL', 'key ' + name, val, lim)
             where = '%s at %s' % (k['name'], _bx(k['box']))
             plane = k['plane'] or 'its surroundings'

@@ -153,6 +153,12 @@ and the gate and the art director judge the result. The default skeleton writes 
 - **Must read**: the objects and story beats a viewer must find, separated by semicolons.
 - **Leave to the artist**: what the brief deliberately does not decide.
 
+After drawing, a directed brief may add the gate's measurements without becoming a plan: the drawn
+hero's box at the start of the Hero line (`- Hero: x0,y0,x1,y1 (native px); peak value: ...; peak
+chroma: ...`), which turns on the gate's focus lines, and for an era a `- Sprites:` line for the sprite
+check. The lint stays in director mode for these two; a box on any other line (Layout, Masses, Value,
+Key, Calm) makes the brief precise, with every precise line required.
+
 **Precise briefs (`pixelate route "..." --brief --precise`).** When a scene must be planned to the pixel
 (a piece rebuilt from a reference, a library piece whose secondary objects keep vanishing), the brief
 carries boxes the gate measures. These lines decide most of the grade, so the template asks for them

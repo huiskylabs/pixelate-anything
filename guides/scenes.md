@@ -12,14 +12,14 @@ Outputs:
 
 `library/lantern-isle` is the quality bar: an island cottage through four seasons. Read its files when you need to see how something is done well.
 
-**Starters and worked examples.** Making a new scene follows the author path in `references/authoring.md`. Begin from a neutral starter, then replace its placeholders: `starter-scene-still` for a still (`pixelate remix starter-scene-still work/NAME --request "..."`) or `starter-scene-loop` for a loop with music (`pixelate new scene NAME`, below). Starters pass the technical gate empty and are unreviewed. The other pieces are `study` status, unreviewed references; `pixelate library test ID --quick` reports each one's gate result. To read, by what you need:
+**Starters and worked examples.** Making a new scene takes the style loop in `SKILL.md`; the author path in `references/authoring.md` is for a new library piece, and the workflow below is its long form. Begin from a neutral starter, then replace its placeholders: `starter-scene-still` for a still (`pixelate remix starter-scene-still work/NAME --request "..."`) or `starter-scene-loop` for a loop with music (`pixelate new scene NAME`, below). Starters pass the technical gate empty and are unreviewed. The other pieces are `study` status, unreviewed references; `pixelate library test ID --quick` reports each one's gate result. To read, by what you need:
 - a looping engine scene with music: `lantern-isle`, `starter-scene-loop`;
 - stills under another style budget: `quarry-wakes` (arcade, with a sting), `tide-procession` (contre-jour silhouette, music), `tidewater-signal` (lofi, music);
 - stills scored with music: `endless-ascent`, `canyon-cycle`.
 
 ## Workflow
 
-1. **Settle the brief.** Read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `library/lantern-isle/brief.md`), block it in and seek an A within the review budget (`pixelate critique --brief brief.md`, `references/delivery.md#art-director`), and show the full brief for approval only at A. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief, which skips brief-stage review.
+1. **Settle the brief.** On the style loop, the brief from `pixelate route --brief` with a clean lint is enough, and review waits for the still. On the author path, read the intent, route as a hint, then write the full brief (the eleven sections in `references/brief.md`, at the density of `library/lantern-isle/brief.md`), block it in and seek an A within the review budget (`pixelate critique --brief brief.md`, `references/delivery.md#art-director`), and show the full brief for approval only at A. Build only once the user confirms it. Pick a style from `guides/styles.md`. A single still gets a short brief, which skips brief-stage review.
    - **The subject.**
    - **Phases:** 1 to 6, each with a mood, a palette idea, signature elements and its music.
    - **The canvas:**
@@ -48,7 +48,7 @@ Outputs:
    pixelate check still.png --style lofi --scale 4 [--pal P] [--actor MASK]
    pixelate check my-scene
    ```
-   Redraw until every line passes, seek an A within the review budget (`pixelate critique still.png --brief brief.md`, `references/delivery.md#art-director`), then show the user that one still for go/no-go. If review stops below A, report the grade and unresolved ranked fixes and ask whether to continue or change the brief; do not deliver that still as finished. For a still-only job, the A still is the delivery.
+   Redraw until every line passes, then get the still's critique (`pixelate critique still.png --brief brief.md`, `references/delivery.md#art-director`) and show the user that one still for go/no-go. On the style loop that is one round: apply its fixes once and show the still with its grade. On the author path, seek an A within the review budget; if review stops below A, report the grade and unresolved ranked fixes and ask whether to continue or change the brief; do not deliver that still as finished. For a still-only job, the A still is the delivery.
 
 7. **Confirm the animation plan.** Show the loop length (`cycle`, `grand`, ticks), what moves, and each rate and frame count, every period dividing the loop (the brief's motion table, updated). Animate only after the user says OK.
 

@@ -1,7 +1,9 @@
 # Delivery: gate, art director, still, animation plan
 
-Steps 7 to 10 of every job, after the brief is approved ([brief.md](brief.md)) and the frame is
-drawn ([drawing.md](drawing.md)). Nothing is shown or delivered before the gate passes.
+What follows the drawing ([drawing.md](drawing.md)) on both paths: the style loop's render, one
+critique and go/no-go ([SKILL.md](../SKILL.md) steps 6 to 8), and the author path's steps 7 to 10
+([authoring.md](authoring.md)), which start once its brief is approved ([brief.md](brief.md)).
+Nothing is shown or delivered before the gate passes.
 
 ## Gate
 
@@ -114,9 +116,12 @@ until it passes (`guides/music.md`).
 
 ## Art director
 
-The gate passes weak drafts; an outside eye catches what it can't. A full brief is reviewed before
-detailed drawing ([brief.md](brief.md#art-director-on-the-brief)); the gated greyscale block-in is the sole pre-approval drawing. A short brief skips brief-stage review, not the block-in gate.
-The still is reviewed after it passes the gate. Run
+The gate passes weak drafts; an outside eye catches what it can't. On the style loop that eye looks
+once, at the gated still ([SKILL.md](../SKILL.md) step 7): no brief review and no block-in. On the
+author path a full brief gets its review before detailed drawing
+([brief.md](brief.md#art-director-on-the-brief)) and the gated greyscale block-in is the sole
+pre-approval drawing; a short brief skips brief-stage review, not the block-in gate. On both paths
+the still gets its review after it passes the gate. Run
 `pixelate judge FRAME.png --overlay judge.png` first: it boxes what the gate passes and an art director
 rejects (masonry-like rock, rows of identical units, scalloped edges, masses drawn as 1 px outlines,
 murky values), each with a fix; fix each box or say why it stays. `--log` keeps the run in
@@ -178,11 +183,17 @@ specialist consults.
 
 ## Still
 
-Show one still for go/no-go: one frame, at the delivered scale, gate passed and graded A by the art
-director, with its last critique in one line (`AD: A, signature: ..., kept: ...`). Only an A still
-is presented as finished; if review stops below A, report the status and ask the user as above,
-not for go/no-go on a finished still. The user accepts an A still or says what to change; change it,
-gate it and follow the review budget above before showing it again.
+Show one still for go/no-go: one frame, at the delivered scale, gate passed, with its last critique
+in one line (`AD: B, signature: ..., kept: ...`).
+
+- **Style loop:** the still after its one critique and those fixes, with that grade, or NO
+  INDEPENDENT REVIEW when there was none. A still below A is shown as what it is, never as
+  finished; the user says go, says what to change, or pays for another round.
+- **Author path:** only an A still is presented as finished; if review stops below A, report the
+  status and ask the user as above, not for go/no-go on a finished still.
+
+The user accepts the still or says what to change; change it, gate it and follow the review budget
+above before showing it again.
 
 ## Animation plan
 

@@ -360,9 +360,17 @@ ERA_WORDS = [('cga', ['cga', 'ms-dos', 'dos game', 'early pc', 'cyan and magenta
              ('neogeo', ['neo geo', 'neogeo']),
              ('snes', ['snes', 'super nintendo', 'super famicom', '16-bit', '16 bit', '16位', '超任'])]
 
+# "16-bit-style", "8-bit inspired", "a modern 16-bit JRPG" describe a look, not a console's limits
+BIT_LOOK = re.compile(r'(?P<modern>\bmodern\s+(?:\w+\s+)?)?\b(?:8|16|32)[- ]?bit'
+                      r'(?P<look>[- ](?:style|styled|inspired|looking|like|look|vibes?|feel|aesthetic)\b)?')
+
+def _bit_look(t):
+    """drop the 8/16-bit words that only describe a look; a bare '16-bit game' still names an era"""
+    return BIT_LOOK.sub(lambda m: ' ' if m.group('modern') or m.group('look') else m.group(0), t)
+
 def era_of(request):
     """the console era a request names (a key of era.ERAS), or None"""
-    t = ' ' + request.lower() + ' '
+    t = _bit_look(' ' + request.lower() + ' ')
     for key, words in ERA_WORDS:
         if _hits(t, words):
             return key
@@ -953,7 +961,7 @@ SCENE_ASK = ['pixel-art loop', 'pixel art loop', 'animated loop', 'seamless loop
 
 def _mode_text(request):
     """the request as the mode words read it"""
-    return PHOTO_IN_SCENE.sub(' ', ' ' + (request or '').lower() + ' ')
+    return _bit_look(PHOTO_IN_SCENE.sub(' ', ' ' + (request or '').lower() + ' '))
 
 def time_weather(request, style):
     """-> (text, stated): the time and weather line. The request's own words come first (night, storm,
@@ -1969,7 +1977,9 @@ def size_of(text):
 
 _XSCALE = re.compile(r'\((\d{1,2})x\b|\b(\d{1,2})x\s+nearest|\b(?:at|scaled)\s+(\d{1,2})x\b', re.I)
 _NATIVE = re.compile(r'\bnative\s+(\d{2,4})\s*x\s*(\d{2,4})\b', re.I)
-_FRAMES = re.compile(r'\((\d+) frames at \d+(?:\.\d+)?\s*s\)|\b(\d+)[\s-]*frames?\s+loop|\bloop of (\d+) frames', re.I)
+_FRAMES = re.compile(r'\((\d+) frames at \d+(?:\.\d+)?\s*s\)|\b(\d+)[\s-]*frames?\s+loop|\bloop of (\d+) frames'
+                     r'|\b(\d+) frames on an? \d+\s*fps clock', re.I)
+_FPS = re.compile(r'\bon an? (\d+)\s*fps clock|\b(\d+)\s*fps clock', re.I)
 
 def _first(rx, text):
     m = rx.search(text or '')
@@ -1984,6 +1994,10 @@ def native_of(text):
     """the native canvas a request states ('native 384x216') -> (w, h) or None"""
     m = _NATIVE.search(text or '')
     return (int(m.group(1)), int(m.group(2))) if m else None
+
+def fps_of(text):
+    """the animation clock a request states ('60 frames on a 12 fps clock') -> int or None"""
+    return _first(_FPS, text)
 
 def frames_of(text):
     """the loop length in frames a request states ('(60 frames at 5 s)', 'a 48-frame loop') -> int or None"""
@@ -2124,8 +2138,8 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
         import era as eramod
         E = eramod.ERAS[era]
     frames, fps = r['frames'][0], st['fps']
-    asked = frames_of(request)
-    frames = asked or frames
+    asked, asked_fps = frames_of(request), fps_of(request)
+    frames, fps = asked or frames, asked_fps or fps
     rebuild = bool(_hits(_mode_text(request), MODES[0][2]))
     stated, _, excluded = camera_intent(request)
     proj = projection or stated or ('inspect reference' if rebuild else
@@ -2150,12 +2164,12 @@ def brief(style, request='', projection=None, choices=None, era=None, size=None,
              '(see references/brief.md#1-purpose-and-delivery).')
     L.append('- Delivered at %dx%d: native %dx%d, %dx nearest%s.' % (
         DW, DH, w, h, N, (', centred in a %dx%d frame' % size) if size and (DW, DH) != tuple(size) else ''))
-    if st['name'] == 'lofi':
+    if st['name'] == 'lofi' and not asked_fps:
         L.append('- Loop: the engine runs on a 30-tick clock (TICKS = cycle * grand * 30); sprites step at 10, 5 '
                  'or 2 fps; TODO the loop length (the music length for a stream cover; see references/drawing.md#motion).')
     else:
-        apng = ('' if E else ' Delivered prescaled (screen light); excerpts as APNG, since a GIF bands soft light.'
-                if st['res'] == 'screen' else ' Excerpts as APNG (soft light bands in a GIF).' if st['res'] == 'native' else '')
+        apng = ('' if E or st['res'] == 'none' else ' A GIF bands soft light: export it with one shared palette '
+                'and no dither (pixelate gif FRAMES_DIR out.gif); APNG only when the banding shows.')
         if asked:
             L.append('- Loop: %d frames at %d fps, the length the request asks for; TODO list the story beats with '
                      'their frame counts; every period divides it (anim.check_periods) (see '

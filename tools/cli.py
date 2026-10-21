@@ -45,6 +45,7 @@
   pixelate audio SCENE out.{wav,ogg,flac,mp3}   one seamless loop of the music     (guides/music.md)
   pixelate video SCENE out.mp4 [--scale S] [--audio loop.wav]   crisp MP4
   pixelate gif SCENE out.gif [--scale S] [--fps 15] [--frames K0:K1]
+  pixelate gif FRAMES_DIR out.gif [--scale S] [--fps 12] [--size WxH]   GIF from native PNG frames
   pixelate doctor                        check node, ffmpeg, python packages, Chromium
   pixelate --version                     the kit's version
   pixelate mcp                           run the MCP server (stdio) for any MCP client
